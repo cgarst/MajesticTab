@@ -27,7 +27,7 @@ export function renderOpenFileView(container, { onBack }) {
       <button type="button" class="btn btn-sm open-file-back" id="openFileBackBtn"><i class="bi-chevron-left" aria-hidden="true"></i> Library</button>
       ${libraryPageTitleHtml({
         title: 'Open a tab file',
-        subtitle: 'Play a file straight away, without adding it to your library.'
+        subtitle: 'Play a file without adding it to your library.'
       })}
       <div class="open-file-body">
       <div class="open-file-dropzone" id="openFileDropzone" role="button" tabindex="0" aria-label="Drop a tab file here or browse your device">

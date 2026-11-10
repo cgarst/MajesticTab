@@ -1890,6 +1890,194 @@ body.fretboard-open {
 @media (pointer: coarse) { .library-empty .btn { min-height: 44px; } }
 .library-empty h6 { font-size: 17px; }
 
+/* Empty collection welcome launchpad */
+.empty-welcome-container {
+  display: flex;
+  flex-direction: column;
+  max-width: 720px;
+  padding: 32px 16px 48px;
+  margin: 0;
+  text-align: left;
+}
+
+@media (min-width: 577px) {
+  .empty-welcome-container {
+    padding: 36px 20px 56px;
+  }
+}
+
+.empty-welcome-hero {
+  margin-bottom: 32px;
+}
+
+.empty-welcome-title {
+  font-family: var(--font-display, inherit);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0 0 8px 0;
+  line-height: 1.15;
+}
+
+@media (min-width: 577px) {
+  .empty-welcome-title {
+    font-size: 32px;
+  }
+}
+
+.empty-welcome-sub {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink2);
+  margin: 0 0 20px 0;
+  max-width: 560px;
+}
+
+.empty-welcome-cta-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--r-control);
+}
+
+.empty-welcome-section {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 24px;
+}
+
+.empty-section-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  padding-left: 12px;
+}
+
+/* Flat Rows on 56px Pitch with Tone Steps */
+.empty-action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.empty-action-row {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 10px 14px;
+  border-radius: var(--r-control);
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .empty-action-row:hover {
+    background-color: var(--s1);
+  }
+}
+
+.empty-action-row:active {
+  background-color: var(--s2);
+}
+
+.empty-action-row:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.empty-action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: 14px;
+  color: var(--ink2);
+  font-size: 18px;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.empty-action-row:hover .empty-action-icon,
+.empty-action-row:focus-visible .empty-action-icon {
+  color: var(--ink);
+}
+
+.empty-action-content {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.empty-action-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.empty-action-desc {
+  font-size: 13px;
+  color: var(--ink2);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 576px) {
+  .empty-action-desc {
+    white-space: normal;
+  }
+}
+
+.empty-action-chevron {
+  font-size: 14px;
+  color: var(--ink2);
+  opacity: 0.5;
+  margin-left: 8px;
+  transition: transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .empty-action-row:hover .empty-action-chevron {
+    opacity: 0.9;
+    transform: translateX(2px);
+  }
+}
+
+.empty-welcome-footer {
+  font-size: 12px;
+  color: var(--ink2);
+  padding-left: 12px;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-action-row,
+  .empty-action-icon,
+  .empty-action-chevron {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
 /* Setlist rows carry the album art */
 .setrow .setrow-cover { width: 44px; height: 44px; border-radius: var(--r); object-fit: cover; flex: none; background: var(--s3); }
 

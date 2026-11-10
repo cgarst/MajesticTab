@@ -1009,16 +1009,15 @@ async function renderLibraryBrowseView(container) {
     `;
 
     if (artists.length === 0) {
+        const isInitialLibrary = collections.length <= 1 || activeCollectionId === DEFAULT_COLLECTION_ID;
+        const welcomeTitle = isInitialLibrary ? 'Welcome to MajesticTab' : `${escapeHtml(currentCollection.name)} is empty`;
+        const welcomeSubtitle = isInitialLibrary
+            ? 'Play, practice, and sync guitar tabs, scores, and chord charts.'
+            : 'Add your favorite songs and albums to this collection, or link existing files from your device.';
+
         container.innerHTML = headerHtml + libraryListToolbarHtml({ leftHtml: collectionSelectHtml }) + `
           <div id="libBrowseContent">
-          ${libraryEmptyStateHtml({
-            icon: 'bi-music-note-list',
-            title: 'This collection is empty',
-            message: 'Add your favorite songs and albums to build your personalized tab catalog, or link existing files from your device.',
-            actionsHtml: `<button class="btn btn-theme-primary btn-sm px-4" id="emptyStateSearchBtn">Search the catalog and web</button>
-              <button class="btn btn-sm lib-ghost-action" id="emptyStateOpenFileBtn">Link existing files</button>
-              <button class="btn btn-sm lib-ghost-action" id="emptyStateRestoreBtn">Restore backup</button>`
-          })}
+            ${libraryEmptyWelcomeHtml({ title: welcomeTitle, subtitle: welcomeSubtitle })}
           </div>
           <div id="libFilteredSearchResults" style="display: none;"></div>
         </div>
@@ -1027,6 +1026,18 @@ async function renderLibraryBrowseView(container) {
         bindLibraryToolbarEvents(container);
         // An empty library still searches the catalog and the web
         setupLibraryFilter(container, { hierarchy, artists: [], selectedArtist: null, selectedAlbum: null, selectedTuning: null, pinnedSongs: [] });
+
+        const makeRowAccessible = (el, onClick) => {
+            if (!el) return;
+            el.addEventListener('click', onClick);
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onClick(e);
+                }
+            });
+        };
+
         container.querySelector('#emptyStateSearchBtn')?.addEventListener('click', () => {
             const input = container.querySelector('#libFilterInput');
             if (input) {
@@ -1037,8 +1048,14 @@ async function renderLibraryBrowseView(container) {
                 input.select();
             }
         });
-        container.querySelector('#emptyStateOpenFileBtn')?.addEventListener('click', () => switchView('openFile'));
-        container.querySelector('#emptyStateRestoreBtn')?.addEventListener('click', async () => {
+
+        makeRowAccessible(container.querySelector('#emptyStateBulkImportBtn'), async () => {
+            const { openToolOnNextRender } = await import('./utils/toolsPage.js');
+            openToolOnNextRender('bulkimport');
+            switchView('tools');
+        });
+
+        makeRowAccessible(container.querySelector('#emptyStateRestoreBtn'), async () => {
             try {
                 const { openBackupModal } = await import('./backupRestore.js');
                 await openBackupModal('restore');
@@ -1046,6 +1063,17 @@ async function renderLibraryBrowseView(container) {
                 switchView('settings');
             }
         });
+
+        makeRowAccessible(container.querySelector('#emptyStateOpenFileBtn'), () => switchView('openFile'));
+
+        makeRowAccessible(container.querySelector('#emptyStateClasstabBtn'), async () => {
+            const { openToolOnNextRender } = await import('./utils/toolsPage.js');
+            openToolOnNextRender('classtab');
+            switchView('tools');
+        });
+
+        makeRowAccessible(container.querySelector('#emptyStateToolsBtn'), () => switchView('tools'));
+
         return;
     }
 
@@ -2142,6 +2170,89 @@ export function libraryEmptyStateHtml({ icon, title, message, actionsHtml = '' }
           <p class="text-muted ${actionsHtml ? 'mb-3' : 'mb-0'}">${message}</p>
           ${actionsHtml ? `<div class="d-flex gap-2 flex-wrap">${actionsHtml}</div>` : ''}
         </div>`;
+}
+
+// Welcomes and handholds new users when the library / collection is empty
+export function libraryEmptyWelcomeHtml({ title, subtitle }) {
+    return `
+    <div class="empty-welcome-container" role="region" aria-label="Welcome and getting started">
+      <div class="empty-welcome-hero">
+        <h2 class="empty-welcome-title">${title}</h2>
+        <p class="empty-welcome-sub">${subtitle}</p>
+        <div class="empty-welcome-cta-group">
+          <button type="button" class="btn btn-theme-primary empty-primary-btn" id="emptyStateSearchBtn">
+            <i class="bi-search me-2" aria-hidden="true"></i>Search the catalog and web
+          </button>
+        </div>
+      </div>
+
+      <div class="empty-welcome-section">
+        <div class="empty-section-header">Start with your music</div>
+        <div class="empty-action-list" role="list">
+          
+          <div class="empty-action-row" id="emptyStateBulkImportBtn" role="button" tabindex="0" aria-label="Bulk import a folder of tabs: Scan and auto-match an entire directory of tab files">
+            <div class="empty-action-icon flex-shrink-0" aria-hidden="true">
+              <i class="bi-folder-symlink"></i>
+            </div>
+            <div class="empty-action-content">
+              <div class="empty-action-title">Bulk import a folder of tabs</div>
+              <div class="empty-action-desc">Scan and auto-match an entire directory of .gp, .gpx, PDF, or text files</div>
+            </div>
+            <i class="bi-chevron-right empty-action-chevron flex-shrink-0" aria-hidden="true"></i>
+          </div>
+
+          <div class="empty-action-row" id="emptyStateRestoreBtn" role="button" tabindex="0" aria-label="Restore a backup: Bring your library from Google Drive, iCloud, S3, WebDAV, or a local snapshot">
+            <div class="empty-action-icon flex-shrink-0" aria-hidden="true">
+              <i class="bi-cloud-arrow-down"></i>
+            </div>
+            <div class="empty-action-content">
+              <div class="empty-action-title">Restore a backup</div>
+              <div class="empty-action-desc">Bring your library from Google Drive, iCloud, S3, WebDAV, or a local snapshot</div>
+            </div>
+            <i class="bi-chevron-right empty-action-chevron flex-shrink-0" aria-hidden="true"></i>
+          </div>
+
+          <div class="empty-action-row" id="emptyStateOpenFileBtn" role="button" tabindex="0" aria-label="Open a single file: Play a tab without adding it to your library">
+            <div class="empty-action-icon flex-shrink-0" aria-hidden="true">
+              <i class="bi-file-earmark-music"></i>
+            </div>
+            <div class="empty-action-content">
+              <div class="empty-action-title">Open a single file</div>
+              <div class="empty-action-desc">Play a tab without adding it to your library</div>
+            </div>
+            <i class="bi-chevron-right empty-action-chevron flex-shrink-0" aria-hidden="true"></i>
+          </div>
+
+          <div class="empty-action-row" id="emptyStateClasstabBtn" role="button" tabindex="0" aria-label="Explore classical guitar library: Browse over 3,000 built-in classical guitar tabs and studies">
+            <div class="empty-action-icon flex-shrink-0" aria-hidden="true">
+              <i class="bi-music-note-beamed"></i>
+            </div>
+            <div class="empty-action-content">
+              <div class="empty-action-title">Explore classical guitar library</div>
+              <div class="empty-action-desc">Browse over 3,000 built-in classical guitar tabs and studies</div>
+            </div>
+            <i class="bi-chevron-right empty-action-chevron flex-shrink-0" aria-hidden="true"></i>
+          </div>
+
+          <div class="empty-action-row" id="emptyStateToolsBtn" role="button" tabindex="0" aria-label="Practice and reference tools: Chord library, scales, circle of fifths, tuner, and metronome">
+            <div class="empty-action-icon flex-shrink-0" aria-hidden="true">
+              <i class="bi-grid-3x3-gap"></i>
+            </div>
+            <div class="empty-action-content">
+              <div class="empty-action-title">Practice and reference tools</div>
+              <div class="empty-action-desc">Chord library, scales, circle of fifths, tuner, and metronome</div>
+            </div>
+            <i class="bi-chevron-right empty-action-chevron flex-shrink-0" aria-hidden="true"></i>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="empty-welcome-footer">
+        Supported formats: Guitar Pro (.gp, .gpx, .gp3\u20135) \u00b7 PDF \u00b7 Text tabs
+      </div>
+    </div>
+    `;
 }
 
 // Count on the left, primary action (plus any secondary controls) on the right
