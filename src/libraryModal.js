@@ -4725,7 +4725,7 @@ function renderToolsView(container) {
         { id: 'tuner', group: 'practice', title: 'Tuner', readout: tunerReadout },
         { id: 'metronome', group: 'practice', title: 'Metronome', readout: () => `${metronome.bpm} bpm`, watch: ['metroBpm'] }
     ];
-    // Sends local audio to the StemDeck app on this computer or network; the web build cannot reach it
+    // Sends local audio to the StemDeck app on your computer or network; the web build cannot reach it
     if (hasStemDeckSupport()) tools.push({ id: 'stemdeck', group: 'practice', title: 'Backing tracks', readout: stemdeckReadout });
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', group: 'practice', title: 'Jam', readout: jamReadout, watch: ['jamStatusLabel'] });
     tools.push(

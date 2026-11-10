@@ -156,18 +156,18 @@ const json = (body, status = 200) => ({ ok: status >= 200 && status < 300, statu
     await findLocalStemDeck({ preferred: ['192.168.1.20:9000'], fetchImpl: async (u) => { phoneAsked.push(u); throw new TypeError('x'); } });
     assert.ok(phoneAsked.length && phoneAsked.every((u) => u.startsWith('http://127.0.0.1:')));
 }
-// --- Dynamic wording: desktop ('this computer') vs mobile ('your computer') ---
+// --- Dynamic wording: desktop and mobile both say 'your computer' ---
 {
     const desktopIntro = stemdeckIntroText({ desktop: true, local: true });
-    assert.ok(desktopIntro.includes('this computer'), 'desktop intro should say this computer');
-    assert.ok(!desktopIntro.includes('your computer'), 'desktop intro should not say your computer');
+    assert.ok(desktopIntro.includes('your computer'), 'desktop intro should say your computer');
+    assert.ok(!desktopIntro.includes('this computer'), 'desktop intro should not say this computer');
 
     const phoneIntro = stemdeckIntroText({ desktop: false, local: false });
     assert.ok(phoneIntro.includes('your computer'), 'mobile intro should say your computer');
     assert.ok(!phoneIntro.includes('this computer'), 'mobile intro should not say this computer');
 
     const desktopHelpDown = stemdeckHelpText({ desktop: true, conn: { kind: 'down' }, local: true });
-    assert.ok(desktopHelpDown.includes('this computer'));
+    assert.ok(desktopHelpDown.includes('your computer') && !desktopHelpDown.includes('this computer'));
 
     const phoneHelpDown = stemdeckHelpText({ desktop: false, conn: { kind: 'down' }, local: false });
     assert.ok(phoneHelpDown.includes('your computer'));
