@@ -45,11 +45,14 @@ async function executeWithRetry(url, maxRetries = MAX_RETRIES, signal = null) {
         lastRequestTime = Date.now();
 
         try {
-            const res = await fetch(url, {
-                headers: {
-                    'Accept': 'application/json',
-                    'User-Agent': USER_AGENT
-                },
+            // The native shell's HTTP client sends no CORS preflight and really sends the User-Agent. A webview fetch cannot set
+            // User-Agent, and trying makes it send an OPTIONS preflight first: a second request against MusicBrainz's rate limit,
+            // which is the one that came back 503. So the header goes only on the native path.
+            const native = typeof window !== 'undefined' && typeof window.__TAURI__?.http?.fetch === 'function';
+            const res = await (native ? window.__TAURI__.http.fetch : fetch)(url, {
+                headers: native
+                    ? { 'Accept': 'application/json', 'User-Agent': USER_AGENT }
+                    : { 'Accept': 'application/json' },
                 signal
             });
 
