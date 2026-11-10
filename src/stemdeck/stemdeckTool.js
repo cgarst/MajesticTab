@@ -246,7 +246,7 @@ export function renderStemdeckTool(container) {
         loaded = true;
         const known = new Set(candidates.map((c) => c.songKey));
         // First list: every song without a backing track is chosen
-        if (!view.selected) view.selected = new Set(candidates.filter((c) => !c.backingId).map((c) => c.songKey));
+        if (!view.selected) view.selected = new Set();
         else view.selected = new Set([...view.selected].filter((k) => known.has(k)));
         if (alive) render();
     }
