@@ -101,6 +101,7 @@ import { renderToolsPage, releaseEmbeddedTools, forgetResume } from './utils/too
 import { hasStemDeckSupport } from './stemdeck/stemdeckClient.js';
 import { stemdeckReadout } from './stemdeck/stemdeckTool.js';
 import { bulkExportReadout } from './bulkExport/bulkExportTool.js';
+import { missingTabsReadout } from './bulkFill/missingTabsTool.js';
 
 let activeView = 'library'; // 'library', 'recents', 'openFile', 'setlists', 'tools', 'settings'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -989,7 +990,7 @@ async function renderLibraryBrowseView(container) {
     const groupByRowHtml = (extraHtml = '') => artists.length === 0 ? '' : `<div class="lib-groupby-row"><div class="hud-pill-group lib-groupby" role="group" aria-label="Group by">
         <button type="button" class="btn btn-sm ${inTunings ? '' : 'active'}" data-lib-groupby="artists" aria-pressed="${!inTunings}">Artists</button>
         <button type="button" class="btn btn-sm ${inTunings ? 'active' : ''}" data-lib-groupby="tunings" aria-pressed="${inTunings}">Tunings</button>
-      </div>${extraHtml}${syncBtnHtml}</div>`;
+      </div>${extraHtml}</div>`;
     const collectionSelectHtml = collectionSelectOnlyHtml;
     const headerHtml = `
     <div class="library-page-container ${inTunings ? 'tunings-view' : ''}">
@@ -1047,9 +1048,8 @@ async function renderLibraryBrowseView(container) {
     let breadcrumbHtml = '';
     let bodyHtml = '';
     let toolbarHtml = '';
-    // Desktop: Sync sits in the toolbar beside the search. Phones: it sits in the Group by row. CSS shows one of the two.
-    const syncBtnHtml = `<button type="button" class="btn btn-sm lib-ghost-action lib-sync-row" data-lib-sync title="Sync your library with your backup location">Sync</button>`;
-    const toolbarActionsHtml = `<div class="library-toolbar-actions d-flex align-items-center gap-2"><button type="button" class="btn btn-sm lib-ghost-action lib-sync-toolbar" data-lib-sync title="Sync your library with your backup location">Sync</button></div>`;
+    // Library header toolbar actions (none: sync button removed, search bar stretches full width)
+    const toolbarActionsHtml = '';
 
     // The resume card is the same whichever way the library is grouped
     let resumeHtml = '';
@@ -4555,8 +4555,10 @@ function renderToolsView(container) {
     const tools = [
         { id: 'openfile', group: 'files', title: 'Open file' },
         { id: 'classtab', group: 'files', title: 'Classical tab browser', readout: classtabReadout },
-        { id: 'bulkexport', group: 'files', title: 'Bulk export', readout: bulkExportReadout }
+        { id: 'bulkexport', group: 'files', title: 'Bulk export', readout: bulkExportReadout },
+        { id: 'missingtabs', group: 'files', title: 'Fill in missing tabs', readout: missingTabsReadout }
     ];
+    import('./bulkFill/missingTabsTool.js').then((m) => m.refreshMissingTabsCount()).catch(() => {});
     // Sends local audio to the StemDeck app on this computer or network; the web build cannot reach it
     if (hasStemDeckSupport()) tools.push({ id: 'stemdeck', group: 'files', title: 'Backing tracks', readout: stemdeckReadout });
     tools.push(

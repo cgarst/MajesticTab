@@ -1,5 +1,5 @@
 // settingsPage.js
-// Settings as a page: a title, a section list (Player, Appearance, Reading, Controls, Sound, Library and backup,
+// Settings as a page: a title, a section list (Library and backup, Player, Appearance, Reading, Controls, Sound,
 // About) and grouped rows (title, one line of help, the control). The controls are the ones already in the
 // settings markup, moved into rows, so their ids and handlers keep working. Things you change while playing
 // (size, paper, pages) live in the reader's View menu, not here. Notation and the usual guitar are defaults here; the
@@ -15,13 +15,13 @@ import { isHideNoTabSongsEnabled, setHideNoTabSongsEnabled } from '../libraryMod
 const $ = (id) => document.getElementById(id);
 
 const SECTIONS = [
+    { id: 'library', label: 'Library and backup', icon: 'bi-collection' },
     { id: 'player', label: 'Player', icon: 'bi-person' },
     { id: 'appearance', label: 'Appearance', icon: 'bi-palette' },
     { id: 'reading', label: 'Reading', icon: 'bi-book' },
     { id: 'controls', label: 'Controls', icon: 'bi-controller' },
     { id: 'websearch', label: 'Web search', icon: 'bi-globe2', nativeOnly: true },
     { id: 'sound', label: 'Sound', icon: 'bi-soundwave' },
-    { id: 'library', label: 'Library and backup', icon: 'bi-collection' },
     { id: 'classtab', label: 'Classical tab', icon: 'bi-music-note-list' },
     { id: 'updates', label: 'Updates', icon: 'bi-arrow-repeat' },
     { id: 'about', label: 'About', icon: 'bi-info-circle' }
@@ -565,7 +565,7 @@ export function initSettingsPage() {
     });
     // Wide: a section is always showing. Narrow: start on the list.
     const wide = () => window.matchMedia('(min-width: 900px)').matches;
-    show('player');
+    show('library');
     if (!wide()) {
         wrap.dataset.pane = 'list';
         shell.dataset.pane = 'list';
