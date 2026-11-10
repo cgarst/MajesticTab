@@ -345,7 +345,7 @@ export function renderBulkImportTool(container) {
                 ${STRATEGIES.map((s) => `<option value="${s}" ${state.strategy === s ? 'selected' : ''}>${esc(STRATEGY_LABEL[s])}</option>`).join('')}
               </select>
             </label>
-            <button type="button" class="ct-text" data-act="${state.filter === 'all' ? 'only-attention' : 'show-all'}" ${c.attention || state.filter !== 'all' ? '' : 'disabled'}>${state.filter === 'all' ? (c.attention === 1 ? 'Show the one that needs a look' : `Show the ${c.attention} that need a look`) : 'Show all'}</button>
+            ${c.attention || state.filter !== 'all' ? `<button type="button" class="ct-text" data-act="${state.filter === 'all' ? 'only-attention' : 'show-all'}">${state.filter === 'all' ? (c.attention === 1 ? 'Show the one that needs a look' : `Show the ${c.attention} that need a look`) : 'Show all'}</button>` : ''}
             <button type="button" class="ct-text" data-act="choose">Choose another folder</button>`}
           </div>
           ${state.summary ? `<div class="be-status" role="status">${esc(state.summary)}</div>` : ''}

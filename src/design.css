@@ -4955,14 +4955,14 @@ body.library-view-active .yt-sheet { display: none !important; }
 .imp-row { content-visibility: auto; contain-intrinsic-size: auto 56px; border-radius: var(--r-control); }
 .imp-row.is-open { background: var(--s1); content-visibility: visible; }
 @media (hover: hover) { .imp-row:not(.is-open):hover { background: var(--s1); } }
-.imp-line { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 10px; }
+.imp-line { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 10px; }
 .imp-check { flex-shrink: 0; margin: 0; width: 20px; height: 20px; }
 .imp-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.imp-file { font-size: 12.5px; color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.imp-sugg { font-size: 14px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imp-file { font-size: 12.5px; color: var(--ink2); overflow-wrap: anywhere; }
+.imp-sugg { font-size: 14px; color: var(--ink); overflow-wrap: anywhere; }
 .imp-sugg.is-none { color: var(--ink2); }
 .imp-sub { color: var(--ink2); font-size: 12.5px; }
-.imp-state { flex-shrink: 0; font-size: 12.5px; color: var(--ink2); white-space: nowrap; }
+.imp-state { flex: 0 1 140px; font-size: 12.5px; color: var(--ink2); text-align: right; }
 .imp-row.is-attention .imp-state { color: var(--ink); font-weight: 600; }
 .imp-row.is-out .imp-sugg, .imp-row.is-out .imp-file { opacity: .6; }
 .imp-change { flex-shrink: 0; }
@@ -4976,7 +4976,7 @@ body.library-view-active .yt-sheet { display: none !important; }
 .imp-result-main { font-size: 14px; }
 @media (max-width: 576px) {
   .imp-line { flex-wrap: wrap; }
-  .imp-state { order: 3; }
+  .imp-state { order: 3; flex-basis: auto; text-align: left; }
   .imp-search { padding-left: 10px; }
 }
 .tools-shell .tool-pane:has(.missingtabs-tool-embedded) { overflow-y: auto; padding-bottom: 24px; }
