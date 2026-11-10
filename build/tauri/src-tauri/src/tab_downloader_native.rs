@@ -1441,7 +1441,7 @@ pub fn regex_escape_domain(domain: &str) -> String {
     let mut escaped = String::with_capacity(domain.len() * 2);
     for ch in domain.chars() {
         match ch {
-            '.' | '-' | '[' | ']' | '(' | ')' | '{' | '}' | '*' | '+' | '?' | '^' | '$' | '|' => {
+            '.' | '[' | ']' | '(' | ')' | '{' | '}' | '*' | '+' | '?' | '^' | '$' | '|' => {
                 escaped.push('\\');
                 escaped.push(ch);
             }
@@ -1454,14 +1454,15 @@ pub fn regex_escape_domain(domain: &str) -> String {
 #[cfg(any(target_os = "macos", target_os = "ios", test))]
 pub fn generate_webkit_rules_json(hosts: &[String]) -> String {
     // WebKit content rules do not support disjunctions ("a|b") in a url-filter,
-    // so each host gets its own rule.
+    // so each host gets its own rule. Negated character classes ([^/]) are not
+    // supported either, so the host prefix uses an a-z range and the boundary is [:/].
     let mut rules = Vec::new();
     for host in hosts {
         let escaped = regex_escape_domain(&host.trim().to_lowercase());
         if escaped.is_empty() {
             continue;
         }
-        let url_filter = format!(r#"^https?://([^/]+\.)?{}(:\d+)?(/.*)?$"#, escaped);
+        let url_filter = format!(r#"^https?://([a-z0-9.-]+\.)?{}[:/]"#, escaped);
         rules.push(serde_json::json!({
             "trigger": {
                 "url-filter": url_filter,
