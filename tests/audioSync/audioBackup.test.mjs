@@ -8,7 +8,7 @@ globalThis.localStorage = { getItem: k => (store.has(k) ? store.get(k) : null), 
 
 const {
     AUDIO_BACKUP_STORE, AUDIO_SYNC_ACTION, audioManifestEntry, audioItemFingerprint, audioSyncDecision, isAudioItem,
-    isAudioUploadEnabled, setAudioUploadEnabled, isAudioDownloadEnabled, setAudioDownloadEnabled
+    isAudioDownloadEnabled, setAudioDownloadEnabled
 } = await import('../../src/audioSync/audioBackup.js');
 
 const meta = { id: 'a1', name: 'take.mp3', type: 'audio/mpeg', size: 1234, durationMs: 60000, fingerprint: 'ff00', songKeys: ['Song'], savedAt: 99, peaks: new Uint8Array(4), data: new ArrayBuffer(1) };
@@ -29,13 +29,10 @@ test('the change detector follows content and size, not names or times', () => {
     assert.notEqual(audioItemFingerprint({ ...meta, size: 1235 }), audioItemFingerprint(meta));
 });
 
-test('sending and receiving audio are on until turned off, each on its own', () => {
-    assert.ok(isAudioUploadEnabled() && isAudioDownloadEnabled());
-    setAudioUploadEnabled(false);
-    assert.ok(!isAudioUploadEnabled() && isAudioDownloadEnabled());
-    setAudioUploadEnabled(true);
+test('receiving audio is on until turned off', () => {
+    assert.ok(isAudioDownloadEnabled());
     setAudioDownloadEnabled(false);
-    assert.ok(isAudioUploadEnabled() && !isAudioDownloadEnabled());
+    assert.ok(!isAudioDownloadEnabled());
     setAudioDownloadEnabled(true);
 });
 

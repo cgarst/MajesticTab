@@ -20,7 +20,6 @@ export const SINGLE_FILE_AUDIO_LIMIT = 100 * 1024 * 1024;
 /** Sending this much audio in one go gets a warning in the backup dialog. */
 export const LARGE_AUDIO_UPLOAD_BYTES = 100 * 1024 * 1024;
 
-const UPLOAD_KEY = 'audio_backup_upload';
 const DOWNLOAD_KEY = 'audio_backup_download';
 
 function readFlag(key) {
@@ -31,28 +30,22 @@ function writeFlag(key, on) {
     try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* per-device convenience only */ }
 }
 
-/** Whether this device sends its audio files to backups and sync. On unless turned off. */
-export const isAudioUploadEnabled = () => readFlag(UPLOAD_KEY);
-export const setAudioUploadEnabled = (on) => writeFlag(UPLOAD_KEY, on);
-
 /** Whether this device receives audio files from backups and sync. On unless turned off. */
 export const isAudioDownloadEnabled = () => readFlag(DOWNLOAD_KEY);
 export const setAudioDownloadEnabled = (on) => writeFlag(DOWNLOAD_KEY, on);
 
 export const isAudioItem = (item) => item?.store === AUDIO_BACKUP_STORE;
 
-/** Stored files that would go into a backup now: all of them, or nothing when sending is off. */
+/** Stored files that would go into a backup now: all of them. */
 export async function listAudioForBackup() {
-    if (!isAudioUploadEnabled()) return [];
     return listAudioFiles();
 }
 
 /** What the backup dialog shows: how many files and how much. */
 export async function audioBackupOverview() {
     const all = await listAudioFiles();
-    const included = isAudioUploadEnabled() ? all : [];
+    const included = all;
     return {
-        enabled: isAudioUploadEnabled(),
         total: all.length,
         count: included.length,
         bytes: included.reduce((sum, m) => sum + (m.size || 0), 0)

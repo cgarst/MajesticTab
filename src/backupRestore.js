@@ -7,7 +7,7 @@ import { clearAllAudioFiles } from './audioSync/audioFileStore.js';
 import { isAudioChoiceKey, assignRestoredAudioSlot } from './audioSync/libraryAudio.js';
 import {
     AUDIO_BACKUP_STORE, iterateAudioBackupEntries, audioBackupPlan, audioBackupOverview, restoreAudioEntry,
-    isAudioDownloadEnabled, setAudioUploadEnabled, LARGE_AUDIO_UPLOAD_BYTES, SINGLE_FILE_AUDIO_LIMIT
+    isAudioDownloadEnabled, LARGE_AUDIO_UPLOAD_BYTES, SINGLE_FILE_AUDIO_LIMIT
 } from './audioSync/audioBackup.js';
 import {
     getDB, STORE_NAME, getAllStoredFiles, getStoredFileRecord, clearAllStoredFiles,
@@ -2037,7 +2037,7 @@ function attachModalHandlers(modal, options = {}) {
         return { status: 'ready', backend: folders.createFolderBackend(handle) };
     };
 
-    // Audio files are the big part of a backup, so say how much goes and let the user keep it all on this device
+    // Audio files are the big part of a backup, so say how much goes and and that it is always included
     const backupAudioBox = modal.querySelector('#backupAudioBox');
     const renderAudioBox = async () => {
         if (!backupAudioBox) return;
@@ -2045,11 +2045,9 @@ function attachModalHandlers(modal, options = {}) {
         if (!o.total) { backupAudioBox.style.display = 'none'; return; }
         backupAudioBox.style.display = 'block';
         const single = getBackupFormat() === 'single';
-        const plan = single && o.enabled ? await audioBackupPlan() : null;
+        const plan = single ? await audioBackupPlan() : null;
         const lines = [];
-        if (!o.enabled) {
-            lines.push('Audio files stay on this device and are not backed up.');
-        } else {
+        {
             lines.push(`${plural(o.count, 'audio file')} (${formatBytes(o.bytes)}) will be included. Audio goes only to the backup destination you choose here, never to MajesticTab.`);
             if (plan?.tooLarge.length) lines.push(`${plural(plan.tooLarge.length, 'file')} over ${formatBytes(SINGLE_FILE_AUDIO_LIMIT)} cannot go into a single file. Use incremental snapshots to include ${plan.tooLarge.length === 1 ? 'it' : 'them'}.`);
             if (o.bytes >= LARGE_AUDIO_UPLOAD_BYTES) lines.push('That is a lot to send the first time. Later backups send only new or changed audio.');
@@ -2060,17 +2058,8 @@ function attachModalHandlers(modal, options = {}) {
                     <div class="small fw-semibold text-white"><i class="bi-file-earmark-music text-info me-1"></i> Audio files</div>
                     ${lines.map(l => `<div class="small text-white-50 mt-1" style="font-size:0.75rem;">${escapeHtml(l)}</div>`).join('')}
                 </div>
-                <div class="form-check form-switch mb-0 flex-shrink-0">
-                    <input class="form-check-input theme-switch" type="checkbox" id="backupAudioSwitch" ${o.enabled ? 'checked' : ''} aria-label="Include audio files in backups">
-                </div>
             </div>`;
     };
-    backupAudioBox?.addEventListener('change', (e) => {
-        if (e.target.id !== 'backupAudioSwitch') return;
-        setAudioUploadEnabled(e.target.checked);
-        renderAudioBox();
-        if (getBackupFormat() === 'incremental') renderIncrementalPreview();
-    });
 
     let previewRequest = 0;
     const renderIncrementalPreview = async () => {
