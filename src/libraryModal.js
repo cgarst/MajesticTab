@@ -23,6 +23,7 @@ import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { renderOpenFileView } from './openFileModal.js';
 import { renderSetlistsView, openAddToSetlistModal } from './setlistUi.js';
 import { detectFileMetadata, getTuningInfo, tuningMatchesQuery, setCustomTuningName, isTuningMatchingInstrument, visibleTuningsForSong, visibleTuningLabel } from './utils/tuningUtils.js';
+import { renderTuningBarsSvg } from './utils/tuningVisual.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
@@ -1144,7 +1145,7 @@ async function renderLibraryBrowseView(container) {
                 return `
                 <div class="library-card tuning-card p-3" data-tuning-key="${escapeHtml(group.key || group.tuning)}" data-tuning-name="${escapeHtml(group.name)}" data-tuning-notes="${escapeHtml(group.notes || group.key || group.tuning)}" data-name="${escapeHtml(String(group.name || '').toLowerCase())}" data-search="${escapeHtml([group.name, group.notes, group.key, group.tuning, ...group.songs.map(sg => `${sg.title || ''} ${sg.artist || ''} ${sg.album || ''}`)].filter(Boolean).join(' ').toLowerCase())}" ${isCurrent ? 'aria-current="true"' : ''} role="button" tabindex="0">
                   <div class="d-flex align-items-center gap-3 min-w-0">
-                    <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-sliders"></i></span>
+                    <span class="pinned-group-glyph" aria-hidden="true">${renderTuningBarsSvg(group, 36)}</span>
                     <div class="min-w-0 flex-grow-1">
                       <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(group.name)}">${escapeHtml(group.name)}</h6>
                       <div class="small text-muted text-truncate tnum">${escapeHtml(notesDisplay)}${notesDisplay ? ' \u00b7 ' : ''}${group.songs.length} ${group.songs.length === 1 ? 'song' : 'songs'}</div>
