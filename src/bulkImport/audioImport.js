@@ -6,7 +6,7 @@
 //      checks; any row can be changed by searching the library, or left out.
 //   3. Import: each file is stored (audioFileStore.js) and becomes the song's Original recording or Backing track
 //      (libraryAudio.js), whichever the person chose. Automatic (the default) takes a file as the recording unless its name says
-//      "backing track", "karaoke", "no guitar" or "minus one"; Recordings and Backing tracks send every file to that slot.
+//      "backing track", "no guitar" or "minus one"; Recordings and Backing tracks send every file to that slot.
 //      A switch leaves out songs that already have audio in that slot.
 // The page's state lives in this module, so leaving Tools does not lose a review.
 
@@ -65,8 +65,8 @@ export const onAudioImportChange = (cb) => { listeners.add(cb); return () => lis
 
 // --- Rows ------------------------------------------------------------------------------------------------------------
 
-// Auto: a recording unless the file name says "backing track", "karaoke", "no guitar" or "minus one". Recordings: always the recording.
-const BACKING_NAME = /backing[\s_.-]*tracks?|karaoke|no[\s_.-]*guitars?|minus[\s_.-]*one/i;
+// Auto: a recording unless the file name says "backing track", "no guitar" or "minus one". Recordings: always the recording.
+const BACKING_NAME = /backing[\s_.-]*tracks?|no[\s_.-]*guitars?|minus[\s_.-]*one/i;
 const slotOf = (row) => (state.slot === 'backing' || (state.slot === 'auto' && row.backing) ? 'backing' : 'original');
 // Several files for one song and slot: one is used, the rest are left out until the person checks them. A lossless file beats a
 // lossy one, then the larger file, then the one that comes first in the folder.
@@ -341,7 +341,7 @@ export function renderAudioImport(container) {
               <input type="radio" class="form-check-input" name="impAudioSlot" value="${s}" ${state.slot === s ? 'checked' : ''}>
               <span class="be-option-text"><span class="be-option-title">${{ auto: 'Automatic', original: 'Recordings of the songs', backing: 'Backing tracks' }[s]}${s === 'auto' ? ' (recommended)' : ''}</span></span>
             </label>`).join('')}
-          <p class="ct-sub imp-help">${{ auto: 'Each file becomes the song’s Original recording, unless its name says “backing track”, “karaoke” or “no guitar”: then it becomes the Backing track.', original: 'Each file becomes the song’s Original recording.', backing: 'Each file becomes the song’s Backing track.' }[state.slot]} A song’s sync points are not changed.</p>
+          <p class="ct-sub imp-help">${{ auto: 'Each file becomes the song’s Original recording, unless its name says “backing track” or “no guitar”: then it becomes the Backing track.', original: 'Each file becomes the song’s Original recording.', backing: 'Each file becomes the song’s Backing track.' }[state.slot]} A song’s sync points are not changed.</p>
         </fieldset>`;
     }
 
