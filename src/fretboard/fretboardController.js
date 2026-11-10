@@ -16,7 +16,7 @@ function isLandscapePhone() {
     try { return window.matchMedia(SHORT_LANDSCAPE_PHONE_QUERY).matches; } catch (_) { return false; }
 }
 function portraitOpen() {
-    try { return localStorage.getItem(STORAGE_KEY_OPEN) !== 'false'; } catch (_) { return true; }
+    try { return localStorage.getItem(STORAGE_KEY_OPEN) === 'true'; } catch (_) { return false; }
 }
 const STORAGE_KEY_MODE = 'majestictab_fretboard_display_mode';
 const STORAGE_KEY_LH = 'majestictab_fretboard_left_handed';
