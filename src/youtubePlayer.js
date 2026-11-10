@@ -4,6 +4,7 @@ import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOp
 import { showPanel, hidePanel, placePanel } from './utils/readerPanels.js';
 import { getMasterVolume, onMasterVolume } from './utils/masterVolume.js';
 import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
+import { songHasLocalOriginal } from './audioSync/libraryAudio.js';
 import { listHistory, rememberVideo, forgetVideo } from './audioSync/videoHistory.js';
 import { showToast } from './utils/toast.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
@@ -1489,8 +1490,8 @@ export function updateSongForYouTube({
     // Synced videos become the saved Original and Backing videos (no search)
     applySyncedDefaults({ reload: false });
 
-    // A song with sync points opens on its recording; otherwise the synth is selected
-    setActiveAudioMode(songHasSyncPoints(getSongKey()) ? 'real' : 'synth');
+    // A song with sync points or a local audio file opens on its recording; otherwise the synth is selected
+    setActiveAudioMode(songHasSyncPoints(getSongKey()) || songHasLocalOriginal(getSongKey()) ? 'real' : 'synth');
 
     updatePlaybackControls();
 
@@ -1825,7 +1826,7 @@ export function initYouTubePlayer() {
     window.addEventListener(SYNC_CHANGED_EVENT, () => {
         if (!getSongKey() || playerState.hasStarted || playerState.isPlaying || isSynthPlaying()) return;
         applySyncedDefaults({ reload: false });
-        if (songHasSyncPoints(getSongKey())) setActiveAudioMode('real');
+        if (songHasSyncPoints(getSongKey()) || songHasLocalOriginal(getSongKey())) setActiveAudioMode('real');
         updatePlaybackControls();
     });
 

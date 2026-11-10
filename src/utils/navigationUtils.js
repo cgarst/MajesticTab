@@ -9,6 +9,7 @@ import { gamepadManager } from './gamepadManager.js';
 import { stepSetlist } from '../setlistPlayer.js';
 import { isYouTubeAvailable, rewindYouTubeToBeginning, toggleYouTubePanel, getSongKey, scheduleOriginalVideo, pauseYouTube, playerState } from '../youtubePlayer.js';
 import { songHasSyncPoints } from '../audioSync/syncStore.js';
+import { songHasLocalOriginal } from '../audioSync/libraryAudio.js';
 import {
     isRealAudioAvailable, isRealAudioPlaying, playPauseRealAudio, rewindRealAudio10Seconds, getRealAudioActiveSource, applyEmbeddedAudioMode
 } from '../audioSync/realAudioController.js';
@@ -1023,7 +1024,7 @@ export function updateGlobalAudioControls() {
     const synthIsAvailable = isSynthAvailable();
     if (!synthBtn?.classList.contains('active-audio-mode') && !realAudioBtn?.classList.contains('active-audio-mode')) {
         // A synth button with no player behind it (a text or PDF tab with no MIDI linked yet) is not a sound to default to
-        const useReal = isRealAudioVisible && (!isSynthVisible || !synthIsAvailable || (isRealAudioAvailable() && songHasSyncPoints(getSongKey())));
+        const useReal = isRealAudioVisible && (!isSynthVisible || !synthIsAvailable || (isRealAudioAvailable() && (songHasSyncPoints(getSongKey()) || songHasLocalOriginal(getSongKey()))));
         setActiveAudioMode(useReal ? 'real' : 'synth');
     }
 

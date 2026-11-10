@@ -43,6 +43,14 @@ export function songHasAudioInSlot(song, slot, existingIds) {
     return songAudioKeys(song).some((k) => existingIds.has(read(slotFileKey(k, slot))));
 }
 
+/** Is a local audio file the song's Original (attached, and the source not set to a video or the file's own audio)? */
+export function songHasLocalOriginal(songKey) {
+    if (!songKey) return false;
+    const source = read(slotSourceKey(songKey, 'original'));
+    if (source === 'youtube' || source === 'embedded') return false;
+    return Boolean(read(slotFileKey(songKey, 'original')) || read(`audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`));
+}
+
 /** Records a stored file as the song's audio and makes it the slot's file under the library key. */
 export function attachLibraryAudio(song, audioId, slot) {
     const list = readLibraryAudio(song.id).filter((e) => !(e.audioId === audioId && e.slot === slot));
@@ -66,15 +74,22 @@ export async function adoptLibraryAudio(songId, songKey) {
     if (!list.length) return;
     const { linkAudioFile, getAudioMeta } = await import('./audioFileStore.js');
     let changed = false;
+    let linked = false;
     for (const { audioId, slot } of list) {
         if (!(await getAudioMeta(audioId))) continue;
         await linkAudioFile(audioId, songKey);
+        linked = true;
         const current = read(slotFileKey(songKey, slot));
         if (current && (await getAudioMeta(current))) continue;
         write(slotFileKey(songKey, slot), audioId);
         if (slot === 'original') write(`audio_file_last_${encodeURIComponent(songKey.toLowerCase())}`, audioId);
         write(slotSourceKey(songKey, slot), 'local');
         changed = true;
+    }
+    // The player listed this song's files when it opened, possibly before the link above: have it list them again
+    if (linked) {
+        const { AUDIO_FILES_CHANGED_EVENT } = await import('./audioBackup.js');
+        window.dispatchEvent(new CustomEvent(AUDIO_FILES_CHANGED_EVENT));
     }
     if (changed) {
         const { SYNC_CHANGED_EVENT } = await import('./syncStore.js');
