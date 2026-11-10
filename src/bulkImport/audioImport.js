@@ -5,7 +5,8 @@
 //   2. Matching: the library's songs that have a tab (matcher.js, lookupLibraryAudio). A match by title alone is a guess the person
 //      checks; any row can be changed by searching the library, or left out.
 //   3. Import: each file is stored (audioFileStore.js) and becomes the song's Original recording or Backing track
-//      (libraryAudio.js), whichever the person chose; a file named "backing track" or "karaoke" always goes to the Backing track.
+//      (libraryAudio.js), whichever the person chose. Auto (the default) takes a file as the recording unless its name says
+//      "backing track", "karaoke", "no guitar" or "minus one"; Recordings and Backing tracks send every file to that slot.
 //      A switch leaves out songs that already have audio in that slot.
 // The page's state lives in this module, so leaving Tools does not lose a review.
 
@@ -36,7 +37,7 @@ const MIME = { mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audi
 const state = {
     phase: 'setup', // 'setup' | 'scanning' | 'review' | 'importing'
     strategy: 'auto',
-    slot: 'original', // where the files go
+    slot: 'auto', // where the files go: 'auto' (by file name), 'original' or 'backing'
     rootName: '',
     foundCount: 0,
     rows: [],
@@ -64,7 +65,9 @@ export const onAudioImportChange = (cb) => { listeners.add(cb); return () => lis
 
 // --- Rows ------------------------------------------------------------------------------------------------------------
 
-const slotOf = (row) => (state.slot === 'backing' || row.backing ? 'backing' : 'original');
+// Auto: a recording unless the file name says "backing track", "karaoke", "no guitar" or "minus one". Recordings: always the recording.
+const BACKING_NAME = /backing[\s_.-]*tracks?|karaoke|no[\s_.-]*guitars?|minus[\s_.-]*one/i;
+const slotOf = (row) => (state.slot === 'backing' || (state.slot === 'auto' && row.backing) ? 'backing' : 'original');
 // Several files for one song and slot: one is used, the rest are left out until the person checks them. A lossless file beats a
 // lossy one, then the larger file, then the one that comes first in the folder.
 const QUALITY = { flac: 3, wav: 3, m4a: 2, ogg: 2, opus: 2, mp3: 1, aac: 1 };
@@ -121,13 +124,13 @@ function makeRow(entry, i) {
 function resolveRow(row) {
     const parsed = pairFile(row.entry, state.strategy, null);
     row.parsed = null;
-    row.backing = false;
+    row.backing = BACKING_NAME.test(row.entry.path || row.entry.name || '');
     if (parsed) {
         const clean = (t) => (t ? cleanAudioTitle(t) : null);
         const main = clean(parsed.title);
         const raw = clean(parsed.rawTitle);
         const alt = clean(parsed.altTitle);
-        row.backing = Boolean(main?.backing || raw?.backing || alt?.backing);
+        row.backing = row.backing || Boolean(main?.backing || raw?.backing || alt?.backing);
         row.parsed = { ...parsed, title: main.title, ...(raw ? { rawTitle: raw.title } : {}), ...(alt ? { altTitle: alt.title } : {}) };
     }
     const found = row.parsed ? lookupLibraryAudio(row.parsed, state.songs) : { status: 'none', pick: null, candidates: [] };
@@ -333,12 +336,12 @@ export function renderAudioImport(container) {
         return `
         <fieldset class="imp-strategies">
           <legend class="be-option-title">The files are</legend>
-          ${['original', 'backing'].map((s) => `
+          ${['auto', 'original', 'backing'].map((s) => `
             <label class="be-option imp-strategy">
               <input type="radio" class="form-check-input" name="impAudioSlot" value="${s}" ${state.slot === s ? 'checked' : ''}>
-              <span class="be-option-text"><span class="be-option-title">${s === 'original' ? 'Recordings of the songs' : 'Backing tracks'}</span></span>
+              <span class="be-option-text"><span class="be-option-title">${{ auto: 'Auto', original: 'Recordings of the songs', backing: 'Backing tracks' }[s]}</span></span>
             </label>`).join('')}
-          <p class="ct-sub imp-help">${state.slot === 'original' ? 'Each file becomes the song’s Original recording. A file named “backing track” or “karaoke” goes to the Backing track instead.' : 'Each file becomes the song’s Backing track.'} A song’s sync points are not changed.</p>
+          <p class="ct-sub imp-help">${{ auto: 'Each file becomes the song’s Original recording, unless its name says “backing track”, “karaoke” or “no guitar”: then it becomes the Backing track.', original: 'Each file becomes the song’s Original recording.', backing: 'Each file becomes the song’s Backing track.' }[state.slot]} A song’s sync points are not changed.</p>
         </fieldset>`;
     }
 
@@ -385,6 +388,7 @@ export function renderAudioImport(container) {
             <label class="imp-strategy-pick">
               <span class="imp-sub">Files are</span>
               <select class="form-select form-select-sm" data-act="slot" aria-label="Where the files go">
+                <option value="auto" ${state.slot === 'auto' ? 'selected' : ''}>Auto</option>
                 <option value="original" ${state.slot === 'original' ? 'selected' : ''}>Recordings</option>
                 <option value="backing" ${state.slot === 'backing' ? 'selected' : ''}>Backing tracks</option>
               </select>
