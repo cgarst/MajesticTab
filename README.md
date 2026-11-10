@@ -155,3 +155,4 @@ The output will be saved to `dist/MajesticTab-ios.ipa`.
 - [PDF.js](https://mozilla.github.io/pdf.js/) for PDF rendering
 - [Bootstrap](https://getbootstrap.com/) for UI components
 - [jsPDF](https://github.com/parallax/jsPDF) for export functionality
+- [SoundTouchJS](https://github.com/cutterbl/SoundTouchJS) (`@soundtouchjs/audio-worklet`, MPL-2.0, used unmodified) for slow-down practice that keeps the pitch of a local audio file

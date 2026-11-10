@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@coderline/alphatab": "1.8.4",
+    "@soundtouchjs/audio-worklet": "2.1.1",
     "bootstrap": "5.3.2",
     "bootstrap-icons": "1.11.3",
     "fflate": "0.8.3",

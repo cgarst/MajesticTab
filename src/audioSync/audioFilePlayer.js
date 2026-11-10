@@ -8,6 +8,7 @@ import { getSongKey, getSiblingSyncedVideos, getVideoInfo, lookupVideoInfo, paus
 import { pauseSynthPlayer, clearSynthHighlights, onTransportEvent } from '../gpProcessor/gpPlayer.js';
 import { setActiveAudioMode, updateGlobalAudioControls } from '../utils/navigationUtils.js';
 import { createLocalAudioSource } from './localAudioSource.js';
+import { createDecodedAudioSource, decodedPlaybackSupported } from './decodedAudioSource.js';
 import { decodePeaks } from './peaks.js';
 import {
     saveAudioFile, listAudioFilesForSong, getAudioFile, unlinkAudioFile, fingerprintOf, MAX_AUDIO_BYTES,
@@ -178,6 +179,35 @@ async function rebuildPeaks(id, data) {
     }
 }
 
+/**
+ * Decoded samples first: their clock is exact after a seek, which an audio element's is not for some formats (see
+ * decodedAudioSource.js). The audio element is the fallback for a file the webview cannot decode, one too long to hold
+ * in memory, or a webview without AudioWorklet. `localStorage.mt_decoded_audio = 'off'` forces the element, for debugging.
+ */
+async function openSource(file) {
+    let forceElement = false;
+    try { forceElement = localStorage.getItem('mt_decoded_audio') === 'off'; } catch { /* optional */ }
+    if (!forceElement && decodedPlaybackSupported()) {
+        const decoded = createDecodedAudioSource(file);
+        try {
+            await decoded.ready();
+            return decoded;
+        } catch (e) {
+            console.warn('[Audio File] decoded playback unavailable, using the audio element:', e.message);
+            decoded.destroy();
+        }
+    }
+    const element = createLocalAudioSource(file);
+    try {
+        await element.ready();
+        return element;
+    } catch (e) {
+        element.destroy();
+        setStatus(e.message);
+        return null;
+    }
+}
+
 /** Loads the selected file from storage into a playable source. Resolves true when a source is ready. */
 let loading = null;
 function ensureSource() {
@@ -191,14 +221,8 @@ function ensureSource() {
                 await refreshFiles();
                 return false;
             }
-            const source = createLocalAudioSource({ id, name: rec.name, type: rec.type, data: rec.data, durationMs: rec.durationMs });
-            try {
-                await source.ready();
-            } catch (e) {
-                source.destroy();
-                setStatus(e.message);
-                return false;
-            }
+            const source = await openSource({ id, name: rec.name, type: rec.type, data: rec.data, durationMs: rec.durationMs });
+            if (!source) return false;
             if (state.currentId !== id) {
                 source.destroy();
                 return false;

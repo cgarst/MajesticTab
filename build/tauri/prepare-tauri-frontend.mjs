@@ -25,6 +25,9 @@ const assets = [
   ['@coderline/alphatab/dist', 'vendor/alphatab/dist'],
   ['pdf-lib/dist/pdf-lib.min.js', 'vendor/pdf-lib/dist/pdf-lib.min.js'],
   ['qrcode-generator/dist/qrcode.js', 'vendor/qrcode-generator/dist/qrcode.js'],
+  ['@soundtouchjs/audio-worklet/.dist/SoundTouchNode.js', 'vendor/soundtouch/SoundTouchNode.js'],
+  ['@soundtouchjs/audio-worklet/.dist/constants.js', 'vendor/soundtouch/constants.js'],
+  ['@soundtouchjs/audio-worklet/.dist/soundtouch-processor.js', 'vendor/soundtouch/soundtouch-processor.js'],
 ];
 
 const licenses = [
@@ -35,6 +38,7 @@ const licenses = [
   ['fflate/LICENSE', 'vendor/licenses/fflate.txt'],
   ['@coderline/alphatab/LICENSE', 'vendor/licenses/alphatab.txt'],
   ['pdf-lib/LICENSE.md', 'vendor/licenses/pdf-lib.txt'],
+  ['@soundtouchjs/audio-worklet/LICENSE', 'vendor/licenses/soundtouchjs.txt'],
 ];
 
 const replacements = new Map([
@@ -49,6 +53,8 @@ const replacements = new Map([
   ['https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/alphaTab.min.js', 'vendor/alphatab/dist/alphaTab.min.js'],
   ['https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js', 'vendor/pdf-lib/dist/pdf-lib.min.js'],
   ['https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js', 'vendor/qrcode-generator/dist/qrcode.js'],
+  ['https://cdn.jsdelivr.net/npm/@soundtouchjs/audio-worklet@2.1.1/.dist/SoundTouchNode.js', 'vendor/soundtouch/SoundTouchNode.js'],
+  ['https://cdn.jsdelivr.net/npm/@soundtouchjs/audio-worklet@2.1.1/.dist/soundtouch-processor.js', 'vendor/soundtouch/soundtouch-processor.js'],
   ['https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff2', 'vendor/alphatab/dist/font/Bravura.woff2'],
   ['https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff', 'vendor/alphatab/dist/font/Bravura.woff'],
   ['https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.otf', 'vendor/alphatab/dist/font/Bravura.otf'],
