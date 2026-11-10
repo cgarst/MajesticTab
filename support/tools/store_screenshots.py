@@ -13,10 +13,11 @@ Usage:
     python3 tools/store_screenshots.py play-tablet-7           # Play 7-inch tablet shots (also play-tablet-10, play-tv, play-desktop)
     python3 tools/store_screenshots.py msstore                 # all Microsoft Store desktop shots
     python3 tools/store_screenshots.py play-all                # every Play device type (phone, 7" and 10" tablet, TV, Chromebook), one run
-    python3 tools/store_screenshots.py all                     # every store above, one run
+    python3 tools/store_screenshots.py all                     # every store above, one run, up to 4 stores at once
+    python3 tools/store_screenshots.py all -j 1                # the same, one store at a time
     python3 tools/store_screenshots.py play --only gp_scroll   # one shot
     python3 tools/store_screenshots.py play --raw              # also keep the unframed captures
-    python3 tools/store_screenshots.py play --no-prepare       # reuse the existing build/tauri/frontend-dist
+    python3 tools/store_screenshots.py play --no-prepare       # reuse the existing build/tauri/frontend-dist-<channel>
 
 Output: support/store/<channel>/<NN>-<shot>.png , raw captures under .../raw/.
 Add a store by adding an entry to STORES (device profile, `device` bezel: phone, iphone, tablet, laptop or tv; final size; `channel` is the id from build/channels.mjs and
@@ -42,7 +43,10 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 GP_FILE = ROOT / "tests" / "Duo No 2 In G Major.gp5"
 OUT_ROOT = ROOT / "support" / "store"
 TAURI_DIR = ROOT / "build" / "tauri"
-FRONTEND_DIR = TAURI_DIR / "frontend-dist"
+def frontend_dir(channel):
+    """Each channel is prepared in its own directory, so stores of different channels can run at the same time."""
+    return TAURI_DIR / f"frontend-dist-{channel}"
+
 
 # Capture viewport is CSS px; final is the store's required pixel size.
 STORES = {
@@ -154,17 +158,28 @@ def resolve_channel(channel):
 
 def prepare_channel_frontend(channel):
     """Build the channel's frontend and fail if it contains anything the channel must not ship."""
-    env = {**os.environ, "MAJESTICTAB_STORE_CHANNEL": channel}
+    dest = frontend_dir(channel)
+    env = {**os.environ, "MAJESTICTAB_STORE_CHANNEL": channel, "MAJESTICTAB_FRONTEND_DIR": str(dest)}
     subprocess.run(["node", "prepare-tauri-frontend.mjs"], cwd=TAURI_DIR, env=env, check=True, stdout=subprocess.DEVNULL)
-    subprocess.run(["node", str(ROOT / "build" / "verify-channel.mjs"), channel], check=True)
+    subprocess.run(["node", str(ROOT / "build" / "verify-channel.mjs"), channel, str(dest)], check=True)
 
 
-def _frontend_matches(cfg):
+def _frontend_matches(channel, cfg):
     try:
-        live = json.loads((FRONTEND_DIR / "channel.json").read_text())
+        live = json.loads((frontend_dir(channel) / "channel.json").read_text())
     except (OSError, ValueError):
         return False
     return all(live.get(k) == v for k, v in cfg.items())
+
+
+def ensure_channel_frontend(channel, cfg, force):
+    """Prepare the channel's frontend unless a matching one is already there. A lock keeps parallel runs of the
+    same channel from rebuilding the directory under each other."""
+    import fcntl
+    with open(TAURI_DIR / f".frontend-dist-{channel}.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if force or not _frontend_matches(channel, cfg):
+            prepare_channel_frontend(channel)
 
 
 class _Server(http.server.ThreadingHTTPServer):
@@ -185,6 +200,7 @@ class _ChannelHandler(_Quiet):
     Playwright cannot set env(safe-area-inset-*), so when the store has a `safe_area` the served CSS/HTML/JS has each
     env() replaced by that many pixels. The app then reserves the room a real phone's camera or Dynamic Island takes."""
     safe_area = None
+    frontend = None
 
     def do_GET(self):
         rel = urllib.parse.urlsplit(self.path).path
@@ -206,16 +222,16 @@ class _ChannelHandler(_Quiet):
     def translate_path(self, path):
         rel = urllib.parse.urlsplit(path).path
         if rel.startswith("/src/") or rel == "/src":
-            return str(FRONTEND_DIR / urllib.parse.unquote(rel[len("/src/"):]))
+            return str(self.frontend / urllib.parse.unquote(rel[len("/src/"):]))
         return super().translate_path(path)
 
 
-def start_channel_server(safe_area=None):
+def start_channel_server(channel, safe_area=None):
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
     sock.close()
-    handler = type("_SafeChannelHandler", (_ChannelHandler,), {"safe_area": safe_area})
+    handler = type("_SafeChannelHandler", (_ChannelHandler,), {"safe_area": safe_area, "frontend": frontend_dir(channel)})
     httpd = _Server(("127.0.0.1", port), functools.partial(handler, directory=str(ROOT)))
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, f"http://127.0.0.1:{port}"
@@ -530,28 +546,47 @@ def compose(page, raw_path, out_path, size, headline, subtitle, device):
 # Groups of stores run together by one name. play-all is every Google Play device type (they share one `play` build).
 GROUPS = {"play-all": ["play", "play-tablet-7", "play-tablet-10", "play-tv", "play-desktop"],
           "all": list(STORES)}
-_prepared = None  # channel whose frontend is currently in build/tauri/frontend-dist
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("channel", choices=[*STORES, *GROUPS], help="A store, `play-all` for every Google Play device type, or `all` for every store, in one run")
     ap.add_argument("--only", nargs="*", help="Only these shot ids")
-    ap.add_argument("--no-prepare", action="store_true", help="Reuse build/tauri/frontend-dist as is")
+    ap.add_argument("--no-prepare", action="store_true", help="Reuse build/tauri/frontend-dist-<channel> as is")
     ap.add_argument("--raw", action="store_true", help="Keep unframed captures in raw/")
     ap.add_argument("--out-dir", default=None)
+    ap.add_argument("-j", "--jobs", type=int, default=4, help="Stores to capture at once when running a group (default 4; 1 runs them in turn)")
     args = ap.parse_args()
     if args.channel not in GROUPS:
         return run_store(args, args.channel)
     if args.out_dir:
         ap.error("--out-dir cannot be used with a group")
-    for name in GROUPS[args.channel]:
-        print(f"=== {name} ===", flush=True)
-        run_store(args, name)
+    names = GROUPS[args.channel]
+    if args.jobs <= 1:
+        for name in names:
+            print(f"=== {name} ===", flush=True)
+            run_store(args, name)
+        return
+    # One process per store. Each channel has its own prepared frontend, so stores no longer share state; output is
+    # held back per store and printed when it finishes, so the lines stay together.
+    from concurrent.futures import ThreadPoolExecutor
+    passthrough = [a for flag, on in (("--no-prepare", args.no_prepare), ("--raw", args.raw)) if on for a in [flag]]
+    if args.only:
+        passthrough += ["--only", *args.only]
+
+    def capture(name):
+        r = subprocess.run([sys.executable, str(Path(__file__).resolve()), name, *passthrough],
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        print(f"=== {name} ===\n{r.stdout}", end="", flush=True)
+        return name, r.returncode
+
+    with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        failed = [n for n, code in pool.map(capture, names) if code]
+    if failed:
+        raise SystemExit(f"Failed: {', '.join(failed)}")
 
 
 def run_store(args, name):
-    global _prepared
     from playwright.sync_api import sync_playwright
 
     store = STORES[name]
@@ -561,12 +596,11 @@ def run_store(args, name):
     raw_dir = out / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
     shots = [s for s in SHOTS if (not args.only or s["id"] in args.only)]
-    # Re-prepare when the frontend on disk is not this channel's, even if this process prepared it earlier
-    # (something else, such as another build, may have rewritten build/tauri/frontend-dist since).
-    if not args.no_prepare and (_prepared != channel or not _frontend_matches(cfg)):
-        prepare_channel_frontend(channel)
-        _prepared = channel
-    httpd, base = start_channel_server(store.get("safe_area"))
+    # Prepared per channel in its own directory. Reuse it only if its channel.json matches (something else may have
+    # rewritten it); --no-prepare reuses whatever is there, and run `all` once without it to build them.
+    if not args.no_prepare:
+        ensure_channel_frontend(channel, cfg, force=False)
+    httpd, base = start_channel_server(channel, store.get("safe_area"))
     print(f"[{channel}] capabilities: {json.dumps(cfg)}")
     try:
         with sync_playwright() as p:

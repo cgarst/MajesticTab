@@ -1,5 +1,5 @@
 // Fails a build if a channel contains something it must not (see the store builds plan, "Verification per channel").
-// Usage: node build/verify-channel.mjs [channel]   (checks build/tauri/frontend-dist and the Cargo default features)
+// Usage: node build/verify-channel.mjs [channel] [frontendDir]   (checks build/tauri/frontend-dist, or frontendDir, and the Cargo default features)
 // build-tauri.mjs also calls verifyChannel() before compiling, and again on the Android project after it is patched.
 
 import { readFile, readdir } from 'node:fs/promises';
@@ -181,5 +181,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.error(`Unknown channel "${id}"`);
     process.exit(2);
   }
-  await verifyOrExit(id);
+  await verifyOrExit(id, process.argv[3] ? { frontendDir: path.resolve(process.argv[3]) } : undefined);
 }

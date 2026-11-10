@@ -8,7 +8,8 @@ import { DEFAULT_CHANNEL, resolveChannel } from '../channels.mjs';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, '../..');
 const sourceDir = path.join(rootDir, 'src');
-const frontendDir = path.join(scriptDir, 'frontend-dist');
+// MAJESTICTAB_FRONTEND_DIR lets several channels be prepared side by side (the store screenshot tool does); builds leave it unset.
+const frontendDir = process.env.MAJESTICTAB_FRONTEND_DIR ? path.resolve(process.env.MAJESTICTAB_FRONTEND_DIR) : path.join(scriptDir, 'frontend-dist');
 const nodeModulesDir = path.join(scriptDir, 'node_modules');
 const androidBuild = process.argv.includes('--android');
 const iosBuild = process.argv.includes('--ios');

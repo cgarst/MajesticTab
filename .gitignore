@@ -32,3 +32,5 @@ __pycache__/
 /.bundle/
 .agents/
 .claude/
+/build/tauri/frontend-dist-*/
+/build/tauri/.frontend-dist-*.lock
