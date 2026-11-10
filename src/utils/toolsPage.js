@@ -43,7 +43,7 @@ export async function releaseEmbeddedTools(keep = false) {
     if (!embedded) return;
     const { id, el, dispose } = embedded;
     embedded = null;
-    if (id === 'openfile' || id === 'classtab' || id === 'stemdeck' || id === 'bulkexport' || id === 'missingtabs') {
+    if (id === 'openfile' || id === 'classtab' || id === 'stemdeck' || id === 'bulkexport' || id === 'missingtabs' || id === 'bulkimport') {
         dispose?.(keep);
         el.remove();
         return;
@@ -100,6 +100,14 @@ async function openTool(id, pane) {
         el.className = 'tool-embedded bulkexport-tool-embedded';
         pane.appendChild(el);
         embedded = { id, el, dispose: renderBulkExportTool(el) };
+        return;
+    }
+    if (id === 'bulkimport') {
+        const { renderBulkImportTool } = await import('../bulkImport/bulkImportTool.js');
+        const el = document.createElement('div');
+        el.className = 'tool-embedded bulkimport-tool-embedded';
+        pane.appendChild(el);
+        embedded = { id, el, dispose: renderBulkImportTool(el) };
         return;
     }
     if (id === 'missingtabs') {

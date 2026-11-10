@@ -102,6 +102,7 @@ import { hasStemDeckSupport } from './stemdeck/stemdeckClient.js';
 import { stemdeckReadout } from './stemdeck/stemdeckTool.js';
 import { bulkExportReadout } from './bulkExport/bulkExportTool.js';
 import { missingTabsReadout } from './bulkFill/missingTabsTool.js';
+import { bulkImportReadout } from './bulkImport/bulkImportTool.js';
 
 let activeView = 'library'; // 'library', 'recents', 'openFile', 'setlists', 'tools', 'settings'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -142,7 +143,9 @@ function initLibraryTopBar() {
     topBarInitialized = true;
 
     window.addEventListener('libraryDataChanged', () => {
-        if (isLibraryOpen()) {
+        // The Tools page shows no library data, and drawing it again would close the tool that caused the change
+        // (an import, a tab saved from the web search walk)
+        if (isLibraryOpen() && activeView !== 'tools') {
             renderLibraryModal();
         }
     });
@@ -4555,6 +4558,7 @@ function renderToolsView(container) {
     const tools = [
         { id: 'openfile', group: 'files', title: 'Open file' },
         { id: 'classtab', group: 'files', title: 'Classical tab browser', readout: classtabReadout },
+        { id: 'bulkimport', group: 'files', title: 'Bulk import', readout: bulkImportReadout },
         { id: 'bulkexport', group: 'files', title: 'Bulk export', readout: bulkExportReadout },
         { id: 'missingtabs', group: 'files', title: 'Fill in missing tabs', readout: missingTabsReadout }
     ];

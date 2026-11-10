@@ -4939,7 +4939,46 @@ body.library-view-active .yt-sheet { display: none !important; }
 
 /* ---------- Bulk Export Tool (Tools > Bulk export) ---------- */
 .tools-shell .tool-pane:has(.bulkexport-tool-embedded) { overflow-y: auto; padding-bottom: 24px; }
-.bulkexport-tool-embedded, .missingtabs-tool-embedded { height: 100%; display: flex; flex-direction: column; }
+.bulkexport-tool-embedded, .missingtabs-tool-embedded, .bulkimport-tool-embedded { height: 100%; display: flex; flex-direction: column; }
+.tools-shell .tool-pane:has(.bulkimport-tool-embedded) { overflow-y: auto; padding-bottom: 24px; }
+/* Bulk import: flat rows on the ground ladder, one tone step for an open row, no outlines */
+.imp-root { max-width: 860px; }
+.imp-strategies { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.imp-strategies legend { float: none; width: auto; margin: 0 0 4px; padding: 0; font-size: 14px; }
+.imp-strategy { min-height: 44px; }
+.imp-help { margin-top: 6px; max-width: 60ch; }
+.imp-top { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
+.imp-actions { margin-top: 0; gap: 4px 16px; }
+.imp-strategy-pick { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+.imp-strategy-pick .form-select { width: auto; }
+.imp-list { display: flex; flex-direction: column; }
+.imp-row { content-visibility: auto; contain-intrinsic-size: auto 56px; border-radius: var(--r-control); }
+.imp-row.is-open { background: var(--s1); content-visibility: visible; }
+@media (hover: hover) { .imp-row:not(.is-open):hover { background: var(--s1); } }
+.imp-line { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 10px; }
+.imp-check { flex-shrink: 0; margin: 0; width: 20px; height: 20px; }
+.imp-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.imp-file { font-size: 12.5px; color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imp-sugg { font-size: 14px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imp-sugg.is-none { color: var(--ink2); }
+.imp-sub { color: var(--ink2); font-size: 12.5px; }
+.imp-state { flex-shrink: 0; font-size: 12.5px; color: var(--ink2); white-space: nowrap; }
+.imp-row.is-attention .imp-state { color: var(--ink); font-weight: 600; }
+.imp-row.is-out .imp-sugg, .imp-row.is-out .imp-file { opacity: .6; }
+.imp-change { flex-shrink: 0; }
+.imp-search { padding: 4px 10px 12px 42px; display: flex; flex-direction: column; gap: 8px; }
+.imp-search-bar { display: flex; align-items: center; gap: 8px; }
+.imp-results { display: flex; flex-direction: column; max-height: 280px; overflow-y: auto; }
+.imp-result { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; border: 0; background: transparent; color: var(--ink); padding: 8px 10px; min-height: 44px; border-radius: var(--r-control); cursor: pointer; }
+@media (hover: hover) { .imp-result:hover { background: var(--s2); } }
+.imp-result.is-picked { background: var(--s3); }
+.imp-result:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.imp-result-main { font-size: 14px; }
+@media (max-width: 576px) {
+  .imp-line { flex-wrap: wrap; }
+  .imp-state { order: 3; }
+  .imp-search { padding-left: 10px; }
+}
 .tools-shell .tool-pane:has(.missingtabs-tool-embedded) { overflow-y: auto; padding-bottom: 24px; }
 .be-field { flex-direction: column; align-items: flex-start; gap: 6px; max-width: 360px; cursor: default; }
 .be-field .form-select { width: 100%; }
