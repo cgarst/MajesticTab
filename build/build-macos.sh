@@ -6,7 +6,9 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 ARGS=()
 for arg in "$@"; do
-    if [ "$arg" = "--debug" ]; then
+    # --dev (alias --debug): the same app and bundle identifier, so it installs over the normal one and keeps its
+    # storage, but with the web inspector open and the debug bridge (port 9555) on
+    if [ "$arg" = "--debug" ] || [ "$arg" = "--dev" ]; then
         ARGS+=("--debug-tools")
     else
         ARGS+=("$arg")
