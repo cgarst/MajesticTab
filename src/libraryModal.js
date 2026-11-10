@@ -3960,7 +3960,7 @@ function setupSongRowActions(container) {
         if (!songId) return;
 
         // Click row's empty space (outside actions) to play default tab
-        row.addEventListener('click', async (e) => {
+        const handleRowClick = async (e) => {
             if (e.target.closest('button, .tab-row, .dropdown, a, input')) return;
             const song = await getSongById(songId);
             if (song && song.tabOptions?.length > 0) {
@@ -3971,7 +3971,16 @@ function setupSongRowActions(container) {
                 const addBtn = row.closest('.library-song-rowwrap')?.querySelector('.song-tabs-add');
                 if (addBtn) toggleSongTabsPicker(addBtn, songId, 'add');
             }
-        });
+        };
+        row.addEventListener('click', handleRowClick);
+        const rowWrap = row.closest('.library-song-rowwrap');
+        if (rowWrap && !rowWrap._hasSongRowClickListener) {
+            rowWrap._hasSongRowClickListener = true;
+            rowWrap.addEventListener('click', (e) => {
+                if (e.target.closest('.library-song-row')) return;
+                handleRowClick(e);
+            });
+        }
 
         row.addEventListener('dragenter', (e) => {
             e.preventDefault();

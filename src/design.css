@@ -1695,6 +1695,117 @@ body.fretboard-open {
   color: var(--ink2);
 }
 
+/* Phone: library song rows give the song title the full width over duration and pin icon,
+   with tuning, audio type and metadata on the second line */
+@media (max-width: 576px) {
+  .library-song-rowwrap {
+    padding: 8px 16px;
+  }
+  .library-song-rowwrap .song-row-container {
+    display: grid !important;
+    grid-template-columns: auto 1fr auto auto;
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    row-gap: 3px;
+    align-items: center;
+    width: 100%;
+  }
+  .library-song-rowwrap .song-row-container:not(:has(.num, .song-cover)) {
+    grid-template-columns: 1fr auto auto;
+  }
+  .library-song-rowwrap .song-row.library-song-row {
+    display: contents !important;
+  }
+  .library-song-row .num,
+  .library-song-row .song-cover {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+    margin: 0 !important;
+    min-width: 24px;
+    text-align: right;
+  }
+  .library-song-row .t {
+    display: contents !important;
+  }
+  .library-song-row .t b {
+    grid-column: 2 / -1;
+    grid-row: 1;
+    font-size: 14.5px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .library-song-rowwrap .song-row-container:not(:has(.num, .song-cover)) .library-song-row .t b {
+    grid-column: 1 / -1;
+  }
+  .library-song-row .t .sub {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap !important;
+    flex-wrap: nowrap !important;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--ink2);
+    line-height: 1.2;
+    margin: 0 !important;
+  }
+  .library-song-rowwrap .song-row-container:not(:has(.num, .song-cover)) .library-song-row .t .sub {
+    grid-column: 1;
+  }
+  .library-song-row .end {
+    display: inline-flex !important;
+    align-items: center;
+    grid-column: 3;
+    grid-row: 2;
+    font-size: 13px;
+    color: var(--ink2);
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    justify-self: end;
+  }
+  .library-song-rowwrap .song-row-container:not(:has(.num, .song-cover)) .library-song-row .end {
+    grid-column: 2;
+  }
+  .library-song-rowwrap .song-actions .song-tabs-spacer {
+    display: none !important;
+  }
+  .library-song-rowwrap .song-actions {
+    grid-column: 4;
+    grid-row: 2;
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    padding-right: 0 !important;
+    justify-self: end;
+  }
+  .library-song-rowwrap .song-row-container:not(:has(.num, .song-cover)) .song-actions {
+    grid-column: 3;
+  }
+  .library-song-rowwrap .song-actions .song-tabs-btn {
+    width: auto !important;
+    min-height: 32px;
+    padding: 0 4px;
+    font-size: 13px;
+  }
+  .library-song-rowwrap .song-actions .btn-theme-icon {
+    min-width: 32px;
+    padding: 0;
+  }
+  .library-song-rowwrap:has(.library-song-row:focus-visible) {
+    outline: 2px solid var(--hue);
+    outline-offset: -2px;
+  }
+}
+
 
 
 
@@ -5125,9 +5236,6 @@ body.library-view-active .yt-sheet { display: none !important; }
 
 /* Library rows: file type and audio sit with the meta; on a narrow row the artist/album and tuning give way, these stay whole */
 .library-song-row .sub .song-format, .library-song-row .sub .song-audio { flex: none; overflow: visible; }
-@media (max-width: 576px) {
-  .library-song-row .t .sub { flex-wrap: wrap; row-gap: 2px; white-space: normal; }
-}
 
 /* ---------- Bulk Export Tool (Tools > Bulk export) ---------- */
 .tools-shell .tool-pane:has(.bulkexport-tool-embedded) { overflow-y: auto; padding-bottom: 24px; }
