@@ -1,0 +1,2 @@
+- Sound panels no longer have a close button; press outside or Escape to dismiss
+- New action in the track list to update the library metadata for an album and its songs
