@@ -98,7 +98,11 @@ export async function buildMtab(file) {
     const headerBytes = new TextEncoder().encode(JSON.stringify(header));
     const length = new Uint8Array(4);
     new DataView(length.buffer).setUint32(0, headerBytes.length);
-    const base = name.replace(/\.[^.]+$/, '') || 'song';
+    // "Artist - Song", never the original file's name; characters a file system rejects are dropped
+    const clean = (s) => String(s || '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim();
+    const artist = clean(header.song.artist);
+    const title = clean(header.song.title);
+    const base = (artist && title ? `${artist} - ${title}` : title || artist) || name.replace(/\.[^.]+$/, '') || 'song';
     return {
         blob: new Blob([MAGIC, length, headerBytes, ...parts], { type: 'application/x-majestictab-song' }),
         filename: `${base}.${MTAB_EXTENSION}`
