@@ -3,7 +3,7 @@
 // Every result keeps its candidates so the page can offer them when the first choice is not the right one.
 
 import { searchMusicBrainz } from '../musicbrainz.js';
-import { normName, sameArtist, sameTitle } from './pairing.js';
+import { normName, sameArtist, sameTitle, closeTitle, stripArtistPrefix } from './pairing.js';
 
 const cache = new Map(); // search text -> candidates (a folder of one album asks MusicBrainz about each song once)
 
@@ -31,12 +31,12 @@ export async function searchSongs(text, { signal } = {}) {
 
 /** Songs already in the library that read as this one. Same album first. */
 export function findInLibrary(parsed, songs) {
-    const hits = songs.filter((s) => sameTitle(s.title, parsed.title) && (!parsed.artist || sameArtist(s.artist, parsed.artist)));
+    const hits = songs.filter((s) => closeTitle(s.title, parsed.title) && (!parsed.artist || sameArtist(s.artist, parsed.artist)));
     hits.sort((a, b) => Number(sameTitle(b.album, parsed.album)) - Number(sameTitle(a.album, parsed.album)));
     return hits.map(fromLibrary);
 }
 
-const rank = (c, parsed) => (sameTitle(c.title, parsed.title) ? 4 : 0)
+const rank = (c, parsed) => (closeTitle(c.title, parsed.title) ? 4 : 0)
     + (parsed.artist && sameArtist(c.artist, parsed.artist) ? 2 : 0)
     + (parsed.album && sameTitle(c.album, parsed.album) ? 1 : 0);
 
@@ -47,14 +47,37 @@ const rank = (c, parsed) => (sameTitle(c.title, parsed.title) ? 4 : 0)
  *   maybe: something came back, but the name or artist differs: the person should look
  *   none: nothing to offer
  */
+const MAX_SEARCHES = 6; // MusicBrainz answers one request a second: a hard file gets a few tries, not a dozen
+
+/**
+ * A path can read more than one way (Rock/Boston/song: artist Rock, or artist Boston), and a leading number can be a track
+ * number or part of the song ("1 Pull Me Under", "7 Rings"). The library is asked about every reading first (free), then
+ * MusicBrainz about each in turn until one gives a sure answer. Without one, the first reading's answer is kept.
+ */
 export async function lookup(parsed, { songs = [], signal } = {}) {
-    const first = await lookupTitle(parsed, { songs, signal });
-    // "1 Pull Me Under" read as track 1: if that found nothing sure, try the whole name as the title ("7 Rings")
-    if (parsed?.altTitle && first.status !== 'match' && first.status !== 'library') {
-        const second = await lookupTitle({ ...parsed, title: parsed.altTitle }, { songs, signal });
-        if (second.status === 'match' || second.status === 'library') return second;
+    if (!parsed?.title) return { status: 'none', pick: null, candidates: [] };
+    const base = parsed.rawTitle ?? parsed.title;
+    const readings = [{ artist: parsed.artist, album: parsed.album || '' }, ...(parsed.alts || [])];
+    // The song's name alone is the last resort: it can only ever be a guess
+    if (parsed.artist) readings.push({ artist: '', album: '' });
+    const attempts = [];
+    readings.forEach((h, i) => {
+        const titles = [i === 0 ? parsed.title : stripArtistPrefix(base, h.artist)];
+        if (parsed.altTitle) titles.push(stripArtistPrefix(parsed.altTitle, h.artist));
+        [...new Set(titles.filter(Boolean))].forEach((title) => attempts.push({ ...parsed, ...h, title }));
+    });
+    for (const a of attempts) {
+        if (!a.artist) continue;
+        const known = findInLibrary(a, songs);
+        if (known.length) return { status: 'library', pick: known[0], candidates: known };
     }
-    return first;
+    let best = null;
+    for (const a of attempts.slice(0, MAX_SEARCHES)) {
+        const r = await lookupTitle(a, { songs: [], signal });
+        if (r.status === 'match') return r;
+        if (!best && r.status !== 'none') best = r;
+    }
+    return best || { status: 'none', pick: null, candidates: [] };
 }
 
 async function lookupTitle(parsed, { songs, signal }) {

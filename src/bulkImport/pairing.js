@@ -37,7 +37,15 @@ export function stripTrackNumber(name, { loose = false } = {}) {
 export function cleanSongTitle(title) {
     let t = clean(title);
     t = t.replace(/\s*[\(\[][^)\]]*\b(?:tabs?|guitar pro|power tab|gp[345x]?|ver(?:sion)?\.?\s*\d+|v\d+|official|pro)\b[^)\]]*[\)\]]/gi, '');
-    t = t.replace(/\s+(?:tabs?|guitar pro|ver(?:sion)?\.?\s*\d+)$/i, '');
+    // Trailing leftovers, one at a time: "ver2 JR", "(Majestic)", "(2)", " GP", " chords", a saved date "#9-08-11-2026"
+    for (let i = 0; i < 4; i++) {
+        const before = t;
+        t = t.replace(/\s+(?:tabs?|chords?|guitar pro|gp\d?|pro)$/i, '')
+            .replace(/\s+ver(?:sion)?\.?\s*\d+\w*(?:\s+[A-Za-z]{1,4})?$/i, '')
+            .replace(/\s*\((?:majestic|\d{1,2})\)$/i, '')
+            .replace(/\s*#[\d-]{6,}$/, '');
+        if (t === before) break;
+    }
     return t.replace(/\s+/g, ' ').trim();
 }
 
@@ -58,19 +66,59 @@ export function parseArtistSong(baseName) {
     return { artist: m[1].trim(), album: '', title: cleanSongTitle(m[2]), trackNumber };
 }
 
+// Folders that name a kind of music or of file, not an artist or an album: they are skipped
+const GENERIC_FOLDER = /^(chords?|lessons?|videos?|classical|metal|prog(?:ressive)?(?: rock| metal)?|rock|pop|jazz|blues|country|folk|punk|funk|soul|r ?(?:and|n) ?b|hip hop|rap|reggae|electronic|acoustic|fingerstyle|exports?|majestic ?exports?|tabs?|guitar|bass|drums?|music|songs?|misc(?:ellaneous)?|various(?: artists)?|compilations?|unsorted|downloads?|new)$/i;
+// Folders inside an album that only hold versions or kinds of file
+const NOISE_FOLDER = /^(alt(?:ernates?|ernatives?)?|archive|archived|secondary|old|extras?|bonus|resources|other|pdfs?|gp\d?|(?:pdf|guitar pro(?: \d)?|gp)(?: tab)?(?: books?| files?| tabs?)?|tabs?)$/i;
+const folderKey = (s) => normName(cleanAlbumName(s));
+const skippable = (s) => GENERIC_FOLDER.test(folderKey(s)) || NOISE_FOLDER.test(folderKey(s));
+
+/** A leading artist name on a song ("metallica_blackened", "Dream Theater - Night Terror") goes. The song's own name stays. */
+export function stripArtistPrefix(title, artist) {
+    const words = normName(artist).split(' ').filter(Boolean);
+    if (!words.length || normName(artist).length < 3) return title;
+    const re = new RegExp('^' + words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s_.\\-]*') + '(?:\\s*[-–—:]\\s*|[\\s_.]+)(?=\\S)', 'iu');
+    const rest = String(title).replace(re, '').trim();
+    return rest && rest !== title ? rest : title;
+}
+
 /**
- * Artist/Album/Song: the two folders above the file, the album's own, then the artist's. `dirs` run from the chosen folder
- * down, the chosen folder's own name first. One folder is an artist. No folder gives no artist.
+ * The ways a path can read as artist and album, best first. The folders above the file, from the chosen folder down, with the
+ * chosen folder's own name first. Genre and kind-of-file folders (Rock, Chords) and version folders (Alt, Guitar Pro files)
+ * are left out; of what remains the two nearest the file are the artist and the album, then the nearer one alone as the
+ * artist, then readings that skip a folder (an artist, album and a stray folder between). A reading whose artist is named at
+ * the start of the file's own name comes first.
+ */
+export function folderHypotheses(dirs, baseName = '') {
+    const d = (dirs || []).map(clean).filter(Boolean);
+    const [root, ...inside] = d;
+    let L = inside.filter((x) => !skippable(x));
+    if (!L.length && root && !skippable(root)) L = [root];
+    const n = L.length;
+    const out = [];
+    // A folder with an order number or a year in front ("02 - Images and Words") is an album, never the artist
+    const add = (artist, album) => { if (artist && cleanAlbumName(artist) === artist) out.push({ artist, album: album ? cleanAlbumName(album) : '' }); };
+    if (n >= 2) add(L[n - 2], L[n - 1]);
+    if (n >= 1) add(L[n - 1], '');
+    if (n >= 3) { add(L[n - 3], L[n - 2]); add(L[n - 3], L[n - 1]); }
+    const seen = new Set();
+    const unique = out.filter((h) => { const k = normName(h.artist) + '|' + normName(h.album); if (seen.has(k)) return false; seen.add(k); return true; });
+    const name = normName(baseName);
+    const named = (h) => { const a = normName(h.artist); return a.length >= 3 && name.includes(a); };
+    return [...unique.filter(named), ...unique.filter((h) => !named(h))];
+}
+
+/**
+ * Artist/Album/Song: see folderHypotheses. Returns the best reading and the others as `alts`.
  */
 export function parseFolders(dirs, baseName) {
-    const { title, trackNumber, altTitle } = stripTrackNumber(clean(baseName), { loose: true });
-    const d = (dirs || []).map(clean).filter(Boolean);
-    let artist = '';
-    let album = '';
-    if (d.length >= 2) { artist = d[d.length - 2]; album = cleanAlbumName(d[d.length - 1]); }
-    else if (d.length === 1) artist = d[0];
-    const out = { artist, album, title: cleanSongTitle(title), trackNumber };
+    const { title, trackNumber, altTitle } = stripTrackNumber(clean(baseName), { loose: (dirs || []).length >= 3 });
+    const hyps = folderHypotheses(dirs, baseName);
+    const first = hyps[0] || { artist: '', album: '' };
+    const raw = cleanSongTitle(title);
+    const out = { artist: first.artist, album: first.album, title: stripArtistPrefix(raw, first.artist), rawTitle: raw, trackNumber };
     if (altTitle) out.altTitle = cleanSongTitle(altTitle);
+    if (hyps.length > 1) out.alts = hyps.slice(1);
     return out;
 }
 
@@ -108,7 +156,7 @@ export function pairFile(entry, strategy, meta = null) {
     }
     // auto: how the person laid the files out beats what a tabber typed into the file
     const fromFile = fromMetadata(meta);
-    const real = (entry.dirs || []).slice(1); // the folders inside the chosen one
+    const real = (entry.dirs || []).slice(1).filter((x) => !skippable(x)); // the folders inside the chosen one that mean something
     if (real.length >= 2) {
         const p = parseFolders(entry.dirs, base);
         if (p.artist && p.title) return { ...p, via: 'folders' };
@@ -117,7 +165,7 @@ export function pairFile(entry, strategy, meta = null) {
     if (named.artist && named.title) return { ...named, via: 'artist-song' };
     if (fromFile && fromFile.artist) return { ...fromFile, via: 'metadata' };
     if (real.length === 1) {
-        const p = parseFolders(real, base);
+        const p = parseFolders(entry.dirs, base);
         if (p.artist && p.title) return { ...p, via: 'folders' };
     }
     // A title alone still searches; the artist comes from the lookup
@@ -137,6 +185,27 @@ export function sameTitle(a, b) {
     const x = normName(a);
     const y = normName(b);
     return Boolean(x) && x === y;
+}
+
+const ROMAN = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10 };
+/** A title in the form two versions of it are compared in: no "(album mix)", no leading "The", "Part II" as "part 2". */
+function titleKey(s) {
+    const t = String(s ?? '').replace(/\s*[\(\[][^)\]]*\b(?:mix|version|remaster(?:ed)?|edit|mono|stereo|live|demo|alternate|bonus|album)\b[^)\]]*[\)\]]/gi, '');
+    return normName(t).replace(/^the /, '').replace(/\bpart (i{1,3}|iv|v|vi{1,3}|ix|x)\b/g, (_, r) => `part ${ROMAN[r]}`);
+}
+
+/**
+ * The same song under a looser reading than sameTitle: one title may carry more in front of the other
+ * ("Six Degrees of Inner Turbulence: II. About to Crash", "jimi hendrix all along the watchtower"), when what is left is at
+ * least two words.
+ */
+export function closeTitle(a, b) {
+    const x = titleKey(a);
+    const y = titleKey(b);
+    if (!x || !y) return false;
+    if (x === y) return true;
+    const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+    return short.split(' ').length >= 2 && long.endsWith(` ${short}`);
 }
 
 /** Why a pairing was chosen, in the words the page shows. */
