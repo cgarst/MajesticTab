@@ -159,6 +159,14 @@ def prepare_channel_frontend(channel):
     subprocess.run(["node", str(ROOT / "build" / "verify-channel.mjs"), channel], check=True)
 
 
+def _frontend_matches(cfg):
+    try:
+        live = json.loads((FRONTEND_DIR / "channel.json").read_text())
+    except (OSError, ValueError):
+        return False
+    return all(live.get(k) == v for k, v in cfg.items())
+
+
 class _Server(http.server.ThreadingHTTPServer):
     request_queue_size = 256  # default backlog of 5 resets connections during the app's module-load burst
 
@@ -552,11 +560,10 @@ def run_store(args, name):
     out = Path(args.out_dir).resolve() if args.out_dir else OUT_ROOT / store.get("out", name)
     raw_dir = out / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
-    if not args.only:
-        for f in out.glob("[0-9][0-9]-*.png"):
-            f.unlink(missing_ok=True)
     shots = [s for s in SHOTS if (not args.only or s["id"] in args.only)]
-    if not args.no_prepare and _prepared != channel:
+    # Re-prepare when the frontend on disk is not this channel's, even if this process prepared it earlier
+    # (something else, such as another build, may have rewritten build/tauri/frontend-dist since).
+    if not args.no_prepare and (_prepared != channel or not _frontend_matches(cfg)):
         prepare_channel_frontend(channel)
         _prepared = channel
     httpd, base = start_channel_server(store.get("safe_area"))
@@ -584,6 +591,10 @@ def run_store(args, name):
             live = page.evaluate("fetch('/src/channel.json', {cache: 'no-store'}).then(r => r.ok ? r.json() : null)")
             if live is None or any(live.get(k) != v for k, v in cfg.items()):
                 raise SystemExit(f"App is not running as the {channel} channel: {live}")
+            # Only now clear the old shots, so a failed run leaves the committed ones alone.
+            if not args.only:
+                for f in out.glob("[0-9][0-9]-*.png"):
+                    f.unlink(missing_ok=True)
             n = 0
             for shot in SHOTS:
                 if shot.get("requires") and not has_feature(cfg, shot["requires"]):
