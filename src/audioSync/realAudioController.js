@@ -138,6 +138,11 @@ export function updateRealAudioDockIcon() {
 /**
  * Apply playback speed to both YouTube and Local Audio engines, and update UI pills.
  */
+/** The speed of the recording that is playing, as a multiplier (1 = normal). */
+export function getRealAudioRate() {
+    return state.rate;
+}
+
 export function setRealAudioRate(rate) {
     state.rate = rate;
     setYouTubePlaybackRate(rate);

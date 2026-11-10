@@ -6,6 +6,8 @@
 
 import { showPanel, hidePanel, isShown, placePanel, outsideTapCloses } from './readerPanels.js';
 import { isTabletop } from '../foldState.js';
+import { getRealAudioActiveSource, getRealAudioRate, setRealAudioRate } from '../audioSync/realAudioController.js';
+import { nextPercentRate } from './practiceSpeed.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -21,7 +23,16 @@ function activePresets() {
     }));
 }
 
+/**
+ * A local audio file can play at any speed, so its plus and minus move one percent. YouTube only plays the speeds it
+ * offers (it snaps to the nearest), so a video keeps stepping through the presets.
+ */
+function onLocalRecording() {
+    return onRecording() && getRealAudioActiveSource() === 'local';
+}
+
 function currentSpeedLabel() {
+    if (onLocalRecording()) return `${Math.round(getRealAudioRate() * 100)}%`;
     if (onRecording()) {
         const a = document.querySelector('#realAudioRates button.active');
         return a ? a.textContent.trim() : '100%';
@@ -92,7 +103,9 @@ export function initPracticeMenu() {
         }));
     }
     function step(dir) {
-        if (onRecording()) {
+        if (onLocalRecording()) {
+            setRealAudioRate(nextPercentRate(getRealAudioRate(), dir));
+        } else if (onRecording()) {
             const list = activePresets();
             const i = list.findIndex((p) => p.active);
             const start = i < 0 ? list.findIndex((p) => p.value === 1) : i;
