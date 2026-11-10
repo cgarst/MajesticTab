@@ -1,0 +1,5 @@
+- Bulk import: pair a folder of tabs or audio files with MusicBrainz songs, and import as custom music
+- Backing tracks: make them with StemDeck from Tools, in MP3 or FLAC
+- Local audio files play with an exact clock after a seek, and plus and minus set speed by 1%
+- Song files export as Artist - Song.mtab; audio is always included in backups and sync
+- iPhone Duo: tabletop and book layouts; the five words open sheets from the bottom

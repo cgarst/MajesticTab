@@ -2,7 +2,7 @@
   "identifier": "net.zathu.majestictab",
   "bundle": {
     "android": {
-      "versionCode": 1001000
+      "versionCode": 1001001
     },
     "icon": [
       "icons/android/mipmap-xxxhdpi/ic_launcher.png"
