@@ -14,13 +14,23 @@ const tauriDir = path.join(scriptDir, 'tauri');
 const distDir = path.join(rootDir, 'dist');
 const target = process.argv[2];
 const channelOption = process.argv.slice(3).find((option) => option.startsWith('--channel='));
-const buildOptions = process.argv.slice(3).filter((option) => option !== channelOption);
+const abiOption = process.argv.slice(3).find((option) => option.startsWith('--abi='));
+const buildOptions = process.argv.slice(3).filter((option) => option !== channelOption && option !== abiOption);
 const channel = channelOption ? channelOption.slice('--channel='.length) : DEFAULT_CHANNEL;
 const channelCapabilities = isValidChannel(channel) ? channels[channel].capabilities : {};
 const debugTools = buildOptions.includes('--debug-tools') || buildOptions.includes('--debug');
 const macosX64 = buildOptions.includes('--x86_64');
 const windowsArm64 = buildOptions.includes('--arm64');
 const macosAppStore = buildOptions.includes('--appstore') || channel === 'appstore-mac';
+// The fdroid channel builds one APK per ABI (F-Droid has no split support of its own: one Builds entry each). The digit
+// is added to the versionCode (10 * versionCode + digit, F-Droid's VercodeOperation) so that on a device that runs
+// several the highest wins: armeabi-v7a < arm64-v8a < x86 < x86_64.
+const fdroidAbis = {
+  'armeabi-v7a': { tauriTarget: 'armv7', versionDigit: 1 },
+  'arm64-v8a': { tauriTarget: 'aarch64', versionDigit: 2 },
+  x86_64: { tauriTarget: 'x86_64', versionDigit: 4 },
+};
+const abi = abiOption ? abiOption.slice('--abi='.length) : null;
 const validTargets = ['windows', 'macos', 'linux', 'android', 'ios'];
 async function loadEnvFiles() {
   const possiblePaths = [
@@ -267,11 +277,18 @@ if (installedVersions.some((installed) => !installed)) {
 // tauri.conf.json is the only place the release version is set; everything else derives from it.
 const appVersion = JSON.parse(await readFile(path.join(tauriDir, 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
 
+if (abi && !(channel === 'fdroid' && abi in fdroidAbis)) {
+  fail(`--abi is only for the fdroid channel, with one of: ${Object.keys(fdroidAbis).join(', ')}.`);
+}
+if (channel === 'fdroid' && target === 'android' && !abi) {
+  fail(`The fdroid channel builds one APK per ABI: pass --abi=${Object.keys(fdroidAbis).join('|')}.`);
+}
+
 // Tauri derives the Android versionCode from the version (major * 1000000 + minor * 1000 + patch). F-Droid reads it
 // with a regex and cannot run that formula, so tauri.android.conf.json carries it literally; keep it in step here.
+const [major, minor, patch] = appVersion.split('.').map(Number);
+const expectedVersionCode = major * 1_000_000 + minor * 1_000 + patch;
 if (target === 'android') {
-  const [major, minor, patch] = appVersion.split('.').map(Number);
-  const expectedVersionCode = major * 1_000_000 + minor * 1_000 + patch;
   const androidConf = JSON.parse(await readFile(path.join(tauriDir, 'src-tauri', 'tauri.android.conf.json'), 'utf8'));
   if (androidConf.bundle?.android?.versionCode !== expectedVersionCode) {
     fail(`tauri.android.conf.json bundle.android.versionCode is ${androidConf.bundle?.android?.versionCode}, but version ${appVersion} needs ${expectedVersionCode}.`);
@@ -480,7 +497,13 @@ if (target === 'android') {
     fail('ANDROID_KEYSTORE_FILE requires ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS.');
   }
   // Google Play only accepts an AAB, so the play channel also bundles one beside the APK.
-  // Every Android build carries arm64, armv7 and x86_64 (emulators, ChromeOS, x86 tablets), giving one universal APK.
+  // The play channel carries arm64, armv7 and x86_64 (emulators, ChromeOS, x86 tablets) in one APK and AAB. The fdroid
+  // channel builds one ABI per run (--abi), with its own versionCode.
+  const abiConfig = abi ? fdroidAbis[abi] : null;
+  const androidTargets = abiConfig ? [abiConfig.tauriTarget] : ['aarch64', 'armv7', 'x86_64'];
+  const versionCodeArgs = abiConfig
+    ? ['--config', JSON.stringify({ bundle: { android: { versionCode: expectedVersionCode * 10 + abiConfig.versionDigit } } })]
+    : [];
   const buildAab = channel === 'play';
   // Without a keystore the fdroid channel builds an unsigned release (not the debug build used for local runs).
   const unsignedRelease = channel === 'fdroid' && !signRelease;
@@ -490,7 +513,7 @@ if (target === 'android') {
   const outputsDir = path.join(androidProject, 'app', 'build', 'outputs');
   await rm(path.join(outputsDir, 'apk'), { recursive: true, force: true });
   await rm(path.join(outputsDir, 'bundle'), { recursive: true, force: true });
-  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', ...(buildAab ? ['--aab'] : []), ...(signRelease || unsignedRelease ? [] : ['--debug']), '--target', 'aarch64', 'armv7', 'x86_64']);
+  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', ...(buildAab ? ['--aab'] : []), ...(signRelease || unsignedRelease ? [] : ['--debug']), ...versionCodeArgs, '--target', ...androidTargets]);
   await verifyOrExit(channel, { androidProject });
   const apk = await findAndroidArtifact(path.join(outputsDir, 'apk'), '.apk');
   if (!apk) fail('Tauri completed without producing an Android APK.');
@@ -501,7 +524,7 @@ if (target === 'android') {
     const ext = process.platform === 'win32' ? '.bat' : '';
     const aligned = path.join(distDir, 'MajesticTab-android-aligned.apk');
     // The fdroid channel (no Google Play services, no self-update) is the GitHub release's second APK.
-    const signed = path.join(distDir, channel === 'fdroid' ? 'MajesticTab-android-no-gms-no-update.apk' : 'MajesticTab-android.apk');
+    const signed = path.join(distDir, channel === 'fdroid' ? `MajesticTab-android-no-gms-no-update-${abi}.apk` : 'MajesticTab-android.apk');
     run(path.join(buildTools, 'zipalign' + (process.platform === 'win32' ? '.exe' : '')), ['-f', '-p', '4', apk, aligned]);
     run(path.join(buildTools, 'apksigner' + ext), [
       // Keep zipalign's layout: apksigner would otherwise realign the entries, and F-Droid's reproducible-build check

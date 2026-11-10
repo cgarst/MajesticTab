@@ -142,7 +142,12 @@ jobs:
   # The fdroid channel (no Google Play services, no self-update) signed with the release key. F-Droid verifies its own
   # build against this APK; it is its own job so the Android project is not reused. It must stay identical to F-Droid's
   # recipe (fdroiddata metadata/net.zathu.majestictab.yml): the same Debian packages, Rust and NDK, installed the same way.
+  # One APK per ABI, like F-Droid's one Builds entry each (ABI split): armeabi-v7a, arm64-v8a and x86_64.
   android-no-gms:
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [armeabi-v7a, arm64-v8a, x86_64]
     runs-on: ubuntu-latest
     container: debian:trixie
     env:
@@ -176,14 +181,14 @@ jobs:
           test -n "$ANDROID_KEYSTORE_B64" || { echo "::error::Missing ANDROID_KEYSTORE_B64 secret"; exit 1; }
           echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-      - run: node build/build-tauri.mjs android --channel=fdroid
+      - run: node build/build-tauri.mjs android --channel=fdroid --abi=${{ matrix.abi }}
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       - uses: actions/upload-artifact@v7
         with:
-          name: android-no-gms
+          name: android-no-gms-${{ matrix.abi }}
           path: dist/*.apk
           if-no-files-found: error
 

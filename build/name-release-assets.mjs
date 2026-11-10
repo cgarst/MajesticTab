@@ -23,7 +23,8 @@ const rules = [
   [/^MajesticTab-aarch64(\.flatpak)$/, 'linux-aarch64'],
   [/^MajesticTab-android(\.apk)$/, 'android'],
   // The fdroid channel: no Google Play services, no self-update (build-tauri.mjs names its signed APK this way).
-  [/^MajesticTab-android-no-gms-no-update(\.apk)$/, 'android-no-gms-no-update'],
+  // One APK per ABI (F-Droid's ABI split); the combined APK is no longer built.
+  [/^MajesticTab-android-no-gms-no-update-(armeabi-v7a|arm64-v8a|x86_64)(\.apk)$/, 'android-no-gms-no-update-$1'],
   [/^MajesticTab-ios(\.ipa)$/, 'ios'],
 ];
 
@@ -31,7 +32,7 @@ for (const name of await readdir(artifactsDir)) {
   for (const [pattern, label] of rules) {
     const match = pattern.exec(name);
     if (!match) continue;
-    const renamed = `MajesticTab-${version}-${label}${match[1]}`;
+    const renamed = `MajesticTab-${version}-${label.replace('$1', match[2] ? match[1] : '')}${match[2] ?? match[1]}`;
     await rename(path.join(artifactsDir, name), path.join(artifactsDir, renamed));
     console.log(`${name} -> ${renamed}`);
     break;

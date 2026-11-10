@@ -86,7 +86,7 @@ jobs:
 
       - name: Build
         shell: bash
-        run: node build/build-tauri.mjs "$TARGET" --channel=${{ inputs.channel }}
+        run: node build/build-tauri.mjs "$TARGET" --channel=${{ inputs.channel }} ${{ inputs.channel == 'fdroid' && '--abi=arm64-v8a' || '' }}
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
