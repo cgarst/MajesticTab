@@ -98,6 +98,31 @@ export function preferredSlot(songKey) {
     return songKey && read(LAST_SLOT_KEY(songKey)) === 'backing' ? 'backing' : 'original';
 }
 
+/**
+ * Files linked to the song that no slot uses (a restore from a backup that did not save slots, or a file added some other way):
+ * a slot with no file and no source chosen takes the first file whose name fits it ("backing track" or "no guitar" is the
+ * Backing track, any other name the Original). A slot the player set up, or set to a video, is left alone.
+ * Returns true when a slot was filled.
+ */
+export function adoptUnassignedAudio(songKey, files) {
+    if (!songKey || !files?.length) return false;
+    const enc = encodeURIComponent(String(songKey).toLowerCase());
+    const used = new Set(SLOTS.map((slot) => read(slotFileKey(songKey, slot))).filter(Boolean));
+    let changed = false;
+    for (const slot of SLOTS) {
+        if (read(slotFileKey(songKey, slot)) || read(slotSourceKey(songKey, slot))) continue;
+        if (slot === 'original' && read(`audio_file_last_${enc}`)) continue;
+        const file = files.find((f) => !used.has(f.id) && BACKING_NAME.test(f.name || '') === (slot === 'backing'));
+        if (!file) continue;
+        write(slotFileKey(songKey, slot), file.id);
+        if (slot === 'original') write(`audio_file_last_${enc}`, file.id);
+        write(slotSourceKey(songKey, slot), 'local');
+        used.add(file.id);
+        changed = true;
+    }
+    return changed;
+}
+
 /** Records a stored file as the song's audio and makes it the slot's file under the library key. */
 export function attachLibraryAudio(song, audioId, slot) {
     const list = readLibraryAudio(song.id).filter((e) => !(e.audioId === audioId && e.slot === slot));

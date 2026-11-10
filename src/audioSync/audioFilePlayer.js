@@ -14,6 +14,7 @@ import {
     setAudioExcluded, setAudioPeaks, relinkAudioFile
 } from './audioFileStore.js';
 import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
+import { adoptUnassignedAudio } from './libraryAudio.js';
 import { isJamHosting, JAM_BRIDGE_EVENT } from './jamBridge.js';
 import { listRecords, loadRecord, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { mountSyncRow } from './audioSyncUi.js';
@@ -133,6 +134,9 @@ async function refreshFiles() {
     // A song's identity changes once its score has been read; drop a listing made for the earlier one
     if (songKey !== getSongKey()) return;
     state.files = files;
+    // Files the song has but no slot uses (for example from a backup made before slots were saved) fill the empty slots
+    const adopted = adoptUnassignedAudio(songKey, files);
+    if (adopted) window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
     const stored = new Set(state.files.map(f => f.id));
     state.missing = listRecords(songKey)
         .filter(r => r.media.kind === 'local' && !stored.has(r.media.audioId))
