@@ -8,7 +8,7 @@ import {
 import { getSongById, getAllSongs, getRecents } from './libraryStore.js';
 import { getPlaceholderCoverSvg, hydrateCachedImages, getSynchronousCachedArtUrl } from './musicbrainz.js';
 import { playSetlist } from './setlistPlayer.js';
-import { openThemedInputModal, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, libraryPaneHeadHtml, bindTwoPaneFilter } from './libraryModal.js';
+import { openThemedInputModal, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, setlistsEmptyWelcomeHtml, libraryPaneHeadHtml, bindTwoPaneFilter } from './libraryModal.js';
 import { getCurrentFile } from './main.js';
 import { visibleTuningsForSong, visibleTuningLabel, isTuningHiddenForSong } from './utils/tuningUtils.js';
 import { showToast } from './utils/toast.js';
@@ -90,12 +90,7 @@ async function renderSetlistsPage(container, onBack) {
         <div class="library-page-container setlists-view">
           ${headerHtml}${toolbarHtml}
           <div class="setlists-body">
-            ${libraryEmptyStateHtml({
-                icon: 'bi-collection-play',
-                title: 'No setlists yet',
-                message: 'Create a setlist, then add songs from your library, recents or tunings, or from a tab\'s notation menu.',
-                actionsHtml: newBtnHtml
-            })}
+            ${setlistsEmptyWelcomeHtml()}
           </div>
         </div>`;
         bindSetlistsChrome(container, rerender);

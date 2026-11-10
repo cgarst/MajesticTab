@@ -2251,6 +2251,31 @@ export function libraryEmptyWelcomeHtml({ title, subtitle }) {
     `;
 }
 
+// Introduces setlists when there are none: what they are for, and the one button that makes the first
+export function setlistsEmptyWelcomeHtml() {
+    const row = (title, desc) => `
+          <div class="empty-info-row" role="listitem">
+            <div class="empty-action-content">
+              <div class="empty-action-title">${title}</div>
+              <div class="empty-action-desc">${desc}</div>
+            </div>
+          </div>`;
+    return `
+    <div class="empty-welcome-container" role="region" aria-label="About setlists">
+      <div class="empty-welcome-hero">
+        <h2 class="empty-welcome-title">Setlists</h2>
+        <p class="empty-welcome-sub">Put songs in order for a gig, a lesson or a practice session, and play straight through.</p>
+        <div class="empty-welcome-cta-group">
+          <button type="button" class="btn btn-theme-primary empty-primary-btn" id="newSetlistBtn">New setlist</button>
+        </div>
+      </div>
+      <div class="empty-welcome-section">
+        <div class="empty-action-list" role="list">${row('Songs in your order', 'Add from your library, recents or tunings, then move them up or down.')}${row('Know the set before you play it', 'See the total time and tuning changes for the whole set.')}${row('Play straight through', 'Start set opens each tab in turn, with Previous and Next to move between songs.')}
+        </div>
+      </div>
+    </div>`;
+}
+
 // Count on the left, primary action (plus any secondary controls) on the right
 export function libraryListToolbarHtml({ count = '', leftHtml = '', actionsHtml = '' }) {
     return `<div class="library-list-toolbar">
@@ -2557,31 +2582,35 @@ function setupLibraryFilter(container, context = {}) {
         searchSubView = { type: 'artist-albums', artistMbid, artistName, originalQuery, fromView: 'library' };
         const thisFetchToken = ++currentExploreArtistToken;
 
-        targetContainer.innerHTML = `
-        <div class="search-artist-albums-view">
-          <div class="search-subview-head d-flex align-items-center justify-content-between mb-3">
-            <button type="button" class="search-back-btn" id="backToSearchCatalogBtn">
-              <i class="bi-chevron-left" aria-hidden="true"></i> <span>Search</span>
-            </button>
-            <div class="d-flex align-items-center gap-2 min-w-0">
-              <span class="fw-semibold text-truncate" style="color: var(--ink);">${escapeHtml(artistName)}</span>
-              <span class="small" style="color: var(--ink2);">· Studio Albums</span>
+        const spinnerTimer = setTimeout(() => {
+            if (thisFetchToken !== currentExploreArtistToken) return;
+            targetContainer.innerHTML = `
+            <div class="search-artist-albums-view">
+              <div class="search-subview-head d-flex align-items-center justify-content-between mb-3">
+                <button type="button" class="search-back-btn" id="backToSearchCatalogBtn">
+                  <i class="bi-chevron-left" aria-hidden="true"></i> <span>Search</span>
+                </button>
+                <div class="d-flex align-items-center gap-2 min-w-0">
+                  <span class="fw-semibold text-truncate" style="color: var(--ink);">${escapeHtml(artistName)}</span>
+                  <span class="small" style="color: var(--ink2);">· Studio Albums</span>
+                </div>
+              </div>
+              <div class="text-center py-5 text-muted">
+                <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
+                <div>Loading studio albums for ${escapeHtml(artistName)}…</div>
+              </div>
             </div>
-          </div>
-          <div class="text-center py-5 text-muted">
-            <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
-            <div>Loading studio albums for ${escapeHtml(artistName)}…</div>
-          </div>
-        </div>
-        `;
+            `;
 
-        targetContainer.querySelector('#backToSearchCatalogBtn')?.addEventListener('click', () => {
-            searchSubView = null;
-            runLocalFilter();
-        });
+            targetContainer.querySelector('#backToSearchCatalogBtn')?.addEventListener('click', () => {
+                searchSubView = null;
+                runLocalFilter();
+            });
+        }, 120);
 
         try {
             const albums = await getArtistAlbums(artistMbid);
+            clearTimeout(spinnerTimer);
             if (thisFetchToken !== currentExploreArtistToken) return;
 
             if (!albums || albums.length === 0) {
@@ -2627,7 +2656,7 @@ function setupLibraryFilter(container, context = {}) {
             const orderedAlbums = [...albums.filter(isPlainAlbum), ...albums.filter(a => !isPlainAlbum(a))];
             for (const alb of orderedAlbums) {
                 const isInLib = existingAlbumKeys.has(`mbid:${alb.id}`) || existingAlbumKeys.has(`${artistLower}:::${(alb.title || '').toLowerCase().trim()}`);
-                const cover = alb.coverUrl || getPlaceholderCoverSvg(alb.title);
+                const cover = getSynchronousCachedArtUrl(alb.coverUrl) || alb.coverUrl || getPlaceholderCoverSvg(alb.title);
                 html += `
                 <div class="search-stream-row search-album-row is-navigable" data-type="artist-album-row" data-album-id="${alb.id}" tabindex="0">
                   <img loading="lazy" decoding="async" src="${cover}" class="shelf-cover flex-shrink-0" style="width: 44px; height: 44px; border-radius: var(--r); object-fit: cover; background: var(--s3);" alt="" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(alb.title)}'">
@@ -2653,6 +2682,7 @@ function setupLibraryFilter(container, context = {}) {
             `;
 
             targetContainer.innerHTML = html;
+            hydrateCachedImages(targetContainer);
 
             targetContainer.querySelector('#backToSearchCatalogBtn')?.addEventListener('click', () => {
                 searchSubView = null;
@@ -2701,6 +2731,7 @@ function setupLibraryFilter(container, context = {}) {
                 });
             });
         } catch (err) {
+            clearTimeout(spinnerTimer);
             if (thisFetchToken !== currentExploreArtistToken) return;
             targetContainer.innerHTML = `
             <div class="search-artist-albums-view">

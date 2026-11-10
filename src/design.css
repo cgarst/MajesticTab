@@ -2071,6 +2071,10 @@ body.fretboard-open {
   }
 }
 
+/* Explainer rows: same pitch and left edge as action rows, but not controls */
+.empty-info-row { display: flex; align-items: center; min-height: 56px; padding: 10px 14px; }
+.empty-info-row .empty-action-desc { white-space: normal; }
+
 /* Setlist rows carry the album art */
 .setrow .setrow-cover { width: 44px; height: 44px; border-radius: var(--r); object-fit: cover; flex: none; background: var(--s3); }
 
