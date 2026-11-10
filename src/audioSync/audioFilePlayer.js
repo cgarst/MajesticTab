@@ -11,7 +11,7 @@ import { createLocalAudioSource } from './localAudioSource.js';
 import { decodePeaks } from './peaks.js';
 import {
     saveAudioFile, listAudioFilesForSong, getAudioFile, unlinkAudioFile, fingerprintOf, MAX_AUDIO_BYTES,
-    setAudioExcluded, setAudioPeaks, relinkAudioFile
+    setAudioPeaks, relinkAudioFile
 } from './audioFileStore.js';
 import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
 import { adoptUnassignedAudio } from './libraryAudio.js';
@@ -327,11 +327,6 @@ async function finishAdd(meta) {
     window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
 }
 
-async function toggleExcluded(file) {
-    await setAudioExcluded(file.id, !file.excludeFromBackup);
-    await refreshFiles();
-}
-
 /** Removes a file from this device and its sync points with it; if it was the loaded one the list shows the next. */
 async function removeFile(id) {
     const songKey = getSongKey();
@@ -431,10 +426,7 @@ function render() {
             if (state.armedRemoval === f.id) rm.classList.add('is-armed');
             actions = [rm];
         } else {
-            actions = [actionButton(
-                f.excludeFromBackup ? 'Kept out of backups and sync. Press to include it.' : 'Included in backups and sync. Press to keep it out.',
-                f.excludeFromBackup ? 'Local only' : 'In backups', () => toggleExcluded(f)
-            )];
+            actions = [];
         }
         return fileRow({ title: f.name, detail, selected: f.id === state.currentId, onSelect: state.removeMode ? null : () => selectFile(f.id), actions });
     });

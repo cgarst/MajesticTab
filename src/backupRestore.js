@@ -2050,10 +2050,9 @@ function attachModalHandlers(modal, options = {}) {
         if (!o.enabled) {
             lines.push('Audio files stay on this device and are not backed up.');
         } else {
-            lines.push(`${plural(o.count, 'audio file')} (${formatBytes(o.bytes)}) will be included${o.excluded ? `, ${o.excluded} kept out` : ''}. Audio goes only to the backup destination you choose here, never to MajesticTab.`);
+            lines.push(`${plural(o.count, 'audio file')} (${formatBytes(o.bytes)}) will be included. Audio goes only to the backup destination you choose here, never to MajesticTab.`);
             if (plan?.tooLarge.length) lines.push(`${plural(plan.tooLarge.length, 'file')} over ${formatBytes(SINGLE_FILE_AUDIO_LIMIT)} cannot go into a single file. Use incremental snapshots to include ${plan.tooLarge.length === 1 ? 'it' : 'them'}.`);
             if (o.bytes >= LARGE_AUDIO_UPLOAD_BYTES) lines.push('That is a lot to send the first time. Later backups send only new or changed audio.');
-            if (o.count < o.total && o.excluded) lines.push('Choose which files to keep out in the Audio File panel.');
         }
         backupAudioBox.innerHTML = `
             <div class="d-flex align-items-start justify-content-between gap-2">

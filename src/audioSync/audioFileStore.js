@@ -2,7 +2,6 @@
 // On-device storage for audio files the user syncs a score to. Kept in its own IndexedDB database so these large
 // blobs stay apart from the tab library (fileStore.js) and its backup and wipe code. Records:
 //   { id, name, type, size, durationMs, fingerprint, peaks (Uint8Array|null), songKeys: [string], savedAt,
-//     excludeFromBackup (true to keep it out of backups and sync),
 //     generatedFrom ({ tool, sourceId } when the app made the file from another one, such as a backing track), data (ArrayBuffer) }
 // The audio is kept as an ArrayBuffer, which every platform webview can store (Blob support in IndexedDB is not
 // uniform).
@@ -147,14 +146,6 @@ export async function unlinkAudioFile(id, songKey) {
 /** Writes a complete record as it is (used when restoring a backup, which keeps the original id). */
 export async function putAudioRecord(record) {
     await request('readwrite', s => s.put(record));
-}
-
-/** Keeps a file out of (or back in) backups and cloud sync. */
-export async function setAudioExcluded(id, excluded) {
-    const rec = await getAudioFile(id);
-    if (!rec) return;
-    if (excluded) rec.excludeFromBackup = true; else delete rec.excludeFromBackup;
-    await request('readwrite', s => s.put(rec));
 }
 
 /** Stores the waveform of a file that was restored without one. */

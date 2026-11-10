@@ -41,22 +41,21 @@ export const setAudioDownloadEnabled = (on) => writeFlag(DOWNLOAD_KEY, on);
 
 export const isAudioItem = (item) => item?.store === AUDIO_BACKUP_STORE;
 
-/** Stored files that would go into a backup now: nothing when sending is off, and never an excluded file. */
+/** Stored files that would go into a backup now: all of them, or nothing when sending is off. */
 export async function listAudioForBackup() {
     if (!isAudioUploadEnabled()) return [];
-    return (await listAudioFiles()).filter(m => !m.excludeFromBackup);
+    return listAudioFiles();
 }
 
-/** What the backup dialog shows: how many files and how much, and how many are held back. */
+/** What the backup dialog shows: how many files and how much. */
 export async function audioBackupOverview() {
     const all = await listAudioFiles();
-    const included = isAudioUploadEnabled() ? all.filter(m => !m.excludeFromBackup) : [];
+    const included = isAudioUploadEnabled() ? all : [];
     return {
         enabled: isAudioUploadEnabled(),
         total: all.length,
         count: included.length,
-        bytes: included.reduce((sum, m) => sum + (m.size || 0), 0),
-        excluded: all.length - (isAudioUploadEnabled() ? included.length : 0)
+        bytes: included.reduce((sum, m) => sum + (m.size || 0), 0)
     };
 }
 
