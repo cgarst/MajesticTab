@@ -36,6 +36,7 @@ import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
 import { songHasSyncPoints } from './audioSync/syncStore.js';
+import { songHasLocalSlot, songAudioKeys, readLibraryAudio } from './audioSync/libraryAudio.js';
 import { isNative, openTabDownloader } from './tabDownloader.js';
 import { openSongTabPicker, closeSongTabPicker, isSongTabPickerOpen } from './songTabPicker.js';
 
@@ -3404,7 +3405,7 @@ async function toggleSongTabsPicker(anchor, songId, mode, { forceOpen = false } 
         mode,
         providers,
         canEditRange: true,
-        isSynced: (t) => songHasSyncPoints(t.name) || Boolean(t.syncedAudio),
+        isSynced: (t) => songHasSyncPoints(t.name) || songHasLocalSlot(t.name, 'original') || songHasLocalSlot(t.name, 'backing') || Boolean(t.syncedAudio),
         tabMeta: (t) => {
             const tuning = (t.tuning && isTuningMatchingInstrument(t.tuning)) ? visibleTuningLabel(song, t.tuning) : '';
             return [(t.startPage && t.endPage) ? formatPageRange(t.startPage, t.endPage) : '', tuning].filter(Boolean).join(' \u00b7 ');
@@ -3495,7 +3496,12 @@ function renderSongRow(song, options = {}) {
     };
     const formats = [...new Set(tabOptions.map(tabFormat).filter(Boolean))];
     const hasSynth = Boolean(song.synthMidi) || formats.some(f => f !== 'PDF' && f !== 'Text');
-    const audioLabels = [hasSynth ? 'Synth' : '', isSynced ? 'Recording' : ''].filter(Boolean);
+    // Local audio: files attached by the bulk import (the registry) or filed under a key the song is opened by
+    const audioKeys = [...new Set([...songKeys, ...songAudioKeys(song)])];
+    const registry = readLibraryAudio(song.id);
+    const hasLocalOriginal = registry.some(e => e.slot === 'original') || audioKeys.some(k => songHasLocalSlot(k, 'original'));
+    const hasLocalBacking = registry.some(e => e.slot === 'backing') || audioKeys.some(k => songHasLocalSlot(k, 'backing'));
+    const audioLabels = [hasSynth ? 'Synth' : '', (isSynced || hasLocalOriginal) ? 'Recording' : '', hasLocalBacking ? 'Backing track' : ''].filter(Boolean);
     const formatChipHtml = formats.length ? `<span class="chip sec song-format">${escapeHtml(formats.join(' / '))}</span>` : '';
     const audioChipHtml = audioLabels.length ? `<span class="chip sec song-audio">${escapeHtml(audioLabels.join(' + '))}</span>` : '';
     const syncDotHtml = '';
