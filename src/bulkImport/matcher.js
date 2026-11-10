@@ -31,7 +31,7 @@ export async function searchSongs(text, { signal } = {}) {
 
 /** Songs already in the library that read as this one. Same album first. */
 export function findInLibrary(parsed, songs) {
-    const hits = songs.filter((s) => closeTitle(s.title, parsed.title) && (!parsed.artist || sameArtist(s.artist, parsed.artist)));
+    const hits = songs.filter((s) => !s.isAlbumTabContainer && closeTitle(s.title, parsed.title) && (!parsed.artist || sameArtist(s.artist, parsed.artist)));
     hits.sort((a, b) => Number(sameTitle(b.album, parsed.album)) - Number(sameTitle(a.album, parsed.album)));
     return hits.map(fromLibrary);
 }
@@ -91,4 +91,67 @@ async function lookupTitle(parsed, { songs, signal }) {
     const best = ranked[0];
     const exact = parsed.artist ? best.r >= 6 : false;
     return { status: exact ? 'match' : 'maybe', pick: best.c, candidates: ranked.map((x) => x.c) };
+}
+
+// --- Albums (a whole album's tab book) ---------------------------------------------------------------------------------
+
+const fromReleaseGroup = (r) => ({
+    kind: 'album', source: 'musicbrainz',
+    title: r.title, artist: r.artist, artistMbid: r.artistMbid || '', album: r.title, albumMbid: r.id || '',
+    recordingMbid: '', year: r.year || null, length: null, coverUrl: r.coverUrl || null
+});
+
+/** Search MusicBrainz for albums. Also used by the page's own search box when a file is an album tab. */
+export async function searchAlbums(text, { signal } = {}) {
+    const key = 'album:' + normName(text);
+    if (!normName(text)) return [];
+    if (cache.has(key)) return cache.get(key);
+    const found = (await searchMusicBrainz(text, 'album', { signal })).slice(0, 12).map(fromReleaseGroup);
+    cache.set(key, found);
+    return found;
+}
+
+/** Albums the library already has (from its songs), under the names the library uses, so the tab book lands on that album. */
+export function findAlbumInLibrary(artist, album, songs) {
+    const seen = new Set();
+    const out = [];
+    for (const s of songs) {
+        if (!s.album) continue;
+        if (!closeTitle(s.album, album) || (artist && !sameArtist(s.artist, artist))) continue;
+        const key = normName(s.artist) + '|' + normName(s.album);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({
+            kind: 'album', source: 'library', title: s.album, artist: s.artist, artistMbid: s.artistMbid || '', album: s.album,
+            albumMbid: s.albumMbid || '', recordingMbid: '', year: s.year || null, length: null, coverUrl: s.coverUrl || null
+        });
+    }
+    return out;
+}
+
+/** The album a tab book is for: the library first, then MusicBrainz, trying each reading of the path's artist. Same answer shape as lookup(). */
+export async function lookupAlbum(parsed, { songs = [], signal } = {}) {
+    const name = parsed?.album || parsed?.title;
+    if (!name) return { status: 'none', pick: null, candidates: [] };
+    const readings = [{ artist: parsed.artist }, ...(parsed.alts || []).map((a) => ({ artist: a.artist }))];
+    if (parsed.artist) readings.push({ artist: '' });
+    const albumFor = (h) => (h.artist ? stripArtistPrefix(name, h.artist) : name);
+    for (const h of readings) {
+        if (!h.artist) continue;
+        const known = findAlbumInLibrary(h.artist, albumFor(h), songs);
+        if (known.length) return { status: 'library', pick: known[0], candidates: known };
+    }
+    let best = null;
+    for (const h of readings.slice(0, 4)) {
+        const album = albumFor(h);
+        const found = await searchAlbums([h.artist, album].filter(Boolean).join(' '), { signal });
+        if (!found.length) continue;
+        const ranked = found
+            .map((c, i) => ({ c, i, r: (closeTitle(c.title, album) ? 4 : 0) + (h.artist && sameArtist(c.artist, h.artist) ? 2 : 0) }))
+            .sort((a, b) => b.r - a.r || a.i - b.i);
+        const result = { status: h.artist && ranked[0].r >= 6 ? 'match' : 'maybe', pick: ranked[0].c, candidates: ranked.map((x) => x.c) };
+        if (result.status === 'match') return result;
+        if (!best) best = result;
+    }
+    return best || { status: 'none', pick: null, candidates: [] };
 }

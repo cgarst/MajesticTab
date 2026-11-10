@@ -842,6 +842,11 @@ export async function addTabOptionToAlbum(collectionId, artistName, albumTitle, 
             isCustom,
             folderPath: isCustom ? albumTitle : null,
             isAlbumTabContainer: true,
+            // What the caller knows of the release (the bulk import has it from MusicBrainz), so the album groups and shows its art
+            artistMbid: tabOption.artistMbid || null,
+            albumMbid: tabOption.albumMbid || null,
+            coverUrl: tabOption.coverUrl || null,
+            year: tabOption.year || null,
             tabOptions: [],
             tunings: [],
             addedAt: Date.now()

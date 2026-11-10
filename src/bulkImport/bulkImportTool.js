@@ -6,14 +6,18 @@
 //      the rows fill in while it runs).
 //   3. Fixing: any row can be changed by searching MusicBrainz, imported as custom music (typed names, no MusicBrainz data;
 //      MusicBrainz is always tried first, and a switch makes custom music the answer when nothing matches), or left out.
-//   4. Import: each paired file is stored and attached to its song (an existing library song, or a new one from the match).
+//   4. Album tabs: a PDF that is a whole album's tab book (named for the album, or a "tab book") is paired with an album instead
+//      (MusicBrainz release groups) and imported as the album's tab book. Any row can be switched between the two.
+//   5. Import: each paired file is stored and attached to its song (an existing library song, or a new one from the match), or to
+//      its album. A switch leaves out files whose song or album already has a tab.
 // The page's state lives in this module, so leaving Tools while the lookups run does not lose them.
 
-import { getAllSongs, saveSongToLibrary, getSongById, mapOpenFileToSong, DEFAULT_COLLECTION_ID } from '../libraryStore.js';
+import { getAllSongs, saveSongToLibrary, getSongById, mapOpenFileToSong, getAlbumTabOptions, addTabOptionToAlbum, DEFAULT_COLLECTION_ID } from '../libraryStore.js';
+import { saveStoredFile } from '../fileStore.js';
 import { detectFileMetadata } from '../utils/tuningUtils.js';
 import { showToast } from '../utils/toast.js';
-import { STRATEGIES, pairFile, baseNameOf, sameArtist, sameTitle, VIA_LABEL } from './pairing.js';
-import { lookup, searchSongs } from './matcher.js';
+import { STRATEGIES, pairFile, baseNameOf, sameArtist, sameTitle, looksLikeAlbumBook, VIA_LABEL } from './pairing.js';
+import { lookup, lookupAlbum, searchSongs, searchAlbums } from './matcher.js';
 import { canPickFolder, pickAndScanFolder } from './scanFolder.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -39,6 +43,7 @@ const state = {
     rows: [],
     filter: 'all', // 'all' | 'attention'
     customFallback: false, // a file nothing matched is imported as custom music
+    skipExisting: true, // a song or album that already has a tab is left out
     openId: null, // the row whose search panel is open
     lookingUp: false,
     summary: '',
@@ -72,17 +77,23 @@ function verdict(row) {
     if (row.imported) return 'done';
     if (row.stage !== 'done' && !row.manual) return 'wait';
     if (!row.pick) return 'attention';
+    if (state.skipExisting && row.hadTab && !row.forced) return 'have';
     if (row.excluded) return 'out';
     // A guess is not imported until the person has looked at it (checked it, or chosen a song)
     return row.status === 'maybe' && !row.manual && !row.confirmed ? 'attention' : 'ready';
 }
 const statusText = (row) => {
+    const text = baseStatusText(row);
+    return row.kind === 'album' && row.pick && !row.imported && row.stage === 'done' && verdict(row) !== 'have' ? `Album tab · ${text}` : text;
+};
+const baseStatusText = (row) => {
     if (row.imported === 'done') return 'Imported';
     if (row.imported === 'skipped') return row.note || 'Already added';
     if (row.imported === 'error') return row.note || 'Could not import';
     if (row.stage === 'queued') return 'Waiting';
     if (row.stage === 'working') return 'Looking up…';
     if (row.stage === 'error') return 'Lookup failed';
+    if (verdict(row) === 'have') return row.kind === 'album' ? 'Album already has a tab book' : 'Already has a tab';
     if (row.pick?.source === 'custom') return 'Custom music';
     if (row.manual && row.pick) return 'Chosen by you';
     if (!row.pick) return row.parsed ? 'No match' : 'No pairing';
@@ -90,13 +101,28 @@ const statusText = (row) => {
 };
 
 /** A song that is not on MusicBrainz: the names as the file gave them (or the person typed them), saved as custom music. */
-const customPick = (p) => ({
-    source: 'custom', title: p.title || '', artist: p.artist || '', album: p.album || '', artistMbid: '', albumMbid: '',
+const customPick = (p, kind = 'song') => ({
+    kind, source: 'custom', title: p.title || '', artist: p.artist || '', album: kind === 'album' ? (p.title || '') : (p.album || ''), artistMbid: '', albumMbid: '',
     recordingMbid: '', year: null, length: null, coverUrl: null
 });
 
+/** Does the song (or album) this row would add to already have a tab? Read from the library as it was when the row was paired. */
+function markHad(row) {
+    const p = row.pick;
+    row.hadTab = false;
+    if (!p) return;
+    const artist = p.artist || 'Custom Music';
+    if (row.kind === 'album') {
+        row.hadTab = state.songs.some((s) => s.isAlbumTabContainer && (s.tabOptions || []).length > 0 && sameArtist(s.artist, artist) && sameTitle(s.album || s.title, p.title));
+    } else {
+        row.hadTab = state.songs.some((s) => !s.isAlbumTabContainer && (s.tabOptions || []).length > 0
+            && ((p.songId && s.id === p.songId) || (p.recordingMbid && s.recordingMbid === p.recordingMbid)
+                || (sameTitle(s.title, p.title) && sameArtist(s.artist, artist) && (!p.album || sameTitle(s.album, p.album)))));
+    }
+}
+
 function makeRow(entry, i) {
-    return { id: `r${i}`, entry, parsed: null, stage: 'queued', status: 'none', pick: null, candidates: [], before: null, excluded: false, confirmed: false, manual: false, imported: '', note: '', error: '' };
+    return { id: `r${i}`, entry, kind: 'song', manualKind: false, hadTab: false, forced: false, parsed: null, stage: 'queued', status: 'none', pick: null, candidates: [], before: null, excluded: false, confirmed: false, manual: false, imported: '', note: '', error: '' };
 }
 
 async function embeddedMeta(entry) {
@@ -112,12 +138,21 @@ async function resolveRow(row, signal) {
         const meta = state.strategy === 'artist-song' || state.strategy === 'folders' ? null : await embeddedMeta(row.entry);
         row.parsed = pairFile(row.entry, state.strategy, meta);
         if (!row.parsed) { row.stage = 'done'; row.status = 'none'; row.pick = null; row.candidates = []; return; }
-        const found = await lookup(row.parsed, { songs: state.songs, signal });
+        // A whole album's tab book is paired with an album. A file named only for its album is also how a title track is named,
+        // so that one is a song when the library has such a song, and otherwise stays a guess for the person to settle.
+        const looks = looksLikeAlbumBook(row.parsed, row.entry);
+        let kind = row.manualKind ? row.kind : (looks ? 'album' : 'song');
+        if (!row.manualKind && looks === 'weak' && state.songs.some((s) => !s.isAlbumTabContainer && sameArtist(s.artist, row.parsed.artist)
+            && sameTitle(s.album, row.parsed.album) && sameTitle(s.title, row.parsed.title))) kind = 'song';
+        row.kind = kind;
+        let found = kind === 'album' ? await lookupAlbum(row.parsed, { songs: state.songs, signal }) : await lookup(row.parsed, { songs: state.songs, signal });
+        if (kind === 'album' && !row.manualKind && looks === 'weak' && found.status === 'match') found = { ...found, status: 'maybe' };
         if (row.manual) return;
         row.status = found.status;
         row.pick = found.pick;
         row.candidates = found.candidates;
         takeFallback(row);
+        markHad(row);
         row.stage = 'done';
     } catch (err) {
         if (signal?.aborted || err?.name === 'AbortError') { row.stage = 'queued'; return; }
@@ -149,7 +184,8 @@ function restartLookups() {
     state.controller?.abort();
     for (const row of state.rows) {
         if (row.manual || row.imported) continue;
-        Object.assign(row, { stage: 'queued', status: 'none', pick: null, candidates: [], before: null, parsed: null, error: '', excluded: false, confirmed: false });
+        Object.assign(row, { stage: 'queued', status: 'none', pick: null, candidates: [], before: null, parsed: null, error: '', excluded: false, confirmed: false, forced: false, hadTab: false });
+        if (!row.manualKind) row.kind = 'song';
     }
     runLookups();
 }
@@ -175,6 +211,7 @@ function applyCustomFallback() {
         if (row.manual || row.imported || row.stage !== 'done') continue;
         if (state.customFallback) takeFallback(row);
         else if (row.before) { row.pick = row.before.pick; row.status = row.before.status; row.before = null; }
+        markHad(row);
     }
 }
 
@@ -183,8 +220,18 @@ function takeFallback(row) {
     if (!state.customFallback || row.manual || !row.parsed?.title || row.before) return;
     if (row.pick && row.status !== 'maybe') return;
     row.before = { pick: row.pick, status: row.status };
-    row.pick = customPick(row.parsed);
+    row.pick = row.kind === 'album' ? customPick({ title: row.parsed.album || row.parsed.title, artist: row.parsed.artist }, 'album') : customPick(row.parsed);
     row.status = 'custom';
+}
+
+/** Switch a row between a song and an album's tab book, and look it up again as the other. */
+function setKind(row, kind) {
+    if (row.kind === kind) return;
+    row.kind = kind;
+    row.manualKind = true;
+    Object.assign(row, { manual: false, excluded: false, confirmed: false, forced: false, hadTab: false, before: null, pick: null, candidates: [], status: 'none', stage: 'queued' });
+    notify(row.id);
+    resolveRow(row, null);
 }
 
 async function songFor(pick) {
@@ -211,9 +258,29 @@ async function songFor(pick) {
     return song;
 }
 
+/** A tab book goes on the album (under the library's own names when it has the album), not on a song. */
+async function importAlbumTab(row, file) {
+    const pick = row.pick;
+    const artist = pick.artist || 'Custom Music';
+    const existing = await getAlbumTabOptions(DEFAULT_COLLECTION_ID, artist, pick.title);
+    if (existing.some((t) => t.name === file.name)) return 'skipped';
+    const meta = await detectFileMetadata(file, file.name).catch(() => ({}));
+    const stored = await saveStoredFile(file, 'local', { name: file.name, type: file.type, relativePath: row.entry.path });
+    await addTabOptionToAlbum(DEFAULT_COLLECTION_ID, artist, pick.title, {
+        name: file.name, providerId: 'local', relativePath: row.entry.path, fileStoreId: stored.id,
+        tuning: meta?.primaryTuning, tunings: meta?.tunings, stringCount: meta?.stringCount,
+        fileType: file.name.split('.').pop().toLowerCase(), isCustom: pick.source === 'custom',
+        artistMbid: pick.artistMbid, albumMbid: pick.albumMbid, coverUrl: pick.coverUrl, year: pick.year
+    });
+    return 'done';
+}
+
 async function runImport() {
+    // What already has a tab is judged by the library as it is now, before this import adds any
+    state.songs = await getAllSongs().catch(() => state.songs);
+    state.rows.forEach((r) => { if (!r.imported) markHad(r); });
     const todo = state.rows.filter((r) => verdict(r) === 'ready' && !r.imported);
-    if (!todo.length) return;
+    if (!todo.length) { notify(); return; }
     state.controller?.abort();
     const controller = new AbortController();
     state.controller = controller;
@@ -221,7 +288,6 @@ async function runImport() {
     state.phase = 'importing';
     state.importDone = 0;
     state.importTotal = todo.length;
-    state.songs = await getAllSongs().catch(() => state.songs);
     notify();
     let added = 0;
     let skipped = 0;
@@ -230,6 +296,13 @@ async function runImport() {
         if (controller.signal.aborted) break;
         try {
             const file = await row.entry.getFile();
+            if (row.kind === 'album') {
+                if ((await importAlbumTab(row, file)) === 'skipped') { row.imported = 'skipped'; row.note = 'Already added'; skipped++; }
+                else { row.imported = 'done'; added++; }
+                state.importDone++;
+                notify(row.id);
+                continue;
+            }
             const song = await songFor(row.pick);
             // The same file name on the same song is the same tab
             if ((song.tabOptions || []).some((t) => t.name === file.name)) {
@@ -277,7 +350,7 @@ export function renderBulkImportTool(container) {
     let searchSeq = 0;
 
     const counts = () => {
-        const c = { ready: 0, attention: 0, out: 0, wait: 0, done: 0 };
+        const c = { ready: 0, attention: 0, out: 0, wait: 0, done: 0, have: 0 };
         for (const r of state.rows) c[verdict(r)]++;
         return c;
     };
@@ -285,39 +358,47 @@ export function renderBulkImportTool(container) {
     function suggestionHtml(row) {
         const p = row.pick;
         if (!p) return `<span class="imp-sugg is-none">${esc(row.parsed ? [row.parsed.artist, row.parsed.title].filter(Boolean).join(' – ') : 'Nothing found in the name or the file')}</span>`;
-        const sub = [p.album, p.year].filter(Boolean).join(' · ');
+        const sub = [p.kind === 'album' ? '' : p.album, p.year].filter(Boolean).join(' · ');
         return `<span class="imp-sugg">${esc(p.artist || 'Custom Music')} – ${esc(p.title)}${sub ? `<span class="imp-sub"> · ${esc(sub)}</span>` : ''}</span>`;
     }
 
     function searchHtml(row) {
         const s = searches.get(row.id) || {};
         const list = s.results || row.candidates || [];
-        const text = s.text ?? [row.parsed?.artist, row.parsed?.title || baseNameOf(row.entry.name)].filter(Boolean).join(' ');
-        const custom = row.pick?.source === 'custom' ? row.pick : { title: row.parsed?.title || baseNameOf(row.entry.name), artist: row.parsed?.artist || '', album: row.parsed?.album || '' };
+        const album = row.kind === 'album';
+        const text = s.text ?? [row.parsed?.artist, album ? (row.parsed?.album || row.parsed?.title) : (row.parsed?.title || baseNameOf(row.entry.name))].filter(Boolean).join(' ');
+        const custom = row.pick?.source === 'custom' ? row.pick
+            : { title: (album ? (row.parsed?.album || row.parsed?.title) : row.parsed?.title) || baseNameOf(row.entry.name), artist: row.parsed?.artist || '', album: row.parsed?.album || '' };
+        const isPdf = row.entry.ext === 'pdf';
         return `
         <div class="imp-search" data-for="${row.id}">
+          ${isPdf ? `<div class="imp-kind" role="group" aria-label="This file is">
+            <span class="imp-sub">This file is</span>
+            <button type="button" class="ct-text imp-kind-btn" data-act="kind" data-kind="song" aria-pressed="${!album}">One song</button>
+            <button type="button" class="ct-text imp-kind-btn" data-act="kind" data-kind="album" aria-pressed="${album}">A whole album’s tab book</button>
+          </div>` : ''}
           <div class="imp-search-bar">
-            <input type="search" class="form-control form-control-sm" data-act="search-text" value="${esc(text)}" aria-label="Search MusicBrainz for this song" placeholder="Artist and song">
+            <input type="search" class="form-control form-control-sm" data-act="search-text" value="${esc(text)}" aria-label="Search MusicBrainz for this ${album ? 'album' : 'song'}" placeholder="${album ? 'Artist and album' : 'Artist and song'}">
             <button type="button" class="ct-text" data-act="search-go">Search</button>
           </div>
-          <div class="imp-results" role="listbox" aria-label="Songs found">
+          <div class="imp-results" role="listbox" aria-label="${album ? 'Albums' : 'Songs'} found">
             ${s.busy ? '<p class="ct-sub" role="status">Searching…</p>' : ''}
             ${s.error ? `<p class="ct-error">${esc(s.error)}</p>` : ''}
-            ${!s.busy && !s.error && !list.length ? '<p class="ct-sub">Nothing found. Try the song name alone, or fewer words.</p>' : ''}
+            ${!s.busy && !s.error && !list.length ? `<p class="ct-sub">Nothing found. Try the ${album ? 'album' : 'song'} name alone, or fewer words.</p>` : ''}
             ${list.map((c, i) => `
-              <button type="button" class="imp-result${row.pick && row.pick.recordingMbid === c.recordingMbid && row.pick.songId === c.songId && sameTitle(row.pick.title, c.title) ? ' is-picked' : ''}" role="option" data-act="pick" data-i="${i}">
+              <button type="button" class="imp-result${row.pick && row.pick.source === c.source && sameTitle(row.pick.title, c.title) && sameArtist(row.pick.artist, c.artist) ? ' is-picked' : ''}" role="option" data-act="pick" data-i="${i}">
                 <span class="imp-result-main">${esc(c.artist)} – ${esc(c.title)}</span>
-                <span class="imp-sub">${esc([c.album, c.year, c.source === 'library' ? 'In your library' : ''].filter(Boolean).join(' · '))}</span>
+                <span class="imp-sub">${esc([c.kind === 'album' ? '' : c.album, c.year, c.source === 'library' ? 'In your library' : ''].filter(Boolean).join(' · '))}</span>
               </button>`).join('')}
           </div>
           <div class="imp-custom">
-            <p class="be-option-title">Not on MusicBrainz? Import as custom music</p>
+            <p class="be-option-title">${album ? 'Not on MusicBrainz? Import as a custom album tab book' : 'Not on MusicBrainz? Import as custom music'}</p>
             <div class="imp-custom-fields">
-              <input type="text" class="form-control form-control-sm" data-field="title" value="${esc(custom.title)}" aria-label="Song title" placeholder="Song title" autocomplete="off">
+              <input type="text" class="form-control form-control-sm" data-field="title" value="${esc(custom.title)}" aria-label="${album ? 'Album title' : 'Song title'}" placeholder="${album ? 'Album title' : 'Song title'}" autocomplete="off">
               <input type="text" class="form-control form-control-sm" data-field="artist" value="${esc(custom.artist)}" aria-label="Artist" placeholder="Artist (Custom Music)" autocomplete="off">
-              <input type="text" class="form-control form-control-sm" data-field="album" value="${esc(custom.album)}" aria-label="Album or folder" placeholder="Album or folder (optional)" autocomplete="off">
+              ${album ? '' : `<input type="text" class="form-control form-control-sm" data-field="album" value="${esc(custom.album)}" aria-label="Album or folder" placeholder="Album or folder (optional)" autocomplete="off">`}
             </div>
-            <button type="button" class="ct-text" data-act="use-custom">Use as custom music</button>
+            <button type="button" class="ct-text" data-act="use-custom">${album ? 'Use as custom album tab' : 'Use as custom music'}</button>
           </div>
           <div class="imp-search-foot"><button type="button" class="ct-text" data-act="close-search">Done</button></div>
         </div>`;
@@ -337,7 +418,7 @@ export function renderBulkImportTool(container) {
               ${suggestionHtml(row)}
             </div>
             <span class="imp-state">${esc(statusText(row))}${via && row.pick && !row.manual && !row.imported && row.status !== 'library' ? ` · from ${esc(via)}` : ''}</span>
-            ${row.imported || busy ? '' : `<button type="button" class="ct-text imp-change" data-act="change" aria-expanded="${open}">${row.pick ? 'Change' : 'Find song'}</button>`}
+            ${row.imported || busy ? '' : `<button type="button" class="ct-text imp-change" data-act="change" aria-expanded="${open}">${row.pick ? 'Change' : (row.kind === 'album' ? 'Find album' : 'Find song')}</button>`}
           </div>
           ${open ? searchHtml(row) : ''}
         </div>`;
@@ -349,6 +430,7 @@ export function renderBulkImportTool(container) {
         const parts = [`${plural(total, 'file', 'files')} in ${esc(state.rootName)}`];
         if (c.ready) parts.push(`${c.ready} ready`);
         if (c.attention) parts.push(`${c.attention} need a look`);
+        if (c.have) parts.push(`${c.have} already ${c.have === 1 ? 'has a tab' : 'have a tab'}`);
         if (state.lookingUp) parts.push(`Looking up ${state.rows.filter((r) => r.stage === 'done').length} of ${total}`);
         return parts.join(' · ');
     }
@@ -394,6 +476,7 @@ export function renderBulkImportTool(container) {
             ${c.attention || state.filter !== 'all' ? `<button type="button" class="ct-text" data-act="${state.filter === 'all' ? 'only-attention' : 'show-all'}">${state.filter === 'all' ? (c.attention === 1 ? 'Show the one that needs a look' : `Show the ${c.attention} that need a look`) : 'Show all'}</button>` : ''}
             <button type="button" class="ct-text" data-act="choose">Choose another folder</button>`}
           </div>
+          ${importing ? '' : `<label class="be-option imp-fallback"><input type="checkbox" class="form-check-input" data-act="skip-existing" ${state.skipExisting ? 'checked' : ''}><span class="be-option-text"><span class="be-option-title">Skip songs and albums that already have a tab</span><span class="be-option-sub">A file is left out when its song, or its album’s tab book, already has a tab in your library. Check its row to import it anyway.</span></span></label>`}
           ${importing ? '' : `<label class="be-option imp-fallback"><input type="checkbox" class="form-check-input" data-act="custom-fallback" ${state.customFallback ? 'checked' : ''}><span class="be-option-text"><span class="be-option-title">Import files with no good match as custom music</span><span class="be-option-sub">MusicBrainz is tried first. Songs it cannot find, or only guesses at, are saved under the names from the file.</span></span></label>`}
           ${state.summary ? `<div class="be-status" role="status">${esc(state.summary)}</div>` : ''}
         </div>
@@ -474,7 +557,7 @@ export function renderBulkImportTool(container) {
         patch(rowId);
         if (!text) return;
         try {
-            const results = await searchSongs(text);
+            const results = row.kind === 'album' ? await searchAlbums(text) : await searchSongs(text);
             if (seq !== searchSeq) return;
             searches.set(rowId, { text, results, busy: false, error: '' });
         } catch (err) {
@@ -506,14 +589,17 @@ export function renderBulkImportTool(container) {
             root.querySelector(`[data-row="${row.id}"] [data-act="search-text"]`)?.focus();
         } else if (act === 'close-search' && row) { state.openId = null; patch(row.id); root.querySelector(`[data-row="${row.id}"] [data-act="change"]`)?.focus(); }
         else if (act === 'search-go' && row) runSearch(row.id);
+        else if (act === 'kind' && row) { searches.delete(row.id); setKind(row, btn.dataset.kind); patch(row.id); }
         else if (act === 'use-custom' && row) {
             const field = (n) => searchEl?.querySelector(`[data-field="${n}"]`)?.value.trim() || '';
             const title = field('title');
             if (!title) { searchEl?.querySelector('[data-field="title"]')?.focus(); return; }
-            row.pick = customPick({ title, artist: field('artist'), album: field('album') });
+            row.pick = customPick({ title, artist: field('artist'), album: field('album') }, row.kind);
             row.status = 'custom';
             row.manual = true;
             row.excluded = false;
+            row.forced = false;
+            markHad(row);
             row.stage = 'done';
             state.openId = null;
             patch(row.id);
@@ -528,6 +614,8 @@ export function renderBulkImportTool(container) {
             row.manual = true;
             row.status = chosen.source === 'library' ? 'library' : 'match';
             row.excluded = false;
+            row.forced = false;
+            markHad(row);
             row.stage = 'done';
             state.openId = null;
             patch(row.id);
@@ -538,10 +626,15 @@ export function renderBulkImportTool(container) {
         const t = e.target;
         if (t.name === 'impStrategy') { state.strategy = t.value; render(); return; }
         if (t.dataset.act === 'strategy') { state.strategy = t.value; if (state.rows.length) { restartLookups(); render(); } return; }
+        if (t.dataset.act === 'skip-existing') { state.skipExisting = t.checked; render(); return; }
         if (t.dataset.act === 'custom-fallback') { state.customFallback = t.checked; applyCustomFallback(); render(); return; }
         if (t.dataset.act === 'include') {
             const row = state.rows.find((r) => r.id === t.closest('[data-row]')?.dataset.row);
-            if (row) { row.excluded = !t.checked; if (t.checked) row.confirmed = true; patch(row.id); }
+            if (row) {
+                row.excluded = !t.checked;
+                if (t.checked) { row.confirmed = true; row.forced = true; }
+                patch(row.id);
+            }
         }
     });
     root.addEventListener('keydown', (e) => {

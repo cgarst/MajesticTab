@@ -97,7 +97,8 @@ export function folderHypotheses(dirs, baseName = '') {
     const n = L.length;
     const out = [];
     // A folder with an order number or a year in front ("02 - Images and Words") is an album, never the artist
-    const add = (artist, album) => { if (artist && cleanAlbumName(artist) === artist) out.push({ artist, album: album ? cleanAlbumName(album) : '' }); };
+    // An album folder named "Artist_Album" or "Artist - Album" is the album
+    const add = (artist, album) => { if (artist && cleanAlbumName(artist) === artist) out.push({ artist, album: album ? stripArtistPrefix(cleanAlbumName(album), artist) : '' }); };
     if (n >= 2) add(L[n - 2], L[n - 1]);
     if (n >= 1) add(L[n - 1], '');
     if (n >= 3) { add(L[n - 3], L[n - 2]); add(L[n - 3], L[n - 1]); }
@@ -171,6 +172,24 @@ export function pairFile(entry, strategy, meta = null) {
     // A title alone still searches; the artist comes from the lookup
     if (fromFile) return { ...fromFile, via: 'metadata' };
     return named.title ? { ...named, via: 'file name' } : null;
+}
+
+/**
+ * Is this file a whole album's tab book rather than one song? Only PDFs are asked. 'strong': the name says so ("tab book",
+ * "songbook") or holds the album's name with more around it. 'weak': the name is just the album's ("Systematic Chaos.pdf"),
+ * which is also how a title track is named, so the caller checks it against what the library knows. null: a song.
+ */
+export function looksLikeAlbumBook(parsed, entry) {
+    if (!parsed || String(entry?.ext || '').toLowerCase() !== 'pdf') return null;
+    const name = baseNameOf(entry.name);
+    if (/\b(?:tab(?:lature)?s? book|songbook|song book|full album|complete (?:album|tabs?)|digital guitar tablature)\b/i.test(name)) return 'strong';
+    const album = parsed.album;
+    if (!album) return null;
+    const titles = [parsed.title, parsed.rawTitle, parsed.altTitle].filter(Boolean);
+    const key = normName(album);
+    if (titles.some((t) => normName(t) !== key && key.split(' ').length >= 2 && normName(t).includes(key))) return 'strong';
+    if (titles.some((t) => sameTitle(t, album) || closeTitle(t, album))) return 'weak';
+    return null;
 }
 
 /** Do two artist names read as the same? One may hold the other ("The Beatles" and "Beatles"). */
