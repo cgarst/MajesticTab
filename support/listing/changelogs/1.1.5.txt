@@ -1,0 +1,2 @@
+- Fill in missing tabs keeps the browser open after a captured download during a batch
+- In-app browser bar: the address field now fills the space between reload and ad blocking
