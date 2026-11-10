@@ -1,12 +1,13 @@
 // stemdeck/stemdeckTool.js
 // The Backing tracks page in Tools (native apps only): pick songs that have a local audio file, send each file to
-// the StemDeck app (on this computer for a desktop app, or on the same network by its address, which is how a phone
-// reaches it), and save the mix without guitar as the song's Backing track (the same slot the Sound panel's
+// the StemDeck app (a desktop app finds the one on this computer by itself, whatever port it took; a phone is given
+// its address on the network), and save the mix without guitar as the song's Backing track (the same slot the Sound panel's
 // Recording | Backing switch reads). One file is sent at a time. The batch belongs to the app, not to
 // this page: leaving Tools does not stop it, and the page shows where it is when it is drawn again.
 
 import {
-    createStemDeckClient, getStemDeckAddress, setStemDeckAddress, parseAddress, isLoopback, StemDeckError
+    createStemDeckClient, getStemDeckAddress, setStemDeckAddress, parseAddress, isLoopback, isDesktopShell,
+    findLocalStemDeck, nativeLoopbackScan, DEFAULT_PORT, StemDeckError
 } from './stemdeckClient.js';
 import { listBackingCandidates, planJobs, backingFileName, slotFileKey, slotSourceKey } from './backingCandidates.js';
 import { listAudioFiles, getAudioFile, getAudioMeta, saveAudioFile, linkAudioFile, unlinkAudioFile } from '../audioSync/audioFileStore.js';
@@ -39,10 +40,15 @@ const batch = {
 const listeners = new Set();
 const notify = () => listeners.forEach((cb) => { try { cb(); } catch (e) { console.error('[Backing tracks]', e); } });
 
-/** Short readout for the Tools list. */
+/** Short readout for the Tools list: where the batch is while it runs. */
 export function stemdeckReadout() {
-    return batch.running ? `${batch.done} of ${batch.total}` : '';
+    return batch.running ? `${Math.min(batch.done + 1, batch.total)} of ${batch.total}` : '';
 }
+// The Tools list only re-reads its readouts after a click, so this one is kept current here, tool open or not
+listeners.add(() => {
+    const el = document.querySelector('[data-read="stemdeck"]');
+    if (el && el.textContent !== stemdeckReadout()) el.textContent = stemdeckReadout();
+});
 
 function setState(job, kind, text) {
     for (const s of job.songs) batch.states.set(s.songKey, { kind, text });
@@ -147,15 +153,47 @@ async function startBatch(jobs, client) {
     notify();
 }
 
+/** Returns the introductory description text for the backing tracks tool based on platform and connection. */
+export function stemdeckIntroText({ desktop, local = false }) {
+    if (desktop) {
+        const detail = local ? ' Nothing leaves this computer.' : '';
+        return `Sends a song’s audio file to the StemDeck app on this computer and saves the mix without guitar as the song’s backing track.${detail} Each song also appears in your StemDeck library.`;
+    }
+    return 'Sends a song’s audio file over your network to the StemDeck app on your computer and saves the mix without guitar as the song’s backing track. Each song also appears in your StemDeck library.';
+}
+
+/**
+ * What to do next when StemDeck was not found, dynamic for desktop vs mobile. StemDeck's Settings, Network page shows
+ * the port it is running on (not only the one it was asked for), so that is where the person is sent for the port.
+ */
+export function stemdeckHelpText({ desktop, conn, local = false }) {
+    const example = `192.168.1.20:${DEFAULT_PORT}`;
+    const portHint = 'The Port field on its Settings, Network page shows the port StemDeck is running on.';
+    const network = desktop
+        ? `To use StemDeck on another computer: In StemDeck on that computer, open Settings, then Network, and turn on Make StemDeck available on your network. Then enter the computer’s IP address and the Port shown there, such as ${example}.`
+        : `In StemDeck on your computer, open Settings, then Network, and turn on Make StemDeck available on your network. Then enter your computer’s IP address and the Port shown there, such as ${example}.`;
+
+    if (conn.code === 'https') return `Use the Port from StemDeck’s Settings, Network page (${DEFAULT_PORT} unless it was changed), not the https address it shows for browsers.`;
+    if (conn.code === 'invalid') return `Enter an IP address or a computer name, with the port after a colon, such as ${example}. ${portHint}`;
+    if (conn.code === 'network-off' || conn.kind === 'unset') return network;
+    if (conn.kind === 'down' && local) return `Open StemDeck on this computer, then check again. If it is open and still not found, enter 127.0.0.1 and the port after a colon, such as 127.0.0.1:${DEFAULT_PORT}. ${portHint} To use StemDeck on another computer, enter its address here.`;
+    if (conn.kind === 'down') return desktop
+        ? `Check that StemDeck is open and that this computer is on the same network. If it is, the port may differ from ${DEFAULT_PORT}. ${portHint} ${network}`
+        : `Check that StemDeck is open on your computer and that this device is on the same network. If it is, the port may differ from ${DEFAULT_PORT}. ${portHint} ${network}`;
+    return '';
+}
+
 // --- The page ------------------------------------------------------------------------------------------------------
 
 export function renderStemdeckTool(container) {
     let alive = true;
     let candidates = [];
     let loaded = false;
-    // conn.kind: 'unset' (no address yet) | 'checking' | 'ok' | 'down'; conn.code says why it is down
-    const conn = { kind: 'unset', text: '', code: '', address: getStemDeckAddress() };
-    const local = () => !conn.address || isLoopback(parseAddress(conn.address).host || '');
+    // conn.address is what the person entered ('' on a desktop app means: look on this computer); conn.found is where
+    // StemDeck answered, which is the address the batch uses. conn.kind: 'unset' | 'checking' | 'ok' | 'down'.
+    const desktop = isDesktopShell();
+    const conn = { kind: 'unset', text: '', code: '', address: getStemDeckAddress(), found: '' };
+    const local = () => desktop && (!conn.address || isLoopback(parseAddress(conn.address).host || ''));
     let checkToken = 0;
 
     container.innerHTML = '<div class="sd-root"></div>';
@@ -168,20 +206,33 @@ export function renderStemdeckTool(container) {
     async function check() {
         const token = ++checkToken;
         conn.code = '';
-        if (!conn.address) {
+        conn.found = '';
+        if (!conn.address && !desktop) {
             conn.kind = 'unset';
-            conn.text = 'Enter the address of the computer that runs StemDeck';
+            conn.text = 'Enter the address of your computer that runs StemDeck';
             render();
             return;
         }
         conn.kind = 'checking';
-        conn.text = 'Looking for StemDeck';
+        conn.text = desktop
+            ? (local() ? 'Looking for StemDeck on this computer' : 'Looking for StemDeck')
+            : 'Looking for StemDeck on your computer';
         render();
         try {
-            const info = await createStemDeckClient({ address: conn.address }).health();
+            let info;
+            if (local()) {
+                // It takes a free port when its own is taken, so this computer is searched, not assumed
+                info = await findLocalStemDeck({ preferred: conn.address ? [conn.address] : [], scan: nativeLoopbackScan() });
+                if (!info) throw new StemDeckError('StemDeck is not running on this computer', 'unreachable');
+                conn.found = info.address;
+            } else {
+                info = await createStemDeckClient({ address: conn.address }).health();
+                conn.found = conn.address;
+            }
             if (token !== checkToken) return;
             conn.kind = 'ok';
-            conn.text = info.version ? `StemDeck ${info.version} is running` : 'StemDeck is running';
+            const port = local() ? ` on port ${conn.found.split(':')[1]}` : '';
+            conn.text = `${info.version ? `StemDeck ${info.version}` : 'StemDeck'} is running${port}`;
         } catch (e) {
             if (token !== checkToken) return;
             conn.kind = 'down';
@@ -262,13 +313,7 @@ export function renderStemdeckTool(container) {
 
     /** What to do next when StemDeck was not found, said once and only then. */
     function helpHtml() {
-        const network = 'In StemDeck on your computer, open Settings, then Network, and turn on Make StemDeck available on your network. Then enter the computer’s IP address and the Port shown there, such as 192.168.1.20:52800.';
-        let text = '';
-        if (conn.code === 'https') text = 'Use the Port from StemDeck’s Settings (52800 unless you changed it), not the https address it shows for browsers.';
-        else if (conn.code === 'invalid') text = 'Enter an IP address or a computer name, with the port after a colon, such as 192.168.1.20:52800.';
-        else if (conn.code === 'network-off' || conn.kind === 'unset') text = network;
-        else if (conn.kind === 'down' && local()) text = 'Open StemDeck first. It uses the Port in its Settings, or another one when that port is taken: if so, choose a free port there, restart StemDeck and enter it here after the colon.';
-        else if (conn.kind === 'down') text = `Check that StemDeck is open and that this device is on the same network. ${network}`;
+        const text = stemdeckHelpText({ desktop, conn, local: local() });
         return text ? `<p class="ct-sub sd-help">${esc(text)}</p>` : '';
     }
 
@@ -279,11 +324,9 @@ export function renderStemdeckTool(container) {
         const typing = document.activeElement?.matches?.('.sd-addr-input') ? document.activeElement.value : null;
         const scroll = root.querySelector('.sd-list')?.scrollTop || 0;
         root.innerHTML = `
-          <p class="ct-sub">${local()
-        ? 'Sends a song’s audio file to the StemDeck app on this computer and saves the mix without guitar as the song’s backing track. Nothing leaves this computer.'
-        : 'Sends a song’s audio file over your network to the StemDeck app on your computer and saves the mix without guitar as the song’s backing track.'} Each song also appears in your StemDeck library.</p>
+          <p class="ct-sub">${esc(stemdeckIntroText({ desktop, local: local() }))}</p>
           <div class="sd-conn">
-            <label class="sd-addr">StemDeck address <input type="text" class="sd-addr-input" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="80" placeholder="192.168.1.20:52800" value="${esc(conn.address)}" ${batch.running ? 'disabled' : ''}></label>
+            <label class="sd-addr">StemDeck address <input type="text" class="sd-addr-input" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="80" placeholder="${desktop ? 'This computer' : `192.168.1.20:${DEFAULT_PORT}`}" value="${esc(conn.address)}" ${batch.running ? 'disabled' : ''}></label>
             <button type="button" class="ct-text" data-act="check" ${batch.running ? 'disabled' : ''}>Check again</button>
             <span class="sd-conn-text" data-kind="${conn.kind}" role="status">${esc(conn.text)}</span>
           </div>
@@ -319,9 +362,19 @@ export function renderStemdeckTool(container) {
         check();
     }
 
+    /** An emptied field on a desktop app goes back to looking on this computer. */
+    function clearAddress() {
+        conn.address = '';
+        setStemDeckAddress('');
+        check();
+    }
+
     root.addEventListener('change', (e) => {
         const t = e.target;
-        if (t.matches('.sd-addr-input')) { applyAddress(t); return; }
+        if (t.matches('.sd-addr-input')) {
+            if (!t.value.trim() && desktop) clearAddress(); else applyAddress(t);
+            return;
+        }
         if (t.dataset.act === 'include') {
             view.includeExisting = t.checked;
             // Turning it on chooses the songs it brings in; turning it off takes them out again
@@ -352,7 +405,7 @@ export function renderStemdeckTool(container) {
         else if (act === 'cancel') batch.controller?.abort();
         else if (act === 'start') {
             const jobs = planJobs(visible(), view.selected, view.includeExisting);
-            startBatch(jobs, createStemDeckClient({ address: conn.address }));
+            startBatch(jobs, createStemDeckClient({ address: conn.found || conn.address }));
         }
     });
 
