@@ -3,7 +3,7 @@
 
 import { getCurrentFile } from './main.js';
 import { getCollections, saveSongToLibrary, mapOpenFileToSong, DEFAULT_COLLECTION_ID } from './libraryStore.js';
-import { searchMusicBrainz, getPlaceholderCoverSvg } from './musicbrainz.js';
+import { searchMusicBrainz, getPlaceholderCoverSvg, hydrateCachedImages, getSynchronousCachedArtUrl } from './musicbrainz.js';
 import { detectFileMetadata, getTuningInfo } from './utils/tuningUtils.js';
 import { showToast } from './utils/toast.js';
 
@@ -141,15 +141,19 @@ export async function openSaveToLibraryModal(file) {
             resultsEl.innerHTML = '<div class="small text-muted text-center py-3">No matches. Try a different search, or save as a Custom Song.</div>';
             return;
         }
-        resultsEl.innerHTML = results.map((r, i) => `
+        resultsEl.innerHTML = results.map((r, i) => {
+            const coverSrc = getSynchronousCachedArtUrl(r.coverUrl) || r.coverUrl || getPlaceholderCoverSvg(r.title);
+            return `
           <button type="button" class="btn btn-theme-outline text-start d-flex align-items-center gap-2 p-2 save-to-library-result ${selected?.id === r.id ? 'active' : ''}" data-index="${i}">
-            <img src="${escapeHtml(r.coverUrl || getPlaceholderCoverSvg(r.title))}" width="36" height="36" class="rounded flex-shrink-0" style="object-fit: cover;" alt="" onerror="this.style.visibility='hidden'">
+            <img src="${escapeHtml(coverSrc)}" width="36" height="36" class="shelf-cover rounded flex-shrink-0" style="object-fit: cover;" alt="" onerror="this.style.visibility='hidden'">
             <span class="min-w-0 flex-grow-1">
               <span class="d-block fw-semibold text-truncate">${escapeHtml(r.title)}</span>
               <span class="d-block small text-muted text-truncate">${escapeHtml(r.artist)}${r.album ? ` • ${escapeHtml(r.album)}` : ''}${r.year ? ` • ${r.year}` : ''}</span>
             </span>
             ${selected?.id === r.id ? '<i class="bi-check-lg flex-shrink-0"></i>' : ''}
-          </button>`).join('');
+          </button>`;
+        }).join('');
+        hydrateCachedImages(resultsEl);
         resultsEl.querySelectorAll('.save-to-library-result').forEach(btn => {
             btn.addEventListener('click', () => {
                 selected = results[Number(btn.dataset.index)];

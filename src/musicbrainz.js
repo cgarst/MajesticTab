@@ -227,6 +227,10 @@ export function getCoverArtUrl(releaseGroupMbid, releaseMbid, size = 250) {
 }
 
 const ART_CACHE_NAME = 'majestictab_art_cache_v1';
+const ART_CACHE_TTL = 30 * 24 * 3600 * 1000; // 30 days
+const ART_CACHE_MAX = 600; // Maximum number of persistent covers to retain
+let artWrites = 0;
+
 const artMemoryCache = new Map();
 const inFlightArt = new Map();
 // Art URLs the server refused this session (the art server returns 500s for some releases); not asked for again.
@@ -241,6 +245,53 @@ export function getSynchronousCachedArtUrl(url) {
 }
 
 /**
+ * Prune persistent artwork cache: remove entries exceeding ART_CACHE_TTL or when cache count > ART_CACHE_MAX.
+ */
+export async function pruneArtCache() {
+    if (typeof caches === 'undefined') return;
+    try {
+        const cache = await caches.open(ART_CACHE_NAME);
+        const requests = await cache.keys();
+        const now = Date.now();
+        const valid = [];
+
+        for (const req of requests) {
+            try {
+                const matched = await cache.match(req);
+                if (!matched) continue;
+                const cachedAtHeader = matched.headers?.get ? matched.headers.get('x-majestictab-cached-at') : null;
+                const cachedAt = cachedAtHeader ? parseInt(cachedAtHeader, 10) : 0;
+                if (cachedAt && (now - cachedAt > ART_CACHE_TTL)) {
+                    await cache.delete(req);
+                    const existingUrl = artMemoryCache.get(req.url);
+                    if (existingUrl && existingUrl.startsWith('blob:')) {
+                        try { URL.revokeObjectURL(existingUrl); } catch (_) {}
+                    }
+                    artMemoryCache.delete(req.url);
+                } else {
+                    valid.push({ req, cachedAt: cachedAt || now });
+                }
+            } catch (_) {}
+        }
+
+        if (valid.length > ART_CACHE_MAX) {
+            valid.sort((a, b) => a.cachedAt - b.cachedAt);
+            const excess = valid.slice(0, valid.length - ART_CACHE_MAX);
+            for (const item of excess) {
+                try {
+                    await cache.delete(item.req);
+                    const existingUrl = artMemoryCache.get(item.req.url);
+                    if (existingUrl && existingUrl.startsWith('blob:')) {
+                        try { URL.revokeObjectURL(existingUrl); } catch (_) {}
+                    }
+                    artMemoryCache.delete(item.req.url);
+                } catch (_) {}
+            }
+        }
+    } catch (_) {}
+}
+
+/**
  * Warm in-memory art cache from persistent Cache Storage in background.
  */
 export async function warmArtMemoryCache() {
@@ -248,12 +299,19 @@ export async function warmArtMemoryCache() {
     try {
         const cache = await caches.open(ART_CACHE_NAME);
         const requests = await cache.keys();
+        const now = Date.now();
         for (const req of requests) {
             const url = req.url;
             if (artMemoryCache.has(url)) continue;
             try {
                 const matched = await cache.match(req);
                 if (matched && matched.ok) {
+                    const cachedAtHeader = matched.headers?.get ? matched.headers.get('x-majestictab-cached-at') : null;
+                    const cachedAt = cachedAtHeader ? parseInt(cachedAtHeader, 10) : 0;
+                    if (cachedAt && (now - cachedAt > ART_CACHE_TTL)) {
+                        await cache.delete(req);
+                        continue;
+                    }
                     const blob = await matched.blob();
                     if (blob && blob.size > 0 && !artMemoryCache.has(url)) {
                         artMemoryCache.set(url, URL.createObjectURL(blob));
@@ -292,21 +350,37 @@ export async function getCachedArtUrl(url) {
                 const cache = await caches.open(ART_CACHE_NAME);
                 const matched = await cache.match(url);
                 if (matched && matched.ok) {
-                    const blob = await matched.blob();
-                    if (blob && blob.size > 0) {
-                        const objUrl = URL.createObjectURL(blob);
-                        artMemoryCache.set(url, objUrl);
-                        return objUrl;
+                    const cachedAtHeader = matched.headers?.get ? matched.headers.get('x-majestictab-cached-at') : null;
+                    const cachedAt = cachedAtHeader ? parseInt(cachedAtHeader, 10) : 0;
+                    if (cachedAt && (Date.now() - cachedAt > ART_CACHE_TTL)) {
+                        await cache.delete(url);
+                    } else {
+                        const blob = await matched.blob();
+                        if (blob && blob.size > 0) {
+                            const objUrl = URL.createObjectURL(blob);
+                            artMemoryCache.set(url, objUrl);
+                            return objUrl;
+                        }
                     }
                 }
 
                 // Fetch and store in cache
                 const res = await fetch(url, { mode: 'cors' });
                 if (res.ok) {
-                    try {
-                        await cache.put(url, res.clone());
-                    } catch {}
                     const blob = await res.blob();
+                    try {
+                        const headers = new Headers(res.headers);
+                        headers.set('x-majestictab-cached-at', String(Date.now()));
+                        const cachedRes = new Response(blob, {
+                            status: res.status,
+                            statusText: res.statusText,
+                            headers
+                        });
+                        await cache.put(url, cachedRes);
+                        if (++artWrites % 20 === 0) {
+                            pruneArtCache();
+                        }
+                    } catch {}
                     const objUrl = URL.createObjectURL(blob);
                     artMemoryCache.set(url, objUrl);
                     return objUrl;
@@ -333,6 +407,11 @@ export async function getCachedArtUrl(url) {
  * @returns {Promise<number>} Number of cache items removed
  */
 export async function clearArtCache() {
+    for (const objUrl of artMemoryCache.values()) {
+        if (typeof objUrl === 'string' && objUrl.startsWith('blob:')) {
+            try { URL.revokeObjectURL(objUrl); } catch (_) {}
+        }
+    }
     artMemoryCache.clear();
     let count = 0;
     if (typeof caches !== 'undefined') {
@@ -387,7 +466,7 @@ export function hydrateCachedImages(container) {
     images.forEach(img => {
         img.setAttribute('draggable', 'false');
         const src = img.getAttribute('src');
-        if (src && src.startsWith('https://coverartarchive.org')) {
+        if (src && (src.startsWith('https://coverartarchive.org') || src.startsWith('https://archive.org'))) {
             if (artMemoryCache.has(src)) {
                 img.src = artMemoryCache.get(src);
                 return;

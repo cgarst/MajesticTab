@@ -2824,6 +2824,7 @@ function setupLibraryFilter(container, context = {}) {
         `;
 
         catalogContainer.innerHTML = html;
+        hydrateCachedImages(catalogContainer);
         catalogContainer.style.opacity = '0';
         catalogContainer.style.transition = 'opacity var(--dur-fast, 150ms) ease';
         requestAnimationFrame(() => {
@@ -4274,7 +4275,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
     const preloadTitle = albumPreload?.title || '';
     const preloadArtist = albumPreload?.artist || parentArtist?.name || '';
     const preloadYear = albumPreload?.year || '';
-    const preloadCover = albumPreload?.coverUrl || (preloadTitle ? getPlaceholderCoverSvg(preloadTitle) : '');
+    const preloadCover = getSynchronousCachedArtUrl(albumPreload?.coverUrl) || albumPreload?.coverUrl || (preloadTitle ? getPlaceholderCoverSvg(preloadTitle) : '');
 
     const goBackToAlbumsOrParent = () => {
         currentExploreTracklistToken++;
@@ -4297,7 +4298,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
       ${preloadTitle ? `
       <!-- Album Header Banner (Preloaded) -->
       <div class="d-flex align-items-center gap-3 p-3 mb-3" style="background: var(--s1); border-radius: var(--r-card);">
-        <img loading="lazy" decoding="async" src="${preloadCover}" class="flex-shrink-0" style="width: 56px; height: 56px; border-radius: var(--r-control); object-fit: cover; background: var(--s3);" alt="${escapeHtml(preloadTitle)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(preloadTitle)}'">
+        <img loading="lazy" decoding="async" src="${preloadCover}" class="album-header-cover flex-shrink-0" style="width: 56px; height: 56px; border-radius: var(--r-control); object-fit: cover; background: var(--s3);" alt="${escapeHtml(preloadTitle)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(preloadTitle)}'">
         <div class="min-w-0 flex-grow-1">
           <div class="fw-bold text-truncate" style="font-family: var(--font-display, inherit); font-size: 1.15rem; color: var(--ink);">${escapeHtml(preloadTitle)}</div>
           <div class="small text-truncate" style="color: var(--ink2);">
@@ -4315,6 +4316,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
     </div>
     `;
 
+    hydrateCachedImages(targetContainer);
     targetContainer.querySelector('#cancelFetchTracklistBtn')?.addEventListener('click', goBackToAlbumsOrParent);
 
     try {
@@ -4356,7 +4358,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
         const allInLib = cleanTracks.length > 0 && missingTracks.length === 0;
         const partialInLib = missingTracks.length > 0 && missingTracks.length < cleanTracks.length;
 
-        const cover = albumData.coverUrl || preloadCover || getPlaceholderCoverSvg(albumData.title);
+        const cover = getSynchronousCachedArtUrl(albumData.coverUrl) || albumData.coverUrl || preloadCover || getPlaceholderCoverSvg(albumData.title);
 
         let addAllBtnHtml = '';
         if (allInLib) {
@@ -4391,7 +4393,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
 
           <!-- Album Header Banner (Flat Ground Ladder) -->
           <div class="d-flex align-items-center gap-3 p-3 mb-3" style="background: var(--s1); border-radius: var(--r-card);">
-            <img loading="lazy" decoding="async" src="${cover}" class="flex-shrink-0" style="width: 56px; height: 56px; border-radius: var(--r-control); object-fit: cover; background: var(--s3);" alt="${escapeHtml(albumData.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(albumData.title)}'">
+            <img loading="lazy" decoding="async" src="${cover}" class="album-header-cover flex-shrink-0" style="width: 56px; height: 56px; border-radius: var(--r-control); object-fit: cover; background: var(--s3);" alt="${escapeHtml(albumData.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(albumData.title)}'">
             <div class="min-w-0 flex-grow-1">
               <div class="fw-bold text-truncate" style="font-family: var(--font-display, inherit); font-size: 1.15rem; color: var(--ink);">${escapeHtml(albumData.title)}</div>
               <div class="small text-truncate" style="color: var(--ink2);">
@@ -4407,6 +4409,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
         </div>
         `;
 
+        hydrateCachedImages(targetContainer);
         targetContainer.querySelector('#backToAlbumsListBtn')?.addEventListener('click', goBackToAlbumsOrParent);
 
         // Add missing tracks or full album button
