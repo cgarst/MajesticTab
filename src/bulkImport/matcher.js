@@ -219,3 +219,51 @@ export function matchTrack(parsed, resolved) {
         trackNumber: t.trackNumber || null, mediumNumber: t.mediumNumber || 1, mediumTitle: t.mediumTitle || null, mediumFormat: t.mediumFormat || null
     };
 }
+
+/**
+ * Audio mode: the song in the library, among those that have a tab, that a file reads as. The readings of the path are tried in
+ * turn (see lookup); a song found under the artist the file names is a sure answer, one found by title alone is a guess for the
+ * person to look at. No network.
+ * @returns {{status: 'library'|'maybe'|'none', pick: object|null, candidates: object[]}}
+ */
+export function lookupLibraryAudio(parsed, songs) {
+    const pool = songs.filter((s) => !s.isAlbumTabContainer && (s.tabOptions || []).length > 0);
+    if (!parsed?.title || !pool.length) return { status: 'none', pick: null, candidates: [] };
+    const titles = [parsed.title, parsed.altTitle].filter(Boolean);
+    const readings = [];
+    for (const title of titles) {
+        readings.push({ artist: parsed.artist, album: parsed.album, title });
+        for (const a of parsed.alts || []) readings.push({ artist: a.artist, album: a.album, title: stripArtistPrefix(parsed.rawTitle || title, a.artist) });
+    }
+    const seen = new Set();
+    const candidates = [];
+    for (const reading of readings) {
+        for (const hit of findInLibrary(reading, pool)) {
+            if (!seen.has(hit.songId)) { seen.add(hit.songId); candidates.push({ hit, sure: Boolean(reading.artist) }); }
+        }
+        if (candidates.some((c) => c.sure)) break;
+    }
+    const sure = candidates.filter((c) => c.sure);
+    if (sure.length) {
+        // The same song on two albums: the one on the file's album, else the first, but then it is a guess
+        const onAlbum = parsed.album ? sure.filter((c) => sameTitle(c.hit.album, parsed.album)) : [];
+        const chosen = onAlbum[0] || sure[0];
+        return { status: sure.length === 1 || onAlbum.length === 1 ? 'library' : 'maybe', pick: chosen.hit, candidates: candidates.map((c) => c.hit) };
+    }
+    if (candidates.length) return { status: 'maybe', pick: candidates[0].hit, candidates: candidates.map((c) => c.hit) };
+    // Nothing by title and artist: songs of that title by anyone are offered, never chosen
+    const loose = pool.filter((s) => closeTitle(s.title, parsed.title)).slice(0, 8).map(fromLibrary);
+    return { status: 'none', pick: null, candidates: loose };
+}
+
+/** Songs with a tab whose title or artist contains the text, for the page's own search box. */
+export function searchLibrarySongs(text, songs, limit = 25) {
+    const q = normName(text);
+    if (!q) return [];
+    const words = q.split(' ');
+    return songs
+        .filter((s) => !s.isAlbumTabContainer && (s.tabOptions || []).length > 0)
+        .filter((s) => { const hay = `${normName(s.artist)} ${normName(s.title)}`; return words.every((w) => hay.includes(w)); })
+        .slice(0, limit)
+        .map(fromLibrary);
+}

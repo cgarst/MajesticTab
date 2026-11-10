@@ -1464,6 +1464,10 @@ export function updateSongForYouTube({
         sourceWebsite: playerState.sourceWebsite,
         sourceUrl: playerState.sourceUrl
     });
+    // Audio the bulk import attached to this library song is linked to the key the reader uses for it
+    const adoptId = playerState.librarySongId;
+    const adoptKey = getSongKey();
+    import('./audioSync/libraryAudio.js').then((m) => m.adoptLibraryAudio(adoptId, adoptKey)).catch(() => {});
     playerState.customQueries = { original: '', backing: '' };
     playerState.customQuery = '';
     setVideoId(null, 'song');

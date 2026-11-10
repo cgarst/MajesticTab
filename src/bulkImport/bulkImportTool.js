@@ -10,6 +10,7 @@
 //      (MusicBrainz release groups) and imported as the album's tab book. Any row can be switched between the two.
 //   5. Import: each paired file is stored and attached to its song (an existing library song, or a new one from the match), or to
 //      its album. A switch leaves out files whose song or album already has a tab.
+//   Audio files: a second mode on the same page (audioImport.js) matches a folder of audio files to songs already in the library.
 // The page's state lives in this module, so leaving Tools while the lookups run does not lose them.
 
 import { getAllSongs, saveSongToLibrary, getSongById, mapOpenFileToSong, getAlbumTabOptions, addTabOptionToAlbum, DEFAULT_COLLECTION_ID } from '../libraryStore.js';
@@ -19,6 +20,7 @@ import { showToast } from '../utils/toast.js';
 import { STRATEGIES, pairFile, baseNameOf, normName, sameArtist, sameTitle, looksLikeAlbumBook, VIA_LABEL } from './pairing.js';
 import { lookup, lookupAlbum, searchSongs, searchAlbums, normKey, resolveAlbumTracklist, matchTrack } from './matcher.js';
 import { canPickFolder, pickAndScanFolder } from './scanFolder.js';
+import { renderAudioImport, audioImportReadout, onAudioImportChange } from './audioImport.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const plural = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -64,8 +66,12 @@ export function bulkImportReadout() {
         const done = state.rows.filter((r) => r.stage === 'done').length;
         return `${done} of ${state.rows.length}`;
     }
-    return '';
+    return audioImportReadout();
 }
+onAudioImportChange(() => {
+    const el = document.querySelector('[data-read="bulkimport"]');
+    if (el && el.textContent !== bulkImportReadout()) el.textContent = bulkImportReadout();
+});
 listeners.add(() => {
     const el = document.querySelector('[data-read="bulkimport"]');
     if (el && el.textContent !== bulkImportReadout()) el.textContent = bulkImportReadout();
@@ -384,7 +390,7 @@ async function runImport() {
 
 // --- The page --------------------------------------------------------------------------------------------------------
 
-export function renderBulkImportTool(container) {
+function renderTabsImport(container) {
     let alive = true;
     const root = document.createElement('div');
     root.className = 'be-root imp-root';
@@ -713,4 +719,36 @@ export function renderBulkImportTool(container) {
         alive = false;
         listeners.delete(onChange);
     };
+}
+
+// --- The two modes ---------------------------------------------------------------------------------------------------
+
+let mode = 'tabs'; // 'tabs' | 'audio'; kept while Tools is left, like each mode's own review
+
+export function renderBulkImportTool(container) {
+    const host = document.createElement('div');
+    host.className = 'imp-modes';
+    container.appendChild(host);
+    const bar = document.createElement('div');
+    bar.className = 'imp-kind imp-mode-bar';
+    bar.setAttribute('role', 'group');
+    bar.setAttribute('aria-label', 'What to import');
+    const body = document.createElement('div');
+    host.append(bar, body);
+    let dispose = null;
+    const show = () => {
+        dispose?.();
+        body.replaceChildren();
+        bar.innerHTML = ['tabs', 'audio'].map((m) => `<button type="button" class="ct-text imp-kind-btn" data-mode="${m}" aria-pressed="${mode === m}">${m === 'tabs' ? 'Tabs' : 'Audio files'}</button>`).join('');
+        dispose = mode === 'audio' ? renderAudioImport(body) : renderTabsImport(body);
+    };
+    bar.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-mode]');
+        if (!btn || btn.dataset.mode === mode) return;
+        mode = btn.dataset.mode;
+        show();
+        bar.querySelector(`[data-mode="${mode}"]`)?.focus();
+    });
+    show();
+    return () => dispose?.();
 }

@@ -239,3 +239,17 @@ export function closeTitle(a, b) {
 
 /** Why a pairing was chosen, in the words the page shows. */
 export const VIA_LABEL = { metadata: 'file data', folders: 'folders', 'artist-song': 'file name', 'file name': 'file name' };
+
+/**
+ * Words audio files carry after the song: "(Official Audio)", "[HQ]", "(Remastered 2009)", "(Backing Track)", "(Karaoke)". Returns
+ * the title without them, and `backing` when the name says the file is a backing track and not the recording.
+ */
+export function cleanAudioTitle(title) {
+    let t = clean(title);
+    let backing = false;
+    const tag = /\s*[\(\[][^)\]]*\b(?:official(?: music)? (?:audio|video)|audio|lyrics?|hq|hd|remaster(?:ed)?(?: \d{4})?|backing(?: track)?|karaoke|instrumental|no guitars?|minus one)\b[^)\]]*[\)\]]/gi;
+    t = t.replace(tag, (m) => { if (/backing|karaoke|no guitars?|minus one/i.test(m)) backing = true; return ''; });
+    const tail = /\s+[-–]\s*(?:backing(?: track)?|karaoke|no guitars?)$|\s+(?:backing track|karaoke)$/i;
+    if (tail.test(t)) { backing = true; t = t.replace(tail, ''); }
+    return { title: t.replace(/\s+/g, ' ').trim(), backing };
+}

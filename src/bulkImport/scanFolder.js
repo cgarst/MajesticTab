@@ -1,5 +1,5 @@
 // scanFolder.js
-// Choose a folder and list every tab file inside it, subfolders included. Three ways in, one result:
+// Choose a folder and list every tab file (or, for audio mode, every audio file) inside it, subfolders included. Three ways in, one result:
 //   - desktop app: Tauri's folder dialog and fs plugin
 //   - Chrome and Edge: the File System Access API
 //   - other browsers: a folder input (webkitdirectory), which hands over the files at once
@@ -21,15 +21,18 @@ export function canPickFolder() {
 }
 
 const extOf = (name) => (String(name).split('.').pop() || '').toLowerCase();
-const isTab = (name) => SUPPORTED_TAB_EXTENSIONS.includes(extOf(name));
+export const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'aac', 'ogg', 'opus', 'wav', 'flac'];
+// What a scan keeps: tab files, or audio files (Bulk import's two modes)
+const wanted = (kind) => (name) => (kind === 'audio' ? AUDIO_EXTENSIONS : SUPPORTED_TAB_EXTENSIONS).includes(extOf(name));
 const skipDir = (name) => name.startsWith('.') || name === '__MACOSX' || name === 'node_modules';
 const skipFile = (name) => name.startsWith('.') || name.startsWith('~$');
 const natural = (a, b) => a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: 'base' });
 
-async function scanNative(onProgress, signal) {
+async function scanNative(onProgress, signal, kind) {
+    const isTab = wanted(kind);
     const { dialog, fs } = tauri();
     // recursive: lets the fs plugin reach the files inside the chosen folder
-    const picked = await dialog.open({ directory: true, multiple: false, recursive: true, title: 'Choose a folder of tabs' });
+    const picked = await dialog.open({ directory: true, multiple: false, recursive: true, title: kind === 'audio' ? 'Choose a folder of audio files' : 'Choose a folder of tabs' });
     if (!picked) return null;
     const root = Array.isArray(picked) ? picked[0] : picked;
     const sep = root.includes('\\') && !root.includes('/') ? '\\' : '/';
@@ -56,7 +59,8 @@ async function scanNative(onProgress, signal) {
     return { rootName, entries: entries.sort(natural) };
 }
 
-async function scanBrowser(onProgress, signal) {
+async function scanBrowser(onProgress, signal, kind) {
+    const isTab = wanted(kind);
     let handle;
     try { handle = await window.showDirectoryPicker({ id: 'majestictab-import', mode: 'read' }); }
     catch (err) { if (err?.name === 'AbortError') return null; throw err; }
@@ -80,7 +84,8 @@ async function scanBrowser(onProgress, signal) {
 }
 
 /** A folder chosen with a folder input: its files carry their path in webkitRelativePath. */
-export function scanFileList(files) {
+export function scanFileList(files, kind = 'tabs') {
+    const isTab = wanted(kind);
     const list = [...files];
     if (!list.length) return null;
     let rootName = '';
@@ -95,14 +100,14 @@ export function scanFileList(files) {
     return { rootName: rootName || 'Folder', entries: entries.sort(natural) };
 }
 
-function scanFolderInput() {
+function scanFolderInput(kind) {
     return new Promise((resolve) => {
         const input = document.createElement('input');
         input.type = 'file';
         input.webkitdirectory = true;
         input.multiple = true;
         input.style.display = 'none';
-        input.addEventListener('change', () => { const r = scanFileList(input.files || []); input.remove(); resolve(r); }, { once: true });
+        input.addEventListener('change', () => { const r = scanFileList(input.files || [], kind); input.remove(); resolve(r); }, { once: true });
         input.addEventListener('cancel', () => { input.remove(); resolve(null); }, { once: true });
         document.body.appendChild(input);
         input.click();
@@ -113,10 +118,11 @@ function scanFolderInput() {
  * Choose a folder and list its tab files. Must run from a click. Resolves null when cancelled.
  * @param {function(number)} [onProgress]  files found so far
  * @param {AbortSignal} [signal]
+ * @param {'tabs'|'audio'} [kind]  which files to keep
  */
-export async function pickAndScanFolder(onProgress, signal) {
-    if (hasNative() && !isPhone()) return scanNative(onProgress, signal);
-    if (hasBrowserPicker()) return scanBrowser(onProgress, signal);
-    if (hasFolderInput()) return scanFolderInput();
+export async function pickAndScanFolder(onProgress, signal, kind = 'tabs') {
+    if (hasNative() && !isPhone()) return scanNative(onProgress, signal, kind);
+    if (hasBrowserPicker()) return scanBrowser(onProgress, signal, kind);
+    if (hasFolderInput()) return scanFolderInput(kind);
     throw new Error('This device cannot open a folder. Use the desktop app, Chrome or Edge.');
 }

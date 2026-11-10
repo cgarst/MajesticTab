@@ -5166,6 +5166,23 @@ body.library-view-active .yt-sheet { display: none !important; }
 .imp-result.is-picked { background: var(--s3); }
 .imp-kind { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
 .imp-kind-btn[aria-pressed="true"] { background: var(--s3); color: var(--ink); }
+.imp-mode-bar { margin-bottom: 16px; }
+/* Bulk import's fields: a tone step on the ground, no outline, the platform's control radius. The older library-page rules in
+   style.css are !important, so these match them. */
+.imp-root :is(.form-control, .form-select), .library-page-view .imp-root :is(.form-control, .form-select), .library-page-view .imp-root select.form-select {
+  background-color: var(--s3) !important; border: 0 !important; border-radius: var(--r-control) !important; color: var(--ink) !important;
+  min-height: 36px; box-shadow: none !important; font-size: 14px !important;
+}
+.library-page-view .imp-root select.form-select {
+  padding: 0.25rem 2rem 0.25rem 0.75rem !important;
+  background-image: var(--select-chevron) !important; background-repeat: no-repeat !important; background-position: right 10px center !important; background-size: 14px 14px !important;
+}
+@media (hover: hover) and (pointer: fine) { .library-page-view .imp-root select.form-select:hover { background-color: var(--s3) !important; color: var(--ink) !important; } }
+.library-page-view .imp-root :is(.form-control, .form-select):focus, .library-page-view .imp-root select.form-select:focus {
+  background-color: var(--s3) !important; color: var(--ink) !important; box-shadow: 0 0 0 2px var(--ink2) !important; outline: 0 !important;
+}
+.library-page-view .imp-root .form-control::placeholder { color: var(--ink2) !important; opacity: 1; }
+@media (pointer: coarse) { .imp-root :is(.form-control, .form-select), .library-page-view .imp-root :is(.form-control, .form-select) { min-height: 44px; } }
 .imp-row.is-have .imp-sugg, .imp-row.is-have .imp-file { opacity: .6; }
 .imp-custom { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding-top: 4px; }
 .imp-custom-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; }
