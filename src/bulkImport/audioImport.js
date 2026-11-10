@@ -341,7 +341,7 @@ export function renderAudioImport(container) {
               <input type="radio" class="form-check-input" name="impAudioSlot" value="${s}" ${state.slot === s ? 'checked' : ''}>
               <span class="be-option-text"><span class="be-option-title">${{ auto: 'Automatic', original: 'Recordings of the songs', backing: 'Backing tracks' }[s]}${s === 'auto' ? ' (recommended)' : ''}</span></span>
             </label>`).join('')}
-          <p class="ct-sub imp-help">${{ auto: 'Each file becomes the song’s Original recording, unless its name says “backing track” or “no guitar”: then it becomes the Backing track.', original: 'Each file becomes the song’s Original recording.', backing: 'Each file becomes the song’s Backing track.' }[state.slot]} A song’s sync points are not changed.</p>
+          <p class="ct-sub imp-help">${{ auto: 'Each file becomes the song’s Original recording, unless its name says “backing track” or “no guitar”: then it becomes the Backing track.', original: 'Each file becomes the song’s Original recording.', backing: 'Each file becomes the song’s Backing track.' }[state.slot]} A new file has no sync points yet; those of a video or file it replaces stay saved with that one.</p>
         </fieldset>`;
     }
 
