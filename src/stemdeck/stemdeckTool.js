@@ -10,10 +10,10 @@ import {
     findLocalStemDeck, nativeLoopbackScan, DEFAULT_PORT, StemDeckError
 } from './stemdeckClient.js';
 import { listBackingCandidates, planJobs, backingFileName, slotFileKey, slotSourceKey } from './backingCandidates.js';
-import { listAudioFiles, getAudioFile, getAudioMeta, saveAudioFile, linkAudioFile, unlinkAudioFile } from '../audioSync/audioFileStore.js';
+import { listAudioFiles, getAudioFile, saveAudioFile, linkAudioFile } from '../audioSync/audioFileStore.js';
 import { decodePeaks } from '../audioSync/peaks.js';
 import { AUDIO_FILES_CHANGED_EVENT } from '../audioSync/audioBackup.js';
-import { loadRecord, saveRecord, deleteRecord, setSyncSharedFromOriginal, SYNC_CHANGED_EVENT } from '../audioSync/syncStore.js';
+import { loadRecord, saveRecord, setSyncSharedFromOriginal, SYNC_CHANGED_EVENT } from '../audioSync/syncStore.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const clock = (ms) => {
@@ -70,16 +70,9 @@ async function saveBackingTrack(job, client, jobId, signal) {
         durationMs: analysed?.durationMs ?? source.durationMs ?? null, peaks: analysed?.peaks ?? null,
         generatedFrom: { tool: 'stemdeck', sourceId: source.id }
     });
-    for (const { songKey, backingId } of job.songs) {
+    for (const { songKey } of job.songs) {
         await linkAudioFile(meta.id, songKey);
-        // A backing track this tool made earlier is replaced. One the person added stays among the song's files.
-        if (backingId && backingId !== meta.id) {
-            const old = await getAudioMeta(backingId);
-            if (old?.generatedFrom) {
-                await unlinkAudioFile(backingId, songKey);
-                deleteRecord(songKey, mediaOf(old));
-            }
-        }
+        // The new track becomes the default Backing track; the earlier one stays among the song's files.
         writeLocal(slotFileKey(songKey, 'backing'), meta.id);
         writeLocal(slotSourceKey(songKey, 'backing'), 'local');
         // The mix has the timeline of the file it was made from. When that file is the song's Original recording the
@@ -333,7 +326,7 @@ export function renderStemdeckTool(container) {
           ${helpHtml()}
           <label class="sd-option">
             <input type="checkbox" class="form-check-input" data-act="include" ${view.includeExisting ? 'checked' : ''} ${batch.running ? 'disabled' : ''}>
-            <span class="sd-row-text"><span class="sd-row-title">Include songs that already have a backing track</span><span class="sd-row-meta">The new track takes its place</span></span>
+            <span class="sd-row-text"><span class="sd-row-title">Include songs that already have a backing track</span><span class="sd-row-meta">The new track becomes the default and the old one is kept</span></span>
           </label>
           ${listHtml()}
           ${actionsHtml()}`;
