@@ -7,7 +7,10 @@ import {
     uniquePath,
     getCandidateKeysForSong,
     exportMetadataCsv,
-    buildOriginalsZipEntries
+    buildOriginalsZipEntries,
+    getMimeType,
+    formatBytes,
+    saveOrDownloadBlob
 } from '../src/bulkExport/bulkExportCore.js';
 
 console.log('Testing bulkExportCore...');
@@ -195,5 +198,21 @@ const abortedResult = await buildOriginalsZipEntries({
     abortSignal: controller.signal
 });
 assert.equal(abortedResult, null);
+
+// 10. getMimeType and formatBytes
+assert.equal(getMimeType('test.csv'), 'text/csv');
+assert.equal(getMimeType('test.zip'), 'application/zip');
+assert.equal(getMimeType('test.pdf'), 'application/pdf');
+assert.equal(getMimeType('test.txt'), 'text/plain');
+assert.equal(getMimeType('test.unknown'), 'application/octet-stream');
+
+assert.equal(formatBytes(0), '0 B');
+assert.equal(formatBytes(1024), '1 KB');
+assert.equal(formatBytes(1048576), '1 MB');
+
+// 11. saveOrDownloadBlob in non-DOM environment
+const dummyBlob = new Blob(['hello'], { type: 'text/plain' });
+const res = await saveOrDownloadBlob(dummyBlob, 'test.txt');
+assert.equal(res, false);
 
 console.log('bulkExportCore tests passed!');

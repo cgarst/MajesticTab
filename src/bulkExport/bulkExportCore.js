@@ -6,6 +6,8 @@
 
 import { listRecords } from '../audioSync/syncStore.js';
 import { listHistory } from '../audioSync/videoHistory.js';
+import { isIOSDevice } from '../utils/iosAudioUnlock.js';
+import { showToast } from '../utils/toast.js';
 
 export function escapeCsvCell(val) {
     if (val === null || val === undefined) return '';
@@ -385,29 +387,193 @@ export function createZip(entries) {
 }
 
 /**
- * Saves a Blob through Tauri native dialog when available, else falls back to browser download.
+ * Resolve standard MIME type for export formats.
  */
-export async function saveOrDownloadBlob(blob, filename) {
+export function getMimeType(filename, defaultType = '') {
+    const ext = String(filename || '').split('.').pop()?.toLowerCase();
+    if (ext === 'csv') return 'text/csv';
+    if (ext === 'zip') return 'application/zip';
+    if (ext === 'pdf') return 'application/pdf';
+    if (ext === 'txt') return 'text/plain';
+    return defaultType || 'application/octet-stream';
+}
+
+/**
+ * Format bytes into human-readable string.
+ */
+export function formatBytes(bytes, decimals = 1) {
+    if (!bytes || bytes <= 0) return '0 B';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
+/**
+ * Shows a user-gesture prompt modal for iOS to trigger navigator.share().
+ * On iOS, WebKit rejects navigator.share() if not invoked synchronously within a direct user tap.
+ */
+export async function showIOSSharePrompt(file, filename) {
+    if (typeof document === 'undefined') return false;
+
+    return new Promise((resolve) => {
+        const existing = document.getElementById('iosBulkShareModal');
+        if (existing) existing.remove();
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'iosBulkShareModal';
+        backdrop.className = 'theme-modal-backdrop';
+        backdrop.style.display = 'flex';
+        backdrop.style.zIndex = '10050';
+
+        const sizeStr = formatBytes(file.size);
+
+        backdrop.innerHTML = `
+          <div class="theme-modal-card p-4" style="max-width: 420px; width: 90%;">
+            <div class="theme-modal-header d-flex align-items-center justify-content-between mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi-file-earmark-arrow-down text-primary fs-4"></i>
+                <h3 class="theme-modal-title m-0" style="font-size: 17px; font-weight: 600; color: var(--ink);">Export ready</h3>
+              </div>
+              <button type="button" class="brand-btn theme-modal-close-btn p-1" id="iosBulkShareCloseBtn" aria-label="Close">
+                <i class="bi-x-lg"></i>
+              </button>
+            </div>
+            <div class="theme-modal-body mb-4">
+              <p style="color: var(--ink2); font-size: 13.5px; margin-bottom: 12px;">Your export is ready to save to your iPhone or share:</p>
+              <div style="background: var(--s2); border-radius: var(--r-control); padding: 10px 14px; color: var(--ink); font-weight: 500; font-size: 13.5px;" class="text-truncate">
+                ${safeName(filename)} <span style="color: var(--ink2); font-weight: 400; font-size: 12px; margin-left: 6px;">(${sizeStr})</span>
+              </div>
+            </div>
+            <div class="theme-modal-footer d-flex gap-2 justify-content-end">
+              <button type="button" class="btn btn-theme-outline btn-sm px-3" id="iosBulkShareCancelBtn">Cancel</button>
+              <button type="button" class="btn btn-theme-primary btn-sm px-3 d-flex align-items-center gap-2" id="iosBulkShareActionBtn">
+                <i class="bi-share"></i> Save / Share
+              </button>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(backdrop);
+
+        const cleanup = () => {
+            backdrop.classList.add('is-closing');
+            setTimeout(() => backdrop.remove(), 200);
+        };
+
+        backdrop.querySelector('#iosBulkShareCloseBtn')?.addEventListener('click', () => {
+            cleanup();
+            resolve(false);
+        });
+        backdrop.querySelector('#iosBulkShareCancelBtn')?.addEventListener('click', () => {
+            cleanup();
+            resolve(false);
+        });
+
+        backdrop.querySelector('#iosBulkShareActionBtn')?.addEventListener('click', async () => {
+            // This click handler is a direct synchronous user interaction on iOS
+            if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+                try {
+                    let shareFile = file;
+                    if (typeof navigator.canShare === 'function' && !navigator.canShare({ files: [shareFile] })) {
+                        shareFile = new File([file], filename, { type: 'application/octet-stream' });
+                    }
+                    await navigator.share({
+                        files: [shareFile],
+                        title: filename
+                    });
+                    cleanup();
+                    showToast(`Saved ${filename}`, 'success');
+                    resolve(true);
+                    return;
+                } catch (err) {
+                    if (err?.name === 'AbortError') {
+                        cleanup();
+                        resolve(false);
+                        return;
+                    }
+                    console.warn('[BulkExport] Native share failed:', err);
+                }
+            }
+
+            // Fallback for environments where share is not supported
+            try {
+                const url = URL.createObjectURL(file);
+                window.open(url, '_blank');
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+                cleanup();
+                resolve(true);
+            } catch (e) {
+                cleanup();
+                resolve(false);
+            }
+        });
+    });
+}
+
+/**
+ * Handles exporting on iOS via the native system Share Sheet (Save to Files, AirDrop, etc.).
+ */
+export async function exportIOSFile(file, filename, { forcePrompt = false } = {}) {
+    if (!forcePrompt && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        const canShare = typeof navigator.canShare === 'function' ? navigator.canShare({ files: [file] }) : true;
+        if (canShare) {
+            try {
+                await navigator.share({ files: [file], title: filename });
+                showToast(`Saved ${filename}`, 'success');
+                return true;
+            } catch (err) {
+                if (err?.name === 'AbortError') return false;
+                console.warn('[BulkExport] Direct share failed (gesture expired), opening prompt modal:', err);
+            }
+        }
+    }
+
+    return await showIOSSharePrompt(file, filename);
+}
+
+/**
+ * Saves a Blob through the platform's appropriate channel:
+ * - iOS: Web Share API (Save to Files / AirDrop) or synchronous share prompt modal
+ * - Desktop Tauri: Native file save dialog
+ * - Web / Android: Browser download link
+ */
+export async function saveOrDownloadBlob(blobOrFile, filename, { forcePrompt = false } = {}) {
+    const mime = blobOrFile.type || getMimeType(filename);
+    const file = (typeof File !== 'undefined' && blobOrFile instanceof File)
+        ? blobOrFile
+        : (typeof File !== 'undefined' ? new File([blobOrFile], filename, { type: mime }) : null);
+
+    // 1. iOS device (iPhone, iPad): WebKit blocks <a download> for blobs. Use native Share Sheet.
+    if (isIOSDevice() && file) {
+        return await exportIOSFile(file, filename, { forcePrompt });
+    }
+
+    // 2. Desktop Tauri: Native file save dialog
     if (typeof window !== 'undefined' && window.__TAURI__?.dialog?.save && window.__TAURI__?.fs?.writeFile && !/Android/i.test(navigator.userAgent)) {
         try {
             const path = await window.__TAURI__.dialog.save({ defaultPath: filename });
             if (!path) return false;
-            await window.__TAURI__.fs.writeFile(path, new Uint8Array(await blob.arrayBuffer()));
+            await window.__TAURI__.fs.writeFile(path, new Uint8Array(await blobOrFile.arrayBuffer()));
+            showToast(`Saved to ${path}`, 'success');
             return true;
         } catch (e) {
             console.warn('[BulkExport] Native save failed, using browser download:', e);
         }
     }
 
+    // 3. Fallback: browser download link
     if (typeof document === 'undefined') return false;
 
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
+    link.href = URL.createObjectURL(blobOrFile);
     link.download = filename;
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(link.href), 15000);
+    setTimeout(() => URL.revokeObjectURL(link.href), 30000);
+    showToast(`Exported ${filename}`, 'success');
     return true;
 }

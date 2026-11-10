@@ -32,7 +32,8 @@ const state = {
     processedPdfKeys: new Set(),
     cachedSongs: null,
     cachedCollections: null,
-    cachedStoredFiles: null
+    cachedStoredFiles: null,
+    readyExport: null
 };
 
 const listeners = new Set();
@@ -106,6 +107,7 @@ export function renderBulkExportTool(container) {
             <button type="button" class="btn btn-sm btn-theme-primary" data-act="export-metadata" ${state.running || totalSongs === 0 ? 'disabled' : ''}>
               Export metadata as CSV
             </button>
+            ${state.readyExport?.mode === 'metadata' && !state.running ? `<button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" data-act="share-ready"><i class="bi-share"></i> Save / Share (${esc(state.readyExport.filename)})</button>` : ''}
             ${state.statusText ? `<span class="be-status" role="status">${esc(state.statusText)}</span>` : ''}
           </div>
         </div>`;
@@ -136,6 +138,7 @@ export function renderBulkExportTool(container) {
               Export original tabs as ZIP
             </button>
             ${state.running ? '<button type="button" class="ct-text" data-act="cancel">Cancel</button>' : ''}
+            ${state.readyExport?.mode === 'originals' && !state.running ? `<button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" data-act="share-ready"><i class="bi-share"></i> Save / Share (${esc(state.readyExport.filename)})</button>` : ''}
             ${state.statusText ? `<span class="be-status" role="status">${esc(state.statusText)}</span>` : ''}
           </div>
         </div>`;
@@ -209,6 +212,7 @@ export function renderBulkExportTool(container) {
               Process and export PDFs
             </button>
             ${state.running ? '<button type="button" class="ct-text" data-act="cancel">Cancel</button>' : ''}
+            ${state.readyExport?.mode === 'pdf' && !state.running ? `<button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" data-act="share-ready"><i class="bi-share"></i> Save / Share (${esc(state.readyExport.filename)})</button>` : ''}
             ${state.statusText ? `<span class="be-status" role="status">${esc(state.statusText)}</span>` : ''}
           </div>
         </div>`;
@@ -256,8 +260,10 @@ export function renderBulkExportTool(container) {
             const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
             const today = new Date().toISOString().slice(0, 10);
             const filename = `MajesticTab_Metadata_${today}.csv`;
+            const file = new File([blob], filename, { type: 'text/csv' });
+            state.readyExport = { file, filename, mode: 'metadata' };
 
-            await saveOrDownloadBlob(blob, filename);
+            await saveOrDownloadBlob(file, filename);
             state.statusText = `Exported ${count} ${count === 1 ? 'song' : 'songs'} to CSV`;
             state.progressPct = 100;
         } catch (err) {
@@ -320,8 +326,10 @@ export function renderBulkExportTool(container) {
             const today = new Date().toISOString().slice(0, 10);
             const filename = `MajesticTab_Original_Tabs_${today}.zip`;
             const blob = new Blob([zipped], { type: 'application/zip' });
+            const file = new File([blob], filename, { type: 'application/zip' });
+            state.readyExport = { file, filename, mode: 'originals' };
 
-            await saveOrDownloadBlob(blob, filename);
+            await saveOrDownloadBlob(file, filename);
             state.statusText = `Exported ${result.count} tab ${result.count === 1 ? 'file' : 'files'}`;
             state.progressPct = 100;
         } catch (err) {
@@ -500,8 +508,11 @@ export function renderBulkExportTool(container) {
                 await new Promise((r) => setTimeout(r, 10));
                 const zipped = createZip(zipEntries);
                 const today = new Date().toISOString().slice(0, 10);
+                const filename = `MajesticTab_Condensed_PDFs_${today}.zip`;
                 const blob = new Blob([zipped], { type: 'application/zip' });
-                await saveOrDownloadBlob(blob, `MajesticTab_Condensed_PDFs_${today}.zip`);
+                const file = new File([blob], filename, { type: 'application/zip' });
+                state.readyExport = { file, filename, mode: 'pdf' };
+                await saveOrDownloadBlob(file, filename);
             }
 
             state.statusText = `Successfully exported ${successCount} PDF ${successCount === 1 ? 'file' : 'files'}`;
@@ -550,6 +561,10 @@ export function renderBulkExportTool(container) {
             if (!Number.isNaN(idx)) {
                 state.pdfFiles.splice(idx, 1);
                 render();
+            }
+        } else if (act === 'share-ready') {
+            if (state.readyExport?.file) {
+                saveOrDownloadBlob(state.readyExport.file, state.readyExport.filename, { forcePrompt: false });
             }
         } else if (act === 'cancel') {
             if (state.abortController) state.abortController.abort();
