@@ -1,0 +1,2 @@
+- Phone reader: the Sound sheets now rise from the Sound word, and the open word has square top corners
+- Segmented controls grow to full touch-target height on phones
