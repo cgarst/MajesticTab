@@ -1453,22 +1453,15 @@ pub fn regex_escape_domain(domain: &str) -> String {
 
 #[cfg(any(target_os = "macos", target_os = "ios", test))]
 pub fn generate_webkit_rules_json(hosts: &[String]) -> String {
+    // WebKit content rules do not support disjunctions ("a|b") in a url-filter,
+    // so each host gets its own rule.
     let mut rules = Vec::new();
-    let chunk_size = 50;
-    for chunk in hosts.chunks(chunk_size) {
-        let pattern_parts: Vec<String> = chunk
-            .iter()
-            .map(|d| {
-                let lower = d.trim().to_lowercase();
-                regex_escape_domain(&lower)
-            })
-            .filter(|s| !s.is_empty())
-            .collect();
-        if pattern_parts.is_empty() {
+    for host in hosts {
+        let escaped = regex_escape_domain(&host.trim().to_lowercase());
+        if escaped.is_empty() {
             continue;
         }
-        let joined = pattern_parts.join("|");
-        let url_filter = format!(r#"^https?://([^/]+\.)?({})(:\d+)?(/.*)?$"#, joined);
+        let url_filter = format!(r#"^https?://([^/]+\.)?{}(:\d+)?(/.*)?$"#, escaped);
         rules.push(serde_json::json!({
             "trigger": {
                 "url-filter": url_filter,
@@ -1760,11 +1753,16 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("Valid JSON");
         assert!(parsed.is_array());
         let arr = parsed.as_array().unwrap();
-        assert_eq!(arr.len(), 1);
+        // One block rule per host, plus the cosmetic rule.
+        assert_eq!(arr.len(), 3);
         assert_eq!(arr[0]["action"]["type"], "block");
-        let filter = arr[0]["trigger"]["url-filter"].as_str().unwrap();
-        assert!(filter.contains(r#"doubleclick\.net"#));
-        assert!(filter.contains(r#"adservice\.google\.com"#));
+        let first = arr[0]["trigger"]["url-filter"].as_str().unwrap();
+        let second = arr[1]["trigger"]["url-filter"].as_str().unwrap();
+        assert!(first.contains(r#"doubleclick\.net"#));
+        assert!(second.contains(r#"adservice\.google\.com"#));
+        for rule in arr {
+            assert!(!rule["trigger"]["url-filter"].as_str().unwrap().contains('|'));
+        }
     }
 }
 
