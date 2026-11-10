@@ -8,7 +8,8 @@ import {
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
     deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, removeTabOptionFromSong, moveTabOptionToSong, getAllSongs, setDefaultTabOption,
     togglePinSong, toggleArtistPinned, isArtistPinned, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption,
-    getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID
+    getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID,
+    updateAlbumMetadataInLibrary, cleanTitle
 } from './libraryStore.js';
 import { retargetSetlistTab } from './setlistStore.js';
 import {
@@ -4372,6 +4373,10 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
 
         const allInLib = cleanTracks.length > 0 && missingTracks.length === 0;
         const partialInLib = missingTracks.length > 0 && missingTracks.length < cleanTracks.length;
+        const hasAlbumInLibrary = (cleanTracks.length > missingTracks.length) || existingSongs.some(s =>
+            (s.albumMbid && (s.albumMbid === albumData.releaseGroupId || s.albumMbid === albumData.releaseId)) ||
+            (cleanTitle(s.artist) === cleanTitle(albumData.artist) && cleanTitle(s.album || (s.isAlbumTabContainer ? s.title : '')) === cleanTitle(albumData.title))
+        );
 
         const cover = getSynchronousCachedArtUrl(albumData.coverUrl) || albumData.coverUrl || preloadCover || getPlaceholderCoverSvg(albumData.title);
 
@@ -4394,12 +4399,15 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
 
         targetContainer.innerHTML = `
         <div class="search-artist-albums-view">
-          <div class="search-subview-head d-flex align-items-center justify-content-between mb-3">
+          <div class="search-subview-head d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
             <button type="button" class="search-back-btn" id="backToAlbumsListBtn">
               <i class="bi-chevron-left" aria-hidden="true"></i> <span>Albums</span>
             </button>
-            <div class="d-flex align-items-center gap-2 flex-shrink-0">
-              <button class="btn btn-sm btn-theme-outline px-3 flex-shrink-0 ${cleanTracks.length > missingTracks.length ? '' : 'd-none'}" id="viewAlbumInLibraryBtn">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 flex-shrink-0 ${hasAlbumInLibrary ? '' : 'd-none'}" id="updateAlbumMetadataBtn" title="Update metadata for this album and its songs in your library">
+                Update metadata
+              </button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 flex-shrink-0 ${hasAlbumInLibrary ? '' : 'd-none'}" id="viewAlbumInLibraryBtn">
                 View in library
               </button>
               ${addAllBtnHtml}
@@ -4437,6 +4445,41 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
                 await exploreAlbumTracklist(releaseGroupMbid, container, parentArtist, albumPreload);
             });
         }
+
+        targetContainer.querySelector('#updateAlbumMetadataBtn')?.addEventListener('click', async () => {
+            const btn = targetContainer.querySelector('#updateAlbumMetadataBtn');
+            if (!btn || btn.disabled) return;
+            const origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Updating…';
+            try {
+                const stats = await updateAlbumMetadataInLibrary(albumData, activeCollectionId);
+                // Also update any viewHistory references to this album
+                for (const entry of viewHistory) {
+                    if (entry.selectedAlbum && (
+                        entry.selectedAlbum.title === albumData.title ||
+                        entry.selectedAlbum.albumMbid === (albumData.releaseGroupId || albumData.releaseId) ||
+                        (entry.selectedArtist?.name === albumData.artist && cleanTitle(entry.selectedAlbum.title) === cleanTitle(albumData.title))
+                    )) {
+                        entry.selectedAlbum.title = albumData.title;
+                        entry.selectedAlbum.albumMbid = albumData.releaseGroupId || albumData.releaseId;
+                        entry.selectedAlbum.year = albumData.year;
+                    }
+                }
+                if (stats.updatedSongsCount > 0) {
+                    showToast(`Updated metadata for "${albumData.title}" (${stats.updatedSongsCount} ${stats.updatedSongsCount === 1 ? 'song' : 'songs'})`, 'success');
+                } else {
+                    showToast(`Metadata for "${albumData.title}" is already up to date`, 'info');
+                }
+                window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                await exploreAlbumTracklist(releaseGroupMbid, container, parentArtist, albumPreload);
+            } catch (err) {
+                console.error('Failed to update album metadata:', err);
+                showToast(`Failed to update metadata: ${err.message}`, 'error');
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+            }
+        });
 
         targetContainer.querySelector('#viewAlbumInLibraryBtn')?.addEventListener('click', async () => {
             pushLibraryNavigationState();
@@ -4482,6 +4525,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
                     parent.appendChild(statusSpan);
                 }
                 targetContainer.querySelector('#viewAlbumInLibraryBtn')?.classList.remove('d-none');
+                targetContainer.querySelector('#updateAlbumMetadataBtn')?.classList.remove('d-none');
             });
         });
 

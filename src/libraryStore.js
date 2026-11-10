@@ -1598,6 +1598,255 @@ export async function importLibraryData(data = {}, { wipe = false } = {}) {
 }
 
 /**
+ * Helper for title cleaning and matching
+ */
+export function cleanTitle(t) {
+    return (t || '')
+        .toLowerCase()
+        .replace(/\(.*\)/g, '')
+        .replace(/\[.*\]/g, '')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+}
+
+/**
+ * Helper to analyze attached tabs from persistent fileStore and detect tunings & string counts
+ */
+export async function enrichSongWithTabMetadata(song) {
+    let changed = false;
+    if (Array.isArray(song.tabOptions) && song.tabOptions.length > 0) {
+        for (const tab of song.tabOptions) {
+            if (tab.fileStoreId) {
+                try {
+                    const stored = await getStoredFile(tab.fileStoreId);
+                    if (stored && stored.file) {
+                        const meta = await detectFileMetadata(stored.file, stored.file.name || tab.name);
+                        // PDF and text tabs report a tuning source. A stronger source (the player's own choice, the
+                        // classical archive) is never replaced by a weaker one; Guitar Pro tabs always follow the file.
+                        const fromData = meta.tuningSource !== undefined;
+                        const tuningOpen = !fromData || Boolean(meta.primaryTuning && (!tab.tuning || canReplaceTuning(tab.tuningSource, meta.tuningSource)));
+                        if (tuningOpen && meta.primaryTuning && tab.tuning !== meta.primaryTuning) {
+                            tab.tuning = meta.primaryTuning;
+                            changed = true;
+                        }
+                        if (tuningOpen && fromData && meta.tuningSource && tab.tuningSource !== meta.tuningSource) {
+                            tab.tuningSource = meta.tuningSource;
+                            changed = true;
+                        }
+                        if (meta.stringCount && tab.stringCount !== meta.stringCount && tab.tuningSource !== 'user') {
+                            tab.stringCount = meta.stringCount;
+                            changed = true;
+                        }
+                        if (tuningOpen && Array.isArray(meta.tunings) && meta.tunings.length > 0) {
+                            tab.tunings = meta.tunings;
+                            changed = true;
+                        }
+                        if (tuningOpen && (!song.tuning || tab.isDefault)) {
+                            if (meta.primaryTuning && song.tuning !== meta.primaryTuning) {
+                                song.tuning = meta.primaryTuning;
+                                changed = true;
+                            }
+                        }
+                        if (meta.stringCount && (!song.stringCount || meta.stringCount > song.stringCount)) {
+                            song.stringCount = meta.stringCount;
+                            changed = true;
+                        }
+                        if (tuningOpen && Array.isArray(meta.tunings) && meta.tunings.length > 0) {
+                            if (!Array.isArray(song.tunings)) song.tunings = [];
+                            for (const t of meta.tunings) {
+                                if (t && !song.tunings.includes(t)) {
+                                    song.tunings.push(t);
+                                    changed = true;
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`[enrichSongWithTabMetadata] Error analyzing tab ${tab.name}:`, e);
+                }
+            } else if (tab.name && (!tab.tuning || !tab.stringCount)) {
+                const meta = await detectFileMetadata(null, tab.name);
+                if (meta.primaryTuning && !tab.tuning) {
+                    tab.tuning = meta.primaryTuning;
+                    if (meta.tuningSource) tab.tuningSource = meta.tuningSource;
+                    changed = true;
+                }
+                if (meta.stringCount && !tab.stringCount) {
+                    tab.stringCount = meta.stringCount;
+                    changed = true;
+                }
+                if (!song.tuning && meta.primaryTuning) {
+                    song.tuning = meta.primaryTuning;
+                    changed = true;
+                }
+                if (!song.stringCount && meta.stringCount) {
+                    song.stringCount = meta.stringCount;
+                    changed = true;
+                }
+            }
+        }
+    }
+    return changed;
+}
+
+/**
+ * Update metadata for an album and its songs already in the library without reloading the entire library.
+ * Updates album-level fields (year, title, albumMbid, artist, artistMbid, coverUrl)
+ * and track-level fields (length, trackNumber, medium info, recordingMbid) from albumData.
+ *
+ * @param {object} albumData - Album metadata object (from getAlbumTracks or MusicBrainz)
+ * @param {string|null} [collectionId=null] - Optional collection ID to restrict search
+ * @returns {Promise<{ updatedSongsCount: number, totalMatchedSongs: number }>}
+ */
+export async function updateAlbumMetadataInLibrary(albumData, collectionId = null) {
+    if (!albumData || (!albumData.title && !albumData.releaseGroupId)) {
+        return { updatedSongsCount: 0, totalMatchedSongs: 0 };
+    }
+
+    const songs = collectionId ? await getSongsByCollection(collectionId) : await getAllSongs();
+    if (!songs || songs.length === 0) {
+        return { updatedSongsCount: 0, totalMatchedSongs: 0 };
+    }
+
+    const albumMbidTarget = albumData.releaseGroupId || albumData.releaseId || null;
+    const targetArtistClean = cleanTitle(albumData.artist);
+    const targetAlbumClean = cleanTitle(albumData.title);
+    const tracks = Array.isArray(albumData.tracks) ? albumData.tracks : [];
+    const targetTracksRecMbids = new Set(tracks.map(t => t.recordingMbid).filter(Boolean));
+    const targetTrackTitlesClean = new Set(tracks.map(t => cleanTitle(t.title)).filter(Boolean));
+
+    // Match songs that belong to this album in the library
+    const matchedSongs = songs.filter(s => {
+        if (albumMbidTarget && s.albumMbid && s.albumMbid === albumMbidTarget) {
+            return true;
+        }
+        if (s.recordingMbid && targetTracksRecMbids.has(s.recordingMbid)) {
+            return true;
+        }
+        if (targetArtistClean && cleanTitle(s.artist) === targetArtistClean) {
+            const songAlbumClean = cleanTitle(s.album || (s.isAlbumTabContainer ? s.title : ''));
+            if (songAlbumClean === targetAlbumClean) {
+                return true;
+            }
+            if (s.isAlbumTabContainer && cleanTitle(s.title) === targetAlbumClean) {
+                return true;
+            }
+            if (cleanTitle(s.title) && targetTrackTitlesClean.has(cleanTitle(s.title))) {
+                if (!songAlbumClean || songAlbumClean === 'singlesother' || songAlbumClean === 'unknownalbum') {
+                    return true;
+                }
+            }
+        }
+        return false;
+    });
+
+    let updatedCount = 0;
+
+    for (const song of matchedSongs) {
+        let songUpdated = false;
+
+        // Album-level fields
+        if (albumData.title && song.album !== albumData.title) {
+            song.album = albumData.title;
+            songUpdated = true;
+        }
+        if (song.isAlbumTabContainer && albumData.title && song.title !== albumData.title) {
+            song.title = albumData.title;
+            songUpdated = true;
+        }
+        if (albumMbidTarget && song.albumMbid !== albumMbidTarget) {
+            song.albumMbid = albumMbidTarget;
+            songUpdated = true;
+        }
+        if (albumData.artist && !song.isCustom && song.artist !== albumData.artist) {
+            song.artist = albumData.artist;
+            songUpdated = true;
+        }
+        if (albumData.artistMbid && song.artistMbid !== albumData.artistMbid) {
+            song.artistMbid = albumData.artistMbid;
+            songUpdated = true;
+        }
+        if (albumData.year && song.year !== albumData.year) {
+            song.year = albumData.year;
+            songUpdated = true;
+        }
+        if (albumData.coverUrl && (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml') || song.coverUrl !== albumData.coverUrl)) {
+            song.coverUrl = albumData.coverUrl;
+            songUpdated = true;
+        }
+
+        // Track-level fields
+        if (!song.isAlbumTabContainer && tracks.length > 0) {
+            let matchedTrack = null;
+            if (song.recordingMbid) {
+                matchedTrack = tracks.find(t => t.recordingMbid && t.recordingMbid === song.recordingMbid);
+            }
+            if (!matchedTrack && song.trackNumber) {
+                matchedTrack = tracks.find(t =>
+                    t.trackNumber === song.trackNumber &&
+                    (t.mediumNumber || 1) === (song.mediumNumber || 1)
+                );
+            }
+            if (!matchedTrack) {
+                const sClean = cleanTitle(song.title);
+                matchedTrack = tracks.find(t => cleanTitle(t.title) === sClean);
+            }
+            if (!matchedTrack) {
+                const sClean = cleanTitle(song.title);
+                matchedTrack = tracks.find(t => {
+                    const tClean = cleanTitle(t.title);
+                    return sClean && tClean && (tClean.includes(sClean) || sClean.includes(tClean));
+                });
+            }
+
+            if (matchedTrack) {
+                if (typeof matchedTrack.length === 'number' && matchedTrack.length > 0 && song.length !== matchedTrack.length) {
+                    song.length = matchedTrack.length;
+                    songUpdated = true;
+                }
+                if (matchedTrack.trackNumber && song.trackNumber !== matchedTrack.trackNumber) {
+                    song.trackNumber = matchedTrack.trackNumber;
+                    songUpdated = true;
+                }
+                if (matchedTrack.mediumNumber && song.mediumNumber !== matchedTrack.mediumNumber) {
+                    song.mediumNumber = matchedTrack.mediumNumber;
+                    songUpdated = true;
+                }
+                if (matchedTrack.mediumTitle !== undefined && song.mediumTitle !== matchedTrack.mediumTitle) {
+                    song.mediumTitle = matchedTrack.mediumTitle;
+                    songUpdated = true;
+                }
+                if (matchedTrack.mediumFormat !== undefined && song.mediumFormat !== matchedTrack.mediumFormat) {
+                    song.mediumFormat = matchedTrack.mediumFormat;
+                    songUpdated = true;
+                }
+                if (matchedTrack.recordingMbid && song.recordingMbid !== matchedTrack.recordingMbid) {
+                    song.recordingMbid = matchedTrack.recordingMbid;
+                    songUpdated = true;
+                }
+                if (matchedTrack.coverUrl && (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml'))) {
+                    song.coverUrl = matchedTrack.coverUrl;
+                    songUpdated = true;
+                }
+            }
+        }
+
+        // Tab metadata
+        const tabChanged = await enrichSongWithTabMetadata(song);
+        if (tabChanged) {
+            songUpdated = true;
+        }
+
+        if (songUpdated) {
+            await saveSongToLibrary(song, song.collectionId || collectionId || DEFAULT_COLLECTION_ID);
+            updatedCount++;
+        }
+    }
+
+    return { updatedSongsCount: updatedCount, totalMatchedSongs: matchedSongs.length };
+}
+
+/**
  * Reload all library metadata from MusicBrainz.
  * Re-queries MusicBrainz for all albums and songs in the library, filling in any missing fields
  * (such as track times/lengths, track numbers, release years, cover artwork, and MBIDs).
@@ -1661,94 +1910,6 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
             }
         }
     }
-
-    // Helper to analyze attached tabs from persistent fileStore and detect tunings & string counts
-    const enrichSongWithTabMetadata = async (song) => {
-        let changed = false;
-        if (Array.isArray(song.tabOptions) && song.tabOptions.length > 0) {
-            for (const tab of song.tabOptions) {
-                if (tab.fileStoreId) {
-                    try {
-                        const stored = await getStoredFile(tab.fileStoreId);
-                        if (stored && stored.file) {
-                            const meta = await detectFileMetadata(stored.file, stored.file.name || tab.name);
-                            // PDF and text tabs report a tuning source. A stronger source (the player's own choice, the
-                            // classical archive) is never replaced by a weaker one; Guitar Pro tabs always follow the file.
-                            const fromData = meta.tuningSource !== undefined;
-                            const tuningOpen = !fromData || Boolean(meta.primaryTuning && (!tab.tuning || canReplaceTuning(tab.tuningSource, meta.tuningSource)));
-                            if (tuningOpen && meta.primaryTuning && tab.tuning !== meta.primaryTuning) {
-                                tab.tuning = meta.primaryTuning;
-                                changed = true;
-                            }
-                            if (tuningOpen && fromData && meta.tuningSource && tab.tuningSource !== meta.tuningSource) {
-                                tab.tuningSource = meta.tuningSource;
-                                changed = true;
-                            }
-                            if (meta.stringCount && tab.stringCount !== meta.stringCount && tab.tuningSource !== 'user') {
-                                tab.stringCount = meta.stringCount;
-                                changed = true;
-                            }
-                            if (tuningOpen && Array.isArray(meta.tunings) && meta.tunings.length > 0) {
-                                tab.tunings = meta.tunings;
-                                changed = true;
-                            }
-                            if (tuningOpen && (!song.tuning || tab.isDefault)) {
-                                if (meta.primaryTuning && song.tuning !== meta.primaryTuning) {
-                                    song.tuning = meta.primaryTuning;
-                                    changed = true;
-                                }
-                            }
-                            if (meta.stringCount && (!song.stringCount || meta.stringCount > song.stringCount)) {
-                                song.stringCount = meta.stringCount;
-                                changed = true;
-                            }
-                            if (tuningOpen && Array.isArray(meta.tunings) && meta.tunings.length > 0) {
-                                if (!Array.isArray(song.tunings)) song.tunings = [];
-                                for (const t of meta.tunings) {
-                                    if (t && !song.tunings.includes(t)) {
-                                        song.tunings.push(t);
-                                        changed = true;
-                                    }
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.warn(`[enrichSongWithTabMetadata] Error analyzing tab ${tab.name}:`, e);
-                    }
-                } else if (tab.name && (!tab.tuning || !tab.stringCount)) {
-                    const meta = await detectFileMetadata(null, tab.name);
-                    if (meta.primaryTuning && !tab.tuning) {
-                        tab.tuning = meta.primaryTuning;
-                        if (meta.tuningSource) tab.tuningSource = meta.tuningSource;
-                        changed = true;
-                    }
-                    if (meta.stringCount && !tab.stringCount) {
-                        tab.stringCount = meta.stringCount;
-                        changed = true;
-                    }
-                    if (!song.tuning && meta.primaryTuning) {
-                        song.tuning = meta.primaryTuning;
-                        changed = true;
-                    }
-                    if (!song.stringCount && meta.stringCount) {
-                        song.stringCount = meta.stringCount;
-                        changed = true;
-                    }
-                }
-            }
-        }
-        return changed;
-    };
-
-    // Helper for title cleaning and matching
-    const cleanTitle = (t) => {
-        return (t || '')
-            .toLowerCase()
-            .replace(/\(.*\)/g, '')
-            .replace(/\[.*\]/g, '')
-            .replace(/[^a-z0-9]/g, '')
-            .trim();
-    };
 
     // Group songs into Album Groups and Standalone Songs
     const albumGroups = new Map();
