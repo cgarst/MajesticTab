@@ -57,14 +57,13 @@ export function getSlotSource(slot = state.slot) {
         const val = localStorage.getItem(SLOT_SOURCE_KEY(songKey, slot));
         if (val === 'local' || val === 'youtube') return val;
         if (val === 'embedded' && embedded) return val;
-        // Nothing chosen yet: the file's own audio is the recording unless a video or file is already attached
-        if (embedded) {
-            const key = encodeURIComponent(String(songKey).toLowerCase());
-            const attached = localStorage.getItem(`yt_track_${key}_${slot}`)
-                || localStorage.getItem(`audio_file_${key}_${slot}`)
-                || localStorage.getItem(`audio_file_last_${key}`);
-            if (!attached) return 'embedded';
-        }
+        // Nothing chosen yet: a local audio file attached to the slot wins over a YouTube video
+        const key = encodeURIComponent(String(songKey).toLowerCase());
+        const localFile = localStorage.getItem(`audio_file_${key}_${slot}`)
+            || (slot === 'original' && localStorage.getItem(`audio_file_last_${key}`));
+        if (localFile) return 'local';
+        // Otherwise the file's own audio is the recording unless a video is already attached
+        if (embedded && !localStorage.getItem(`yt_track_${key}_${slot}`)) return 'embedded';
     } catch { /* optional */ }
     return 'youtube';
 }
