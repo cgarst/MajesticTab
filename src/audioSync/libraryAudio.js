@@ -123,7 +123,7 @@ export function adoptUnassignedAudio(songKey, files) {
     return changed;
 }
 
-const ADOPTED_FLAG = 'audio_slots_adopted_v1';
+const ADOPTED_FLAG = 'audio_slots_adopted_v2';
 
 /**
  * Once per install: every song's linked files that no slot uses fill its empty slots (see adoptUnassignedAudio), so audio from a
@@ -137,6 +137,7 @@ export async function adoptAllUnassignedAudio() {
     let changed = 0;
     for (const [key, files] of bySong) if (adoptUnassignedAudio(key, files)) changed++;
     write(ADOPTED_FLAG, '1');
+    console.info(`[Audio slots] ${bySong.size} songs with files, ${changed} filled`);
     return changed;
 }
 

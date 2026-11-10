@@ -87,8 +87,23 @@ export async function saveAudioFile({ name, type, data, songKey, durationMs = nu
 
 /** Metadata of every stored file (no audio), newest first. */
 export async function listAudioFiles() {
-    const all = await request('readonly', s => s.getAll());
-    return (all || []).map(stripData).sort((a, b) => b.savedAt - a.savedAt);
+    // One record at a time: getAll() would hold the audio of every file in memory at once (hundreds of MB on a big library)
+    const db = await getDb();
+    const all = await new Promise((resolve, reject) => {
+        const out = [];
+        const tx = db.transaction(STORE, 'readonly');
+        const req = tx.objectStore(STORE).openCursor();
+        req.onsuccess = () => {
+            const cursor = req.result;
+            if (!cursor) return;
+            out.push(stripData(cursor.value));
+            cursor.continue();
+        };
+        tx.oncomplete = () => resolve(out);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+    });
+    return all.sort((a, b) => b.savedAt - a.savedAt);
 }
 
 export async function listAudioFilesForSong(songKey) {
