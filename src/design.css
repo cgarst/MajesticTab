@@ -4942,12 +4942,19 @@ body.phone-reader #screenRow { display: none !important; }
    of the HTML one. It overlays the page, so pages reserve its height, reported by the native side. Only this system
    chrome is glass; everything the web draws stays flat. If the native bar fails or is unavailable the class is never
    set and the HTML bar stays. */
-body.native-tabbar .library-bottom-nav { display: none !important; }
+body.native-tabbar .library-bottom-nav,
+body.native-rail .library-bottom-nav { display: none !important; }
 /* Wider than a phone (the iPhone Duo's strip layouts): the native rail replaces the web rail, so the page keeps no room for it */
-body.native-tabbar { --rail-w: 0px; }
-body.native-tabbar.library-view-active #libraryPage {
+body.native-tabbar:not(.native-rail) { --rail-w: 0px; }
+body.native-tabbar:not(.native-rail).library-view-active #libraryPage {
   padding-left: max(env(safe-area-inset-left, 0px), var(--native-rail-left, 0px));
   padding-right: max(env(safe-area-inset-right, 0px), var(--native-rail-right, 0px));
+}
+body.native-rail.library-view-active #libraryPage {
+  padding-left: var(--native-rail-w, 76px) !important;
+}
+body.native-rail.library-view-active #topBar {
+  padding-left: var(--native-rail-w, 76px) !important;
 }
 /* The horizontal bar overlays the page at every width, so pages reserve its height; the side rail is already a safe-area inset */
 html:not(.native-vertical) body.native-tabbar.library-view-active .library-page-body { padding-bottom: calc(var(--native-tabbar-h, 83px) + 1rem) !important; }

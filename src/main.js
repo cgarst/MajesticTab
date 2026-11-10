@@ -174,7 +174,10 @@ if (window.__TAURI__ && /Mac/i.test(navigator.platform) && !isIOSDevice()) {
         if (!fs && appWindow) {
             try { fs = await appWindow.isFullscreen(); } catch {}
         }
-        if (token === syncToken) root.classList.toggle('tauri-macos', !fs);
+        if (token === syncToken) {
+            root.classList.toggle('tauri-macos', !fs);
+            initNativeTabBar();
+        }
     };
     // The window state settles after the fullscreen animation, so re-check once it ends.
     let settleTimer = 0;

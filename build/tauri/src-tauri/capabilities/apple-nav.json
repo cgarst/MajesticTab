@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "apple-nav",
+  "description": "System navigation for library destinations (iOS and macOS)",
+  "windows": ["main"],
+  "platforms": ["iOS", "macOS"],
+  "permissions": [
+    "apple-nav:allow-configure",
+    "apple-nav:allow-select",
+    "apple-nav:allow-visibility",
+    "apple-nav:allow-appearance",
+    "apple-nav:allow-search"
+  ]
+}

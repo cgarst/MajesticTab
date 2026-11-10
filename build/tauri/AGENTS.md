@@ -43,7 +43,7 @@ Use this only for native-shell issues (window, titlebar, plugins, Rust commands,
 - Hinge status is the system's: never derive it from the angle. A flat device's fold region is inactive, so the query passes `.includeInactive`. The plugin sends nothing for a repeat, and an angle change alone is not sent.
 - Build and install as in iOS Simulator above, on the Duo device (`xcrun simctl list devices | grep Duo`). `simctl` cannot move the hinge: fold the device from Simulator.app, then read the state through the debug bridge: `curl -s --data-binary '(() => ({pose: document.documentElement.dataset.foldPose, top: getComputedStyle(document.documentElement).getPropertyValue("--fold-top"), h: getComputedStyle(document.documentElement).getPropertyValue("--fold-h")}))()' http://127.0.0.1:9555/eval`. The pose appears about 300ms after the fold stops. It is `undefined` until the first change from `none`.
 - Without the device, drive the same layouts in a browser with `?fold=tabletop` or `?fold=book` (see `src/foldState.js`).
-- The iOS build may rewrite `plugins/ios-tabbar/ios/Sources/IosTabBarPlugin.swift` in the working tree; check `git status` after a simulator build and do not commit that change by accident.
+- The iOS build may rewrite `plugins/apple-nav/ios/Sources/AppleNavPlugin.swift` in the working tree; check `git status` after a simulator build and do not commit that change by accident.
 
 ## In-app updates
 

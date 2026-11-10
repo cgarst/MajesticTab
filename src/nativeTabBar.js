@@ -1,12 +1,13 @@
 // nativeTabBar.js
-// The iOS app's bottom tab bar for the library is the system UITabBar (Liquid Glass on iOS 26 and later) instead of
-// the HTML one. Only this system chrome is glass; the web content stays flat. The native side is
-// build/tauri/plugins/ios-tabbar. Everywhere else, and on iOS before 26, nothing here runs and the HTML bar stays.
+// The Apple (iOS and macOS) app's navigation chrome for the library destinations: system UITabBar (iOS 26+)
+// or AppKit Liquid Glass Navigation Rail & Search Bar (macOS Tahoe+) instead of the HTML navigation bar.
+// Only this system chrome is glass; web content stays flat. The native side is build/tauri/plugins/apple-nav.
+// Everywhere else, and on older OS versions, the HTML navigation stays.
 //
 // The HTML bar remains the source of truth for what a tap does: a native tap clicks the matching HTML button, so
 // navigation, Settings and the "leave Settings" handling stay in one place (libraryModal.js).
 
-const MIN_IOS_MAJOR = 26;
+const MIN_APPLE_MAJOR = 26;
 const TABS = [
     { key: 'library', title: 'Library', symbol: 'books.vertical' },
     { key: 'setlists', title: 'Setlists', symbol: 'music.note.list' },
@@ -17,19 +18,21 @@ const TABS = [
 const tauri = () => (typeof window !== 'undefined' ? window.__TAURI__ : undefined);
 
 let state = 'idle'; // idle | starting | on | unsupported
-let verticalMode = false; // the system keeps its bars in a vertical strip (iPhone Duo); the native side reports it
+let verticalMode = false; // the system keeps its bars in a vertical strip (iPhone Duo / macOS); the native side reports it
 let activeKey = 'library';
 let wantVisible = false;
 let shown = null; // what the native bar was last told (true = hidden), to skip repeats
 
 function invoke(cmd, args) {
-    return tauri().core.invoke(`plugin:ios-tabbar|${cmd}`, args);
+    return tauri().core.invoke(`plugin:apple-nav|${cmd}`, args);
 }
 
 function onEvent(msg) {
     if (!msg) return;
     if (msg.type === 'height') {
         document.documentElement.style.setProperty('--native-tabbar-h', `${Math.round(msg.value)}px`);
+    } else if (msg.type === 'width') {
+        document.documentElement.style.setProperty('--native-rail-w', `${Math.round(Number(msg.value))}px`);
     } else if (msg.type === 'corner') {
         // The system's status cluster sits in the top-right corner (iPhone Duo upright); the reader's top bar stays left of it
         const width = Math.round(Number(msg.value));
@@ -93,18 +96,18 @@ function syncAppearance() {
 // The library's search field (the page has one on Library and Setlists, none inside an open pane or on Tools)
 // (or the Classical tab's list and Open file's web search inside a Tools pane)
 function searchInput() {
-    return document.querySelector('.library-page-view .library-search-bar .search-input:not([disabled]), .classtab-tool-embedded .ct-search:not([disabled])');
+    return document.querySelector('.library-page-view > .library-page-container > .library-search-box .search-input:not([disabled]), .library-page-view .library-search-box .search-input:not([disabled]), .classtab-tool-embedded .ct-search:not([disabled])');
 }
 
 // Inside a Tools pane the native field sits where the page's own field is, under the pane's header, instead of in the
 // top band. The page's field keeps its space (design.css hides it with visibility) and the native one is laid over it.
 // Returns null outside a pane, and 'hidden' once the page has scrolled the field up under the header.
-function paneSearchY(input) {
+function paneSearchBounds(input) {
     const host = input.closest('.tool-pane-host');
     if (!host) return null;
     const box = input.closest('.library-search-box') || input;
     const rect = box.getBoundingClientRect();
-    if (rect.height === 0) return 'hidden';
+    if (rect.height === 0 || rect.width === 0) return 'hidden';
     // Pulling down at the top rubber-bands the scroller (scrollTop goes negative on iOS), which carries the page's
     // field down with it. The field stays with the header, so take that overscroll back out.
     let bounce = 0;
@@ -112,7 +115,12 @@ function paneSearchY(input) {
         if (el.scrollTop < 0) bounce += el.scrollTop;
     }
     const top = rect.top + bounce;
-    return top < host.getBoundingClientRect().top - 4 ? 'hidden' : Math.round(top);
+    if (top < host.getBoundingClientRect().top - 4) return 'hidden';
+    return {
+        x: Math.round(rect.left),
+        y: Math.round(top),
+        width: Math.round(rect.width)
+    };
 }
 
 let lastSearchTop = 0;
@@ -120,9 +128,11 @@ let lastSearch = '';
 function syncSearch() {
     if (state !== 'on') return;
     const input = wantVisible ? searchInput() : null;
-    const y = input ? paneSearchY(input) : null;
-    const visible = Boolean(input) && y !== 'hidden';
-    document.body.classList.toggle('native-search-pane', Boolean(input) && y !== null);
+    const bounds = input ? paneSearchBounds(input) : null;
+    const isHidden = bounds === 'hidden';
+    const visible = Boolean(input) && !isHidden;
+    const isPane = Boolean(input) && bounds !== null && !isHidden;
+    document.body.classList.toggle('native-search-pane', isPane);
     // The native field reports its height a moment after it shows. Until then the page would pad by 0 and the content
     // would sit under the field for a frame, then jump down; the field's height does not change, so reuse the last one.
     if (visible && lastSearchTop > 0 && !document.body.classList.contains('native-search')) {
@@ -130,7 +140,11 @@ function syncSearch() {
     }
     document.body.classList.toggle('native-search', visible);
     const args = { visible, placeholder: input?.placeholder || 'Search', text: input?.value || '' };
-    if (typeof y === 'number') args.y = y;
+    if (isPane && bounds) {
+        args.x = bounds.x;
+        args.y = bounds.y;
+        args.width = bounds.width;
+    }
     const key = JSON.stringify(args);
     if (key === lastSearch) return;
     lastSearch = key;
@@ -139,7 +153,9 @@ function syncSearch() {
 
 function applyVisibility() {
     if (state !== 'on') return;
+    const isMac = document.documentElement.classList.contains('tauri-macos');
     document.body.classList.toggle('native-tabbar', wantVisible);
+    document.body.classList.toggle('native-rail', wantVisible && isMac);
     if (shown === !wantVisible) return;
     shown = !wantVisible;
     invoke('visibility', { hidden: !wantVisible }).catch(() => {});
@@ -150,17 +166,29 @@ function refreshAll() {
     syncSearch();
 }
 
-// The native bar belongs to the library at every width (phones, iPads, the iPhone Duo in portrait): the system bottom
-// bar, as on a regular iPhone. Only where the system wants a vertical bar (the Duo in landscape) is it a side rail.
+// The native bar belongs to the library at every width (phones, iPads, the iPhone Duo in portrait, macOS):
 // A dialog floating over the library (the From URL box, the S3 and WebDAV browsers, the Drive picker): the glass bar and
 // field are native views above the page, so they would sit on top of it. Embedded Tools panes are not floating.
-const FLOATING_DIALOG = '.theme-modal-backdrop:not(.tool-embedded):not(.is-closing), .picker-dialog, .picker-dialog-bg';
+const FLOATING_DIALOG = '.theme-modal-backdrop:not(.tool-embedded):not(.is-closing), .picker-dialog, .picker-dialog-bg, [class*="picker-dialog"], [class*="picker-frame"], iframe[src*="picker"]';
 function dialogOpen() {
-    return Array.from(document.querySelectorAll(FLOATING_DIALOG)).some(el => el.style.display !== 'none' && el.getClientRects().length > 0);
+    if (document.body.classList.contains('drive-picker-active') ||
+        document.body.classList.contains('picker-open') ||
+        document.body.classList.contains('modal-open')) {
+        return true;
+    }
+    return Array.from(document.querySelectorAll(FLOATING_DIALOG)).some(el => {
+        if (!el.isConnected) return false;
+        const style = window.getComputedStyle ? getComputedStyle(el) : el.style;
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+    });
 }
 
 function currentlyWanted() {
-    return document.body.classList.contains('library-view-active') && !document.body.classList.contains('downloader-active') && !dialogOpen();
+    return document.body.classList.contains('library-view-active') &&
+           !document.body.classList.contains('downloader-active') &&
+           !dialogOpen();
 }
 
 async function start() {
@@ -169,12 +197,12 @@ async function start() {
         const channel = new (tauri().core.Channel)();
         channel.onmessage = onEvent;
         const index = Math.max(0, TABS.findIndex(t => t.key === activeKey));
-        const result = await invoke('configure', { items: TABS, selected: index, minMajor: MIN_IOS_MAJOR, onEvent: channel });
+        const result = await invoke('configure', { items: TABS, selected: index, minMajor: MIN_APPLE_MAJOR, onEvent: channel });
         state = result?.supported ? 'on' : 'unsupported';
         verticalMode = Boolean(result?.vertical);
         document.documentElement.classList.toggle('native-vertical', verticalMode);
     } catch (err) {
-        console.warn('Native tab bar unavailable:', err);
+        console.warn('Native navigation unavailable:', err);
         state = 'unsupported';
     }
     if (state === 'on') {
@@ -189,33 +217,40 @@ async function start() {
 
 function refresh() {
     wantVisible = currentlyWanted();
-    // Started on any page, not only a library one: the native side must hear that this page wants no bar (a score is open),
-    // and a wide layout learns from it whether the system keeps its bars in a vertical strip
     if (state === 'idle') start().then(refresh);
     else refreshAll();
 }
 
-// Call once. Cheap off iOS: it returns before observing anything.
+// Call once. Cheap off Apple platforms: it returns before observing anything.
 export function initNativeTabBar() {
-    const isNativeIOS = document.documentElement.classList.contains('tauri-ios') && Boolean(tauri()?.core?.Channel);
-    if (!isNativeIOS || initNativeTabBar.done) return;
+    const isNativeApple = (document.documentElement.classList.contains('tauri-ios') ||
+                           document.documentElement.classList.contains('tauri-macos') ||
+                           (typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) && Boolean(tauri()?.core?.Channel))) &&
+                          Boolean(tauri()?.core?.Channel);
+    if (!isNativeApple || initNativeTabBar.done) return;
     initNativeTabBar.done = true;
-    // The bar belongs to the library: the reader, the downloader and wide layouts (the rail) hide it
+    // The bar belongs to the library: the reader, the downloader and wide layouts hide it
     new MutationObserver(refresh).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     // Dialogs are added to and removed from the body itself
     new MutationObserver(refresh).observe(document.body, { childList: true });
-    // The page re-renders its search field when the destination changes, so look again (once per frame)
+    // The page re-renders its search field or shows/hides floating dialogs, so refresh (once per frame)
     let frame = 0;
     new MutationObserver(() => {
         if (frame || state !== 'on' || !document.body.classList.contains('library-view-active')) return;
-        frame = requestAnimationFrame(() => { frame = 0; syncSearch(); });
+        frame = requestAnimationFrame(() => {
+            frame = 0;
+            refresh();
+        });
     }).observe(document.body, { childList: true, subtree: true });
-    // A pane's field follows the page's own as it scrolls
+    // A pane's field follows the page's own as it scrolls or as the window resizes
     let scrollFrame = 0;
     document.addEventListener('scroll', () => {
         if (scrollFrame || state !== 'on' || !document.body.classList.contains('native-search-pane')) return;
         scrollFrame = requestAnimationFrame(() => { scrollFrame = 0; syncSearch(); });
     }, { capture: true, passive: true });
+    window.addEventListener('resize', () => {
+        if (state === 'on') syncSearch();
+    }, { passive: true });
     // A theme change sets data-theme (and classes) on the root or body
     const themeChanged = new MutationObserver(syncAppearance);
     themeChanged.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
@@ -223,9 +258,15 @@ export function initNativeTabBar() {
     refresh();
 }
 
+export const initNativeNavigation = initNativeTabBar;
+
 // Mirror the current destination ('library', 'setlists', 'tools', 'settings', or null for none)
 export function setNativeTabActive(key) {
     activeKey = TABS.some(t => t.key === key) ? key : null;
     if (state !== 'on') return;
     invoke('select', { index: TABS.findIndex(t => t.key === activeKey) }).catch(() => {});
+    syncSearch();
 }
+
+export const setNativeNavActive = setNativeTabActive;
+export const syncNativeSearch = syncSearch;

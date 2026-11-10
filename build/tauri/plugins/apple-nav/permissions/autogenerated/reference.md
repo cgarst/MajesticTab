@@ -10,7 +10,7 @@
 <tr>
 <td>
 
-`ios-tabbar:allow-appearance`
+`apple-nav:allow-appearance`
 
 </td>
 <td>
@@ -23,7 +23,7 @@ Enables the appearance command without any pre-configured scope.
 <tr>
 <td>
 
-`ios-tabbar:deny-appearance`
+`apple-nav:deny-appearance`
 
 </td>
 <td>
@@ -36,7 +36,7 @@ Denies the appearance command without any pre-configured scope.
 <tr>
 <td>
 
-`ios-tabbar:allow-configure`
+`apple-nav:allow-configure`
 
 </td>
 <td>
@@ -49,7 +49,7 @@ Enables the configure command without any pre-configured scope.
 <tr>
 <td>
 
-`ios-tabbar:deny-configure`
+`apple-nav:deny-configure`
 
 </td>
 <td>
@@ -62,7 +62,7 @@ Denies the configure command without any pre-configured scope.
 <tr>
 <td>
 
-`ios-tabbar:allow-search`
+`apple-nav:allow-search`
 
 </td>
 <td>
@@ -75,7 +75,7 @@ Enables the search command without any pre-configured scope.
 <tr>
 <td>
 
-`ios-tabbar:deny-search`
+`apple-nav:deny-search`
 
 </td>
 <td>
@@ -88,7 +88,7 @@ Denies the search command without any pre-configured scope.
 <tr>
 <td>
 
-`ios-tabbar:allow-select`
+`apple-nav:allow-select`
 
 </td>
 <td>
@@ -101,7 +101,7 @@ Enables the select command without any pre-configured scope.
 <tr>
 <td>
 
-`ios-tabbar:deny-select`
+`apple-nav:deny-select`
 
 </td>
 <td>
@@ -114,7 +114,7 @@ Denies the select command without any pre-configured scope.
 <tr>
 <td>
 
-`ios-tabbar:allow-visibility`
+`apple-nav:allow-visibility`
 
 </td>
 <td>
@@ -127,7 +127,7 @@ Enables the visibility command without any pre-configured scope.
 <tr>
 <td>
 
-`ios-tabbar:deny-visibility`
+`apple-nav:deny-visibility`
 
 </td>
 <td>

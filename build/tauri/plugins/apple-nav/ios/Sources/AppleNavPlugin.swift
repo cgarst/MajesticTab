@@ -107,7 +107,7 @@ final class LayoutProbe: UIView {
     }
 }
 
-class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
+class AppleNavPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
     private var items: [TabItem] = []
     private var keys: [String] = []
     private var channel: Channel?
@@ -541,7 +541,7 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
     }
 }
 
-@_cdecl("init_plugin_ios_tabbar")
+@_cdecl("init_plugin_apple_nav")
 public func initPlugin() -> Plugin {
-    return IosTabBarPlugin()
+    return AppleNavPlugin()
 }

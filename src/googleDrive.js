@@ -507,34 +507,63 @@ function loadPickerApi() {
  * Picking a file grants this app access to it under the drive.file scope.
  */
 export async function pickDriveFile({ title = 'Select a file from Google Drive' } = {}) {
-    const apiKey = await import('./pickerKey.local.js').then(m => m.PICKER_API_KEY, () => '') || DEFAULT_PICKER_API_KEY;
     await ensureFreshToken();
     if (!isTokenValid()) throw new Error('Google Drive is not connected. Please connect your Google account.');
+
+    // On native desktop (macOS, Windows, Linux), embedded webviews block cross-site cookies
+    // (WebKit ITP / storage partitioning), causing the embedded Google Picker iframe to fail with
+    // "Can't access your Google Account" (support.google.com/drive?p=enable_storage_access).
+    // Furthermore, desktop OAuth is performed in the default browser, where the user's active
+    // Google session cookies live. Use the loopback picker in the system browser so the user
+    // can select their file seamlessly without re-authenticating or escalating OAuth scopes.
+    if (window.__TAURI__?.core?.invoke && !isMobilePlatform()) {
+        try {
+            showToast('Opening Google Drive file picker in your browser...', 'info', 4000);
+            const picked = await window.__TAURI__.core.invoke('desktop_pick_drive_file', {
+                token,
+                title
+            });
+            return picked; // { id, name, mimeType } or null if cancelled
+        } catch (err) {
+            console.error('[GoogleDrive] Desktop picker invocation failed:', err);
+            throw err;
+        }
+    }
+
+    const apiKey = await import('./pickerKey.local.js').then(m => m.PICKER_API_KEY, () => '') || DEFAULT_PICKER_API_KEY;
     await loadPickerApi();
 
-    return new Promise((resolve) => {
-        const { picker: gp } = window.google;
-        const view = new gp.DocsView(gp.ViewId.DOCS)
-            .setIncludeFolders(true)
-            .setSelectFolderEnabled(false);
-        new gp.PickerBuilder()
-            .setAppId(PICKER_APP_ID)
-            .setDeveloperKey(apiKey)
-            .setOAuthToken(token)
-            .setTitle(title)
-            .addView(view)
-            .setCallback((data) => {
-                const action = data[gp.Response.ACTION];
-                if (action === gp.Action.PICKED) {
-                    const doc = data[gp.Response.DOCUMENTS][0];
-                    resolve({ id: doc[gp.Document.ID], name: doc[gp.Document.NAME], mimeType: doc[gp.Document.MIME_TYPE] });
-                } else if (action === gp.Action.CANCEL) {
-                    resolve(null);
-                }
-            })
-            .build()
-            .setVisible(true);
-    });
+    document.body.classList.add('drive-picker-active');
+    try {
+        return await new Promise((resolve) => {
+            const { picker: gp } = window.google;
+            const view = new gp.DocsView()
+                .setIncludeFolders(true)
+                .setSelectFolderEnabled(false);
+            const origin = window.location.origin || (window.location.protocol + '//' + window.location.host);
+            new gp.PickerBuilder()
+                .setAppId(PICKER_APP_ID)
+                .setDeveloperKey(apiKey)
+                .setOAuthToken(token)
+                .setOrigin(origin)
+                .enableFeature(gp.Feature.SUPPORT_DRIVES)
+                .setTitle(title)
+                .addView(view)
+                .setCallback((data) => {
+                    const action = data[gp.Response.ACTION];
+                    if (action === gp.Action.PICKED) {
+                        const doc = data[gp.Response.DOCUMENTS][0];
+                        resolve({ id: doc[gp.Document.ID], name: doc[gp.Document.NAME], mimeType: doc[gp.Document.MIME_TYPE] });
+                    } else if (action === gp.Action.CANCEL) {
+                        resolve(null);
+                    }
+                })
+                .build()
+                .setVisible(true);
+        });
+    } finally {
+        document.body.classList.remove('drive-picker-active');
+    }
 }
 
 /**

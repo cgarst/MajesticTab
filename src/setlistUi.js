@@ -76,9 +76,9 @@ async function renderSetlistsPage(container, onBack) {
         activeTab: 'setlists',
         searchId: 'setlistsFilterInput',
         clearId: 'setlistsFilterClearBtn',
-        placeholder: 'Search setlists...',
+        placeholder: 'Search setlists…',
         searchLabel: 'Search setlists',
-        searchDisabled: setlists.length === 0
+        searchDisabled: false
     });
     const toolbarHtml = libraryListToolbarHtml({
         count: `${setlists.length} ${setlists.length === 1 ? 'setlist' : 'setlists'}`,
@@ -94,6 +94,7 @@ async function renderSetlistsPage(container, onBack) {
           </div>
         </div>`;
         bindSetlistsChrome(container, rerender);
+        bindTwoPaneFilter(container, { inputId: 'setlistsFilterInput', clearId: 'setlistsFilterClearBtn', key: 'setlists', cardSelector: '.setlist-card', rowSelector: '.pane.songs .rowwrap' });
         gamepadManager.onLibraryViewRendered();
         return;
     }

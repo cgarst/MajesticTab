@@ -14,6 +14,8 @@ mod debug_restore;
 mod jam;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod loopback_scan;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+mod google_picker_desktop;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod icloud;
 mod secrets;
@@ -541,6 +543,18 @@ pub fn run() {
             #[cfg(feature = "debug-tools")]
             if let Some(main_wv) = _app.get_webview("main") {
                 main_wv.open_devtools();
+                #[cfg(target_os = "macos")]
+                {
+                    let _ = main_wv.with_webview(|wv| unsafe {
+                        use objc2::msg_send;
+                        use objc2::runtime::AnyObject;
+                        let wk: *const AnyObject = wv.inner() as _;
+                        let tool: *mut AnyObject = msg_send![wk, _inspector];
+                        if !tool.is_null() {
+                            let () = msg_send![tool, detach];
+                        }
+                    });
+                }
                 debug_bridge::start(_app.handle().clone());
             }
 
@@ -627,9 +641,9 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
     #[cfg(feature = "google-auth")]
     let builder = builder.plugin(tauri_plugin_google_auth::init());
 
-    // System tab bar for the library destinations (Liquid Glass on iOS 26 and later); see plugins/ios-tabbar.
-    #[cfg(target_os = "ios")]
-    let builder = builder.plugin(tauri_plugin_ios_tabbar::init());
+    // System navigation chrome for the library destinations (Liquid Glass on iOS 26+ and macOS Tahoe+); see plugins/apple-nav.
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    let builder = builder.plugin(tauri_plugin_apple_nav::init());
 
     // Fold and hinge state for the iPhone Duo (tabletop mode); see plugins/ios-fold.
     #[cfg(target_os = "ios")]
@@ -656,6 +670,8 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         jam::jam_client_disconnect,
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         loopback_scan::loopback_open_ports,
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        google_picker_desktop::desktop_pick_drive_file,
         get_opened_file,
         read_opened_file_range,
         #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -709,6 +725,8 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         jam::jam_client_disconnect,
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         loopback_scan::loopback_open_ports,
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        google_picker_desktop::desktop_pick_drive_file,
         get_opened_file,
         read_opened_file_range,
         #[cfg(any(target_os = "macos", target_os = "ios"))]

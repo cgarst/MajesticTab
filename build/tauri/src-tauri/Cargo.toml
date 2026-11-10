@@ -61,6 +61,7 @@ keyring = { version = "3", features = ["windows-native"] }
 mdns-sd = "0.21.6"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+tauri-plugin-apple-nav = { path = "../plugins/apple-nav" }
 objc2-app-kit = { version = "0.3", features = ["NSView", "NSWindow", "NSEvent", "NSApplication", "NSGraphicsContext", "objc2-quartz-core"] }
 objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSURLRequest", "NSGeometry"] }
 objc2-quartz-core = { version = "0.3", features = ["CALayer", "objc2-core-foundation"] }
@@ -68,7 +69,7 @@ objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKNavigation"] }
 block2 = "0.6"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-tauri-plugin-ios-tabbar = { path = "../plugins/ios-tabbar" }
+tauri-plugin-apple-nav = { path = "../plugins/apple-nav" }
 tauri-plugin-ios-fold = { path = "../plugins/ios-fold" }
 objc2-ui-kit = { version = "0.3", features = ["UIColor", "UIView", "UIViewController", "UIScrollView"] }
 objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSFileManager", "NSURLRequest", "NSGeometry"] }

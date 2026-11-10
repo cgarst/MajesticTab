@@ -1,7 +1,7 @@
 // libraryModal.js
 // Artwork-rich MusicBrainz-powered Tab Library Page aligned to themes.
 
-import { initNativeTabBar, setNativeTabActive } from './nativeTabBar.js';
+import { initNativeTabBar, setNativeTabActive, syncNativeSearch } from './nativeTabBar.js';
 import { mountSettingsPage, parkSettingsPage } from './utils/settingsPage.js';
 import {
     getCollections, getLibraryHierarchy, getLibraryTuningsHierarchy,
@@ -894,6 +894,7 @@ async function renderView() {
     syncLibraryBottomNav();
     try {
         await renderViewContent(content);
+        syncNativeSearch();
     } finally {
         if (savedScroll) content.scrollTop = savedScroll;
     }
@@ -2364,6 +2365,7 @@ export async function goLibraryTab(tab) {
     // Choosing a destination always starts it fresh: a search typed there is cleared
     libraryFilterQuery = '';
     searchSubView = null;
+    if (tab && twoPaneFilterQueries[tab]) twoPaneFilterQueries[tab] = '';
     if (tab === 'setlists' || tab === 'recents' || tab === 'tools' || tab === 'settings') {
         if (activeView !== tab) await switchView(tab);
         else { activeLibraryPane = 'list'; await renderLibraryModal(); }
