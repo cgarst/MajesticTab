@@ -51,7 +51,8 @@ function placePanel(p) {
  * @param {function(tab):string} o.tabMeta   grey meta text for a tab (pages, tuning)
  * @param {function(tab):boolean} o.isSynced
  * @param {boolean} o.canEditRange  show "Edit pages" for album-PDF tabs in manage mode
- * @param {Object}  o.on            { openTab(tab), makeDefault(tabId), removeTab(tabId), editRange(tab), addFrom(providerId) }
+ * @param {Object}  o.on            { openTab(tab), makeDefault(tabId), removeTab(tabId), editRange(tab), addFrom(providerId), listSongs(), moveTab(tabId, songId) }
+ *                                  listSongs (optional) returns [{ id, title, artist, album }] to choose from; with it, manage mode offers "Move"
  */
 export function openSongTabPicker(o) {
     closeSongTabPicker({ restoreFocus: false });
@@ -104,6 +105,7 @@ export function openSongTabPicker(o) {
                   </button>
                   ${manage ? `
                     ${canRange ? `<button type="button" class="tabpick-act" data-act="range" data-tab-id="${esc(t.id)}">Edit pages</button>` : ''}
+                    ${o.on.listSongs && o.on.moveTab ? `<button type="button" class="tabpick-act" data-act="move" data-tab-id="${esc(t.id)}">Move</button>` : ''}
                     <button type="button" class="tabpick-act tabpick-danger" data-act="remove" data-tab-id="${esc(t.id)}" data-name="${esc(t.name)}">Remove</button>`
                   : (isDef
                       ? '<span class="tabpick-state">Opens first</span>'
@@ -114,8 +116,31 @@ export function openSongTabPicker(o) {
           ${manage ? '' : '<div class="tabpick-foot"><button type="button" class="tabpick-row" data-act="more">Add another tab</button></div>'}`;
     }
 
+    let moveTabId = null;
+    let moveSongs = [];
+    const songMeta = (x) => [x.artist, x.album].filter(Boolean).join(' \u00b7 ');
+    function moveRows(query) {
+        const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+        const hits = moveSongs.filter((x) => {
+            const hay = `${x.title} ${x.artist || ''} ${x.album || ''}`.toLowerCase();
+            return words.every((w) => hay.includes(w));
+        });
+        if (!hits.length) return '<li class="tabpick-note">No song matches.</li>';
+        return hits.slice(0, 40).map((x) => `<li><button type="button" class="tabpick-row tabpick-song" data-act="moveto" data-song-id="${esc(x.id)}">
+            <span class="tabpick-name">${esc(x.title)}</span>${songMeta(x) ? `<span class="tabpick-meta">${esc(songMeta(x))}</span>` : ''}</button></li>`).join('')
+            + (hits.length > 40 ? '<li class="tabpick-note">Keep typing to narrow the list.</li>' : '');
+    }
+    function moveView() {
+        const tab = tabs.find((t) => t.id === moveTabId);
+        return `
+          <div class="tabpick-bar"><button type="button" class="tabpick-back" data-act="back-manage">Back</button></div>
+          <p class="tabpick-label" id="tabpickMoveLabel">Move ${esc(tab?.name || 'tab')} to</p>
+          <input type="search" class="tabpick-search" aria-labelledby="tabpickMoveLabel" placeholder="Search songs" autocomplete="off" spellcheck="false">
+          <ul class="tabpick-list" id="tabpickMoveList">${moveRows('')}</ul>`;
+    }
+
     function paint(focusSel) {
-        root.innerHTML = mode === 'add' ? addView() : listView();
+        root.innerHTML = mode === 'add' ? addView() : mode === 'move' ? moveView() : listView();
         placePanel(p);
         const target = (focusSel && root.querySelector(focusSel)) || root.querySelector('.tabpick-row, .tabpick-back');
         target?.focus({ preventScroll: true });
@@ -127,6 +152,20 @@ export function openSongTabPicker(o) {
         const act = btn.dataset.act;
         const tab = tabs.find((t) => t.id === btn.dataset.tabId);
         if (act === 'back') { mode = startMode === 'add' ? 'list' : startMode; paint('[data-act="more"]'); return; }
+        if (act === 'back-manage') { mode = 'manage'; paint(`[data-act="move"][data-tab-id="${moveTabId}"]`); return; }
+        if (act === 'move' && tab) {
+            moveTabId = tab.id;
+            moveSongs = (await o.on.listSongs()).filter((x) => x.id !== o.song.id);
+            mode = 'move';
+            paint('.tabpick-search');
+            return;
+        }
+        if (act === 'moveto' && moveTabId) {
+            const tabId = moveTabId;
+            closeSongTabPicker({ restoreFocus: false });
+            o.on.moveTab(tabId, btn.dataset.songId);
+            return;
+        }
         if (act === 'more') { mode = 'add'; paint(); return; }
         if (act === 'add') { closeSongTabPicker({ restoreFocus: false }); o.on.addFrom(btn.dataset.providerId); return; }
         if (act === 'open' && tab) { closeSongTabPicker({ restoreFocus: false }); o.on.openTab(tab); return; }
@@ -145,11 +184,16 @@ export function openSongTabPicker(o) {
         }
     }
     root.addEventListener('click', onClick);
+    root.addEventListener('input', (e) => {
+        if (!e.target.classList?.contains('tabpick-search')) return;
+        const list = root.querySelector('#tabpickMoveList');
+        if (list) list.innerHTML = moveRows(e.target.value);
+    });
 
     p.onKey = (e) => {
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeSongTabPicker(); return; }
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-            const items = [...root.querySelectorAll('.tabpick-row, .tabpick-act, .tabpick-back')];
+            const items = [...root.querySelectorAll('.tabpick-search, .tabpick-row, .tabpick-act, .tabpick-back')];
             if (!items.length) return;
             e.preventDefault();
             const i = items.indexOf(document.activeElement);
@@ -158,7 +202,7 @@ export function openSongTabPicker(o) {
             return;
         }
         if (e.key === 'Tab') {
-            const items = [...root.querySelectorAll('button')];
+            const items = [...root.querySelectorAll('button, input')];
             if (!items.length) return;
             const first = items[0], last = items[items.length - 1];
             if (!root.contains(document.activeElement)) { e.preventDefault(); first.focus(); }

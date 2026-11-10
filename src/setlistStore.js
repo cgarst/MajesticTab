@@ -57,6 +57,18 @@ export async function addToSetlist(setlistId, songId, tabId = null) {
     return saveSetlist(setlist);
 }
 
+/** A tab moved to another song: setlist entries for it follow, so they still open it. */
+export async function retargetSetlistTab(tabId, fromSongId, toSongId) {
+    const all = await getAllSetlists();
+    for (const setlist of all) {
+        let changed = false;
+        for (const item of setlist.items || []) {
+            if (item.tabId === tabId && item.songId === fromSongId) { item.songId = toSongId; changed = true; }
+        }
+        if (changed) await saveSetlist(setlist);
+    }
+}
+
 export async function removeFromSetlist(setlistId, itemId) {
     const setlist = await getSetlist(setlistId);
     if (!setlist) return null;

@@ -4246,6 +4246,11 @@ body > #controllerHelpModal { display: none; }
 .tabpick-state { flex: none; padding: 0 10px; color: var(--ink2); font-size: 13px; white-space: nowrap; }
 .tabpick-danger { color: var(--danger); }
 .tabpick-foot { margin-top: 4px; padding-top: 4px; }
+.tabpick-search { display: block; width: calc(100% - 16px); margin: 2px 8px 6px; height: 40px; padding: 0 12px; border: 0; border-radius: var(--r-control); background: var(--s3); color: var(--ink); font: 15px system-ui, sans-serif; }
+.tabpick-search::placeholder { color: var(--ink2); }
+.tabpick-search:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+.tabpick-song .tabpick-name { flex: 1 1 auto; }
+.tabpick-song .tabpick-meta { overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
 .tabpick-foot .tabpick-row { padding-left: 16px; }
 @media (hover: hover) { .tabpick-row:hover, .tabpick-act:hover, .tabpick-back:hover { background: var(--s3); } .tabpick-item:hover { background: var(--s3); } .tabpick-item .tabpick-row:hover { background: transparent; } }
 .tabpick-row:active, .tabpick-act:active, .tabpick-back:active { background: var(--s3); }

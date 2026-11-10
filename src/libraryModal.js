@@ -6,10 +6,11 @@ import { mountSettingsPage, parkSettingsPage } from './utils/settingsPage.js';
 import {
     getCollections, getLibraryHierarchy, getLibraryTuningsHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
-    deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, removeTabOptionFromSong, setDefaultTabOption,
+    deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, removeTabOptionFromSong, moveTabOptionToSong, getAllSongs, setDefaultTabOption,
     togglePinSong, toggleArtistPinned, isArtistPinned, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption,
     getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID
 } from './libraryStore.js';
+import { retargetSetlistTab } from './setlistStore.js';
 import {
     searchMusicBrainz, getArtistAlbums, getAlbumTracks,
     getPlaceholderCoverSvg, isDvdOrBlurayMedium, isVinylOrTapeMedium,
@@ -3273,6 +3274,18 @@ async function toggleSongTabsPicker(anchor, songId, mode, { forceOpen = false } 
             openTab: (tab) => loadSongTab(song, tab),
             makeDefault: async (tabId) => { await setDefaultTabOption(songId, tabId); showToast('Set default tab', 'success'); await renderView(); },
             removeTab: async (tabId) => { await removeTabOptionFromSong(songId, tabId); await renderView(); },
+            listSongs: async () => (await getAllSongs())
+                .filter(x => !x.isAlbumTabContainer)
+                .map(x => ({ id: x.id, title: x.title, artist: x.artist, album: x.album }))
+                .sort((x, y) => (x.artist || '').localeCompare(y.artist || '') || (x.album || '').localeCompare(y.album || '') || (x.title || '').localeCompare(y.title || '')),
+            moveTab: async (tabId, toSongId) => {
+                const target = await getSongById(toSongId);
+                const moved = await moveTabOptionToSong(songId, tabId, toSongId);
+                if (!moved) { showToast('Could not move the tab.', 'danger'); return; }
+                await retargetSetlistTab(tabId, songId, toSongId);
+                showToast(`Moved to ${target?.title || 'the song'}`, 'success');
+                await renderView();
+            },
             editRange: (tab) => openAlbumPdfPagesFor(songId, tab.id),
             addFrom: (providerId) => importTabFromProvider(songId, providerId)
         }

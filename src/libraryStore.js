@@ -740,6 +740,38 @@ export async function removeTabOptionFromSong(songId, tabOptionId) {
     if (removedFileId) await deleteOrphanedStoredFiles([removedFileId]);
 }
 
+/**
+ * Re-assign a tab to another song (for example after a bulk import filed it under the wrong one). The tab keeps its
+ * id, file and name, so sync points and setlist entries that point at it keep working. Returns the moved tab.
+ */
+export async function moveTabOptionToSong(fromSongId, tabOptionId, toSongId) {
+    if (!fromSongId || !toSongId || fromSongId === toSongId) return null;
+    const from = await getSongById(fromSongId);
+    const to = await getSongById(toSongId);
+    const tab = from?.tabOptions?.find(t => t.id === tabOptionId);
+    if (!from || !to || !tab) return null;
+
+    from.tabOptions = from.tabOptions.filter(t => t.id !== tabOptionId);
+    if (from.defaultTabId === tabOptionId) from.defaultTabId = from.tabOptions[0]?.id || null;
+    recomputeSongTunings(from);
+
+    if (!Array.isArray(to.tabOptions)) to.tabOptions = [];
+    const duplicate = tab.fileStoreId && to.tabOptions.some(t => t.fileStoreId === tab.fileStoreId && t.name === tab.name && t.startPage === tab.startPage);
+    if (!duplicate) {
+        to.tabOptions.push({ ...tab, isDefault: false });
+        if (!to.defaultTabId) to.defaultTabId = tab.id;
+        if (tab.stringCount && (!to.stringCount || tab.stringCount > to.stringCount)) to.stringCount = tab.stringCount;
+        recomputeSongTunings(to);
+    }
+    for (const t of to.tabOptions) t.isDefault = (t.id === to.defaultTabId);
+    for (const t of from.tabOptions) t.isDefault = (t.id === from.defaultTabId);
+
+    // Write the target first: a failure between the two writes leaves the tab on both songs, never on neither
+    await saveSongToLibrary(to, to.collectionId);
+    await saveSongToLibrary(from, from.collectionId);
+    return tab;
+}
+
 /** The song's tunings are those of its tabs, one entry each. */
 function recomputeSongTunings(song) {
     song.tunings = Array.from(new Set((song.tabOptions || []).flatMap(t => Array.isArray(t.tunings) && t.tunings.length > 0 ? t.tunings : (t.tuning ? [t.tuning] : []))));
