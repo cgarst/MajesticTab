@@ -1,7 +1,7 @@
 // audioLatencyModal.js
 // Modal for the audio latency compensation (late Bluetooth speakers) with a tap calibration tool.
 import { getAudioLatencyMs, setAudioLatencyMs } from './gpPlayer.js';
-import { wireModal } from './mixerPanel.js';
+import { wireModal, openModal, closeModal } from './mixerPanel.js';
 
 const CLICK_INTERVAL_MS = 1200;
 const LOOKAHEAD_MS = 150;
@@ -14,9 +14,18 @@ const median = (values) => {
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 };
 
+let _openModal = null;
+export function openAudioLatencyModal() {
+    if (_openModal) _openModal();
+}
+
 export function initAudioLatencyModal() {
     const slider = document.getElementById('latencySlider');
     const badge = document.getElementById('latencyBadge');
+    const synthSlider = document.getElementById('synthLatencySlider');
+    const synthBadge = document.getElementById('synthLatencyBadge');
+    const ytSlider = document.getElementById('ytLatencySlider');
+    const ytBadge = document.getElementById('ytLatencyBadge');
     const panelBadge = document.getElementById('latencyModalBadge');
     const flash = document.getElementById('latencyFlash');
     const tapBtn = document.getElementById('latencyTapBtn');
@@ -25,7 +34,10 @@ export function initAudioLatencyModal() {
     const measuredEl = document.getElementById('latencyMeasured');
     const tapCountEl = document.getElementById('latencyTapCount');
     const modal = document.getElementById('latencyModal');
-    if (!modal || !slider) return;
+    if (!modal) return;
+
+    const sliders = [slider, synthSlider, ytSlider].filter(Boolean);
+    const badges = [badge, synthBadge, ytBadge, panelBadge].filter(Boolean);
 
     let ctx = null;
     let schedulerTimer = 0;
@@ -39,9 +51,8 @@ export function initAudioLatencyModal() {
 
     const syncUI = () => {
         const ms = getAudioLatencyMs();
-        slider.value = String(ms);
-        badge.textContent = `${ms} ms`;
-        if (panelBadge) panelBadge.textContent = `${ms} ms`;
+        sliders.forEach((s) => { s.value = String(ms); });
+        badges.forEach((b) => { b.textContent = `${ms} ms`; });
     };
 
     const resetMeasurement = () => {
@@ -130,24 +141,38 @@ export function initAudioLatencyModal() {
         }
     });
     startBtn.addEventListener('click', () => (ctx ? stop() : start()));
-    applyBtn.addEventListener('click', () => {
+    applyBtn?.addEventListener('click', () => {
         if (measured === null) return;
         setAudioLatencyMs(measured);
         syncUI();
+        closeModal('latencyModal');
     });
 
-    slider.addEventListener('input', (e) => { setAudioLatencyMs(e.target.value); syncUI(); });
-    modal.querySelectorAll('[data-latency-step]').forEach((btn) => {
+    sliders.forEach((s) => {
+        s.addEventListener('input', (e) => { setAudioLatencyMs(e.target.value); syncUI(); });
+    });
+    document.querySelectorAll('[data-latency-step]').forEach((btn) => {
         btn.addEventListener('click', () => {
             setAudioLatencyMs(getAudioLatencyMs() + parseInt(btn.dataset.latencyStep, 10));
             syncUI();
         });
     });
 
+    const openLatency = () => {
+        resetMeasurement();
+        syncUI();
+        openModal('latencyModal');
+    };
+    _openModal = openLatency;
+
+    ['synthLatencyCalBtn', 'ytLatencyCalBtn', 'latencyModalBtn'].forEach((btnId) => {
+        document.getElementById(btnId)?.addEventListener('click', openLatency);
+    });
+
     // Close paths in wireModal hide the modal without a hook, so stop clicks when it goes away.
     new MutationObserver(() => { if (!modal.classList.contains('show')) stop(); })
         .observe(modal, { attributes: true, attributeFilter: ['class'] });
 
-    wireModal('latencyModal', 'latencyModalBtn', () => { resetMeasurement(); syncUI(); });
+    wireModal('latencyModal', null, () => { resetMeasurement(); syncUI(); });
     syncUI();
 }

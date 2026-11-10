@@ -207,12 +207,6 @@
     </button>
   </div>
 
-  <div class="tools-row" id="latencyPill">
-    <button class="tools-item" id="latencyModalBtn" type="button" role="menuitem">
-      <i class="bi-bluetooth"></i>
-      <span class="tools-item-text"><span>Audio latency</span><small>Match late Bluetooth speakers &middot; <span id="latencyModalBadge">0 ms</span></small></span>
-    </button>
-  </div>
 
   <div class="tools-row" id="jamPill" style="display:none;">
     <button class="tools-item" id="jamToggleBtn" type="button" role="menuitem" title="Jam mode (play together)">
@@ -542,6 +536,22 @@
     </button>
   </div>
   <div class="synth-panel-body">
+    <!-- Bluetooth latency sync -->
+    <div class="mb-3" id="synthLatencySection">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted" for="synthLatencySlider">Bluetooth latency:</label>
+        <div class="d-flex align-items-center gap-1">
+          <button type="button" class="btn btn-sm theme-control-btn" data-latency-step="-10" title="Decrease by 10 ms">-10</button>
+          <span class="theme-value-badge" id="synthLatencyBadge">0 ms</span>
+          <button type="button" class="btn btn-sm theme-control-btn" data-latency-step="10" title="Increase by 10 ms">+10</button>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <input type="range" id="synthLatencySlider" min="0" max="1000" value="0" step="5" aria-label="Bluetooth latency compensation">
+        <button type="button" class="btn btn-sm theme-control-btn flex-shrink-0" id="synthLatencyCalBtn" title="Calibrate audio latency">Calibrate&hellip;</button>
+      </div>
+    </div>
+
     <div class="mb-3" id="synthMidiSection" style="display: none;">
       <p class="small text-muted mb-2" id="synthMidiNote">Plays the MIDI file. It isn't synced to the tab.</p>
       <div class="d-flex gap-2">
@@ -716,6 +726,22 @@
     </div>
   </div>
   <div class="yt-panel-body">
+    <!-- Bluetooth latency sync -->
+    <div class="mb-3" id="ytLatencySection">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted" for="ytLatencySlider">Bluetooth latency:</label>
+        <div class="d-flex align-items-center gap-1">
+          <button type="button" class="btn btn-sm theme-control-btn" data-latency-step="-10" title="Decrease by 10 ms">-10</button>
+          <span class="theme-value-badge" id="ytLatencyBadge">0 ms</span>
+          <button type="button" class="btn btn-sm theme-control-btn" data-latency-step="10" title="Increase by 10 ms">+10</button>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <input type="range" id="ytLatencySlider" min="0" max="1000" value="0" step="5" aria-label="Bluetooth latency compensation">
+        <button type="button" class="btn btn-sm theme-control-btn flex-shrink-0" id="ytLatencyCalBtn" title="Calibrate audio latency">Calibrate&hellip;</button>
+      </div>
+    </div>
+
     <!-- Slot Selector: Original Song vs Backing Track (Mockup two rows) -->
     <div class="field mb-3">
       <div class="rec-slots" role="radiogroup" aria-label="Original">

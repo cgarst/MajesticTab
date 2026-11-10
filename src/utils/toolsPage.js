@@ -23,8 +23,7 @@ function hostOf(id) {
         reference: () => $('referenceModal'),
         tuner: () => $('tunerModal'),
         metronome: () => $('metronomeModal'),
-        jam: () => $('jamModal'),
-        latency: () => $('latencyModal')
+        jam: () => $('jamModal')
     }[id]?.() || null;
 }
 
@@ -53,7 +52,6 @@ export async function releaseEmbeddedTools(keep = false) {
         else if (id === 'tuner') (await import('../tuner/tuner.js')).closeTunerModal();
         else if (id === 'metronome') (await import('../metronome/metronome.js')).closeMetronomeModal();
         else if (id === 'jam' && el.style.display === 'flex') $('jamToggleBtn')?.click();
-        else if (id === 'latency') { const m = await import('../gpProcessor/mixerPanel.js'); if (embedded?.el !== el) m.closeModal('latencyModal'); }
     } catch { /* the tool is already gone */ }
     // The tool was opened again while the closers above were loading: its screen is in use, leave it
     if (embedded?.el === el) return;
@@ -122,7 +120,6 @@ async function openTool(id, pane) {
     else if (id === 'tuner') $('tunerToggleBtn')?.click();
     else if (id === 'metronome') $('metronomeToggleBtn')?.click();
     else if (id === 'jam') { if ($('jamModal')?.style.display !== 'flex') $('jamToggleBtn')?.click(); }
-    else if (id === 'latency') $('latencyModalBtn')?.click();
     const el = hostOf(id);
     if (!el) return;
     el.classList.add('tool-embedded');

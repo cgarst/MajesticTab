@@ -681,6 +681,8 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .btn-group[role="group"] > .btn { background: transparent !important; color: var(--ink2) !important; border: 0 !important; border-radius: calc(var(--r) - 3px) !important; flex: 1; font-weight: 500; min-height: 32px; }
 .btn-group[role="group"] > .btn.active { background: var(--s3) !important; color: var(--ink) !important; }
 #synthDropdownPanel input[type=range], #ytDropdownPanel input[type=range] { accent-color: var(--hue); width: 100%; }
+#synthLatencySection input[type=range], #ytLatencySection input[type=range] { flex: 1 1 auto; min-width: 0; }
+#synthLatencyCalBtn, #ytLatencyCalBtn { font-size: 13px; white-space: nowrap; }
 #synthDropdownPanel .form-control, #ytDropdownPanel .form-control, #synthDropdownPanel .form-select, #ytDropdownPanel .form-select {
   background: var(--s3) !important; border: 0 !important; border-radius: var(--r) !important; color: var(--ink) !important; min-height: 36px;
 }
@@ -3063,7 +3065,7 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .theme-modal-backdrop.tool-embedded .metronome-modal-card { max-width: none; width: 100%; }
 .theme-modal-backdrop.tool-embedded .metronome-body { padding: 0; }
 #latencyModal.tool-embedded .theme-modal-card { max-width: 520px; }
-@media (pointer: coarse) { #latencyModal [data-latency-step], #latencyModal #latencyStartBtn, #latencyModal #latencyApplyBtn { min-height: 44px; min-width: 44px; } }
+@media (pointer: coarse) { [data-latency-step], #synthLatencyCalBtn, #ytLatencyCalBtn, #latencyModal #latencyStartBtn, #latencyModal #latencyApplyBtn { min-height: 44px; min-width: 44px; } }
 #latencyModal.tool-embedded .border-top { border-top: 0 !important; margin-top: 8px !important; }
 @media (prefers-reduced-motion: reduce) { .metro-mark, .metro-beat, .metro-step { transition: none; } }
 

@@ -27,7 +27,7 @@ import { renderTuningBarsSvg } from './utils/tuningVisual.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
-import { scoreOptionsState, pauseSynthPlayer, getAudioLatencyMs } from './gpProcessor/gpPlayer.js';
+import { scoreOptionsState, pauseSynthPlayer } from './gpProcessor/gpPlayer.js';
 import { pauseYouTube } from './youtubePlayer.js';
 import { metronome } from './metronome/metronome.js';
 import { pitchCraftTuner } from './tuner/tuner.js';
@@ -4574,8 +4574,6 @@ function renderToolsView(container) {
         { id: 'metronome', group: 'play', title: 'Metronome', readout: () => `${metronome.bpm} bpm`, watch: ['metroBpm'] }
     );
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', group: 'play', title: 'Jam', readout: jamReadout, watch: ['jamStatusLabel'] });
-    // Applies to every sound in the app; in a song the same panel opens as a dialog from the reader's Tools menu
-    tools.push({ id: 'latency', group: 'system', title: 'Audio latency', readout: () => { const ms = getAudioLatencyMs(); return ms > 0 ? `${ms} ms` : 'Off'; }, watch: ['latencyModalBadge'] });
     renderToolsPage(container, { tools, escapeHtml });
 }
 
