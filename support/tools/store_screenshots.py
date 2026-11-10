@@ -179,11 +179,18 @@ def ensure_channel_frontend(channel, cfg, force):
     with open(TAURI_DIR / f".frontend-dist-{channel}.lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if force or not _frontend_matches(channel, cfg):
+            print(f"[{channel}] preparing the frontend...", flush=True)
             prepare_channel_frontend(channel)
 
 
 class _Server(http.server.ThreadingHTTPServer):
     request_queue_size = 256  # default backlog of 5 resets connections during the app's module-load burst
+
+    def handle_error(self, request, client_address):
+        # The browser cancels requests when a page navigates away; that is not an error worth a traceback.
+        if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError)):
+            return
+        super().handle_error(request, client_address)
 
 
 class _Quiet(http.server.SimpleHTTPRequestHandler):
@@ -567,18 +574,30 @@ def main():
             print(f"=== {name} ===", flush=True)
             run_store(args, name)
         return
-    # One process per store. Each channel has its own prepared frontend, so stores no longer share state; output is
-    # held back per store and printed when it finishes, so the lines stay together.
+    # One process per store. Each channel has its own prepared frontend, so stores no longer share state. Lines are
+    # printed as they arrive, prefixed with the store, with a start and finish line for each.
+    import time
     from concurrent.futures import ThreadPoolExecutor
     passthrough = [a for flag, on in (("--no-prepare", args.no_prepare), ("--raw", args.raw)) if on for a in [flag]]
     if args.only:
         passthrough += ["--only", *args.only]
+    width = max(len(n) for n in names)
+    out_lock = threading.Lock()
+
+    def say(name, text):
+        with out_lock:
+            print(f"[{name:<{width}}] {text}", flush=True)
 
     def capture(name):
-        r = subprocess.run([sys.executable, str(Path(__file__).resolve()), name, *passthrough],
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        print(f"=== {name} ===\n{r.stdout}", end="", flush=True)
-        return name, r.returncode
+        t0 = time.monotonic()
+        say(name, "started")
+        proc = subprocess.Popen([sys.executable, "-u", str(Path(__file__).resolve()), name, *passthrough],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        for line in proc.stdout:
+            say(name, line.rstrip())
+        code = proc.wait()
+        say(name, f"{'done' if code == 0 else f'FAILED (exit {code})'} in {time.monotonic() - t0:.0f}s")
+        return name, code
 
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
         failed = [n for n, code in pool.map(capture, names) if code]
