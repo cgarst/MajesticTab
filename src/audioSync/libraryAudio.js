@@ -43,12 +43,37 @@ export function songHasAudioInSlot(song, slot, existingIds) {
     return songAudioKeys(song).some((k) => existingIds.has(read(slotFileKey(k, slot))));
 }
 
-/** Is a local audio file the song's Original (attached, and the source not set to a video or the file's own audio)? */
-export function songHasLocalOriginal(songKey) {
+/** Is a local audio file the song's file for this slot (attached, and the slot's source not set to a video or the file's own audio)? */
+export function songHasLocalSlot(songKey, slot) {
     if (!songKey) return false;
-    const source = read(slotSourceKey(songKey, 'original'));
+    const source = read(slotSourceKey(songKey, slot));
     if (source === 'youtube' || source === 'embedded') return false;
-    return Boolean(read(slotFileKey(songKey, 'original')) || read(`audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`));
+    if (read(slotFileKey(songKey, slot))) return true;
+    return slot === 'original' && Boolean(read(`audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`));
+}
+
+/** Is a local audio file the song's Original? */
+export const songHasLocalOriginal = (songKey) => songHasLocalSlot(songKey, 'original');
+
+/** Is there a local audio file in either slot (Original or Backing)? */
+export const songHasLocalAudio = (songKey) => songHasLocalSlot(songKey, 'original') || songHasLocalSlot(songKey, 'backing');
+
+const LAST_SLOT_KEY = (songKey) => `real_audio_last_slot_${encodeURIComponent(String(songKey).toLowerCase())}`;
+
+/** Remembers which slot (Original or Backing) the player last used for this song. */
+export function rememberLastSlot(songKey, slot) {
+    if (songKey && SLOTS.includes(slot)) write(LAST_SLOT_KEY(songKey), slot);
+}
+
+/**
+ * The slot a song opens on: the one with a local file when only one has, the last one used when both do (Original when
+ * that was never recorded), and Original when neither does.
+ */
+export function preferredSlot(songKey) {
+    const original = songHasLocalSlot(songKey, 'original');
+    const backing = songHasLocalSlot(songKey, 'backing');
+    if (original && backing) return read(LAST_SLOT_KEY(songKey)) === 'backing' ? 'backing' : 'original';
+    return backing ? 'backing' : 'original';
 }
 
 /** Records a stored file as the song's audio and makes it the slot's file under the library key. */

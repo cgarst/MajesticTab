@@ -18,6 +18,7 @@ import {
 } from './audioFilePlayer.js';
 import { createYouTubeSource } from './mediaSource.js';
 import { closeSheet } from '../ytSheet.js';
+import { preferredSlot, rememberLastSlot } from './libraryAudio.js';
 import { updateGlobalAudioControls } from '../utils/navigationUtils.js';
 import {
     loadRecord, SYNC_CHANGED_EVENT, setSlotMediaResolver,
@@ -325,6 +326,7 @@ export function updateRealAudioPanelView() {
 export function switchRealAudioSlot(slot) {
     if (slot !== 'original' && slot !== 'backing') return;
     state.slot = slot;
+    rememberLastSlot(getSongKey(), slot);
 
     // Notify YouTube of track mode change: updates the search string and searches again
     setYouTubeTrackMode(slot);
@@ -417,8 +419,8 @@ export function rewindRealAudio10Seconds() {
  * Called when a new song/score is loaded.
  */
 export function updateSongForRealAudio() {
-    state.slot = 'original';
-    setAudioFileSlot('original');
+    state.slot = preferredSlot(getSongKey());
+    setAudioFileSlot(state.slot);
     updateRealAudioPanelView();
     updateRealAudioDockIcon();
     setRealAudioRate(1);

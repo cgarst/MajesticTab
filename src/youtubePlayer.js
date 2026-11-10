@@ -4,7 +4,7 @@ import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOp
 import { showPanel, hidePanel, placePanel } from './utils/readerPanels.js';
 import { getMasterVolume, onMasterVolume } from './utils/masterVolume.js';
 import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
-import { songHasLocalOriginal } from './audioSync/libraryAudio.js';
+import { songHasLocalAudio, preferredSlot } from './audioSync/libraryAudio.js';
 import { listHistory, rememberVideo, forgetVideo } from './audioSync/videoHistory.js';
 import { showToast } from './utils/toast.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
@@ -1487,20 +1487,22 @@ export function updateSongForYouTube({
         ytBtn.style.display = 'inline-flex';
     }
 
+    // A song opens on the slot its local file is in, or the last one used when both have one
+    playerState.trackMode = preferredSlot(getSongKey());
+
     // Synced videos become the saved Original and Backing videos (no search)
     applySyncedDefaults({ reload: false });
 
     // A song with sync points or a local audio file opens on its recording; otherwise the synth is selected
-    setActiveAudioMode(songHasSyncPoints(getSongKey()) || songHasLocalOriginal(getSongKey()) ? 'real' : 'synth');
+    setActiveAudioMode(songHasSyncPoints(getSongKey()) || songHasLocalAudio(getSongKey()) ? 'real' : 'synth');
 
     updatePlaybackControls();
 
     // Default to Original Song radio (checked)
-    const originalRadio = document.getElementById('ytTrackOriginal');
-    if (originalRadio) {
-        originalRadio.checked = true;
+    const slotRadio = document.getElementById(playerState.trackMode === 'backing' ? 'ytTrackBacking' : 'ytTrackOriginal');
+    if (slotRadio) {
+        slotRadio.checked = true;
     }
-    playerState.trackMode = 'original';
 
     // Reset iframe dataset.loaded and loading indicator
     const iframe = document.getElementById('ytIframe');
@@ -1826,7 +1828,7 @@ export function initYouTubePlayer() {
     window.addEventListener(SYNC_CHANGED_EVENT, () => {
         if (!getSongKey() || playerState.hasStarted || playerState.isPlaying || isSynthPlaying()) return;
         applySyncedDefaults({ reload: false });
-        if (songHasSyncPoints(getSongKey()) || songHasLocalOriginal(getSongKey())) setActiveAudioMode('real');
+        if (songHasSyncPoints(getSongKey()) || songHasLocalAudio(getSongKey())) setActiveAudioMode('real');
         updatePlaybackControls();
     });
 
