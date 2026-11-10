@@ -1012,7 +1012,7 @@ async function renderLibraryBrowseView(container) {
         const isInitialLibrary = collections.length <= 1 || activeCollectionId === DEFAULT_COLLECTION_ID;
         const welcomeTitle = isInitialLibrary ? 'Welcome to MajesticTab' : `${escapeHtml(currentCollection.name)} is empty`;
         const welcomeSubtitle = isInitialLibrary
-            ? 'Play, practice, and sync guitar tabs, scores, and chord charts.'
+            ? 'Play, practice, and sync guitar tabs.'
             : 'Add your favorite songs and albums to this collection, or link existing files from your device.';
 
         container.innerHTML = headerHtml + libraryListToolbarHtml({ leftHtml: collectionSelectHtml }) + `
