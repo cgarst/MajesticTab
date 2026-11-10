@@ -2,8 +2,8 @@
 // Pair a parsed file (artist, album, song) with something real: first a song already in the library, then MusicBrainz.
 // Every result keeps its candidates so the page can offer them when the first choice is not the right one.
 
-import { searchMusicBrainz } from '../musicbrainz.js';
-import { normName, sameArtist, sameTitle, closeTitle, stripArtistPrefix } from './pairing.js';
+import { searchMusicBrainz, getAlbumTracks } from '../musicbrainz.js';
+import { normName, sameArtist, sameTitle, closeTitle, titleSimilarity, stripArtistPrefix } from './pairing.js';
 
 const cache = new Map(); // search text -> candidates (a folder of one album asks MusicBrainz about each song once)
 
@@ -176,4 +176,46 @@ export async function lookupAlbum(parsed, { songs = [], signal } = {}) {
         if (!best) best = result;
     }
     return best || { status: 'none', pick: null, candidates: [] };
+}
+
+// --- A folder at a time -------------------------------------------------------------------------------------------------
+// Files in one Artist/Album folder are the same album. Looking each song up costs a request apiece (MusicBrainz answers about one
+// a second); asking once for the album and its tracklist costs three, and then every file in the folder is matched against the
+// tracklist here, with no more requests. It also puts each song on the album the folder names, not on whichever release
+// MusicBrainz ranks first for the title.
+
+/**
+ * The album a folder is, with its tracklist, or null when MusicBrainz is not sure of the album (the files are then looked up
+ * one by one) or the library already has the album (the library answers each file for free).
+ */
+export async function resolveAlbumTracklist(artist, album, { songs = [], signal } = {}) {
+    if (!artist || !album) return null;
+    if (findAlbumInLibrary(artist, album, songs).length) return null;
+    const found = await lookupAlbum({ artist, album, title: album, alts: [] }, { songs: [], signal });
+    if (found.status !== 'match' || found.pick?.source !== 'musicbrainz' || !found.pick.albumMbid) return null;
+    const data = await getAlbumTracks(found.pick.albumMbid);
+    return data && data.tracks && data.tracks.length ? { album: found.pick, data } : null;
+}
+
+/** A title with its spacing and punctuation gone, for file names that run the words together ("takethetime"). */
+const squashed = (t) => normName(t).replace(/ /g, '');
+
+/** The track of a resolved album this file is, as a song pick; null when no track reads as its title. */
+export function matchTrack(parsed, resolved) {
+    const titles = [...new Set([parsed.title, parsed.altTitle, parsed.rawTitle].filter(Boolean))];
+    const scored = resolved.data.tracks.map((t) => ({
+        t,
+        s: Math.max(...titles.map((x) => (sameTitle(x, t.title) ? 1 : (closeTitle(x, t.title) || squashed(x) === squashed(t.title)) ? 0.95 : titleSimilarity(x, t.title))))
+    })).sort((a, b) => b.s - a.s);
+    const best = scored[0];
+    // A close read of one track and not of the next: a title that fits two tracks equally is not this file's
+    if (!best || best.s < 0.8 || (scored[1] && best.s - scored[1].s < 0.1 && best.s < 0.95)) return null;
+    const d = resolved.data;
+    const t = best.t;
+    return {
+        kind: 'song', source: 'musicbrainz',
+        title: t.title, artist: d.artist, artistMbid: d.artistMbid || '', album: d.title, albumMbid: d.releaseGroupId || resolved.album.albumMbid,
+        recordingMbid: t.recordingMbid || '', year: d.year || null, length: t.length || null, coverUrl: d.coverUrl || resolved.album.coverUrl || null,
+        trackNumber: t.trackNumber || null, mediumNumber: t.mediumNumber || 1, mediumTitle: t.mediumTitle || null, mediumFormat: t.mediumFormat || null
+    };
 }

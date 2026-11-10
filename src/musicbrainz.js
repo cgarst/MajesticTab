@@ -559,10 +559,100 @@ function scoreAndRankRecordings(recordings, query) {
     return deduped.slice(0, 25);
 }
 
+// --- Answers kept between sessions -----------------------------------------------------------------------------------------
+// MusicBrainz answers about one request a second, so an answer that was already fetched is worth keeping: searching the same
+// folder again, reopening an album or asking the library search the same thing costs nothing. What is kept is the small,
+// already-shaped answer of searchMusicBrainz, getAlbumTracks and getArtistAlbums (not the raw responses, which can be 300 KB
+// each). Entries expire after two weeks and the oldest go when there are more than PC_MAX. Anywhere IndexedDB is missing or
+// refuses (private windows), nothing is kept and everything still works.
+
+const PC_DB = 'majestictab_mb_answers';
+const PC_STORE = 'answers';
+const PC_TTL = 14 * 24 * 3600 * 1000;
+const PC_MAX = 1500;
+let pcDbPromise = null;
+let pcWrites = 0;
+
+function pcOpen() {
+    if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+    if (!pcDbPromise) {
+        pcDbPromise = new Promise((resolve) => {
+            try {
+                const req = indexedDB.open(PC_DB, 1);
+                req.onupgradeneeded = () => {
+                    const store = req.result.createObjectStore(PC_STORE, { keyPath: 'key' });
+                    store.createIndex('t', 't');
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+                req.onblocked = () => resolve(null);
+            } catch { resolve(null); }
+        });
+    }
+    return pcDbPromise;
+}
+
+async function pcGet(key) {
+    const db = await pcOpen();
+    if (!db) return undefined;
+    return new Promise((resolve) => {
+        try {
+            const req = db.transaction(PC_STORE, 'readonly').objectStore(PC_STORE).get(key);
+            req.onsuccess = () => {
+                const rec = req.result;
+                resolve(rec && Date.now() - rec.t < PC_TTL ? rec.value : undefined);
+            };
+            req.onerror = () => resolve(undefined);
+        } catch { resolve(undefined); }
+    });
+}
+
+async function pcSet(key, value) {
+    const db = await pcOpen();
+    if (!db) return;
+    try {
+        const store = db.transaction(PC_STORE, 'readwrite').objectStore(PC_STORE);
+        store.put({ key, t: Date.now(), value });
+        if (++pcWrites % 40 === 0) {
+            const countReq = store.count();
+            countReq.onsuccess = () => {
+                let extra = countReq.result - PC_MAX;
+                if (extra <= 0) return;
+                const cursorReq = store.index('t').openCursor();
+                cursorReq.onsuccess = () => {
+                    const cursor = cursorReq.result;
+                    if (cursor && extra-- > 0) { cursor.delete(); cursor.continue(); }
+                };
+            };
+        }
+    } catch { /* not kept; asked again next time */ }
+}
+
+/** Forget every kept answer (Settings > Clear cached data). */
+export async function clearMusicBrainzAnswers() {
+    const db = await pcOpen();
+    if (!db) return;
+    try { db.transaction(PC_STORE, 'readwrite').objectStore(PC_STORE).clear(); } catch { /* nothing to clear */ }
+}
+
+/** Run `compute` unless this key has an answer kept; keep what it gives when `worthKeeping` says so. */
+async function remembered(key, compute, worthKeeping = (v) => Array.isArray(v) ? v.length > 0 : Boolean(v)) {
+    const kept = await pcGet(key);
+    if (kept !== undefined) return kept;
+    const value = await compute();
+    if (worthKeeping(value)) pcSet(key, value);
+    return value;
+}
+
 /**
  * Search MusicBrainz by entity type (artist, album, song, musician)
  */
-export async function searchMusicBrainz(query, type = 'artist', options = {}) {
+export function searchMusicBrainz(query, type = 'artist', options = {}) {
+    if (!query || !query.trim()) return Promise.resolve([]);
+    return remembered(`s|${type}|${options.limit || ''}|${query.trim().toLowerCase()}`, () => searchMusicBrainzFresh(query, type, options));
+}
+
+async function searchMusicBrainzFresh(query, type = 'artist', options = {}) {
     if (!query || !query.trim()) return [];
     const cleanQuery = query.trim().replace(/['"()]/g, '');
 
@@ -640,8 +730,12 @@ export async function searchMusicBrainz(query, type = 'artist', options = {}) {
 /**
  * Get all release groups (albums / EPs) for an artist, filtered to studio releases only
  */
-export async function getArtistAlbums(artistMbid) {
-    if (!artistMbid) return [];
+export function getArtistAlbums(artistMbid) {
+    if (!artistMbid) return Promise.resolve([]);
+    return remembered(`g|${artistMbid}`, () => getArtistAlbumsFresh(artistMbid));
+}
+
+async function getArtistAlbumsFresh(artistMbid) {
     const url = `${MB_BASE}/release-group?artist=${artistMbid}&type=album|ep&limit=100&fmt=json`;
     const data = await fetchMusicBrainz(url);
     const groups = data['release-groups'] || [];
@@ -870,25 +964,22 @@ export function isNonCdMedium(mediumOrFormat, hasCdMedia = true) {
  * Get album details and full tracklist from MusicBrainz.
  * Explicitly prefers US CD/Digital releases, filters out DVD/Blu-ray/Vinyl media (when CD is present), and preserves original release dates.
  */
-export async function getAlbumTracks(releaseGroupMbid) {
-    if (!releaseGroupMbid) return null;
+export function getAlbumTracks(releaseGroupMbid) {
+    if (!releaseGroupMbid) return Promise.resolve(null);
+    return remembered(`a|${releaseGroupMbid}`, () => getAlbumTracksFresh(releaseGroupMbid), (v) => Boolean(v && v.tracks && v.tracks.length));
+}
 
-    // 1. Fetch release group details to know the canonical first release date
-    let originalYear = null;
-    try {
-        const rgUrl = `${MB_BASE}/release-group/${releaseGroupMbid}?fmt=json`;
-        const rgData = await fetchMusicBrainz(rgUrl);
-        if (rgData && rgData['first-release-date']) {
-            originalYear = parseInt(rgData['first-release-date'].slice(0, 4), 10);
-        }
-    } catch {}
-
-    // 2. Fetch releases in this release-group with media formats included
+async function getAlbumTracksFresh(releaseGroupMbid) {
+    // 1. Fetch the releases in this release-group with media formats included (one request)
     const releasesUrl = `${MB_BASE}/release?release-group=${releaseGroupMbid}&inc=media&limit=100&fmt=json`;
     const releasesData = await fetchMusicBrainz(releasesUrl);
     const releases = releasesData.releases || [];
 
     if (releases.length === 0) return null;
+
+    // The canonical year is the earliest release's. It used to be asked of the release group on its own, a request more.
+    const releaseYears = releases.map((r) => parseInt(String(r.date || '').slice(0, 4), 10)).filter((y) => y > 1900);
+    const originalYear = releaseYears.length ? Math.min(...releaseYears) : null;
 
     // Sort & select best release (prefer pure CD / Digital Media releases, official status, original year, penalize Vinyl & DVD-only)
     const scoredReleases = releases.map(rel => {

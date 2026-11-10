@@ -192,6 +192,16 @@ export function looksLikeAlbumBook(parsed, entry) {
     return null;
 }
 
+/** How alike two titles are, 0 to 1: the share of their words they have in common. Catches "lifting shadows off a dream" for a track "Lifting Shadows Off a Dream". */
+export function titleSimilarity(a, b) {
+    const x = new Set(titleKey(a).split(' ').filter(Boolean));
+    const y = new Set(titleKey(b).split(' ').filter(Boolean));
+    if (!x.size || !y.size) return 0;
+    let common = 0;
+    for (const w of x) if (y.has(w)) common++;
+    return (2 * common) / (x.size + y.size);
+}
+
 /** Do two artist names read as the same? One may hold the other ("The Beatles" and "Beatles"). */
 export function sameArtist(a, b) {
     const x = normName(a).replace(/^the /, '');

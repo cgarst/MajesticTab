@@ -16,8 +16,8 @@ import { getAllSongs, saveSongToLibrary, getSongById, mapOpenFileToSong, getAlbu
 import { saveStoredFile } from '../fileStore.js';
 import { detectFileMetadata } from '../utils/tuningUtils.js';
 import { showToast } from '../utils/toast.js';
-import { STRATEGIES, pairFile, baseNameOf, sameArtist, sameTitle, looksLikeAlbumBook, VIA_LABEL } from './pairing.js';
-import { lookup, lookupAlbum, searchSongs, searchAlbums, normKey } from './matcher.js';
+import { STRATEGIES, pairFile, baseNameOf, normName, sameArtist, sameTitle, looksLikeAlbumBook, VIA_LABEL } from './pairing.js';
+import { lookup, lookupAlbum, searchSongs, searchAlbums, normKey, resolveAlbumTracklist, matchTrack } from './matcher.js';
 import { canPickFolder, pickAndScanFolder } from './scanFolder.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -165,6 +165,41 @@ async function resolveRow(row, signal) {
     }
 }
 
+/**
+ * Files that sit in the same Artist/Album folder are looked up together: one album search and one tracklist fetch resolve every
+ * file in the folder that reads as one of its tracks, in place of a search for each file. Folders of fewer than three files cost
+ * about the same either way and are left to the per-file lookup, as is anything the album did not settle.
+ */
+const ALBUM_GROUP_MIN = 3;
+async function resolveAlbumGroups(signal) {
+    if (state.strategy === 'metadata') return; // the pairing needs the files read first
+    const groups = new Map();
+    for (const row of state.rows) {
+        if (row.manual || row.imported || row.stage === 'done') continue;
+        const parsed = pairFile(row.entry, state.strategy, null);
+        if (!parsed?.artist || !parsed.album || looksLikeAlbumBook(parsed, row.entry)) continue;
+        const key = `${normKey(parsed.artist)}|${normName(parsed.album)}`;
+        if (!groups.has(key)) groups.set(key, { artist: parsed.artist, album: parsed.album, items: [] });
+        groups.get(key).items.push({ row, parsed });
+    }
+    for (const g of groups.values()) {
+        if (signal.aborted) return;
+        if (g.items.length < ALBUM_GROUP_MIN) continue;
+        let resolved = null;
+        try { resolved = await resolveAlbumTracklist(g.artist, g.album, { songs: state.songs, signal }); }
+        catch (err) { if (signal.aborted || err?.name === 'AbortError') return; console.warn('[Bulk import] Album lookup failed for', g.artist, g.album, err); }
+        if (!resolved) continue;
+        for (const { row, parsed } of g.items) {
+            if (row.manual) continue;
+            const pick = matchTrack(parsed, resolved);
+            if (!pick) continue;
+            Object.assign(row, { parsed, kind: 'song', pick, status: 'match', candidates: [pick], stage: 'done', error: '' });
+            markHad(row);
+            notify(row.id);
+        }
+    }
+}
+
 async function runLookups() {
     state.controller?.abort();
     const controller = new AbortController();
@@ -177,6 +212,7 @@ async function runLookups() {
     state.rows.forEach((r) => (r.entry.dirs || []).slice(1).forEach(addKnown));
     state.knownArtists = known;
     notify();
+    await resolveAlbumGroups(controller.signal);
     for (const row of state.rows) {
         if (controller.signal.aborted) break;
         if (row.manual || row.stage === 'done' || row.imported) continue;
@@ -258,7 +294,8 @@ async function songFor(pick) {
     if (known) return known;
     const song = await saveSongToLibrary({
         title: pick.title, artist: pick.artist, artistMbid: pick.artistMbid, album: pick.album, albumMbid: pick.albumMbid,
-        recordingMbid: pick.recordingMbid, year: pick.year, length: pick.length, coverUrl: pick.coverUrl
+        recordingMbid: pick.recordingMbid, year: pick.year, length: pick.length, coverUrl: pick.coverUrl,
+        trackNumber: pick.trackNumber, mediumNumber: pick.mediumNumber, mediumTitle: pick.mediumTitle, mediumFormat: pick.mediumFormat
     }, DEFAULT_COLLECTION_ID);
     state.songs.push(song);
     return song;

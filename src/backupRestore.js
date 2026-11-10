@@ -1020,8 +1020,9 @@ export async function deleteAllAppData() {
  * @returns {Promise<number>} Number of cache items removed
  */
 export async function clearAppCache() {
-    const { clearArtCache } = await import('./musicbrainz.js');
+    const { clearArtCache, clearMusicBrainzAnswers } = await import('./musicbrainz.js');
     let totalCleared = await clearArtCache();
+    await clearMusicBrainzAnswers();
 
     // Clear YouTube caches from localStorage
     try {
