@@ -2,7 +2,7 @@
 // Core export engines for MajesticTab:
 // 1. Library metadata CSV (artist, album, song, youtube url, youtube backing url, sync data)
 // 2. Original tab files (organized into folders as a ZIP archive)
-// 3. PDF bulk export (condensed printable A4 pages via pdfProcessor and pdf-lib)
+// 3. PDF bulk export (runs all tabs in library through the score PDF export code, bundled into a ZIP archive)
 
 import { listRecords } from '../audioSync/syncStore.js';
 import { listHistory } from '../audioSync/videoHistory.js';
@@ -270,109 +270,112 @@ export async function buildOriginalsZipEntries({
 }
 
 /**
- * Ensures PDFLib is loaded in the window, injecting the CDN script if needed.
+ * Builds entry map for creating a ZIP of all library tabs rendered to PDF.
+ * Output structure: [Collection/]Artist/Album/filename.pdf
  */
-export async function ensurePdfLib() {
-    if (typeof window !== 'undefined' && window.PDFLib) return window.PDFLib;
-    if (typeof globalThis !== 'undefined' && globalThis.PDFLib) return globalThis.PDFLib;
-
-    if (typeof document === 'undefined') {
-        throw new Error('PDFLib cannot be dynamically loaded in non-DOM environment');
-    }
-
-    return new Promise((resolve, reject) => {
-        const existing = document.querySelector('script[src*="pdf-lib"]');
-        if (existing) {
-            existing.addEventListener('load', () => resolve(window.PDFLib));
-            existing.addEventListener('error', () => reject(new Error('Failed to load PDFLib script')));
-            return;
-        }
-
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
-        script.onload = () => resolve(window.PDFLib);
-        script.onerror = () => reject(new Error('Failed to load PDFLib script'));
-        document.head.appendChild(script);
-    });
-}
-
-/**
- * Re-lays out and condenses a single PDF into A4 pages using pdfProcessor and pdf-lib.
- * Returns Uint8Array of the resulting PDF file.
- */
-export async function renderCondensedPdf({
-    file,
-    scale = 1.5,
-    PDFLibModule,
-    processPDFFn,
+export async function buildLibraryPdfsZipEntries({
+    songs = [],
+    collections = [],
+    allStoredFiles = [],
+    getStoredFile,
+    renderTabToPdfFn,
+    includeUnlinked = false,
     onProgress,
     abortSignal
 } = {}) {
-    const PDFLib = PDFLibModule || (await ensurePdfLib());
-    const condensedCanvases = [];
-    const processFn = processPDFFn || (await import('../pdfProcessor/pdfProcessor.js')).processPDF;
+    const collectionNames = new Map(collections.map((c) => [c.id, c.name]));
+    const multipleCollections = collections.length > 1;
+    const entries = {};
+    const usedPaths = new Set();
+    const seenFileIds = new Set();
+    let count = 0;
 
-    await processFn(file, {
-        debugMode: { checked: false },
-        originalMode: { checked: false },
-        condensedCanvases,
-        startPage: file.startPage,
-        endPage: file.endPage,
-        onCanvasRendered: () => {},
-        onProgress: (pct, msg) => onProgress?.(pct, msg),
-        abortSignal,
-        scale
-    });
+    const totalTabs = songs.reduce((n, song) => n + (Array.isArray(song.tabOptions) ? song.tabOptions.length : 0), 0);
+    let doneTabs = 0;
 
-    if (abortSignal?.aborted) return null;
-
-    const pdfDoc = await PDFLib.PDFDocument.create();
-    const A4_WIDTH = 595.276;
-    const A4_HEIGHT = 841.890;
-    const PAGE_MARGIN = 0;
-    const TOP_MARGIN = 30;
-    const SPACING = 5;
-
-    let currentPage = null;
-    let yOffset = A4_HEIGHT - TOP_MARGIN;
-
-    for (let i = 0; i < condensedCanvases.length; i++) {
+    for (const song of songs) {
         if (abortSignal?.aborted) return null;
-        const canvas = condensedCanvases[i];
-        if (canvas._lazy?.index != null) {
-            const { getActiveLazy } = await import('../pdfProcessor/lazyPages.js');
-            await getActiveLazy()?.materialize(canvas._lazy.index);
-        }
+        const tabs = Array.isArray(song.tabOptions) ? song.tabOptions : [];
+        for (const t of tabs) {
+            if (abortSignal?.aborted) return null;
+            doneTabs++;
+            onProgress?.(doneTabs, totalTabs, `Exporting PDF ${doneTabs} of ${totalTabs}: ${song.title || t.name}…`);
+            if (!t.fileStoreId || typeof getStoredFile !== 'function') continue;
 
-        const pngData = canvas.toDataURL('image/png');
-        const pngImage = await pdfDoc.embedPng(pngData);
+            const dedupeKey = `${song.id}_${t.fileStoreId}`;
+            if (seenFileIds.has(dedupeKey)) continue;
+            seenFileIds.add(dedupeKey);
 
-        const imgScale = (A4_WIDTH - 2 * PAGE_MARGIN) / pngImage.width;
-        const scaledWidth = pngImage.width * imgScale;
-        const scaledHeight = pngImage.height * imgScale;
+            const stored = await getStoredFile(t.fileStoreId);
+            if (!stored?.file) continue;
 
-        if (!currentPage || yOffset - scaledHeight < PAGE_MARGIN) {
-            currentPage = pdfDoc.addPage([A4_WIDTH, A4_HEIGHT]);
-            yOffset = A4_HEIGHT - TOP_MARGIN;
-        }
+            const fileObj = stored.file;
+            if (!fileObj.songTitle && song.title) fileObj.songTitle = song.title;
+            if (!fileObj.artist && song.artist) fileObj.artist = song.artist;
+            if (!fileObj.tabName && t.name) fileObj.tabName = t.name;
 
-        currentPage.drawImage(pngImage, {
-            x: PAGE_MARGIN,
-            y: yOffset - scaledHeight,
-            width: scaledWidth,
-            height: scaledHeight
-        });
+            let pdfBytes = null;
+            if (typeof renderTabToPdfFn === 'function') {
+                try {
+                    pdfBytes = await renderTabToPdfFn(fileObj, { abortSignal });
+                } catch (tabErr) {
+                    console.error(`[BulkExport] Error rendering PDF for ${t.name}:`, tabErr);
+                }
+            }
 
-        yOffset -= (scaledHeight + SPACING);
+            if (abortSignal?.aborted) return null;
+            if (!pdfBytes) continue;
 
-        if (canvas._lazy?.index != null) {
-            const { getActiveLazy } = await import('../pdfProcessor/lazyPages.js');
-            getActiveLazy()?.release(canvas._lazy.index);
+            const parts = [];
+            if (multipleCollections && song.collectionId) {
+                parts.push(safeName(collectionNames.get(song.collectionId), 'Library'));
+            }
+            parts.push(safeName(song.artist, 'Unknown Artist'));
+            if (song.album) parts.push(safeName(song.album));
+
+            const rawBase = (t.name || fileObj.name || song.title || 'Tab').replace(/\.[^/.]+$/, '');
+            const pdfFileName = `${safeName(rawBase, 'Tab')}.pdf`;
+            parts.push(pdfFileName);
+
+            const path = uniquePath(parts.join('/'), usedPaths);
+            entries[path] = [pdfBytes, { level: 0 }];
+            count++;
         }
     }
 
-    const pdfBytes = await pdfDoc.save();
-    return pdfBytes;
+    if (includeUnlinked && Array.isArray(allStoredFiles) && typeof getStoredFile === 'function') {
+        for (const fileMeta of allStoredFiles) {
+            if (abortSignal?.aborted) return null;
+            if (!fileMeta?.id) continue;
+            const alreadyIncluded = Array.from(seenFileIds).some((key) => key.endsWith(`_${fileMeta.id}`));
+            if (alreadyIncluded) continue;
+
+            const ext = (fileMeta.name || '').split('.').pop().toLowerCase();
+            if (!['gp', 'gp3', 'gp4', 'gp5', 'gpx', 'pdf', 'txt'].includes(ext)) continue;
+
+            const stored = await getStoredFile(fileMeta.id);
+            if (!stored?.file) continue;
+
+            let pdfBytes = null;
+            if (typeof renderTabToPdfFn === 'function') {
+                try {
+                    pdfBytes = await renderTabToPdfFn(stored.file, { abortSignal });
+                } catch (tabErr) {
+                    console.error(`[BulkExport] Error rendering PDF for unsorted ${fileMeta.name}:`, tabErr);
+                }
+            }
+
+            if (abortSignal?.aborted) return null;
+            if (!pdfBytes) continue;
+
+            const rawBase = (stored.file.name || fileMeta.name || 'Tab').replace(/\.[^/.]+$/, '');
+            const path = uniquePath(`Unsorted/${safeName(rawBase, 'Tab')}.pdf`, usedPaths);
+            entries[path] = [pdfBytes, { level: 0 }];
+            count++;
+        }
+    }
+
+    return { entries, count };
 }
 
 /**

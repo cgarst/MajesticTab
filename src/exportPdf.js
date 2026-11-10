@@ -4,58 +4,65 @@ import { gpState } from './gpProcessor/gpHandler.js';
 import { showToast } from './utils/toast.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
 
+let cachedAlphaTabFontCssPromise = null;
 async function getAlphaTabFontCss() {
-  const rules = [];
+  if (cachedAlphaTabFontCssPromise) return cachedAlphaTabFontCssPromise;
+  cachedAlphaTabFontCssPromise = (async () => {
+    const rules = [];
 
-  for (const sheet of document.styleSheets) {
-    try {
-      for (const rule of sheet.cssRules || []) {
-        const text = rule.cssText || '';
-        if (text.includes('alphaTab') && (text.includes('@font-face') || text.includes('font-family'))) {
-          rules.push(text);
+    if (typeof document !== 'undefined' && document.styleSheets) {
+      for (const sheet of document.styleSheets) {
+        try {
+          for (const rule of sheet.cssRules || []) {
+            const text = rule.cssText || '';
+            if (text.includes('alphaTab') && (text.includes('@font-face') || text.includes('font-family'))) {
+              rules.push(text);
+            }
+          }
+        } catch (error) {
+          // Ignore cross-origin stylesheets and other inaccessible rules.
         }
       }
-    } catch (error) {
-      // Ignore cross-origin stylesheets and other inaccessible rules.
     }
-  }
 
-  let embeddedFont = '';
-  try {
-    const fontUrl = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff2';
-    const response = await fetch(fontUrl);
-    if (response.ok) {
-      const buffer = await response.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      bytes.forEach(byte => {
-        binary += String.fromCharCode(byte);
-      });
-      embeddedFont = `data:font/woff2;base64,${btoa(binary)}`;
-    }
-  } catch (error) {
-    console.warn('[PDF Export] Could not preload AlphaTab font; falling back to remote URL.', error);
-  }
-
-  const src = embeddedFont
-    ? `url('${embeddedFont}') format('woff2')`
-    : `url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff2') format('woff2'), url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff') format('woff'), url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.otf') format('opentype')`;
-
-  const baseCss = `
-      @font-face {
-        font-family: 'alphaTab';
-        src: ${src};
-        font-weight: normal;
-        font-style: normal;
+    let embeddedFont = '';
+    try {
+      const fontUrl = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff2';
+      const response = await fetch(fontUrl);
+      if (response.ok) {
+        const buffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        bytes.forEach(byte => {
+          binary += String.fromCharCode(byte);
+        });
+        embeddedFont = `data:font/woff2;base64,${btoa(binary)}`;
       }
-      svg, text, tspan, textPath { font-family: 'alphaTab'; }
-    `;
+    } catch (error) {
+      console.warn('[PDF Export] Could not preload AlphaTab font; falling back to remote URL.', error);
+    }
 
-  if (rules.length === 0) {
-    return baseCss;
-  }
+    const src = embeddedFont
+      ? `url('${embeddedFont}') format('woff2')`
+      : `url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff2') format('woff2'), url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff') format('woff'), url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.otf') format('opentype')`;
 
-  return `${rules.join('\n')}\n${baseCss}`;
+    const baseCss = `
+        @font-face {
+          font-family: 'alphaTab';
+          src: ${src};
+          font-weight: normal;
+          font-style: normal;
+        }
+        svg, text, tspan, textPath { font-family: 'alphaTab'; }
+      `;
+
+    if (rules.length === 0) {
+      return baseCss;
+    }
+
+    return `${rules.join('\n')}\n${baseCss}`;
+  })();
+  return cachedAlphaTabFontCssPromise;
 }
 
 async function svgToImage(svgElement, width, height, viewBox) {
@@ -106,12 +113,15 @@ async function svgToImage(svgElement, width, height, viewBox) {
   return img;
 }
 
-async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
-  const container = gpState.canvases[0]?.container;
-  if (!container) return false;
+/**
+ * Renders AlphaTab SVG blocks from a container into a jsPDF A4 document.
+ * Returns the jsPDF instance, or null if there are no blocks or if aborted.
+ */
+export async function renderContainerToPdfDoc(container, { jsPDF = (typeof window !== 'undefined' ? window.jspdf?.jsPDF : null), onProgress, abortSignal } = {}) {
+  if (!container) return null;
 
   const blocks = Array.from(container.querySelectorAll('div.at-surface.at > div'));
-  if (blocks.length === 0) return false;
+  if (blocks.length === 0) return null;
 
   const A4_WIDTH = 1240;
   const A4_HEIGHT = 1754; // A4 @ ~150 DPI (~1.414 aspect ratio)
@@ -127,6 +137,7 @@ async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
   let curY = 0;
 
   for (const block of blocks) {
+    if (abortSignal?.aborted) return null;
     const svg = block.querySelector('svg');
     if (!svg) continue;
 
@@ -170,13 +181,16 @@ async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
     pages.push(curPage);
   }
 
-  if (pages.length === 0) return false;
+  if (pages.length === 0) return null;
 
-  const pdf = new jsPDF({ unit: 'px', format: 'a4', orientation: 'portrait', compress: true });
+  const PDFClass = jsPDF || (typeof window !== 'undefined' ? window.jspdf?.jsPDF : null);
+  if (!PDFClass) throw new Error('jsPDF library not available');
+  const pdf = new PDFClass({ unit: 'px', format: 'a4', orientation: 'portrait', compress: true });
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = pdf.internal.pageSize.getHeight();
 
   for (let p = 0; p < pages.length; p++) {
+    if (abortSignal?.aborted) return null;
     const canvas = document.createElement('canvas');
     canvas.width = A4_WIDTH;
     canvas.height = A4_HEIGHT;
@@ -186,6 +200,7 @@ async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
 
     let drawY = MARGIN_Y;
     for (const item of pages[p]) {
+      if (abortSignal?.aborted) return null;
       try {
         const img = await svgToImage(item.svg, CONTENT_WIDTH, item.blockHeight, item.viewBoxStr);
         ctx.drawImage(img, MARGIN_X, drawY, CONTENT_WIDTH, item.blockHeight);
@@ -203,17 +218,154 @@ async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
     const imgData = canvas.toDataURL('image/png');
     pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
 
-    if (progressBar) {
+    if (typeof onProgress === 'function') {
       const pct = Math.round(((p + 1) / pages.length) * 100);
-      progressBar.style.width = pct + '%';
-      progressBar.textContent = pct + '%';
+      onProgress(pct);
     }
 
-    await new Promise(requestAnimationFrame);
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
+  return pdf;
+}
+
+export async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
+  const container = gpState.canvases[0]?.container;
+  if (!container) return false;
+
+  const pdf = await renderContainerToPdfDoc(container, {
+    jsPDF,
+    onProgress: (pct) => {
+      if (progressBar) {
+        progressBar.style.width = pct + '%';
+        progressBar.textContent = pct + '%';
+      }
+    }
+  });
+
+  if (!pdf) return false;
   const saved = await saveOrSharePdf(pdf, filename);
   return saved;
+}
+
+/**
+ * Runs a single tab file through the PDF export engine (AlphaTab -> jsPDF for Guitar Pro,
+ * native PDF bytes for PDFs, monospace A4 layout for text tabs).
+ * Returns Uint8Array of the generated PDF, or null on abort/error.
+ */
+export async function renderTabFileToPdfBytes(file, { jsPDF = (typeof window !== 'undefined' ? window.jspdf?.jsPDF : null), onProgress, abortSignal } = {}) {
+  if (!file) return null;
+  if (abortSignal?.aborted) return null;
+
+  const filename = file.name || file.tabName || '';
+  const ext = filename.split('.').pop()?.toLowerCase();
+
+  // 1. Guitar Pro tab: render AlphaTab offscreen, then export SVG blocks to jsPDF
+  if (['gp', 'gp3', 'gp4', 'gp5', 'gpx'].includes(ext)) {
+    let dataToLoad;
+    if (typeof FileReader !== 'undefined' && (file instanceof Blob || file instanceof File)) {
+      dataToLoad = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    } else if (file instanceof Uint8Array || file instanceof ArrayBuffer) {
+      dataToLoad = file;
+    } else if (typeof file.arrayBuffer === 'function') {
+      dataToLoad = new Uint8Array(await file.arrayBuffer());
+    } else {
+      dataToLoad = file;
+    }
+
+    if (abortSignal?.aborted) return null;
+
+    if (typeof document === 'undefined') {
+      throw new Error('AlphaTab rendering requires a DOM environment');
+    }
+
+    const container = document.createElement('div');
+    container.className = 'alphaTabContainer';
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;min-height:1600px;visibility:hidden;pointer-events:none;';
+    document.body.appendChild(container);
+
+    let api = null;
+    try {
+      const { loadGuitarPro } = await import('./gpProcessor/gpProcessor.js');
+      api = await loadGuitarPro(dataToLoad, container, { originalFile: file });
+      if (abortSignal?.aborted) return null;
+
+      const pdf = await renderContainerToPdfDoc(container, { jsPDF, onProgress, abortSignal });
+      if (!pdf || abortSignal?.aborted) return null;
+
+      const arrayBuffer = pdf.output('arraybuffer');
+      return new Uint8Array(arrayBuffer);
+    } finally {
+      try { api?.destroy(); } catch (_) {}
+      container.remove();
+    }
+  }
+
+  // 2. PDF tab: already a PDF document
+  if (ext === 'pdf') {
+    if (typeof file.arrayBuffer === 'function') {
+      const buffer = await file.arrayBuffer();
+      return new Uint8Array(buffer);
+    }
+    if (file instanceof Uint8Array) return file;
+    if (file instanceof ArrayBuffer) return new Uint8Array(file);
+    return null;
+  }
+
+  // 3. Text tab: render formatted monospace pages via jsPDF
+  if (ext === 'txt') {
+    let text = '';
+    if (typeof file.text === 'function') {
+      text = await file.text();
+    } else if (typeof FileReader !== 'undefined' && (file instanceof Blob || file instanceof File)) {
+      text = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsText(file);
+      });
+    }
+
+    const PDFClass = jsPDF || (typeof window !== 'undefined' ? window.jspdf?.jsPDF : null);
+    if (!PDFClass) throw new Error('jsPDF library not available');
+
+    const pdf = new PDFClass({ unit: 'pt', format: 'a4', orientation: 'portrait' });
+    pdf.setFont('courier', 'normal');
+    pdf.setFontSize(9);
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 36;
+    const maxLineWidth = pageWidth - margin * 2;
+    const lineHeight = 12;
+    const maxLinesPerPage = Math.floor((pageHeight - margin * 2) / lineHeight);
+
+    const rawLines = text.split(/\r?\n/);
+    const splitLines = [];
+    for (const line of rawLines) {
+      const wrapped = pdf.splitTextToSize(line, maxLineWidth);
+      splitLines.push(...wrapped);
+    }
+
+    for (let i = 0; i < splitLines.length; i++) {
+      if (abortSignal?.aborted) return null;
+      const pageIndex = Math.floor(i / maxLinesPerPage);
+      const lineOnPage = i % maxLinesPerPage;
+      if (pageIndex > 0 && lineOnPage === 0) {
+        pdf.addPage();
+      }
+      pdf.text(splitLines[i], margin, margin + lineOnPage * lineHeight);
+    }
+
+    const arrayBuffer = pdf.output('arraybuffer');
+    return new Uint8Array(arrayBuffer);
+  }
+
+  return null;
 }
 
 async function showIOSSharePrompt(file, filename) {

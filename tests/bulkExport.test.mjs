@@ -8,6 +8,7 @@ import {
     getCandidateKeysForSong,
     exportMetadataCsv,
     buildOriginalsZipEntries,
+    buildLibraryPdfsZipEntries,
     getMimeType,
     formatBytes,
     saveOrDownloadBlob
@@ -214,5 +215,46 @@ assert.equal(formatBytes(1048576), '1 MB');
 const dummyBlob = new Blob(['hello'], { type: 'text/plain' });
 const res = await saveOrDownloadBlob(dummyBlob, 'test.txt');
 assert.equal(res, false);
+
+// 12. buildLibraryPdfsZipEntries
+const mockPdfBytes = new Uint8Array([37, 80, 68, 70]); // %PDF
+const mockRenderTabToPdf = async (file) => {
+    return mockPdfBytes;
+};
+
+const pdfsResult = await buildLibraryPdfsZipEntries({
+    songs: [song1],
+    collections: [],
+    allStoredFiles: allStoredFilesMeta,
+    getStoredFile: async (id) => mockStoredFilesMap.get(id),
+    renderTabToPdfFn: mockRenderTabToPdf,
+    includeUnlinked: true
+});
+
+assert.equal(pdfsResult.count, 3);
+const pdfEntryPaths = Object.keys(pdfsResult.entries);
+assert(pdfEntryPaths.includes('Metallica/Master of Puppets/Lead Guitar.pdf'), 'Should rename gp5 to .pdf');
+assert(pdfEntryPaths.includes('Metallica/Master of Puppets/Rhythm Guitar.pdf'), 'Should keep pdf extension');
+assert(pdfEntryPaths.includes('Unsorted/Unlinked.pdf'), 'Should rename unsorted gp4 to .pdf');
+assert.deepEqual(pdfsResult.entries['Metallica/Master of Puppets/Lead Guitar.pdf'][0], mockPdfBytes);
+
+// 13. buildLibraryPdfsZipEntries with collections and abort signal
+const colPdfsResult = await buildLibraryPdfsZipEntries({
+    songs: [songWithCollection],
+    collections: [{ id: 'col_metal', name: 'Metal' }, { id: 'col_rock', name: 'Rock' }],
+    allStoredFiles: [],
+    getStoredFile: async (id) => mockStoredFilesMap.get(id),
+    renderTabToPdfFn: mockRenderTabToPdf
+});
+assert(Object.keys(colPdfsResult.entries).includes('Metal/Metallica/Master of Puppets/Solo.pdf'));
+
+const pdfsAborted = await buildLibraryPdfsZipEntries({
+    songs: [song1],
+    collections: [],
+    getStoredFile: async (id) => mockStoredFilesMap.get(id),
+    renderTabToPdfFn: mockRenderTabToPdf,
+    abortSignal: controller.signal
+});
+assert.equal(pdfsAborted, null);
 
 console.log('bulkExportCore tests passed!');
