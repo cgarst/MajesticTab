@@ -16,11 +16,13 @@ import { scoreMsToTick } from './scorePositions.js';
  * @param {(tick:number)=>number} [opts.snapToBeat] tick to the start of its beat; the tick is only set when the beat changes
  * @param {() => number} [opts.getLatencyMs] audio output latency: the clock leads what the user hears by this much,
  *   so the cursor follows `time - latency`, the same delay the synth path applies to its visuals
+ * @param {(timeMs:number)=>number} [opts.getHeardMs] the recording time being heard at a clock reading; replaces the plain
+ *   latency subtraction (see `heardClock.js`)
  * @param {(cb:Function)=>any} [opts.schedule] defaults to requestAnimationFrame
  * @param {(handle:any)=>void} [opts.cancel] defaults to cancelAnimationFrame
  */
 export function createFollower({
-    source, getPoints, timeline, setTick, snapToBeat = (t) => t, getLatencyMs = () => 0,
+    source, getPoints, timeline, setTick, snapToBeat = (t) => t, getLatencyMs = () => 0, getHeardMs = null,
     schedule = (cb) => requestAnimationFrame(cb), cancel = (h) => cancelAnimationFrame(h)
 }) {
     let handle = null;
@@ -29,7 +31,7 @@ export function createFollower({
     /** One update at recording time `timeMs`. Returns the tick set, or null when nothing changed. */
     function step(timeMs = source.getTimeMs()) {
         if (source.isBuffering?.()) return null; // the reported time is stale while buffering
-        const heard = timeMs - (getLatencyMs() || 0);
+        const heard = getHeardMs ? getHeardMs(timeMs) : timeMs - (getLatencyMs() || 0);
         const scoreMs = mediaToScore(getPoints(), heard);
         const key = snapToBeat(scoreMsToTick(timeline, scoreMs));
         if (key === lastKey) return null;

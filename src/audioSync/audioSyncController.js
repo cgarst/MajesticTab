@@ -13,6 +13,7 @@ import { buildBeatMap } from './beatMap.js';
 import { createCursorGlide } from './cursorGlide.js';
 import { resolvePoints } from './pointCheck.js';
 import { createFollower } from './follower.js';
+import { createHeardClock } from './heardClock.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { hasOrderProblems, validatePoints } from './syncMap.js';
 
@@ -53,6 +54,7 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
     const map = buildBeatMap(lookup);
     const starts = map.entries.map(e => e.tick);
     const glide = createCursorGlide(api, map);
+    const clock = createHeardClock({ source, getLatencyMs: getAudioLatencyMs });
     let stored = storedPoints;
     let resolved = resolvePoints(timeline, stored);
 
@@ -63,11 +65,12 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
         clearTimeout(glideTimer);
         if (source.isBuffering?.()) return;
         const playing = source.isPlaying();
-        const heard = source.getTimeMs() - getAudioLatencyMs();
+        const heard = clock.heard();
         const scoreMs = mediaToScore(resolved, heard);
         const tick = scoreMsToTick(timeline, scoreMs);
         const located = glide.locate(tick);
         if (!located) return;
+
         let fraction = 0;
         let duration = 0;
         if (located.next) {
@@ -75,6 +78,13 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
             const toMs = tickToScoreMs(timeline, located.next.tick);
             fraction = toMs > fromMs ? (scoreMs - fromMs) / (toMs - fromMs) : 0;
             duration = Math.min(60000, Math.max(0, (scoreToMedia(resolved, toMs) - heard) / (source.getRate?.() || 1)));
+        }
+        // The sound has not reached the start of this run yet: the cursor stands where playback began until it does
+        const wait = playing ? clock.waitMs() : 0;
+        if (wait > 0) {
+            glide.run(located, fraction, 0);
+            glideTimer = setTimeout(glideNow, wait + 5);
+            return;
         }
         // Paused, the cursor stands exactly where the recording is, between the beats, and does not move
         glide.run(located, fraction, playing ? duration : 0);
@@ -150,7 +160,7 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
             api.tickPosition = tick;
         },
         snapToBeat: (tick) => snapTo(starts, tick),
-        getLatencyMs: getAudioLatencyMs
+        getHeardMs: (t) => clock.heard(t)
     });
     // The recording is the clock, so putting the cursor somewhere means moving the recording there too: otherwise
     // the next play carries on from where it was and the cursor jumps back to match it.
@@ -158,6 +168,7 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
         // Land a hair inside the beat, so mapping back (which rounds) cannot fall on the beat before it
         const mediaMs = scoreToMedia(resolved, tickToScoreMs(timeline, tick)) + 1;
         source.seek(Math.max(0, mediaMs));
+        clock.reset();
         follower.refresh();
     };
     const stopListeningForSeeks = onUserSeekTick(seekRecordingToTick);
@@ -176,7 +187,7 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
         const range = loopRangeTicks();
         if (!range || source.isBuffering?.()) return;
         if (!force && !source.isPlaying()) return;
-        const heard = source.getTimeMs() - getAudioLatencyMs();
+        const heard = clock.heard();
         const tick = scoreMsToTick(timeline, mediaToScore(resolved, heard));
         if (tick >= range.start && tick < range.end) return;
         const now = performance.now();
@@ -198,6 +209,7 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
         if (e.type === 'rate') glideNow();
         else if (e.type === 'state' || e.type === 'buffering') {
             const running = source.isPlaying() && !source.isBuffering?.();
+            if (e.type === 'state' && source.isPlaying()) clock.restart();
             setExternalPlayback(source.isPlaying());
             if (running) glideNow({ reanchor: e.type === 'state' }); else { clearTimeout(glideTimer); glide.freeze(); }
         }
@@ -243,7 +255,7 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
         fretFrame = requestAnimationFrame(fretLoop);
         enforceLoop();
         if (!source.isPlaying() || source.isBuffering?.()) return;
-        const heard = source.getTimeMs() - getAudioLatencyMs();
+        const heard = clock.heard();
         const tick = scoreMsToTick(timeline, mediaToScore(resolved, heard));
         let bar = null;
         for (let i = 0; i < map.bars.length && map.bars[i].startTick <= tick; i++) bar = map.bars[i];
