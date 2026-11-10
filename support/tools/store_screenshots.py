@@ -531,8 +531,9 @@ def compose(page, raw_path, out_path, size, headline, subtitle, device):
     lines = 2 if len(headline) > (19 if portrait else 40) else 1
     ptop = top + round(hs * lines + 24 * k)
     ps = round((38 if portrait else 30) * k)
-    sub_lines = 2 if len(subtitle) > (40 if portrait else 70) else 1
-    iy = ptop + round(ps * 1.35 * sub_lines + (36 if portrait else 28) * k)
+    # The device starts at the same height in every shot: the room for a two-line headline and a two-line subtitle is always
+    # reserved, so the device is one size across a store's set whatever the copy length. The text itself sits at the top.
+    iy = top + round(hs * 2 + 24 * k) + round(ps * 1.35 * 2 + (36 if portrait else 28) * k)
     # The whole capture is shown inside its device, as large as the space left allows.
     bottom = m if portrait else round(44 * k)
     d = device_layout(device, cap.width / cap.height, W - 2 * m, H - iy - bottom)

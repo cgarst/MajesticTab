@@ -317,6 +317,9 @@ body { font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica 
   transition: color var(--dur-fast) ease-in-out;
 }
 .hud-pill-group .btn[hidden] { display: none !important; }
+/* On touch the segments keep a 44px target, so the track grows to them instead of staying at its fixed height (the selected segment
+   was taller than the track). The reader's bottom words and nav keep their own sizing. */
+@media (pointer: coarse) { .hud-pill-group:not(#navButtons, #topFlexZone *) { height: auto !important; } }
 .hud-pill-group .btn.active, .hud-pill-group .btn-check:checked + .btn, #topBar .hud-pill-group .btn.active,
 #topBar .hud-pill-group .btn-check:checked + .btn {
   background: var(--s3) !important; color: var(--ink) !important; box-shadow: none !important;
@@ -2681,8 +2684,6 @@ body.phone-reader:not(.library-view-active) #topFlexZone { order: 3; flex: 0 0 1
   /* the home-indicator inset is the bar's own padding, outside the words, so a pressed or selected word's tone is a normal 48px key (tabletop keeps its own) */
   :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) > #topFlexZone { padding-bottom: env(safe-area-inset-bottom, 0px); }
   :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) > #topFlexZone .btn { min-height: 48px; padding-bottom: 0 !important; box-sizing: border-box; align-items: center; }
-  /* square top corners, so the selected word joins the sheet that now opens right above it (as in tabletop) */
-  :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) > #topFlexZone .btn { border-radius: 0 0 var(--r-control) var(--r-control) !important; }
   body.phone-reader.reading-mode:not(.library-view-active) > #topFlexZone { display: none; }
   /* The five words below the strip clear the home indicator; without them (Reading mode) the strip does */
   body.phone-reader:not(.library-view-active) { --strip-inset: 0px; }
@@ -2702,6 +2703,8 @@ body.phone-reader:not(.library-view-active) #topFlexZone { order: 3; flex: 0 0 1
 }
 body.phone-reader:not(.library-view-active) #topFlexZone .hud-pill-group, body.phone-reader:not(.library-view-active) #topFlexZone .rbar-item { flex: 1 1 0; display: flex; min-width: 0; }
 body.phone-reader:not(.library-view-active) #topFlexZone .btn { flex: 1; min-height: 44px; padding-inline: 2px !important; justify-content: center; border-radius: var(--r-control) !important; }
+/* the word whose sheet is open has square top corners, so it joins the sheet right above it (tabletop has its own rule) */
+:where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) > #topFlexZone .btn:is([aria-expanded="true"], .active) { border-radius: 0 0 var(--r-control) var(--r-control) !important; }
 body.phone-reader:not(.library-view-active) .bar-btn-label { font-size: 14px; }
 /* The top leaves upward in Reading mode only. It overlays the score, so nothing is resized. */
 body.phone-reader:not(.library-view-active) #topBar.hud-hidden:not(.hud-transient) {
@@ -4894,11 +4897,15 @@ body:not(.sheet-mode-dark) .gp-reader-cursor svg { mix-blend-mode: multiply; }
 }
 
 /* Portrait phone: the five words' sheets open from their tab, over the strip (ruler and transport), as in tabletop, instead of
-   stacking above the dock. The five words stay visible; Song and the sound panels keep their own places. */
+   stacking above the dock. The five words stay visible (the Sound word's Synth and Original sheets too); Song keeps its own place. */
 @media (orientation: portrait) {
-  :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu) {
+  :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #synthDropdownPanel, #ytDropdownPanel) {
     bottom: var(--reader-bottom-nav-h, 0px) !important;
     max-height: min(72vh, calc(100vh - var(--topbar-h, 52px) - var(--reader-bottom-nav-h, 0px) - 12px)) !important;
+  }
+  /* The Original sheet keeps one height whichever source is shown; it runs down to the Sound word like the others. */
+  :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) #ytDropdownPanel {
+    height: min(60vh, calc(100vh - var(--topbar-h, 52px) - var(--reader-bottom-nav-h, 0px) - 12px)) !important;
   }
 }
 
