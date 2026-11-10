@@ -7,6 +7,7 @@ import {
     uniquePath,
     getCandidateKeysForSong,
     exportMetadataCsv,
+    buildSyncZipEntries,
     buildOriginalsZipEntries,
     buildLibraryPdfsZipEntries,
     getMimeType,
@@ -119,7 +120,6 @@ assert.deepEqual(headerParts, [
     'song',
     'youtube url',
     'youtube backing url',
-    'sync data',
     'tunings',
     'tab_files',
     'year'
@@ -131,14 +131,29 @@ assert(lines[1].includes('https://www.youtube.com/watch?v=xyz12345678'));
 assert(lines[1].includes('E Standard'));
 assert(lines[1].includes('1986'));
 
-// Verify that the sync data column in the CSV is valid JSON when unescaped
-const matches = lines[1].match(/"(\[\{.*\}\])"/);
-assert(matches, 'Sync data JSON should be enclosed in quotes');
-const unescapedSync = matches[1].replace(/""/g, '"');
-const parsedSync = JSON.parse(unescapedSync);
-assert.equal(parsedSync.length, 1);
-assert.equal(parsedSync[0].points.length, 2);
-assert.equal(parsedSync[0].points[0].timeMs, 1200);
+assert(!lines[1].includes('timeMs'), 'Sync points must stay out of the CSV');
+
+// 6b. buildSyncZipEntries
+const syncOut = buildSyncZipEntries({
+    songs: [song1],
+    collections: [],
+    storage: mockStorage,
+    listRecordsFn: mockListRecords,
+    exportedAt: '2026-01-01T00:00:00.000Z'
+});
+assert.equal(syncOut.count, 1);
+assert.equal(syncOut.songCount, 1);
+const syncPaths = Object.keys(syncOut.entries);
+assert.equal(syncPaths.length, 1);
+assert(syncPaths[0].endsWith('.json') && syncPaths[0].includes('dQw4w9WgXcQ'));
+const syncDoc = JSON.parse(new TextDecoder().decode(syncOut.entries[syncPaths[0]][0]));
+assert.equal(syncDoc.format, 'majestictab-sync');
+assert.equal(syncDoc.song.title, song1.title);
+assert.equal(syncDoc.recording.kind, 'youtube');
+assert.equal(syncDoc.recording.url, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+assert.equal(syncDoc.recording.slot, 'original');
+assert.equal(syncDoc.points.length, 2);
+assert.equal(syncDoc.points[0].timeMs, 1200);
 
 // 7. buildOriginalsZipEntries
 const mockStoredFilesMap = new Map([

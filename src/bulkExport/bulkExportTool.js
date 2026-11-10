@@ -1,6 +1,7 @@
 // bulkExportTool.js
 // Bulk export page in Tools:
-// 1. Library metadata: CSV containing artist, album, song, youtube url, youtube backing url, sync data
+// 1. Library metadata: CSV containing artist, album, song, youtube url, youtube backing url, tunings, tab files, year
+// 1b. Sync data: ZIP of JSON files, one per song and recording
 // 2. Original tab files: All .gp, .pdf, .txt files from library and storage bundled into a ZIP
 // 3. PDF export: Runs all tabs in library through score PDF export, bundled into a ZIP
 
@@ -8,6 +9,7 @@ import { getAllSongs, getCollections } from '../libraryStore.js';
 import { getAllStoredFiles, getStoredFile } from '../fileStore.js';
 import {
     exportMetadataCsv,
+    buildSyncZipEntries,
     buildOriginalsZipEntries,
     buildLibraryPdfsZipEntries,
     createZip,
@@ -20,7 +22,7 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 
 // Global state remembered between draws
 const state = {
-    activeMode: 'metadata', // 'metadata' | 'originals' | 'pdf'
+    activeMode: 'metadata', // 'metadata' | 'sync' | 'originals' | 'pdf'
     running: false,
     abortController: null,
     statusText: '',
@@ -76,6 +78,7 @@ export function renderBulkExportTool(container) {
         return `
         <div class="be-modes" role="tablist" aria-label="Bulk export modes">
           <button type="button" class="be-mode-btn" data-mode="metadata" role="tab" aria-selected="${state.activeMode === 'metadata'}" ${state.running ? 'disabled' : ''}>Library metadata</button>
+          <button type="button" class="be-mode-btn" data-mode="sync" role="tab" aria-selected="${state.activeMode === 'sync'}" ${state.running ? 'disabled' : ''}>Sync data</button>
           <button type="button" class="be-mode-btn" data-mode="originals" role="tab" aria-selected="${state.activeMode === 'originals'}" ${state.running ? 'disabled' : ''}>Original tab files</button>
           <button type="button" class="be-mode-btn" data-mode="pdf" role="tab" aria-selected="${state.activeMode === 'pdf'}" ${state.running ? 'disabled' : ''}>PDF export</button>
         </div>`;
@@ -84,27 +87,47 @@ export function renderBulkExportTool(container) {
     function renderMetadataHtml() {
         const songs = state.cachedSongs || [];
         const metadata = exportMetadataCsv({ songs, collections: state.cachedCollections || [] });
-        const { totalSongs, songsWithOriginalVideo, songsWithBackingVideo, songsWithSync } = metadata.stats;
+        const { totalSongs, songsWithOriginalVideo, songsWithBackingVideo } = metadata.stats;
 
         const statsText = [
             `${totalSongs} ${totalSongs === 1 ? 'song' : 'songs'}`,
             `${songsWithOriginalVideo} with YouTube audio`,
-            `${songsWithBackingVideo} with backing track`,
-            `${songsWithSync} with sync points`
+            `${songsWithBackingVideo} with backing track`
         ].join(' \u00b7 ');
 
         return `
         <div class="be-section">
-          <p class="ct-sub">Export your entire library’s metadata into a CSV spreadsheet. Includes artist, album, song title, linked YouTube original and backing audio URLs, audio sync points, tunings, tab filenames and release year.</p>
+          <p class="ct-sub">Export your entire library’s metadata into a CSV spreadsheet. Includes artist, album, song title, linked YouTube original and backing audio URLs, tunings, tab filenames and release year.</p>
           <div class="be-card">
             <div class="be-stats-row"><span class="be-stats-label">${esc(statsText)}</span></div>
-            <div class="be-info-sub">Columns: artist, album, song, youtube url, youtube backing url, sync data, tunings, tab_files, year</div>
+            <div class="be-info-sub">Columns: artist, album, song, youtube url, youtube backing url, tunings, tab_files, year</div>
           </div>
           <div class="be-actions">
             <button type="button" class="btn btn-sm btn-theme-primary" data-act="export-metadata" ${state.running || totalSongs === 0 ? 'disabled' : ''}>
               Export metadata as CSV
             </button>
             ${state.readyExport?.mode === 'metadata' && !state.running ? `<button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" data-act="share-ready"><i class="bi-share"></i> Save / Share (${esc(state.readyExport.filename)})</button>` : ''}
+            ${state.statusText ? `<span class="be-status" role="status">${esc(state.statusText)}</span>` : ''}
+          </div>
+        </div>`;
+    }
+
+    function renderSyncHtml() {
+        const songs = state.cachedSongs || [];
+        const { count, songCount } = buildSyncZipEntries({ songs, collections: state.cachedCollections || [] });
+        const statsText = `${count} ${count === 1 ? 'recording' : 'recordings'} synced across ${songCount} ${songCount === 1 ? 'song' : 'songs'}`;
+
+        return `
+        <div class="be-section">
+          <p class="ct-sub">Export your audio sync points as a ZIP of JSON files, one per song and recording, in artist and album folders. Each file names the YouTube video or audio file the points are synced to.</p>
+          <div class="be-card">
+            <div class="be-stats-row"><span class="be-stats-label">${esc(statsText)}</span></div>
+          </div>
+          <div class="be-actions">
+            <button type="button" class="btn btn-sm btn-theme-primary" data-act="export-sync" ${state.running || count === 0 ? 'disabled' : ''}>
+              Export sync data as ZIP
+            </button>
+            ${state.readyExport?.mode === 'sync' && !state.running ? `<button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" data-act="share-ready"><i class="bi-share"></i> Save / Share (${esc(state.readyExport.filename)})</button>` : ''}
             ${state.statusText ? `<span class="be-status" role="status">${esc(state.statusText)}</span>` : ''}
           </div>
         </div>`;
@@ -182,6 +205,7 @@ export function renderBulkExportTool(container) {
 
         let modeContentHtml = '';
         if (state.activeMode === 'metadata') modeContentHtml = renderMetadataHtml();
+        else if (state.activeMode === 'sync') modeContentHtml = renderSyncHtml();
         else if (state.activeMode === 'originals') modeContentHtml = renderOriginalsHtml();
         else if (state.activeMode === 'pdf') modeContentHtml = renderPdfHtml();
 
@@ -222,6 +246,42 @@ export function renderBulkExportTool(container) {
             state.progressPct = 100;
         } catch (err) {
             console.error('[BulkExport] Error exporting metadata CSV:', err);
+            state.statusText = 'Export failed';
+        } finally {
+            state.running = false;
+            notify();
+        }
+    }
+
+    async function handleExportSync() {
+        if (state.running) return;
+        state.running = true;
+        state.statusText = 'Collecting sync data…';
+        state.progressPct = 25;
+        notify();
+
+        try {
+            const songs = state.cachedSongs || (await getAllSongs().catch(() => []));
+            const collections = state.cachedCollections || (await getCollections().catch(() => []));
+            const result = buildSyncZipEntries({ songs, collections });
+            if (result.count === 0) {
+                state.statusText = 'No sync data found';
+                return;
+            }
+            state.progressPct = 70;
+            notify();
+
+            const zipped = createZip(result.entries);
+            const today = new Date().toISOString().slice(0, 10);
+            const filename = `MajesticTab_Sync_Data_${today}.zip`;
+            const file = new File([new Blob([zipped], { type: 'application/zip' })], filename, { type: 'application/zip' });
+            state.readyExport = { file, filename, mode: 'sync' };
+
+            await saveOrDownloadBlob(file, filename);
+            state.statusText = `Exported ${result.count} sync ${result.count === 1 ? 'file' : 'files'}`;
+            state.progressPct = 100;
+        } catch (err) {
+            console.error('[BulkExport] Error exporting sync data:', err);
             state.statusText = 'Export failed';
         } finally {
             state.running = false;
@@ -391,6 +451,7 @@ export function renderBulkExportTool(container) {
         const act = actBtn.dataset.act;
 
         if (act === 'export-metadata') handleExportMetadata();
+        else if (act === 'export-sync') handleExportSync();
         else if (act === 'export-originals') handleExportOriginals();
         else if (act === 'export-library-pdfs') handleExportLibraryPdfs();
         else if (act === 'share-ready') {

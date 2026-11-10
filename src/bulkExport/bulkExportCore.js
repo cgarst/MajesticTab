@@ -1,6 +1,7 @@
 // bulkExportCore.js
 // Core export engines for MajesticTab:
-// 1. Library metadata CSV (artist, album, song, youtube url, youtube backing url, sync data)
+// 1. Library metadata CSV (artist, album, song, youtube url, youtube backing url, tunings, tab files, year)
+// 1b. Sync data: a ZIP of JSON files, one per song and recording, each naming the video or file it is synced to
 // 2. Original tab files (organized into folders as a ZIP archive)
 // 3. PDF bulk export (runs all tabs in library through the score PDF export code, bundled into a ZIP archive)
 
@@ -71,9 +72,30 @@ export function getCandidateKeysForSong(song, storage = (typeof localStorage !==
     return Array.from(candidateKeys);
 }
 
+/** Every distinct recording's sync record (with points) stored under any of the song's keys. */
+function collectSyncRecords(candidateKeys, storage, listRecordsFn) {
+    const out = [];
+    const seenMedia = new Set();
+    if (typeof listRecordsFn !== 'function' || !storage) return out;
+    for (const k of candidateKeys) {
+        for (const r of listRecordsFn(k, storage)) {
+            if (!r.points || !r.points.length) continue;
+            const mKey = r.media?.kind === 'youtube'
+                ? `yt_${r.media.videoId}`
+                : (r.media?.audioId ? `local_${r.media.audioId}` : null);
+            if (mKey && !seenMedia.has(mKey)) {
+                seenMedia.add(mKey);
+                out.push({ record: r, songKey: k });
+            }
+        }
+    }
+    return out;
+}
+
 /**
  * Exports library metadata as an RFC 4180 CSV string.
- * Columns: artist, album, song, youtube url, youtube backing url, sync data, tunings, tab_files, year
+ * Columns: artist, album, song, youtube url, youtube backing url, tunings, tab_files, year.
+ * Sync points are not in the CSV (they overflow a spreadsheet cell); see buildSyncZipEntries.
  */
 export function exportMetadataCsv({
     songs = [],
@@ -88,7 +110,6 @@ export function exportMetadataCsv({
         'song',
         'youtube url',
         'youtube backing url',
-        'sync data',
         'tunings',
         'tab_files',
         'year'
@@ -139,26 +160,8 @@ export function exportMetadataCsv({
         if (originalVideoId) songsWithOriginalVideo++;
         if (backingVideoId) songsWithBackingVideo++;
 
-        // 3. Audio sync data
-        const syncRecords = [];
-        const seenMedia = new Set();
-        if (typeof listRecordsFn === 'function' && storage) {
-            for (const k of candidateKeys) {
-                const records = listRecordsFn(k, storage);
-                for (const r of records) {
-                    if (!r.points || !r.points.length) continue;
-                    const mKey = r.media?.kind === 'youtube'
-                        ? `yt_${r.media.videoId}`
-                        : (r.media?.audioId ? `local_${r.media.audioId}` : null);
-                    if (mKey && !seenMedia.has(mKey)) {
-                        seenMedia.add(mKey);
-                        syncRecords.push(r);
-                    }
-                }
-            }
-        }
-
-        const syncDataStr = syncRecords.length > 0 ? JSON.stringify(syncRecords) : '';
+        // 3. Audio sync data (counted here, exported by buildSyncZipEntries)
+        const syncRecords = collectSyncRecords(candidateKeys, storage, listRecordsFn);
         if (syncRecords.length > 0) songsWithSync++;
 
         const originalUrl = originalVideoId ? `https://www.youtube.com/watch?v=${originalVideoId}` : '';
@@ -175,7 +178,6 @@ export function exportMetadataCsv({
             songTitle,
             originalUrl,
             backingUrl,
-            syncDataStr,
             tunings,
             tabFiles,
             year
@@ -192,6 +194,113 @@ export function exportMetadataCsv({
             songsWithSync
         }
     };
+}
+
+/**
+ * Builds entry map for a ZIP of audio sync data: one JSON file per song and recording.
+ * Output structure: [Collection/]Artist/Album/Song - <video id or audio file name>.json
+ * Each file names the song, its tab files and the recording it is synced to (YouTube URL, or local audio file
+ * name, duration and fingerprint), then carries the sync record itself.
+ */
+export function buildSyncZipEntries({
+    songs = [],
+    collections = [],
+    storage = (typeof localStorage !== 'undefined' ? localStorage : null),
+    listRecordsFn = listRecords,
+    listHistoryFn = listHistory,
+    exportedAt = new Date().toISOString()
+} = {}) {
+    const collectionNames = new Map(collections.map((c) => [c.id, c.name]));
+    const multipleCollections = collections.length > 1;
+    const entries = {};
+    const usedPaths = new Set();
+    const encoder = new TextEncoder();
+    let songCount = 0;
+    let count = 0;
+
+    const slotVideoId = (candidateKeys, slot) => {
+        if (!storage) return null;
+        for (const k of candidateKeys) {
+            const vid = storage.getItem(`yt_track_${encodeURIComponent(k.toLowerCase())}_${slot}`);
+            if (vid) return vid;
+        }
+        if (typeof listHistoryFn === 'function') {
+            for (const k of candidateKeys) {
+                const hist = listHistoryFn(k, slot, storage);
+                if (hist.length && hist[0].videoId) return hist[0].videoId;
+            }
+        }
+        return null;
+    };
+
+    for (const song of songs) {
+        const candidateKeys = getCandidateKeysForSong(song, storage);
+        const found = collectSyncRecords(candidateKeys, storage, listRecordsFn);
+        if (!found.length) continue;
+        songCount++;
+
+        const originalId = slotVideoId(candidateKeys, 'original');
+        const backingId = slotVideoId(candidateKeys, 'backing');
+        const tabFiles = Array.isArray(song.tabOptions)
+            ? song.tabOptions.map((t) => t.name || '').filter(Boolean)
+            : [];
+
+        for (const { record, songKey } of found) {
+            const m = record.media;
+            let media;
+            let label;
+            let slot = null;
+            if (m.kind === 'youtube') {
+                media = {
+                    kind: 'youtube',
+                    videoId: m.videoId,
+                    url: `https://www.youtube.com/watch?v=${m.videoId}`,
+                    ...(m.label ? { title: m.label } : {})
+                };
+                if (m.videoId === originalId) slot = 'original';
+                else if (m.videoId === backingId) slot = 'backing';
+                label = m.videoId;
+            } else {
+                media = {
+                    kind: 'local',
+                    fileName: m.name || '',
+                    durationMs: m.durationMs ?? null,
+                    fingerprint: m.fingerprint || '',
+                    audioId: m.audioId
+                };
+                label = m.name || m.audioId;
+            }
+
+            const doc = {
+                format: 'majestictab-sync',
+                version: 1,
+                exportedAt,
+                song: {
+                    artist: song.artist || '',
+                    album: song.album || '',
+                    title: song.title || '',
+                    songKey,
+                    tabFiles
+                },
+                recording: { ...(slot ? { slot } : {}), ...media },
+                updatedAt: record.updatedAt || 0,
+                points: record.points
+            };
+
+            const parts = [];
+            if (multipleCollections && song.collectionId) {
+                parts.push(safeName(collectionNames.get(song.collectionId), 'Library'));
+            }
+            parts.push(safeName(song.artist, 'Unknown Artist'));
+            if (song.album) parts.push(safeName(song.album));
+            parts.push(`${safeName(song.title, 'Untitled')} - ${safeName(label, 'recording')}.json`);
+            const path = uniquePath(parts.join('/'), usedPaths);
+            entries[path] = [encoder.encode(JSON.stringify(doc, null, 2)), { level: 6 }];
+            count++;
+        }
+    }
+
+    return { entries, count, songCount };
 }
 
 /**
