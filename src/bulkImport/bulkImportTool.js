@@ -4,7 +4,8 @@
 //      inside a Guitar Pro file; Auto tries them in that order of how much each file gives (see pairing.js).
 //   2. Suggestions: each pairing is looked up in the library, then on MusicBrainz (one request at a time, as MusicBrainz asks;
 //      the rows fill in while it runs).
-//   3. Fixing: any row can be changed by searching MusicBrainz, or left out.
+//   3. Fixing: any row can be changed by searching MusicBrainz, imported as custom music (typed names, no MusicBrainz data;
+//      MusicBrainz is always tried first, and a switch makes custom music the answer when nothing matches), or left out.
 //   4. Import: each paired file is stored and attached to its song (an existing library song, or a new one from the match).
 // The page's state lives in this module, so leaving Tools while the lookups run does not lose them.
 
@@ -37,6 +38,7 @@ const state = {
     foundCount: 0,
     rows: [],
     filter: 'all', // 'all' | 'attention'
+    customFallback: false, // a file nothing matched is imported as custom music
     openId: null, // the row whose search panel is open
     lookingUp: false,
     summary: '',
@@ -81,13 +83,20 @@ const statusText = (row) => {
     if (row.stage === 'queued') return 'Waiting';
     if (row.stage === 'working') return 'Looking up…';
     if (row.stage === 'error') return 'Lookup failed';
+    if (row.pick?.source === 'custom') return 'Custom music';
     if (row.manual && row.pick) return 'Chosen by you';
     if (!row.pick) return row.parsed ? 'No match' : 'No pairing';
-    return { library: 'In your library', match: 'Matched', maybe: 'Check this' }[row.status] || '';
+    return { library: 'In your library', match: 'Matched', maybe: 'Check this', custom: 'Custom music' }[row.status] || '';
 };
 
+/** A song that is not on MusicBrainz: the names as the file gave them (or the person typed them), saved as custom music. */
+const customPick = (p) => ({
+    source: 'custom', title: p.title || '', artist: p.artist || '', album: p.album || '', artistMbid: '', albumMbid: '',
+    recordingMbid: '', year: null, length: null, coverUrl: null
+});
+
 function makeRow(entry, i) {
-    return { id: `r${i}`, entry, parsed: null, stage: 'queued', status: 'none', pick: null, candidates: [], excluded: false, confirmed: false, manual: false, imported: '', note: '', error: '' };
+    return { id: `r${i}`, entry, parsed: null, stage: 'queued', status: 'none', pick: null, candidates: [], before: null, excluded: false, confirmed: false, manual: false, imported: '', note: '', error: '' };
 }
 
 async function embeddedMeta(entry) {
@@ -108,6 +117,7 @@ async function resolveRow(row, signal) {
         row.status = found.status;
         row.pick = found.pick;
         row.candidates = found.candidates;
+        takeFallback(row);
         row.stage = 'done';
     } catch (err) {
         if (signal?.aborted || err?.name === 'AbortError') { row.stage = 'queued'; return; }
@@ -139,7 +149,7 @@ function restartLookups() {
     state.controller?.abort();
     for (const row of state.rows) {
         if (row.manual || row.imported) continue;
-        Object.assign(row, { stage: 'queued', status: 'none', pick: null, candidates: [], parsed: null, error: '', excluded: false, confirmed: false });
+        Object.assign(row, { stage: 'queued', status: 'none', pick: null, candidates: [], before: null, parsed: null, error: '', excluded: false, confirmed: false });
     }
     runLookups();
 }
@@ -159,7 +169,33 @@ export function loadScanResult(result) {
 
 // --- Import ----------------------------------------------------------------------------------------------------------
 
+/** The switch changed: rows nothing matched take (or give back) the custom music answer. */
+function applyCustomFallback() {
+    for (const row of state.rows) {
+        if (row.manual || row.imported || row.stage !== 'done') continue;
+        if (state.customFallback) takeFallback(row);
+        else if (row.before) { row.pick = row.before.pick; row.status = row.before.status; row.before = null; }
+    }
+}
+
+/** With the switch on, a row MusicBrainz gave nothing for, or only a guess, becomes custom music (the guess stays a candidate). */
+function takeFallback(row) {
+    if (!state.customFallback || row.manual || !row.parsed?.title || row.before) return;
+    if (row.pick && row.status !== 'maybe') return;
+    row.before = { pick: row.pick, status: row.status };
+    row.pick = customPick(row.parsed);
+    row.status = 'custom';
+}
+
 async function songFor(pick) {
+    if (pick.source === 'custom') {
+        const artist = pick.artist || 'Custom Music';
+        const known = state.songs.find((s) => s.isCustom && sameTitle(s.title, pick.title) && sameTitle(s.artist, artist) && sameTitle(s.album, pick.album));
+        if (known) return known;
+        const song = await saveSongToLibrary({ title: pick.title, artist, album: pick.album, isCustom: true }, DEFAULT_COLLECTION_ID);
+        state.songs.push(song);
+        return song;
+    }
     if (pick.songId) {
         const s = await getSongById(pick.songId);
         if (s) return s;
@@ -250,13 +286,14 @@ export function renderBulkImportTool(container) {
         const p = row.pick;
         if (!p) return `<span class="imp-sugg is-none">${esc(row.parsed ? [row.parsed.artist, row.parsed.title].filter(Boolean).join(' – ') : 'Nothing found in the name or the file')}</span>`;
         const sub = [p.album, p.year].filter(Boolean).join(' · ');
-        return `<span class="imp-sugg">${esc(p.artist)} – ${esc(p.title)}${sub ? `<span class="imp-sub"> · ${esc(sub)}</span>` : ''}</span>`;
+        return `<span class="imp-sugg">${esc(p.artist || 'Custom Music')} – ${esc(p.title)}${sub ? `<span class="imp-sub"> · ${esc(sub)}</span>` : ''}</span>`;
     }
 
     function searchHtml(row) {
         const s = searches.get(row.id) || {};
         const list = s.results || row.candidates || [];
         const text = s.text ?? [row.parsed?.artist, row.parsed?.title || baseNameOf(row.entry.name)].filter(Boolean).join(' ');
+        const custom = row.pick?.source === 'custom' ? row.pick : { title: row.parsed?.title || baseNameOf(row.entry.name), artist: row.parsed?.artist || '', album: row.parsed?.album || '' };
         return `
         <div class="imp-search" data-for="${row.id}">
           <div class="imp-search-bar">
@@ -272,6 +309,15 @@ export function renderBulkImportTool(container) {
                 <span class="imp-result-main">${esc(c.artist)} – ${esc(c.title)}</span>
                 <span class="imp-sub">${esc([c.album, c.year, c.source === 'library' ? 'In your library' : ''].filter(Boolean).join(' · '))}</span>
               </button>`).join('')}
+          </div>
+          <div class="imp-custom">
+            <p class="be-option-title">Not on MusicBrainz? Import as custom music</p>
+            <div class="imp-custom-fields">
+              <input type="text" class="form-control form-control-sm" data-field="title" value="${esc(custom.title)}" aria-label="Song title" placeholder="Song title" autocomplete="off">
+              <input type="text" class="form-control form-control-sm" data-field="artist" value="${esc(custom.artist)}" aria-label="Artist" placeholder="Artist (Custom Music)" autocomplete="off">
+              <input type="text" class="form-control form-control-sm" data-field="album" value="${esc(custom.album)}" aria-label="Album or folder" placeholder="Album or folder (optional)" autocomplete="off">
+            </div>
+            <button type="button" class="ct-text" data-act="use-custom">Use as custom music</button>
           </div>
           <div class="imp-search-foot"><button type="button" class="ct-text" data-act="close-search">Done</button></div>
         </div>`;
@@ -290,7 +336,7 @@ export function renderBulkImportTool(container) {
               <span class="imp-file" title="${esc(row.entry.path)}">${esc(row.entry.path)}</span>
               ${suggestionHtml(row)}
             </div>
-            <span class="imp-state">${esc(statusText(row))}${via && row.pick && !row.manual && row.status !== 'library' ? ` · from ${esc(via)}` : ''}</span>
+            <span class="imp-state">${esc(statusText(row))}${via && row.pick && !row.manual && !row.imported && row.status !== 'library' ? ` · from ${esc(via)}` : ''}</span>
             ${row.imported || busy ? '' : `<button type="button" class="ct-text imp-change" data-act="change" aria-expanded="${open}">${row.pick ? 'Change' : 'Find song'}</button>`}
           </div>
           ${open ? searchHtml(row) : ''}
@@ -348,6 +394,7 @@ export function renderBulkImportTool(container) {
             ${c.attention || state.filter !== 'all' ? `<button type="button" class="ct-text" data-act="${state.filter === 'all' ? 'only-attention' : 'show-all'}">${state.filter === 'all' ? (c.attention === 1 ? 'Show the one that needs a look' : `Show the ${c.attention} that need a look`) : 'Show all'}</button>` : ''}
             <button type="button" class="ct-text" data-act="choose">Choose another folder</button>`}
           </div>
+          ${importing ? '' : `<label class="be-option imp-fallback"><input type="checkbox" class="form-check-input" data-act="custom-fallback" ${state.customFallback ? 'checked' : ''}><span class="be-option-text"><span class="be-option-title">Import files with no good match as custom music</span><span class="be-option-sub">MusicBrainz is tried first. Songs it cannot find, or only guesses at, are saved under the names from the file.</span></span></label>`}
           ${state.summary ? `<div class="be-status" role="status">${esc(state.summary)}</div>` : ''}
         </div>
         ${state.rows.length === 0 ? '<p class="ct-empty">No Guitar Pro, PDF or text files were found in that folder.</p>' : ''}
@@ -459,6 +506,19 @@ export function renderBulkImportTool(container) {
             root.querySelector(`[data-row="${row.id}"] [data-act="search-text"]`)?.focus();
         } else if (act === 'close-search' && row) { state.openId = null; patch(row.id); root.querySelector(`[data-row="${row.id}"] [data-act="change"]`)?.focus(); }
         else if (act === 'search-go' && row) runSearch(row.id);
+        else if (act === 'use-custom' && row) {
+            const field = (n) => searchEl?.querySelector(`[data-field="${n}"]`)?.value.trim() || '';
+            const title = field('title');
+            if (!title) { searchEl?.querySelector('[data-field="title"]')?.focus(); return; }
+            row.pick = customPick({ title, artist: field('artist'), album: field('album') });
+            row.status = 'custom';
+            row.manual = true;
+            row.excluded = false;
+            row.stage = 'done';
+            state.openId = null;
+            patch(row.id);
+            root.querySelector(`[data-row="${row.id}"] [data-act="change"]`)?.focus();
+        }
         else if (act === 'pick' && row) {
             const s = searches.get(row.id);
             const list = s?.results || row.candidates;
@@ -478,6 +538,7 @@ export function renderBulkImportTool(container) {
         const t = e.target;
         if (t.name === 'impStrategy') { state.strategy = t.value; render(); return; }
         if (t.dataset.act === 'strategy') { state.strategy = t.value; if (state.rows.length) { restartLookups(); render(); } return; }
+        if (t.dataset.act === 'custom-fallback') { state.customFallback = t.checked; applyCustomFallback(); render(); return; }
         if (t.dataset.act === 'include') {
             const row = state.rows.find((r) => r.id === t.closest('[data-row]')?.dataset.row);
             if (row) { row.excluded = !t.checked; if (t.checked) row.confirmed = true; patch(row.id); }
