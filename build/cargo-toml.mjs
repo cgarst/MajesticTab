@@ -18,9 +18,10 @@ export function rewriteCargoToml(content, target, channel) {
   content = content.replace(/^default\s*=\s*\[.*?\]$/m, defaultFeatures);
   // Drop the plugin crates the build never compiles, so the source tree can leave their directories out (F-Droid's
   // recipe removes them: its source scan rejects iOS crates without a lock and the Google Play services plugin).
-  // Android has no use for the iOS plugins; a channel without Google Drive has no use for google-auth.
+  // Android has no use for the iOS and Apple plugins (every `tauri-plugin-ios-*` and `tauri-plugin-apple-*` crate, so a
+  // new one is covered without touching this file); a channel without Google Drive has no use for google-auth.
   if (target === 'android') {
-    content = content.replace(/^tauri-plugin-ios-(?:tabbar|fold) = .*\n/gm, '');
+    content = content.replace(/^tauri-plugin-(?:ios|apple)-[a-z0-9-]+ = .*\n/gm, '');
   }
   if (!channels[channel].capabilities.googleDrive) {
     content = content.replace(/^tauri-plugin-google-auth = .*\n/m, '');
