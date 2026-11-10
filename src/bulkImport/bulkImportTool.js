@@ -474,6 +474,8 @@ export function renderBulkImportTool(container) {
               </select>
             </label>
             ${c.attention || state.filter !== 'all' ? `<button type="button" class="ct-text" data-act="${state.filter === 'all' ? 'only-attention' : 'show-all'}">${state.filter === 'all' ? (c.attention === 1 ? 'Show the one that needs a look' : `Show the ${c.attention} that need a look`) : 'Show all'}</button>` : ''}
+            <button type="button" class="ct-text" data-act="select-all">Select all</button>
+            <button type="button" class="ct-text" data-act="select-none">Select none</button>
             <button type="button" class="ct-text" data-act="choose">Choose another folder</button>`}
           </div>
           ${importing ? '' : `<label class="be-option imp-fallback"><input type="checkbox" class="form-check-input" data-act="skip-existing" ${state.skipExisting ? 'checked' : ''}><span class="be-option-text"><span class="be-option-title">Skip songs and albums that already have a tab</span><span class="be-option-sub">A file is left out when its song, or its album’s tab book, already has a tab in your library. Check its row to import it anyway.</span></span></label>`}
@@ -579,6 +581,18 @@ export function renderBulkImportTool(container) {
         else if (act === 'cancel-scan') { state.scanController?.abort(); }
         else if (act === 'import') runImport();
         else if (act === 'cancel-import') state.controller?.abort();
+        else if (act === 'select-all' || act === 'select-none') {
+            // Every row in view that has a song or album to go to; “Check this” rows count as looked at. Rows left out for
+            // already having a tab stay out while that switch is on (check a row by hand to import it anyway).
+            const on = act === 'select-all';
+            const inView = state.filter === 'attention' ? state.rows.filter((r) => ['attention', 'wait'].includes(verdict(r)) && !r.imported) : state.rows;
+            for (const r of inView) {
+                if (!r.pick || r.imported) continue;
+                r.excluded = !on;
+                if (on) r.confirmed = true;
+            }
+            render();
+        }
         else if (act === 'only-attention') { state.filter = 'attention'; render(); }
         else if (act === 'show-all') { state.filter = 'all'; render(); }
         else if (act === 'change' && row) {
