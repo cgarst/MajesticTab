@@ -1,0 +1,4 @@
+- Native macOS navigation with the liquid glass look
+- Google Drive picker now works on desktop
+- Text tabs keep fingering and stem rows with their staff system across pages
+- Library rows: pins line up on touch screens
