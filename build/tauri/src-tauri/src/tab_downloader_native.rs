@@ -517,6 +517,9 @@ pub struct TabDownloaderState {
     pub is_open: Mutex<bool>,
     pub is_visible: Mutex<bool>,
     pub top_offset: Mutex<f64>,
+    /// A batch session (Tools > Fill in missing tabs, album batches) keeps the site view up after a save so the
+    /// next song's search shows in it; set by the app, cleared when the downloader is hidden.
+    pub keep_open_after_download: Mutex<bool>,
     pub download_chunks: Mutex<std::collections::HashMap<String, DownloadChunkState>>,
     pub blocked_hosts: std::sync::Arc<Mutex<std::collections::HashSet<String>>>,
     pub adblock_enabled: std::sync::Arc<Mutex<bool>>,
@@ -946,9 +949,15 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
                                         filename = format!("{}.{}", filename, ext);
                                     }
                                 }
-                                if let Some(state) = app_handle_for_download.try_state::<TabDownloaderState>() {
-                                    if let Ok(mut g) = state.is_open.lock() {
-                                        *g = false;
+                                let keep_open = app_handle_for_download
+                                    .try_state::<TabDownloaderState>()
+                                    .map(|state| state.keep_open_after_download.lock().map(|g| *g).unwrap_or(false))
+                                    .unwrap_or(false);
+                                if !keep_open {
+                                    if let Some(state) = app_handle_for_download.try_state::<TabDownloaderState>() {
+                                        if let Ok(mut g) = state.is_open.lock() {
+                                            *g = false;
+                                        }
                                     }
                                 }
                                 let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);
@@ -961,12 +970,14 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
                                 } else if let Some(main_win) = app_handle_for_download.get_webview_window("main") {
                                     let _ = main_win.eval(&eval_script);
                                 }
-                                if let Some(downloader) = app_handle_for_download.get_webview(DOWNLOADER_LABEL) {
-                                    let _ = downloader.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
-                                    let _ = downloader.set_size(tauri::LogicalSize::new(1.0, 1.0));
-                                    let _ = downloader.hide();
+                                if !keep_open {
+                                    if let Some(downloader) = app_handle_for_download.get_webview(DOWNLOADER_LABEL) {
+                                        let _ = downloader.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
+                                        let _ = downloader.set_size(tauri::LogicalSize::new(1.0, 1.0));
+                                        let _ = downloader.hide();
+                                    }
+                                    focus_main_window(&app_handle_for_download);
                                 }
-                                focus_main_window(&app_handle_for_download);
                                 let payload = DownloadedTabPayload {
                                     name: filename,
                                     path: Some(p.to_string_lossy().to_string()),
@@ -1384,8 +1395,20 @@ pub fn tab_downloader_nav(
     Ok(())
 }
 
+/// Tell the shell a batch session is running, so a saved download leaves the site view up for the next song.
+#[tauri::command]
+pub fn tab_downloader_set_batch(state: State<'_, TabDownloaderState>, active: bool) -> Result<(), String> {
+    if let Ok(mut g) = state.keep_open_after_download.lock() {
+        *g = active;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn tab_downloader_hide(app: AppHandle, state: State<'_, TabDownloaderState>) -> Result<(), String> {
+    if let Ok(mut g) = state.keep_open_after_download.lock() {
+        *g = false;
+    }
     let was_open = if let Ok(mut g) = state.is_open.lock() {
         let prev = *g;
         *g = false;

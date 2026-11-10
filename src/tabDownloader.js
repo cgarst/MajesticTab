@@ -1881,6 +1881,8 @@ export async function openTabDownloader(options = {}) {
             config,
             topOffset: barHeight
         });
+        // A batch keeps the site view up after each save, so the next song's search shows in it
+        window.__TAURI__.core.invoke('tab_downloader_set_batch', { active: activeBatchMode }).catch(() => {});
         if (activeEphemeralSource?.targetUrl) {
             prefillDownloaderUrl(activeEphemeralSource.targetUrl);
         }
