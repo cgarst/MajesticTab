@@ -5,7 +5,7 @@
 //   2. Matching: the library's songs that have a tab (matcher.js, lookupLibraryAudio). A match by title alone is a guess the person
 //      checks; any row can be changed by searching the library, or left out.
 //   3. Import: each file is stored (audioFileStore.js) and becomes the song's Original recording or Backing track
-//      (libraryAudio.js), whichever the person chose. Auto (the default) takes a file as the recording unless its name says
+//      (libraryAudio.js), whichever the person chose. Automatic (the default) takes a file as the recording unless its name says
 //      "backing track", "karaoke", "no guitar" or "minus one"; Recordings and Backing tracks send every file to that slot.
 //      A switch leaves out songs that already have audio in that slot.
 // The page's state lives in this module, so leaving Tools does not lose a review.
@@ -339,7 +339,7 @@ export function renderAudioImport(container) {
           ${['auto', 'original', 'backing'].map((s) => `
             <label class="be-option imp-strategy">
               <input type="radio" class="form-check-input" name="impAudioSlot" value="${s}" ${state.slot === s ? 'checked' : ''}>
-              <span class="be-option-text"><span class="be-option-title">${{ auto: 'Auto', original: 'Recordings of the songs', backing: 'Backing tracks' }[s]}</span></span>
+              <span class="be-option-text"><span class="be-option-title">${{ auto: 'Automatic', original: 'Recordings of the songs', backing: 'Backing tracks' }[s]}${s === 'auto' ? ' (recommended)' : ''}</span></span>
             </label>`).join('')}
           <p class="ct-sub imp-help">${{ auto: 'Each file becomes the song’s Original recording, unless its name says “backing track”, “karaoke” or “no guitar”: then it becomes the Backing track.', original: 'Each file becomes the song’s Original recording.', backing: 'Each file becomes the song’s Backing track.' }[state.slot]} A song’s sync points are not changed.</p>
         </fieldset>`;
@@ -388,7 +388,7 @@ export function renderAudioImport(container) {
             <label class="imp-strategy-pick">
               <span class="imp-sub">Files are</span>
               <select class="form-select form-select-sm" data-act="slot" aria-label="Where the files go">
-                <option value="auto" ${state.slot === 'auto' ? 'selected' : ''}>Auto</option>
+                <option value="auto" ${state.slot === 'auto' ? 'selected' : ''}>Automatic</option>
                 <option value="original" ${state.slot === 'original' ? 'selected' : ''}>Recordings</option>
                 <option value="backing" ${state.slot === 'backing' ? 'selected' : ''}>Backing tracks</option>
               </select>
