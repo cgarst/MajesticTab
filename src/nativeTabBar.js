@@ -173,7 +173,9 @@ const FLOATING_DIALOG = '.theme-modal-backdrop:not(.tool-embedded):not(.is-closi
 function dialogOpen() {
     if (document.body.classList.contains('drive-picker-active') ||
         document.body.classList.contains('picker-open') ||
-        document.body.classList.contains('modal-open')) {
+        // A tool shown as a page in Tools (chord library, scales, circle of fifths) still sets modal-open when its
+        // modal opens, which is not a floating dialog: the bar stays
+        (document.body.classList.contains('modal-open') && !document.querySelector('.tool-embedded'))) {
         return true;
     }
     return Array.from(document.querySelectorAll(FLOATING_DIALOG)).some(el => {
