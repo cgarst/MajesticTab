@@ -131,7 +131,20 @@ const horizMoveableSvg = buildChordDiagramSvg(eShape, 1, 'horizontal');
 assert.ok(horizMoveableSvg.includes('fill="var(--action)"'), 'Root highlighted in horizontal');
 assert.ok(horizMoveableSvg.includes('>R<'), 'Root labeled with R in horizontal');
 
-console.log('✓ Diagram rendering verified (Vertical default & Horizontal)');
+// Capo indication on fret (Vertical & Horizontal)
+const vertCapoSvg = buildChordDiagramSvg(sampleChord, 1, 'vertical', null, 2);
+assert.ok(vertCapoSvg.includes('class="ref-chord-capo-bar"'), 'Capo bar rendered in vertical');
+assert.ok(vertCapoSvg.includes('Capo 2'), 'Capo fret 2 text rendered in vertical');
+
+const horizCapoSvg = buildChordDiagramSvg(sampleChord, 1, 'horizontal', null, 3);
+assert.ok(horizCapoSvg.includes('class="ref-chord-capo-bar"'), 'Capo bar rendered in horizontal');
+assert.ok(horizCapoSvg.includes('Capo 3'), 'Capo fret 3 text rendered in horizontal');
+
+const chordObjCapoSvg = buildChordDiagramSvg({ ...sampleChord, capo: 4 }, 1, 'vertical');
+assert.ok(chordObjCapoSvg.includes('class="ref-chord-capo-bar"'), 'Capo bar rendered from chord object');
+assert.ok(chordObjCapoSvg.includes('Capo 4'), 'Capo fret 4 text rendered from chord object');
+
+console.log('✓ Diagram rendering verified (Vertical default & Horizontal, including Capo)');
 
 // 5. Orientation and View Mode state helpers (Verify defaults)
 // Clear storage to test defaults
@@ -168,6 +181,13 @@ console.log('✓ Prefer movable shapes positioned to the left of vertical/horizo
 assert.ok(!urlRouterSource.includes('openReferenceModal(targetRefTab)'), 'urlRouter should not call openReferenceModal directly');
 assert.ok(urlRouterSource.includes("openToolOnNextRender(targetRefTab)"), 'urlRouter should route to tools page via openToolOnNextRender');
 console.log('✓ #reference URLs configured to route to Tools page');
+
+// Ensure 6-string tunings include C tuning (offset 4)
+const tuningSpecMatch = refLibSource.match(/6:\s*\{\s*low:\s*4,\s*steps:[^}]+offsets:\s*\[([^\]]+)\]/);
+assert.ok(tuningSpecMatch, '6-string tuningSpec must be present');
+const offsets = tuningSpecMatch[1].split(',').map(s => parseInt(s.trim(), 10));
+assert.ok(offsets.includes(4), '6-string tuning offsets must include 4 (C tuning)');
+console.log('✓ 6-string chord library tunings include C tuning (offset 4)');
 
 console.log('All chord tests passed successfully!');
 

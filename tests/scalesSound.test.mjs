@@ -81,6 +81,8 @@ assert.ok(scalesHtml.includes('ref-scales-section'), 'Scales container has ref-s
 assert.ok(scalesHtml.includes('class="ref-scale-note-btn ref-note-play"'), 'Scale notes rendered as clickable note buttons');
 assert.ok(scalesHtml.includes('data-midi="'), 'Scale note buttons have data-midi');
 assert.ok(scalesHtml.includes('aria-label="Play C"'), 'C scale note has accessible aria-label');
+assert.ok(scalesHtml.includes('data-offset="4"'), 'Scales section includes C tuning button (offset 4)');
+assert.ok(/>\s*C\s*<\/button>/.test(scalesHtml), 'C tuning chip button label rendered in scales');
 
 // Check that notes in C Major Pentatonic (C, D, E, G, A) ascend:
 // C = 48, D = 50, E = 52, G = 55, A = 57

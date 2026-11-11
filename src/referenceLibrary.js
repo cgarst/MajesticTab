@@ -131,7 +131,7 @@ const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A',
 // Standard tunings per string count: lowest string's pitch class, each string's semitones above it,
 // and how many semitones the whole set can be tuned down (the options offered in the library).
 const tuningSpecs = {
-    6: { low: 4, steps: [0, 5, 10, 15, 19, 24], offsets: [0, 1, 2, 3, 5, 6] }, // E A D G B E
+    6: { low: 4, steps: [0, 5, 10, 15, 19, 24], offsets: [0, 1, 2, 3, 4, 5, 6] }, // E A D G B E
     7: { low: 11, steps: [0, 5, 10, 15, 20, 24, 29], offsets: [0, 1, 2] }, // B E A D G B E
     8: { low: 6, steps: [0, 5, 10, 15, 20, 25, 29, 34], offsets: [0, 1, 2] } // F♯ B E A D G B E
 };
@@ -508,7 +508,7 @@ async function getActiveChordData() {
         const name = rootByPitch[soundingPitch] + suffix;
         // With a capo the chord is played as the shape of the chord `capo` semitones lower
         const shapeOf = capo > 0 ? rootByPitch[(soundingPitch - capo + 120) % 12] + suffix : undefined;
-        return { ...chord, name, dbSuffix: chord.suffix, suffix, shapeOf };
+        return { ...chord, name, dbSuffix: chord.suffix, suffix, shapeOf, capo: capo > 0 ? capo : 0 };
     });
     // Keep each chord type together, with roots in the same order as the standard-tuning list
     shifted.sort((a, b) => suffixOrder.indexOf(a.suffix) - suffixOrder.indexOf(b.suffix)
@@ -577,8 +577,8 @@ function placedShapeEntry(sh, note) {
     let start = rootFret - sh.offsets[sh.rootString];
     while (start < 1) start += 12;
     const frets = sh.offsets.map(o => (o === null ? 'x' : String(start + o)));
-    const diagram = { frets: frets.join(' '), startFret: start, labels: sh.labels, rootString: sh.rootString, isMoveable: true };
-    return { diagram, startFret: start, fretsText: diagram.frets, midi: chordMidiNotes(parseFrets(diagram.frets)), note };
+    const diagram = { frets: frets.join(' '), startFret: start, labels: sh.labels, rootString: sh.rootString, isMoveable: true, capo: capo > 0 ? capo : 0 };
+    return { diagram, startFret: start, fretsText: diagram.frets, midi: chordMidiNotes(parseFrets(diagram.frets)), note: `${note}${capo > 0 ? ` · Capo ${capo}` : ''}` };
 }
 
 /** By Note: the database's own fingerings for the chord, or (Prefer movable shapes) the movable shapes placed on the root. */
@@ -592,7 +592,7 @@ function buildNoteEntries(type, activeData) {
             startFret: c.startFret,
             fretsText: c.frets,
             midi: chordMidiNotes(parseFrets(c.frets)),
-            note: `${c.frets.split(' ').includes('0') ? 'Open shape' : 'Closed shape'}${c.shapeOf ? ` · ${c.shapeOf} shape` : ''}`
+            note: `${c.frets.split(' ').includes('0') ? 'Open shape' : 'Closed shape'}${c.shapeOf ? ` · ${c.shapeOf} shape` : ''}${capo > 0 ? ` · Capo ${capo}` : ''}`
         }));
     }
     return collectTypeShapes(type.id).map(({ sh, note }) => placedShapeEntry(sh, note));
@@ -610,7 +610,7 @@ function renderShapeTile(typeId) {
     const multi = list.length > 1;
     const byNote = getChordViewMode() === 'note';
     const title = byNote ? (type.id === 'major' ? selectedRootFilter : `${selectedRootFilter}${type.symbol}`) : type.symbol;
-    const spoken = byNote ? `${selectedRootFilter} ${type.name}` : type.name;
+    const spoken = byNote ? `${selectedRootFilter} ${type.name}${capo > 0 ? `, capo ${capo}` : ''}` : type.name;
     const play = playAttrs(e.midi, spoken);
     return `
         <div class="col" data-shape-tile="${typeId}">
@@ -620,7 +620,7 @@ function renderShapeTile(typeId) {
                     <span class="ref-chord-cat">${e.note}</span>
                 </div>
                 <div class="ref-chord-svg-container">
-                    ${buildChordDiagramSvg(e.diagram, e.startFret, getChordOrientation(), getStringLabelsHighToLow())}
+                    ${buildChordDiagramSvg(e.diagram, e.startFret, getChordOrientation(), getStringLabelsHighToLow(), byNote ? capo : 0)}
                 </div>
                 <span class="ref-chord-frets">${e.fretsText}</span>
                 <div class="ref-shape-nav">

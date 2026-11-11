@@ -2264,6 +2264,8 @@ body.fretboard-open {
 .ref-mode-row, .ref-orient-row { gap: 4px; }
 .ref-chord-frets { font-family: inherit !important; font-size: 13px !important; color: var(--ink2) !important; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
 .ref-chord-card [class*="fingering"], .ref-chord-card code { font-family: inherit !important; }
+.ref-chord-capo-bar { fill: var(--ink) !important; fill-opacity: 0.85 !important; }
+.ref-chord-capo-text { fill: var(--ink2) !important; font-family: inherit !important; }
 
 /* Key-value rows */
 .ref-kv { margin: 0 0 20px; }

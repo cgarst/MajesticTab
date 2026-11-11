@@ -106,7 +106,7 @@ export function findFingerBars(frets) {
  * Generate Chord Box Diagram SVG
  * Supports both Horizontal (nut on side) and Vertical (nut on top) orientations.
  */
-export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOrientation, customStringNames) {
+export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOrientation, customStringNames, explicitCapo) {
     const isFlipped = getIsFlipped();
     const isLeftHanded = getIsLeftHanded();
     const orientation = explicitOrientation || getChordOrientation();
@@ -116,7 +116,12 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
     let isMoveable = false;
     let shapeLabels = null;
     let rootString = null;
-    const capoOn = Boolean(chordOrFrets && typeof chordOrFrets === 'object' && chordOrFrets.shapeOf);
+    let capoFret = 0;
+    if (Number.isInteger(explicitCapo) && explicitCapo > 0) {
+        capoFret = explicitCapo;
+    } else if (chordOrFrets && typeof chordOrFrets === 'object' && Number.isInteger(chordOrFrets.capo) && chordOrFrets.capo > 0) {
+        capoFret = chordOrFrets.capo;
+    }
     if (typeof chordOrFrets === 'string') {
         fretsStr = chordOrFrets;
     } else if (chordOrFrets && typeof chordOrFrets === 'object') {
@@ -148,10 +153,10 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
 
     if (orientation === 'vertical') {
         // Vertical layout: Nut on top, strings vertical, frets horizontal
-        const startX = 22;
+        const startX = (capoFret > 0 && !isLeftHanded) ? 28 : 22;
         const stringGap = numStrings > 6 ? 12 : 14;
         const boardWidth = lastString * stringGap;
-        const width = startX + boardWidth + 22;
+        const width = startX + boardWidth + (capoFret > 0 && isLeftHanded ? 28 : 22);
         const startY = 22;
         const fretGap = numFrets > 4 ? 16 : 18;
         const boardHeight = numFrets * fretGap;
@@ -186,8 +191,22 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
 
         let svg = `<svg viewBox="0 0 ${width} ${height}" class="ref-chord-diagram-svg ref-chord-diagram-vertical" style="aspect-ratio: ${width} / ${height}" aria-hidden="true">`;
 
-        // Nut (horizontal top line)
-        svg += `<line x1="${startX}" y1="${startY}" x2="${startX + boardWidth}" y2="${startY}" stroke="${baseFret === 1 ? (capoOn ? 'var(--ink)' : 'var(--ink)') : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? (capoOn ? 5 : 3.5) : 1.8}" stroke-linecap="round"/>`;
+        const badgeX = isLeftHanded ? (startX + boardWidth + (capoFret > 0 ? 14 : 11)) : (capoFret > 0 ? 14 : 11);
+
+        // Nut / Capo (horizontal top line)
+        if (baseFret === 1) {
+            if (capoFret > 0) {
+                svg += `<rect class="ref-chord-capo-bar" x="${startX - 2.5}" y="${startY - 3}" width="${boardWidth + 5}" height="6" rx="3" fill="var(--ink)" fill-opacity="0.85" />`;
+                svg += `<text class="ref-chord-capo-text" x="${badgeX}" y="${startY + 2.8}" fill="var(--ink2)" font-size="8" font-weight="700" text-anchor="middle">Capo ${capoFret}</text>`;
+            } else {
+                svg += `<line x1="${startX}" y1="${startY}" x2="${startX + boardWidth}" y2="${startY}" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/>`;
+            }
+        } else {
+            svg += `<line x1="${startX}" y1="${startY}" x2="${startX + boardWidth}" y2="${startY}" stroke="var(--border-prominent)" stroke-width="1.8" stroke-linecap="round"/>`;
+            if (capoFret > 0) {
+                svg += `<text class="ref-chord-capo-text" x="${badgeX}" y="${startY - 5}" fill="var(--ink2)" font-size="7.5" font-weight="700" text-anchor="middle">Capo ${capoFret}</text>`;
+            }
+        }
 
         // Fret wire lines (horizontal)
         for (let f = 1; f <= numFrets; f++) {
@@ -216,7 +235,6 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
         }
 
         if (baseFret > 1) {
-            const badgeX = isLeftHanded ? (startX + boardWidth + 12) : (startX - 11);
             svg += `<text x="${badgeX}" y="${startY + 0.5 * fretGap + 3}" fill="var(--ink2)" font-size="8.5" font-weight="bold" text-anchor="middle">${baseFret}fr</text>`;
         }
 
@@ -281,8 +299,20 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
     if (!isLeftHanded) {
         const startX = 30;
 
-        // Nut
-        svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? (capoOn ? 'var(--ink)' : 'var(--ink)') : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? (capoOn ? 5 : 3.5) : 1.8}" stroke-linecap="round"/>`;
+        // Nut / Capo
+        if (baseFret === 1) {
+            if (capoFret > 0) {
+                svg += `<rect class="ref-chord-capo-bar" x="${startX - 3}" y="${startY - 2.5}" width="6" height="${lastString * stringGap + 5}" rx="3" fill="var(--ink)" fill-opacity="0.85" />`;
+                svg += `<text class="ref-chord-capo-text" x="${startX}" y="8" fill="var(--ink2)" font-size="8" font-weight="700" text-anchor="middle">Capo ${capoFret}</text>`;
+            } else {
+                svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + lastString * stringGap}" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/>`;
+            }
+        } else {
+            svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + lastString * stringGap}" stroke="var(--border-prominent)" stroke-width="1.8" stroke-linecap="round"/>`;
+            if (capoFret > 0) {
+                svg += `<text class="ref-chord-capo-text" x="${startX - 4}" y="8" fill="var(--ink2)" font-size="7.5" font-weight="700" text-anchor="middle">Capo ${capoFret}</text>`;
+            }
+        }
 
         // Fret wire lines
         for (let f = 1; f <= numFrets; f++) {
@@ -351,7 +381,20 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
         // Left-handed horizontal
         const nutX = width - 30;
 
-        svg += `<line x1="${nutX}" y1="${startY}" x2="${nutX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? (capoOn ? 'var(--ink)' : 'var(--ink)') : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? (capoOn ? 5 : 3.5) : 1.8}" stroke-linecap="round"/>`;
+        // Nut / Capo
+        if (baseFret === 1) {
+            if (capoFret > 0) {
+                svg += `<rect class="ref-chord-capo-bar" x="${nutX - 3}" y="${startY - 2.5}" width="6" height="${lastString * stringGap + 5}" rx="3" fill="var(--ink)" fill-opacity="0.85" />`;
+                svg += `<text class="ref-chord-capo-text" x="${nutX}" y="8" fill="var(--ink2)" font-size="8" font-weight="700" text-anchor="middle">Capo ${capoFret}</text>`;
+            } else {
+                svg += `<line x1="${nutX}" y1="${startY}" x2="${nutX}" y2="${startY + lastString * stringGap}" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/>`;
+            }
+        } else {
+            svg += `<line x1="${nutX}" y1="${startY}" x2="${nutX}" y2="${startY + lastString * stringGap}" stroke="var(--border-prominent)" stroke-width="1.8" stroke-linecap="round"/>`;
+            if (capoFret > 0) {
+                svg += `<text class="ref-chord-capo-text" x="${nutX + 4}" y="8" fill="var(--ink2)" font-size="7.5" font-weight="700" text-anchor="middle">Capo ${capoFret}</text>`;
+            }
+        }
 
         for (let f = 1; f <= numFrets; f++) {
             const x = nutX - f * fretGap;
