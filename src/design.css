@@ -1259,11 +1259,11 @@ html.window-fullscreen #readingDragStrip {
 
 .tauri-windows #winControls {
   display: flex;
-  position: absolute;
+  position: fixed;
   top: 0;
   right: 0;
   height: var(--bar-h);
-  z-index: 1001;
+  z-index: 2001;
 }
 .win-ctrl-btn {
   width: 46px;
@@ -3444,13 +3444,13 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 }
 #ytDropdownPanel [hidden] { display: none !important; }
 
-/* Desktop shells, library: the bar takes no room. It is a thin drag strip over the top edge. On macOS it fills the 36px space down to the search bar. Windows keeps its controls clear of the page's first row. */
+/* Desktop shells, library: the bar takes no room. It is a thin drag strip over the top edge. On macOS it fills the 36px space down to the search bar. */
 @media (min-width: 577px) {
   .tauri-macos body.library-view-active #topBar, .tauri-windows body.library-view-active #topBar, .tauri-linux body.library-view-active #topBar {
     position: fixed; top: 0; left: 0; right: 0; height: 20px; min-height: 0; padding-top: 0 !important; padding-bottom: 0 !important; overflow: visible;
   }
   .tauri-macos body.library-view-active #topBar { height: 36px; }
-  .tauri-windows body.library-view-active #libraryPage { padding-top: 20px; }
+  .tauri-windows .setpage { padding-right: max(28px, calc(var(--wc-r, 0px) + 16px)); }
 }
 
 /* About: the one place the pick appears */
