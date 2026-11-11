@@ -9,8 +9,12 @@
 // fret). The shape is then identified by its frets relative to its lowest fret, so the twelve roots collapse
 // into one shape. A bounded number is kept per string set and bass note, which is the grid a method book
 // teaches rather than every shape that is mathematically possible.
+//
+// The first shape of each root string is the standard default from chordShapeDefaults.js (see its header for the
+// source), so the familiar barre shapes lead; the generated voicings follow as alternates.
 
 import { TUNINGS_MIDI } from './chordEngine.js';
+import { DEFAULT_SHAPES } from './chordShapeDefaults.js';
 
 const SEMI = {
     'R': 0, '♭9': 1, '♭2': 1, '2': 2, '9': 2, '♯9': 3, '♭3': 3, '3': 4, '4': 5, '11': 5, '♯11': 6, '♭5': 6,
@@ -194,21 +198,54 @@ function generateForType(type, stringCount) {
         buckets.get(key).push(shape);
     }
 
-    // The basic voicing (fewest notes, then most compact) per root string, bass note or string set, and for root
-    // position also the fullest one (most chord tones). This is the grid a method book teaches.
+    // Per root string, bass note or string set, the default is the fullest voicing (most notes, then most chord
+    // tones, then the most compact), which is the classic barre shape (133211 for a major on the low E string).
+    // The sparse voicing (fewest notes) stays as the alternate in root position and is flagged `lighter`.
     const cmpBasic = (a, b) => a.notes - b.notes || a.span - b.span || a.offsets.join().localeCompare(b.offsets.join());
-    const cmpFull = (a, b) => b.tones - a.tones || a.span - b.span || b.notes - a.notes;
+    const rootLow = (x) => (x.offsets[x.rootString] === 0 ? 0 : 1);
+    const cmpFull = (a, b) => rootLow(a) - rootLow(b) || b.notes - a.notes || b.tones - a.tones || a.span - b.span || a.offsets.join().localeCompare(b.offsets.join());
     const kept = [];
     for (const [key, list] of buckets) {
-        list.sort(cmpBasic);
-        const basic = list[0];
-        kept.push(basic);
         if (key.startsWith('root|')) {
             const full = [...list].sort(cmpFull)[0];
-            if (full !== basic && full.tones > basic.tones) { full.fuller = true; kept.push(full); }
+            const basic = [...list].sort(cmpBasic)[0];
+            kept.push(full);
+            if (basic !== full && basic.notes < full.notes) { basic.lighter = true; kept.push(basic); }
+        } else {
+            list.sort(cmpBasic);
+            kept.push(list[0]);
         }
     }
-    kept.sort((a, b) => a.lowString - b.lowString || a.notes - b.notes || a.span - b.span);
+    // The standard default for each root string leads its group, whether or not the generator found it.
+    const shift = n - 6; // 7 and 8 string guitars keep the six standard strings on top
+    const defaults = DEFAULT_SHAPES[type.id] || {};
+    for (const [rs, spec] of Object.entries(defaults)) {
+        const lo = Number(rs) + shift;
+        const parts = spec.split(' ');
+        const rel = new Array(n).fill(null);
+        parts.forEach((v, i) => { rel[shift + i] = v === 'x' ? null : Number(v) - 1; });
+        const w = ((((-tuning[lo] - rel[lo]) % 12) + 12) % 12) || 12; // lowest fret that puts the root on C
+        const frets = rel.map(o => (o === null ? -1 : w + o));
+        const played = frets.map((f, i) => (f > 0 ? i : -1)).filter(i => i >= 0);
+        if (played[0] !== lo || !played.every(i => degBySemi.has((tuning[i] + frets[i]) % 12))) continue;
+        const signature = rel.map(v => (v === null ? 'x' : v)).join(',');
+        const labels = frets.map((f, i) => (f > 0 ? degBySemi.get((tuning[i] + f) % 12) : null));
+        const semis = new Set(played.map(i => (tuning[i] + frets[i]) % 12));
+        if ((tuning[lo] + frets[lo]) % 12 !== 0) continue;
+        const atLow = played.filter(i => rel[i] === 0).length;
+        const def = {
+            id: `${type.id}|${signature}`, typeId: type.id, family: type.family, name: type.symbol, suffix: type.id,
+            rootString: lo, rootStringName: SHAPE_STRING_NAMES[stringCount][lo], lowString: lo,
+            bassDegree: 'R', isInversion: false, drop: null, offsets: rel, labels,
+            frets: rel.map(v => (v === null ? 'x' : String(v + 1))).join(' '), startFret: 1,
+            notes: played.length, tones: semis.size, span: Math.max(...played.map(i => rel[i])) + 1,
+            barreChord: atLow > 1 ? 1 : 0, isMoveable: true, isDefault: true
+        };
+        const dup = kept.findIndex(k => k.id === def.id);
+        if (dup >= 0) kept.splice(dup, 1);
+        kept.push(def);
+    }
+    kept.sort((a, b) => a.lowString - b.lowString || !!b.isDefault - !!a.isDefault || !!a.lighter - !!b.lighter || a.notes - b.notes || a.span - b.span);
     return kept;
 }
 

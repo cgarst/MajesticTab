@@ -71,6 +71,7 @@ const allowedRemoteHosts = new Set([
   'apis.google.com',
   'developers.google.com',
   'github.com',
+  'chordoptions.com', // credit link in the About modal for the default movable chord shapes
   'invidious.drgns.space',
   'invidious.f5.si',
   'invidious.private.coffee',
