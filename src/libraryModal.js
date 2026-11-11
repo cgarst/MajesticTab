@@ -2315,9 +2315,10 @@ export function setlistsEmptyWelcomeHtml() {
 
 // Count on the left, primary action (plus any secondary controls) on the right
 export function libraryListToolbarHtml({ count = '', leftHtml = '', actionsHtml = '' }) {
+    const trimmedActions = (actionsHtml || '').trim();
     return `<div class="library-list-toolbar">
         <div class="d-flex align-items-center gap-2 min-w-0">${leftHtml}<span class="small text-white-50">${count}</span></div>
-        <div class="d-flex align-items-center gap-2 flex-shrink-0">${actionsHtml}</div>
+        <div class="d-flex align-items-center gap-2 flex-shrink-0"${trimmedActions ? '' : ' style="display: none !important;"'}>${trimmedActions}</div>
       </div>`;
 }
 

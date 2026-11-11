@@ -907,7 +907,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .library-page-container > .library-search-box { grid-column: 1 / -1; grid-row: 1; margin: 0 !important; max-width: none; }
 .library-page-container > .library-list-toolbar { display: contents; }
 .library-list-toolbar > div:last-child { grid-column: 2; grid-row: 1; display: flex; justify-content: flex-start; min-width: 0; }
-.library-list-toolbar > div:last-child:empty { display: none; }
+.library-list-toolbar > div:last-child:empty { display: none !important; }
 .library-list-toolbar > div:first-child { grid-column: 1 / -1; grid-row: 2; }
 .library-list-toolbar > div:first-child > span.small { display: none; }
 /* Ghost text action beside the one primary action */
@@ -981,7 +981,11 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   .library-list-toolbar > div:first-child > span.small { display: inline; color: var(--ink2) !important; font-size: 14px; font-variant-numeric: tabular-nums; }
   .library-list-toolbar > div:first-child > span.small:empty { display: none; }
 }
-.library-page-container > .library-sticky-breadcrumbs, .library-page-container > #libBrowseContent, .library-page-container > #libFilteredSearchResults { grid-column: 1 / -1; }
+.library-page-container > .library-sticky-breadcrumbs,
+.library-page-container > .lib-groupby-row,
+.library-page-container > .web-cta-banner,
+.library-page-container > #libBrowseContent,
+.library-page-container > #libFilteredSearchResults { grid-column: 1 / -1; }
 .library-page-container > #libBrowseContent { margin: 12px -20px 0; }
 .resume-card { margin-top: 0; }
 @media (max-width: 576px) {
@@ -2008,6 +2012,7 @@ body.fretboard-open {
 .empty-welcome-container {
   display: flex;
   flex-direction: column;
+  width: 100%;
   max-width: 720px;
   padding: 32px 16px 48px;
   margin: 0;
@@ -5442,6 +5447,7 @@ body.library-view-active .yt-sheet { display: none !important; }
 
 /* Web CTA banner: warns about browser storage eviction and links to native app */
 .web-cta-banner {
+  grid-column: 1 / -1;
   background: var(--s1);
   border-radius: var(--r-card, 12px);
   padding: 16px 20px;
