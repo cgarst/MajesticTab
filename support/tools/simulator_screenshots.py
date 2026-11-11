@@ -58,6 +58,10 @@ DUO_SHOTS = [  # (pose to fold the device to, shot id, headline, subtitle). The 
     ("tabletop", "practice", "Practice at your pace", "Speed, loops, count-in and metronome, under your thumb."),
     ("book", "reader", "Two pages, one crease", "Book mode shows a page on each half, like a real book."),
     ("flat", "library", "A library, not a folder", "Artists, albums and tracklists for every song you play."),
+    ("flat", "original", "Play along with the record", "Tap to sync, and the cursor follows the original."),
+    ("flat", "guitar", "Fit it to your guitar", "7 and 8 strings, tunings and capo, every pitch kept."),
+    ("closed", "tunings", "Browse by tuning", "Build a set that needs no retuning."),
+    ("flat", "jam", "Jam in the same room", "Everyone on the same bar, from their own device."),
 ]
 
 
@@ -307,11 +311,12 @@ SILENCE_JS = """(async () => {
     return 1; })()"""
 
 
-def sim_shot(udid, path):
+def sim_shot(udid, path, display=None):
     r = subprocess.run(["xcrun", "simctl", "io", udid, "screenshot", "--type=png", str(path)], text=True, capture_output=True)
     if r.returncode:
         # The iPhone Duo has two displays. Flat, tabletop and book all use the inner one (the larger, "LCD-1"); the outer one is lit only when closed.
-        m = re.search(r"--display=(\d+)\s+LCD-1", r.stdout + r.stderr)
+        target = display or "LCD-1"
+        m = re.search(rf"--display=(\d+)\s+{re.escape(target)}\s+\(", r.stdout + r.stderr)
         if not m:
             raise SystemExit(f"simctl screenshot failed: {r.stdout}{r.stderr}")
         run(["xcrun", "simctl", "io", udid, "screenshot", f"--display={m[1]}", "--type=png", str(path)])
@@ -334,6 +339,7 @@ def ad(*cmd, check=True):
 
 def ad_session(udid):
     ad("close", check=False)  # a session left over from an earlier run points at the old boot
+    subprocess.run(["agent-device", "close", "--session", "duo"], capture_output=True)
     ad("open", BUNDLE_ID, "--platform", "ios", "--udid", udid)
 
 
@@ -349,7 +355,13 @@ def ipad_full_screen():
 
 # The inner display is a landscape panel, so agent-device's names are the panel's: "portrait" gives the 951x669 pt window and
 # "landscape-left" the upright 669x951 pt one. Tabletop is the half-open fold with the upright window, book the half-open fold on its side.
-DUO_POSE = {"flat": ("open", "landscape-left"), "tabletop": ("half-open", "landscape-left"), "book": ("half-open", "portrait")}
+# Closed folds the hinge shut, lighting the outer 466x678 pt display.
+DUO_POSE = {
+    "flat": ("open", "landscape-left"),
+    "tabletop": ("half-open", "landscape-left"),
+    "book": ("half-open", "portrait"),
+    "closed": ("closed", "portrait"),
+}
 
 
 def duo_set_pose(app, pose):
@@ -361,9 +373,16 @@ def duo_set_pose(app, pose):
     end = time.time() + 40
     while time.time() < end:
         try:
-            if app.evaluate("document.documentElement.dataset.foldPose || 'flat'") == pose:
-                time.sleep(1.5)
-                return
+            if pose == "closed":
+                if app.evaluate("window.innerWidth < 500"):
+                    time.sleep(1.5)
+                    return
+            elif app.evaluate("document.documentElement.dataset.foldPose || 'flat'") == pose:
+                if pose == "flat" and not app.evaluate("window.innerWidth > 500"):
+                    pass
+                else:
+                    time.sleep(1.5)
+                    return
         except Exception:
             pass
         time.sleep(1)
@@ -625,6 +644,12 @@ def capture(name, args):
                     from PIL import Image
                     (compose_laptop if pose == "tabletop" else compose_book)(frame, raw, final, Image.open(raw).size, headline, subtitle, json.loads(fj.read_text()))
                     print(f"  wrote {final}", flush=True)
+                elif raw.exists():
+                    final = out / f"{n:02d}-{sid}.png"
+                    from PIL import Image
+                    size = (2853, 2007) if pose == "book" else (2007, 2853)
+                    compose(frame, raw, final, size, headline, subtitle, None if args.no_bezel else dev["bezel"])
+                    print(f"  wrote {final}", flush=True)
             if name != "duo":
                 from PIL import Image
                 n = 0
@@ -706,8 +731,22 @@ def capture(name, args):
                 duo_set_pose(app, pose)
             if pose == "book":
                 # The app goes to two-page Page mode on a fold *change*, so a page loaded while already folded needs the player's own switch.
-                app.evaluate("(() => { const r = document.getElementById('pageModeRadio'); if (r && !r.checked) r.click(); return 1; })()")
-                app.wait_for_function("document.querySelectorAll('.page-container, .gp-page, [data-page-index]').length > 1 || /\\d+-\\d+ of \\d+/.test(document.body.innerText)", 30000)
+                app.evaluate("""(() => {
+                    const out = document.getElementById('output');
+                    const pageRadio = document.getElementById('pageModeRadio');
+                    const contRadio = document.getElementById('continuousModeRadio');
+                    if (pageRadio) {
+                        pageRadio.checked = true;
+                        if (contRadio) contRadio.checked = false;
+                        if (window.gpState && window.gpState.renderGPPage) {
+                            window.gpState.renderGPPage(out, true, contRadio);
+                        } else {
+                            pageRadio.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
+                    return 1;
+                })()""")
+                app.wait_for_function("document.querySelectorAll('.gp-page-wrapper, .page-container, .gp-page, [data-page-index]').length > 1 || /\\d+-\\d+ of \\d+/.test(document.body.innerText)", 30000)
                 time.sleep(2)
             app.evaluate(SILENCE_JS)
             time.sleep(3 if udid else 1.2)  # let any system audio indicator clear before the picture
@@ -722,7 +761,7 @@ def capture(name, args):
                 if not fold or not fold.get("top"):
                     raise SystemExit(f"{sid}: the app did not report the fold geometry (--fold-top): {fold}")
             if udid:
-                sim_shot(udid, raw)
+                sim_shot(udid, raw, display="LCD" if pose == "closed" else "LCD-1")
             else:
                 mac_shot(pid, raw)
             if fold:
@@ -730,6 +769,8 @@ def capture(name, args):
             from PIL import Image
             Image.open(raw).convert("RGB").save(raw)  # App Store screenshots must not carry an alpha channel
             size = dev["final"] or Image.open(raw).size
+            if name == "duo" and pose != "book":
+                size = (2007, 2853)
             if dev["kind"] == "mac":
                 size = dev["final"]
             final = out / f"{n:02d}-{sid}{'-' + pose if pose in ('tabletop', 'book') else ''}.png"

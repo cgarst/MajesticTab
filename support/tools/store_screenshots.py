@@ -301,7 +301,7 @@ def open_reader(page, base):
     """Open the app fresh on the fixture score (the ?test= loader) and wait until it is laid out."""
     page.goto(f"{base}/src/?test={urllib.parse.quote(FIXTURE)}", wait_until="load", timeout=60000)
     page.wait_for_function("!/Loading score|Laying out|Rendering|Parsing/i.test(document.body.innerText)"
-                           " && document.querySelectorAll('.at-surface svg').length > 3", timeout=90000)
+                           " && (document.querySelectorAll('.at-surface svg').length > 3 || document.querySelectorAll('canvas, .gp-page-wrapper').length > 0)", timeout=90000)
     page.wait_for_timeout(2500)
 
 
