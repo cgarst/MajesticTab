@@ -42,7 +42,7 @@ import { initSyncRecordStore } from './audioSync/syncRecordStore.js';
 import { migrateS3Secret } from './s3Client.js';
 import { openLibraryModal, closeLibraryModal, isLibraryOpen } from './libraryModal.js';
 import { initTauriDownloadListener } from './tabDownloader.js';
-import { addRecentOpened } from './libraryStore.js';
+import { addRecentOpened, migrateCorruptedCustomContainers } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setInstrumentMode, getDefaultGpStringCount, setDefaultGpStringCount } from './utils/tuningUtils.js';
 import { initBackupRestore } from './backupRestore.js';
 import { initSync } from './syncUi.js';
@@ -923,6 +923,7 @@ async function initApp() {
     // @googleDrive:begin
     migrateGoogleAuth();
     // @googleDrive:end
+    migrateCorruptedCustomContainers().catch(console.warn);
 
     initIOSAudioUnlock();
     setupExportPDFButton();

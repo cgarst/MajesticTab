@@ -107,7 +107,10 @@ const {
     saveSongToLibrary,
     getSongsByCollection,
     updateAlbumMetadataInLibrary,
-    cleanTitle
+    cleanTitle,
+    sanitizeAlbumTabContainer,
+    migrateCorruptedCustomContainers,
+    importLibraryData
 } = await import('../src/libraryStore.js');
 
 test('cleanTitle strips punctuation, brackets and extra whitespace', () => {
@@ -294,4 +297,122 @@ test('updateAlbumMetadataInLibrary also updates isAlbumTabContainer', async () =
     assert.equal(updated.year, 1984);
     assert.equal(updated.albumMbid, 'mbid_rg_powerslave');
     assert.equal(updated.tabOptions.length, 1);
+});
+
+test('updateAlbumMetadataInLibrary does not touch custom music or custom containers', async () => {
+    const colId = 'test_col_custom';
+    const customContainer = {
+        id: 'album_tab_test_col_custom_Custom_Music_Custom_Music',
+        collectionId: colId,
+        title: 'Custom Music',
+        artist: 'Custom Music',
+        album: 'Custom Music',
+        isCustom: true,
+        isAlbumTabContainer: true,
+        tabOptions: [{ id: 'tab_1', name: 'Jazz Real Book.pdf' }]
+    };
+    await saveSongToLibrary(customContainer, colId);
+
+    const albumData = {
+        title: 'CUSTOM',
+        artist: '奥田民生',
+        releaseGroupId: 'mbid_rg_okuda',
+        year: 2001,
+        tracks: [{ title: 'Custom Music', length: 300 }]
+    };
+
+    const res = await updateAlbumMetadataInLibrary(albumData, colId);
+    assert.equal(res.updatedSongsCount, 0);
+
+    const songsInCol = await getSongsByCollection(colId);
+    const container = songsInCol.find(s => s.id === customContainer.id);
+    assert.equal(container.artist, 'Custom Music');
+    assert.equal(container.album, 'Custom Music');
+    assert.equal(container.artistMbid, null);
+});
+
+test('sanitizeAlbumTabContainer repairs corrupted Custom Music container', () => {
+    const corrupted = {
+        id: 'album_tab_default_Custom_Music_Custom_Music',
+        collectionId: 'default',
+        title: 'Custom Music',
+        artist: '奥田民生',
+        artistMbid: 'ef8c4ade-2712-408a-bf49-aeeb59296f78',
+        album: 'CUSTOM',
+        albumMbid: '80f5d117-125a-3bc9-a183-e255de842fa8',
+        year: 2001,
+        length: 305,
+        trackNumber: 1,
+        isCustom: true,
+        isAlbumTabContainer: true,
+        tabOptions: [{ id: 'tab1', name: 'Jazz Real Book' }]
+    };
+
+    const repaired = sanitizeAlbumTabContainer(corrupted);
+    assert.equal(repaired.artist, 'Custom Music');
+    assert.equal(repaired.album, 'Custom Music');
+    assert.equal(repaired.title, 'Custom Music');
+    assert.equal(repaired.artistMbid, null);
+    assert.equal(repaired.albumMbid, null);
+    assert.equal(repaired.year, null);
+    assert.equal(repaired.length, null);
+    assert.equal(repaired.trackNumber, null);
+    assert.equal(repaired.isCustom, true);
+    assert.equal(repaired.tabOptions.length, 1);
+});
+
+test('migrateCorruptedCustomContainers repairs corrupted containers in IndexedDB', async () => {
+    const corrupted = {
+        id: 'album_tab_default_Custom_Music_Custom_Music',
+        collectionId: 'default',
+        title: 'Custom Music',
+        artist: '奥田民生',
+        artistMbid: 'ef8c4ade-2712-408a-bf49-aeeb59296f78',
+        album: 'CUSTOM',
+        albumMbid: '80f5d117-125a-3bc9-a183-e255de842fa8',
+        year: 2001,
+        length: 305,
+        trackNumber: 1,
+        isCustom: true,
+        isAlbumTabContainer: true,
+        tabOptions: [{ id: 'tab1', name: 'Jazz Real Book' }]
+    };
+
+    await saveSongToLibrary(corrupted, 'default');
+    await migrateCorruptedCustomContainers();
+
+    const songs = await getSongsByCollection('default');
+    const fixed = songs.find(s => s.id === corrupted.id);
+    assert.ok(fixed);
+    assert.equal(fixed.artist, 'Custom Music');
+    assert.equal(fixed.album, 'Custom Music');
+    assert.equal(fixed.artistMbid, null);
+    assert.equal(fixed.albumMbid, null);
+});
+
+test('importLibraryData automatically repairs corrupted custom container during restore', async () => {
+    const backupData = {
+        collections: [{ id: 'col_restore', name: 'Restore Test' }],
+        songs: [{
+            id: 'album_tab_col_restore_Custom_Music_Custom_Music',
+            collectionId: 'col_restore',
+            title: 'Custom Music',
+            artist: '奥田民生',
+            album: 'CUSTOM',
+            artistMbid: 'ef8c4ade',
+            albumMbid: '80f5d117',
+            isCustom: true,
+            isAlbumTabContainer: true,
+            tabOptions: [{ id: 'tab1', name: 'Berklee Jazz Chord Dictionary' }]
+        }]
+    };
+
+    await importLibraryData(backupData, { wipe: false });
+    const songs = await getSongsByCollection('col_restore');
+    const restored = songs.find(s => s.id === 'album_tab_col_restore_Custom_Music_Custom_Music');
+    assert.ok(restored);
+    assert.equal(restored.artist, 'Custom Music');
+    assert.equal(restored.album, 'Custom Music');
+    assert.equal(restored.artistMbid, null);
+    assert.equal(restored.tabOptions.length, 1);
 });

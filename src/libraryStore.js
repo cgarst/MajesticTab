@@ -875,10 +875,10 @@ export async function addTabOptionToAlbum(collectionId, artistName, albumTitle, 
             folderPath: isCustom ? albumTitle : null,
             isAlbumTabContainer: true,
             // What the caller knows of the release (the bulk import has it from MusicBrainz), so the album groups and shows its art
-            artistMbid: tabOption.artistMbid || null,
-            albumMbid: tabOption.albumMbid || null,
-            coverUrl: tabOption.coverUrl || null,
-            year: tabOption.year || null,
+            artistMbid: isCustom ? null : (tabOption.artistMbid || null),
+            albumMbid: isCustom ? null : (tabOption.albumMbid || null),
+            coverUrl: isCustom ? null : (tabOption.coverUrl || null),
+            year: isCustom ? null : (tabOption.year || null),
             tabOptions: [],
             tunings: [],
             addedAt: Date.now()
@@ -937,7 +937,11 @@ export async function removeTabOptionFromAlbum(collectionId, artistName, albumTi
     if (albumRecord.defaultTabId === tabOptionId) {
         albumRecord.defaultTabId = albumRecord.tabOptions[0]?.id || null;
     }
-    await saveSongToLibrary(albumRecord, collectionId);
+    if (albumRecord.tabOptions.length === 0 && albumRecord.isCustom) {
+        await deleteSongFromLibrary(albumSongId);
+    } else {
+        await saveSongToLibrary(albumRecord, collectionId);
+    }
 }
 
 /**
@@ -1458,6 +1462,113 @@ export async function clearAllLibraryData() {
 }
 
 /**
+ * Sanitize an album tab container song record if it was corrupted by external metadata lookups.
+ * For example, if a "Custom Music" container was erroneously matched on MusicBrainz and renamed.
+ */
+export function sanitizeAlbumTabContainer(song) {
+    if (!song || !song.isAlbumTabContainer) return song;
+
+    const isCustomMusicContainer = (song.id && song.id.includes('_Custom_Music_')) ||
+        song.folderPath === 'Custom Music' ||
+        (song.isCustom && (song.artist === 'Custom Music' || song.album === 'Custom Music' || song.album === 'CUSTOM'));
+
+    if (isCustomMusicContainer) {
+        song.isCustom = true;
+        song.artist = 'Custom Music';
+        if (song.id && song.id.endsWith('_Custom_Music_Custom_Music')) {
+            song.title = 'Custom Music';
+            song.album = 'Custom Music';
+            song.folderPath = 'Custom Music';
+        }
+        song.artistMbid = null;
+        song.albumMbid = null;
+        song.recordingMbid = null;
+        if (song.album === 'CUSTOM' || song.album === 'Custom Music') {
+            song.year = null;
+            song.coverUrl = null;
+        }
+        song.trackNumber = null;
+        song.mediumNumber = null;
+        song.mediumTitle = null;
+        song.mediumFormat = null;
+        song.length = null;
+    } else if (song.isCustom) {
+        song.artistMbid = null;
+        song.albumMbid = null;
+        song.recordingMbid = null;
+    }
+
+    return song;
+}
+
+/**
+ * Migration: inspect existing songs in the library and repair any custom music containers
+ * that were altered by previous metadata scans.
+ */
+export async function migrateCorruptedCustomContainers() {
+    try {
+        const migrationKey = 'majestictab:migrated:custom_containers_v1';
+        if (typeof localStorage !== 'undefined' && localStorage.getItem(migrationKey)) {
+            return;
+        }
+
+        const songs = await getAllSongs();
+        let fixedCount = 0;
+
+        for (const song of songs) {
+            if (!song || !song.isAlbumTabContainer) continue;
+
+            const isCustomMusicContainer = (song.id && song.id.includes('_Custom_Music_')) ||
+                song.folderPath === 'Custom Music' ||
+                (song.isCustom && (song.artist === 'Custom Music' || song.album === 'Custom Music' || song.album === 'CUSTOM'));
+
+            if (isCustomMusicContainer) {
+                let changed = false;
+                if (!song.isCustom) { song.isCustom = true; changed = true; }
+                if (song.artist !== 'Custom Music') { song.artist = 'Custom Music'; changed = true; }
+                if (song.id && song.id.endsWith('_Custom_Music_Custom_Music')) {
+                    if (song.title !== 'Custom Music') { song.title = 'Custom Music'; changed = true; }
+                    if (song.album !== 'Custom Music') { song.album = 'Custom Music'; changed = true; }
+                    if (song.folderPath !== 'Custom Music') { song.folderPath = 'Custom Music'; changed = true; }
+                }
+                if (song.artistMbid) { song.artistMbid = null; changed = true; }
+                if (song.albumMbid) { song.albumMbid = null; changed = true; }
+                if (song.recordingMbid) { song.recordingMbid = null; changed = true; }
+                if (song.album === 'CUSTOM' || song.album === 'Custom Music') {
+                    if (song.year) { song.year = null; changed = true; }
+                    if (song.coverUrl) { song.coverUrl = null; changed = true; }
+                }
+                if (song.trackNumber) { song.trackNumber = null; changed = true; }
+                if (song.mediumNumber) { song.mediumNumber = null; changed = true; }
+                if (song.mediumTitle) { song.mediumTitle = null; changed = true; }
+                if (song.mediumFormat) { song.mediumFormat = null; changed = true; }
+                if (song.length) { song.length = null; changed = true; }
+
+                if (changed) {
+                    await saveSongToLibrary(song, song.collectionId);
+                    fixedCount++;
+                }
+            } else if (song.isCustom && (song.artistMbid || song.albumMbid || song.recordingMbid)) {
+                song.artistMbid = null;
+                song.albumMbid = null;
+                song.recordingMbid = null;
+                await saveSongToLibrary(song, song.collectionId);
+                fixedCount++;
+            }
+        }
+
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(migrationKey, 'true');
+        }
+        if (fixedCount > 0) {
+            console.log(`[Migration] Repaired ${fixedCount} corrupted custom music container(s).`);
+        }
+    } catch (err) {
+        console.warn('[Migration] Failed to run custom container migration:', err);
+    }
+}
+
+/**
  * Import or restore library data
  * @param {object} data - { collections, songs, recents }
  * @param {object} options - { wipe: boolean }
@@ -1507,6 +1618,7 @@ export async function importLibraryData(data = {}, { wipe = false } = {}) {
     // 2. Songs
     for (const song of songs) {
         if (!song || !song.id) continue;
+        sanitizeAlbumTabContainer(song);
         await new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_SONGS, 'readwrite');
             const store = tx.objectStore(STORE_SONGS);
@@ -1717,6 +1829,7 @@ export async function updateAlbumMetadataInLibrary(albumData, collectionId = nul
 
     // Match songs that belong to this album in the library
     const matchedSongs = songs.filter(s => {
+        if (s.isCustom) return false;
         if (albumMbidTarget && s.albumMbid && s.albumMbid === albumMbidTarget) {
             return true;
         }
@@ -1917,6 +2030,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
 
     for (const song of songs) {
         if (scrubbedSongIds.has(song.id)) continue;
+        if (song.isAlbumTabContainer || song.isCustom) continue;
 
         const artist = (song.artist || '').trim();
         const album = (song.album || '').trim();
@@ -2150,7 +2264,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
     for (const song of standaloneSongs) {
         if (signal?.aborted) break;
         if (scrubbedSongIds.has(song.id)) continue;
-        if (song.isAlbumTabContainer) continue;
+        if (song.isAlbumTabContainer || song.isCustom) continue;
         if (!song.isCustom && isDvdOrBlurayMedium(song)) {
             try {
                 await deleteSongFromLibrary(song.id);
