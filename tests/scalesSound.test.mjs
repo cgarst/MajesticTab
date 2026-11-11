@@ -102,9 +102,10 @@ assert.doesNotThrow(() => playNote(-1), 'playNote should safely ignore negative 
 assert.doesNotThrow(() => playNote(128), 'playNote should safely ignore MIDI numbers > 127');
 assert.doesNotThrow(() => playNote(NaN), 'playNote should safely ignore NaN');
 
-// Verify strumWithSoundFont accepts custom holdTicks
+// Verify strumWithSoundFont accepts custom holdTicks and releaseTicks
 assert.equal(typeof strumWithSoundFont, 'function', 'strumWithSoundFont should be exported');
-assert.doesNotThrow(() => strumWithSoundFont([48], { holdTicks: 720 }), 'strumWithSoundFont accepts holdTicks');
+assert.doesNotThrow(() => strumWithSoundFont([48], { holdTicks: 720, releaseTicks: 576 }), 'strumWithSoundFont accepts holdTicks and releaseTicks');
+assert.doesNotThrow(() => playNote(60, { duration: 1.3 }), 'playNote accepts custom duration');
 
 // 5. Verify Circle of Fifths chord sound buttons and secondary chord-library link
 const circleHtml = renderCircleInfoPanel();

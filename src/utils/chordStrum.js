@@ -111,11 +111,12 @@ export function strumChord(midiNotes, { spread = 0.032, volume = 0.9 } = {}) {
  * Play a single note, shorter than a full chord strum.
  * Uses the SoundFont synth when ready, and falls back to synthesized acoustic pluck.
  */
-export function playNote(midiNote, { duration = 0.8, volume = 0.9 } = {}) {
+export function playNote(midiNote, { duration = 1.3, volume = 0.9 } = {}) {
     const midi = Number(midiNote);
     if (!Number.isFinite(midi) || midi < 0 || midi > 127) return;
     const holdTicks = Math.round(duration * 2 * 480);
-    if (strumWithSoundFont([midi], { holdTicks })) return;
+    const releaseTicks = 576;
+    if (strumWithSoundFont([midi], { holdTicks, releaseTicks })) return;
     prepareChordSound();
     const audio = getContext();
     if (!audio) return;
@@ -136,13 +137,14 @@ export function playNote(midiNote, { duration = 0.8, volume = 0.9 } = {}) {
         const src = audio.createBufferSource();
         src.buffer = pluckBuffer(audio, midi);
         const g = audio.createGain();
-        const fadeStart = Math.max(0.05, duration - 0.22);
+        const sustainSec = Math.max(0.2, duration * 0.6);
+        const totalSec = duration + 0.5;
         g.gain.setValueAtTime(1, now);
-        g.gain.setValueAtTime(1, now + fadeStart);
-        g.gain.linearRampToValueAtTime(0, now + duration);
+        g.gain.setValueAtTime(1, now + sustainSec);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + totalSec);
         src.connect(g);
         g.connect(master);
         src.start(now);
-        src.stop(now + duration + 0.05);
+        src.stop(now + totalSec + 0.05);
     } catch (_) { /* audio unavailable */ }
 }
