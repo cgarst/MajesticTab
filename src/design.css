@@ -996,6 +996,8 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   .library-page-container > .library-search-box { grid-column: 1 / -1; }
   .library-list-toolbar > div:first-child > span.small { display: inline; color: var(--ink2) !important; font-size: 14px; font-variant-numeric: tabular-nums; }
   .library-list-toolbar > div:first-child > span.small:empty { display: none; }
+  /* The toolbar already shows the count here, so the list heading does not repeat it */
+  .pane.list > h3.pane-head .tnum { display: none; }
 }
 .library-page-container > .library-sticky-breadcrumbs,
 .library-page-container > .lib-groupby-row,
