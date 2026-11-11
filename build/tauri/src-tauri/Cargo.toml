@@ -74,3 +74,12 @@ tauri-plugin-ios-fold = { path = "../plugins/ios-fold" }
 objc2-ui-kit = { version = "0.3", features = ["UIColor", "UIView", "UIViewController", "UIScrollView"] }
 objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSFileManager", "NSURLRequest", "NSGeometry"] }
 block2 = "0.6"
+
+# Debug info is most of a dev target dir. Keep line tables for the app crate
+# (backtraces) and none for dependencies. Release is untouched, because the
+# Android symbol upload needs it.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

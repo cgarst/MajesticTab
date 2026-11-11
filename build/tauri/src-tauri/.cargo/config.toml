@@ -1,0 +1,5 @@
+# One Cargo target dir for every build, so dependencies compile once.
+# build/build-tauri.mjs sets CARGO_TARGET_DIR to the same place. The path is
+# relative to the directory that holds this .cargo folder (src-tauri).
+[build]
+target-dir = "../target"

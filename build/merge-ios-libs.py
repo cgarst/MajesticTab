@@ -9,9 +9,10 @@ def main():
     project_dir = os.path.abspath(sys.argv[1])
     config = sys.argv[2] # e.g. "Release" or "debug"
 
-    # Tauri places rust target outputs in build/tauri/src-tauri/target
+    # All Cargo output goes to build/tauri/target (see src-tauri/.cargo/config.toml)
     src_tauri_dir = os.path.abspath(os.path.join(project_dir, "..", ".."))
-    target_dir = os.path.join(src_tauri_dir, "target", "aarch64-apple-ios", config.lower())
+    cargo_target = os.environ.get("CARGO_TARGET_DIR") or os.path.join(src_tauri_dir, "..", "target")
+    target_dir = os.path.join(os.path.abspath(cargo_target), "aarch64-apple-ios", config.lower())
 
     libapp_path = os.path.join(project_dir, "Externals", "arm64", config, "libapp.a")
     if not os.path.exists(libapp_path):

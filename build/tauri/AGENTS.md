@@ -58,3 +58,12 @@ Use this only for native-shell issues (window, titlebar, plugins, Rust commands,
 
 Store channels build in CI through `.github/workflows/store-build.yml` (manual dispatch). It uploads artifacts named `MajesticTab-<channel>-<version>.<ext>` and never publishes a release or `latest.json`; `release.yml` and `canary.yml` still build only `direct`. Every channel ships the Tab Downloader with default search engines. Arbitrary userscripts and userscript injection are removed; the webview relies strictly on the native content shim for containment and ad suppression.
 - The release version is set only in `src-tauri/tauri.conf.json` (`version`), and the git tag must match it. Everything else derives from it: Android `versionCode`/`versionName` (Tauri), Rust `MAJESTICTAB_VERSION` (`build.rs`), and the iOS plist/project and Flatpak metainfo `__APP_VERSION__` placeholders (substituted by `build/build-tauri.mjs`). `Cargo.toml`, `package.json` and their lockfiles are deliberately `0.0.0`; never put a real version there.
+
+## Disk usage and pruning
+
+`build/tauri` grows to tens of GB, almost all of it gitignored Cargo output that rebuilds on demand. All Cargo output goes to one dir, `build/tauri/target/`: `src-tauri/.cargo/config.toml` sets `target-dir` for direct `tauri dev`/`tauri ios` runs and `build/build-tauri.mjs` sets `CARGO_TARGET_DIR` to the same place. Do not create a second target dir; dependencies would compile twice. `[profile.dev]` in `Cargo.toml` keeps debug info to line tables to hold the dev dir down. `src-tauri/gen/` (Gradle output, iOS `Externals`) is also regenerable.
+
+- Check sizes with `du -sh target src-tauri/gen`, then one level down.
+- Only build Android for `aarch64-linux-android` here. Delete `armv7-linux-androideabi`, `x86_64-linux-android` and other unused ABI dirs when they appear.
+- Prune about monthly, or when the folder passes about 60 GB. Delete stale target subdirs (`release`, `doc`, old platform dirs, and unused platform dirs), or run `cargo sweep --time 14` on `target/` (`cargo install cargo-sweep` first). Never prune while cargo, gradle or xcodebuild is running.
+- Never delete `src-tauri/gen/apple/Externals` casually: iOS builds need it.
