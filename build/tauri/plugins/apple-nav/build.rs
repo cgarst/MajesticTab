@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn main() {
+    println!("cargo:rerun-if-changed=ios/Sources/AppleNavPlugin.swift");
     tauri_plugin::Builder::new(&["configure", "select", "visibility", "appearance", "search"])
         .ios_path("ios")
         .build();

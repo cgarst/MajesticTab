@@ -5162,15 +5162,20 @@ body.phone-reader #screenRow { display: none !important; }
 body.native-tabbar .library-bottom-nav,
 body.native-rail .library-bottom-nav { display: none !important; }
 /* Wider than a phone (the iPhone Duo's strip layouts): the native rail replaces the web rail, so the page keeps no room for it */
-body.native-tabbar:not(.native-rail) { --rail-w: 0px; }
+body.native-tabbar,
+body.native-rail { --rail-w: 0px; }
+/* On iOS (iPhone Duo), the native rail sits in the side safe area reported by the plugin */
+html.tauri-ios body.native-tabbar.library-view-active #libraryPage,
+html.tauri-ios body.native-rail.library-view-active #libraryPage,
 body.native-tabbar:not(.native-rail).library-view-active #libraryPage {
   padding-left: max(env(safe-area-inset-left, 0px), var(--native-rail-left, 0px));
   padding-right: max(env(safe-area-inset-right, 0px), var(--native-rail-right, 0px));
 }
-body.native-rail.library-view-active #libraryPage {
+/* On macOS, the native rail sits on the left */
+html.tauri-macos body.native-rail.library-view-active #libraryPage {
   padding-left: var(--native-rail-w, 88px) !important;
 }
-body.native-rail.library-view-active #topBar {
+html.tauri-macos body.native-rail.library-view-active #topBar {
   padding-left: var(--native-rail-w, 88px) !important;
 }
 /* The horizontal bar overlays the page at every width, so pages reserve its height; the side rail is already a safe-area inset */

@@ -112,11 +112,11 @@ STORES = {
     },
     "appstore-ios": {
         "device": "iphone",
-        # iPhone 6.9" (16 Pro Max) logical width; height matched to visible frame so bottom docks aren't cropped.
-        "viewport": {"width": 440, "height": 840},
+        # iPhone 6.3" (16 Pro / 18 Pro) logical width: 402 x 874 pt @ 3x = 1206 x 2622 px (supported App Store size)
+        "viewport": {"width": 402, "height": 874},
         "scale": 3,
         "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
-        "final": (1320, 2868),
+        "final": (1206, 2622),
         # What the native shell does that a plain page lacks: main.js adds `tauri-ios` when window.__TAURI__ exists.
         "root_classes": ["tauri-ios"],
         # iOS is always a full-screen app, so the Fullscreen button must not appear anywhere.

@@ -47,7 +47,7 @@ FIXTURE_PORT = 8765  # fixtures and album sleeves, served with CORS (a tauri:// 
 SIM_APP = TAURI / "src-tauri" / "gen" / "apple" / "build" / "arm64-sim" / "MajesticTab.app"
 
 DEVICES = {
-    "iphone": dict(kind="sim", model="iPhone 18 Pro Max", channel="appstore-ios", out="appstore-ios", final=(1320, 2868), bezel="iphone"),
+    "iphone": dict(kind="sim", model="iPhone 18 Pro", channel="appstore-ios", out="appstore-ios", final=(1206, 2622), bezel="iphone"),
     "ipad": dict(kind="sim", model="iPad Pro 13-inch (M5)", channel="appstore-ios", out="appstore-ipad", final=None, bezel="ipad"),
     "duo": dict(kind="sim", model="iPhone Duo", channel="appstore-ios", out="appstore-duo", final=None, bezel="foldable"),
     "mac": dict(kind="mac", channel="appstore-mac", out="appstore-mac", final=(2880, 1800), bezel="laptop"),

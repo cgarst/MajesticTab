@@ -363,12 +363,22 @@ class AppleNavPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
 
     // The system's choice of bar edge: 0 none (horizontal bar), 1 leading, 2 trailing. iOS 27.1 and later.
     private func systemVerticalEdge(_ window: UIWindow) -> Int {
+        let traits = window.traitCollection
+        if traits.responds(to: NSSelectorFromString("verticalBarEdge")),
+           let raw = traits.value(forKey: "verticalBarEdge") as? Int,
+           raw == 1 || raw == 2 {
+            return raw
+        }
         if #available(iOS 27.1, *) {
-            switch window.traitCollection.verticalBarEdge {
+            switch traits.verticalBarEdge {
             case .leading: return 1
             case .trailing: return 2
-            default: return 0
+            default: break
             }
+        }
+        // The Duo's outer display (external screen, 466x678pt) always has its vertical rail on the right
+        if (window.bounds.width == 466 && window.bounds.height == 678) || window.safeAreaInsets.right >= 70 {
+            return 2
         }
         return 0
     }
@@ -376,10 +386,11 @@ class AppleNavPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
     // Picks the bar for the current pose and places everything; cheap to call often
     func relayout() {
         guard let bar = bar, let window = bar.superview as? UIWindow else { return }
-        // The side rail only where the system wants one AND the window is landscape; in portrait (the Duo's inner or outer
-        // display held upright) the horizontal bar is used, as on any iPhone
+        // The side rail where the system wants one: on the Duo's outer display (external screen), and in landscape
+        // on the inner display. In portrait on the inner display (the Duo held upright as a tablet), the horizontal bar is used.
         let landscape = window.bounds.width > window.bounds.height
-        let edge = landscape ? systemVerticalEdge(window) : 0
+        let isExternal = window.bounds.width <= 500
+        let edge = (landscape || isExternal) ? systemVerticalEdge(window) : 0
         let vertical = edge != 0
         if edge != verticalEdge {
             verticalEdge = edge

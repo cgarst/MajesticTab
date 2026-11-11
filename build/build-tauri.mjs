@@ -603,7 +603,8 @@ if (target === 'android') {
     buildArgs.push('--debug');
   }
   // IOS_EXPORT_METHOD=app-store-connect gives the .ipa that fastlane's `ios beta` lane uploads. It signs with Xcode's automatic signing
-  // for the team in APPLE_DEVELOPMENT_TEAM (an Apple Distribution certificate and the App Store profile are made on demand).
+  // for the team in APPLE_DEVELOPMENT_TEAM (an Apple Distribution certificate and the App Store profile are made on demand). CI has no cloud signing, so it sets
+  // IOS_CERTIFICATE, IOS_CERTIFICATE_PASSWORD and IOS_MOBILE_PROVISION (base64 .p12 and .mobileprovision), which Tauri installs and signs with.
   if (process.env.IOS_SIGNING_IDENTITY || process.env.IOS_EXPORT_METHOD) {
     buildArgs.push('--export-method', process.env.IOS_EXPORT_METHOD || 'debugging');
   } else {
