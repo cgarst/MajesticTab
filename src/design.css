@@ -2564,6 +2564,10 @@ body.fretboard-open {
 .bar-btn-label { font-size: 14px; font-weight: 600; letter-spacing: 0; white-space: nowrap; }
 #topFlexZone .btn, #toolsToggleBtn { padding-inline: 12px !important; }
 #topFlexZone .btn.active, #topFlexZone .btn[aria-expanded="true"] { background: var(--s2) !important; color: var(--ink) !important; }
+/* The word's selected tone follows its sheet: it enters with the sheet's entry (--dur-base) and leaves with its exit (--dur-fast), on the same curve */
+#topFlexZone .btn { transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+#topFlexZone .btn.active, #topFlexZone .btn[aria-expanded="true"] { transition-duration: var(--dur-base); }
+@media (prefers-reduced-motion: reduce) { #topFlexZone .btn { transition: none; } }
 #soundToggleBtn:disabled, #guitarToggleBtn:disabled { opacity: 0.4; }
 /* The title is a plain label. Its old button role stays for code that clicks it. */
 .top-bar-song-btn { cursor: pointer; }
