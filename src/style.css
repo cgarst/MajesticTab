@@ -7,19 +7,19 @@
    Theme Palettes
    -------------------------------------------------------------------------- */
 :root, [data-theme="Mystic Dream"] {
-  --bg-body: #06050a;
+  --bg-body: #150f2e;
   --bg-ambient-1: rgba(147, 51, 234, 0.25);
   --bg-ambient-2: rgba(16, 185, 129, 0.22);
-  --bg-card: rgba(18, 14, 28, 0.88);
-  --bg-card-solid: #151022;
-  --bg-card-hover: #221835;
-  --bg-elevated: #0f0b1a;
-  --bg-modal: #0a0714;
+  --bg-card: rgba(33, 23, 72, 0.88);
+  --bg-card-solid: #211748;
+  --bg-card-hover: #33246b;
+  --bg-elevated: #0c0820;
+  --bg-modal: #100a26;
   --border-subtle: rgba(147, 51, 234, 0.16);
   --border-prominent: rgba(16, 185, 129, 0.35);
   --text-primary: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
+  --text-muted: #b6aed8;
+  --text-dim: #8c84b0;
   --accent-primary: #a855f7;
   --accent-secondary: #10b981;
   --accent-gradient: linear-gradient(135deg, #9333ea 0%, #06b6d4 50%, #10b981 100%);
@@ -150,19 +150,19 @@
 }
 
 [data-theme="Ember Glow"] {
-  --bg-body: #0c0704;
+  --bg-body: #1f120c;
   --bg-ambient-1: rgba(249, 115, 22, 0.18);
   --bg-ambient-2: rgba(239, 68, 68, 0.12);
-  --bg-card: rgba(24, 18, 14, 0.88);
-  --bg-card-solid: #18120e;
-  --bg-card-hover: #261c16;
-  --bg-elevated: #130d09;
-  --bg-modal: #0f0906;
+  --bg-card: rgba(44, 26, 16, 0.88);
+  --bg-card-solid: #2c1a10;
+  --bg-card-hover: #40261a;
+  --bg-elevated: #130a06;
+  --bg-modal: #170e08;
   --border-subtle: rgba(249, 115, 22, 0.14);
   --border-prominent: rgba(251, 146, 60, 0.35);
   --text-primary: #f8fafc;
-  --text-muted: #a8a29e;
-  --text-dim: #78716c;
+  --text-muted: #c2b0a3;
+  --text-dim: #8f7e72;
   --accent-primary: #f97316;
   --accent-secondary: #ef4444;
   --accent-gradient: linear-gradient(135deg, #f97316, #ef4444);
@@ -178,19 +178,19 @@
 }
 
 [data-theme="Purple Nebula"] {
-  --bg-body: #0b0910;
+  --bg-body: #1c0f26;
   --bg-ambient-1: rgba(192, 38, 211, 0.18);
   --bg-ambient-2: rgba(124, 58, 237, 0.14);
-  --bg-card: rgba(22, 19, 29, 0.88);
-  --bg-card-solid: #16131d;
-  --bg-card-hover: #231e2e;
-  --bg-elevated: #120f18;
-  --bg-modal: #0e0b14;
+  --bg-card: rgba(41, 22, 57, 0.88);
+  --bg-card-solid: #291639;
+  --bg-card-hover: #3c2254;
+  --bg-elevated: #110818;
+  --bg-modal: #150b1e;
   --border-subtle: rgba(192, 38, 211, 0.14);
   --border-prominent: rgba(217, 70, 239, 0.35);
   --text-primary: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
+  --text-muted: #bfaed0;
+  --text-dim: #9886ab;
   --accent-primary: #c026d3;
   --accent-secondary: #7c3aed;
   --accent-gradient: linear-gradient(135deg, #c026d3, #7c3aed);
@@ -206,19 +206,19 @@
 }
 
 [data-theme="Red Nebula"] {
-  --bg-body: #0c0608;
+  --bg-body: #230d10;
   --bg-ambient-1: rgba(225, 29, 72, 0.16);
   --bg-ambient-2: rgba(71, 85, 105, 0.28);
-  --bg-card: rgba(24, 18, 20, 0.88);
-  --bg-card-solid: #181214;
-  --bg-card-hover: #261c1f;
-  --bg-elevated: #12090b;
-  --bg-modal: #0e0709;
+  --bg-card: rgba(49, 21, 25, 0.88);
+  --bg-card-solid: #311519;
+  --bg-card-hover: #472027;
+  --bg-elevated: #150709;
+  --bg-modal: #1a0b0d;
   --border-subtle: rgba(225, 29, 72, 0.14);
   --border-prominent: rgba(225, 29, 72, 0.35);
   --text-primary: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
+  --text-muted: #c9aeb1;
+  --text-dim: #9e8588;
   --accent-primary: #e11d48;
   --accent-secondary: #475569;
   --accent-gradient: linear-gradient(135deg, #e11d48, #475569);

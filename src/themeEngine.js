@@ -22,7 +22,7 @@ export const THEMES = [
     name: 'Mystic Dream',
     subtitle: 'ChromaFlair Chameleon (Purple / Emerald / Obsidian)',
     gradient: 'linear-gradient(135deg, #9333ea 0%, #06b6d4 50%, #10b981 100%)',
-    bg: '#06050a',
+    bg: '#150f2e',
     accent: '#a855f7',
     secondary: '#10b981',
     colorway: ['#9333ea', '#10b981', '#06b6d4', '#c084fc', '#34d399', '#7e22ce', '#059669']
@@ -62,7 +62,7 @@ export const THEMES = [
     name: 'Ember Glow',
     subtitle: 'Incandescent Magma Burst',
     gradient: 'linear-gradient(135deg, #f97316, #ef4444)',
-    bg: '#120804',
+    bg: '#1f120c',
     accent: '#f97316',
     secondary: '#ef4444',
     colorway: ['#f97316', '#fbbf24', '#ef4444', '#f59e0b', '#ea580c', '#facc15']
@@ -72,7 +72,7 @@ export const THEMES = [
     name: 'Purple Nebula',
     subtitle: 'Galactic Violet & Magenta',
     gradient: 'linear-gradient(135deg, #c026d3, #7c3aed)',
-    bg: '#0e0616',
+    bg: '#1c0f26',
     accent: '#c026d3',
     secondary: '#7c3aed',
     colorway: ['#c026d3', '#7c3aed', '#d946ef', '#8b5cf6', '#e879f9', '#ec4899']
@@ -82,7 +82,7 @@ export const THEMES = [
     name: 'Red Nebula',
     subtitle: 'Galactic Crimson & Slate',
     gradient: 'linear-gradient(135deg, #e11d48, #475569)',
-    bg: '#100508',
+    bg: '#230d10',
     accent: '#e11d48',
     secondary: '#475569',
     colorway: ['#e11d48', '#94a3b8', '#f43f5e', '#64748b', '#cbd5e1', '#be123c']
