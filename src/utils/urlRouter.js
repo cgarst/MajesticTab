@@ -43,7 +43,7 @@ export function getRouteFromUrl() {
 }
 
 export function updateUrl(main, sub = null, replace = false) {
-    if (typeof window === 'undefined' || isSyncingUrl) return;
+    if (typeof window === 'undefined') return;
 
     let targetHash = '';
     if (main === 'tools') {
@@ -81,7 +81,6 @@ export function updateUrl(main, sub = null, replace = false) {
 }
 
 export function clearUrl(replace = false) {
-    if (isSyncingUrl) return;
     updateUrl(null, null, replace);
 }
 

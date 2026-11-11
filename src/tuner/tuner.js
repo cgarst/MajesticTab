@@ -468,16 +468,19 @@ class PitchCraftTunerController {
         this.stopListening();
 
         const modal = document.getElementById('tunerModal');
+        const wasEmbedded = modal?.classList.contains('tool-embedded');
         if (modal) {
             modal.style.display = 'none';
             modal.setAttribute('aria-hidden', 'true');
         }
         document.getElementById('tunerToggleBtn')?.classList.remove('active');
+        if (wasEmbedded) return;
 
         const libPage = document.getElementById('libraryPage');
         if (libPage && libPage.style.display !== 'none') {
             import('../libraryModal.js').then(m => {
-                updateUrl(m.getActiveLibraryView?.() || 'library');
+                const view = m.getActiveLibraryView?.() || 'library';
+                if (view !== 'tools') updateUrl(view);
             });
         } else {
             clearUrl();

@@ -861,15 +861,20 @@ export async function openReferenceModal(tab = null) {
 
 export function closeReferenceModal() {
     if (!isReferenceOpen()) return;
+    const wasEmbedded = referenceModalEl?.classList.contains('tool-embedded');
     referenceModalEl.style.display = 'none';
     referenceModalEl.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
     syncToolsMenuActive();
+    if (wasEmbedded) return;
     // Put the address bar back to whatever sits behind the modal
     import('./utils/urlRouter.js').then(({ updateUrl, clearUrl }) => {
         const libPage = document.getElementById('libraryPage');
         if (libPage && libPage.style.display !== 'none') {
-            import('./libraryModal.js').then((m) => updateUrl(m.getActiveLibraryView?.() || 'library'));
+            import('./libraryModal.js').then((m) => {
+                const view = m.getActiveLibraryView?.() || 'library';
+                if (view !== 'tools') updateUrl(view);
+            });
         } else {
             clearUrl();
         }

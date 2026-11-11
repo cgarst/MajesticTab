@@ -478,7 +478,10 @@ export async function openLibraryModal(initialView = 'library') {
         viewHistory = [];
     }
     activeView = initialView;
-    updateUrl(wantTunings ? 'tunings' : initialView.toLowerCase(), null, false);
+    const isToolsSubroute = initialView === 'tools' && typeof window !== 'undefined' && (/^#\/?tools\/.+/i).test(window.location.hash);
+    if (!isToolsSubroute) {
+        updateUrl(wantTunings ? 'tunings' : initialView.toLowerCase(), null, false);
+    }
 
     let page = document.getElementById('libraryPage');
     if (!page) {
@@ -874,7 +877,10 @@ async function switchView(view, pushHistory = true) {
     }
     activeView = view;
     activeLibraryPane = 'list';
-    updateUrl(view.toLowerCase());
+    const isToolsSubroute = view === 'tools' && typeof window !== 'undefined' && (/^#\/?tools\/.+/i).test(window.location.hash);
+    if (pushHistory && !isToolsSubroute) {
+        updateUrl(view.toLowerCase());
+    }
     await renderLibraryModal();
 }
 

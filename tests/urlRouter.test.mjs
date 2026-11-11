@@ -153,4 +153,38 @@ window.location.hash = '';
 window.location.search = '?view=tools&tab=scales';
 assert.deepEqual(getRouteFromUrl(), { main: 'tools', sub: 'scales' });
 
+// 4. Consecutive updateUrl calls without delay (should not drop updates)
+updateUrl('tools', 'chords');
+updateUrl('tools', 'classtab');
+assert.equal(window.location.hash, '#tools/classtab', 'Rapid updateUrl("tools", "classtab") should not be dropped by previous update');
+
+// 5. Embedded tool closing should not overwrite subroute
+const { closeReferenceModal } = await import('../src/referenceLibrary.js');
+const refModal = document.getElementById('referenceModal');
+refModal.style.display = 'flex';
+refModal.classList.contains = (c) => c === 'tool-embedded';
+closeReferenceModal();
+assert.equal(window.location.hash, '#tools/classtab', 'closeReferenceModal on embedded tool should not reset URL to #tools');
+
+// 6. openfile and bulkexport routing transitions
+updateUrl('tools', 'openfile');
+assert.equal(window.location.hash, '#tools/openfile', 'updateUrl("tools", "openfile") should set #tools/openfile');
+updateUrl('tools', 'classtab');
+assert.equal(window.location.hash, '#tools/classtab', 'Switching from openfile to classtab should set #tools/classtab');
+
+updateUrl('tools', 'bulkexport');
+assert.equal(window.location.hash, '#tools/bulkexport', 'updateUrl("tools", "bulkexport") should set #tools/bulkexport');
+updateUrl('tools', 'classtab');
+assert.equal(window.location.hash, '#tools/classtab', 'Switching from bulkexport to classtab should set #tools/classtab');
+
+// 7. openLibraryModal with tools view when hash is already a subroute should not clobber to #tools
+const { openLibraryModal } = await import('../src/libraryModal.js');
+window.location.hash = '#tools/openfile';
+try { await openLibraryModal('tools'); } catch (_) {}
+assert.equal(window.location.hash, '#tools/openfile', 'openLibraryModal("tools") should not clobber #tools/openfile to #tools');
+
+window.location.hash = '#tools/bulkexport';
+try { await openLibraryModal('tools'); } catch (_) {}
+assert.equal(window.location.hash, '#tools/bulkexport', 'openLibraryModal("tools") should not clobber #tools/bulkexport to #tools');
+
 console.log('✓ All urlRouter tests passed successfully!');
