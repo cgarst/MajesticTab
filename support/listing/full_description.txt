@@ -1,4 +1,4 @@
-MajesticTab is a free, open source guitar tab reader and practice app. It opens Guitar Pro files (.gp, .gp3, .gp4, .gp5, .gpx), PDFs and text tabs, keeps them in a library built around the songs you play, and works offline. No ads, no account, no subscription and no in-app purchases.
+MajesticTab is a guitar tab reader and practice app. It opens Guitar Pro files (.gp, .gp3, .gp4, .gp5, .gpx), PDFs and text tabs, keeps them in a library built around the songs you play, and works offline. No ads, no account, no subscription and no in-app purchases.
 
 A library, not a folder of files
 • Link your tabs to the songs you play. Artist discographies, album covers, release years and track orders are filled in for you.

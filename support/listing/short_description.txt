@@ -1,1 +1,1 @@
-Free guitar tab library and reader for Guitar Pro, PDF and text tabs
+Guitar tab library and reader for Guitar Pro, PDF and text tabs
