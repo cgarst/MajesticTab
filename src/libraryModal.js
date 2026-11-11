@@ -4850,7 +4850,10 @@ function renderToolsView(container) {
         const capo = parseInt(stored('majestictab_capo'), 10);
         if (strings === 7 || strings === 8) parts.push(`${strings} strings`);
         if (capo > 0) parts.push(`Capo ${capo}`);
-        if (Number.isInteger(offset) && offset !== 0) parts.push(`${offset > 0 ? '+' : '\u2212'}${Math.abs(offset)} semitones`);
+        if (Number.isInteger(offset) && offset !== 0) {
+            const count = Math.abs(offset);
+            parts.push(`${offset > 0 ? '+' : '\u2212'}${count} semitone${count === 1 ? '' : 's'}`);
+        }
         return parts.join(' \u00b7 ');
     };
     const tunerReadout = () => {

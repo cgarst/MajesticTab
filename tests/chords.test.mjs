@@ -207,3 +207,26 @@ for (const t of SHAPE_TYPES) {
 const d13 = getShapesForType('13', 6);
 assert.ok(d13.root.length >= 2 && d13.inversions.length >= 1, 'dominant thirteenth has root and inversion shapes');
 console.log('✓ Movable shape catalogue verified (7 families, 42 chord types, incl. dominant thirteenth)');
+
+// 8. Tools nav Chord library readout formatting and CSS resilience
+const formatChordsReadout = (strings, offset, capo) => {
+    const parts = [];
+    if (strings === 7 || strings === 8) parts.push(`${strings} strings`);
+    if (capo > 0) parts.push(`Capo ${capo}`);
+    if (Number.isInteger(offset) && offset !== 0) {
+        const count = Math.abs(offset);
+        parts.push(`${offset > 0 ? '+' : '\u2212'}${count} semitone${count === 1 ? '' : 's'}`);
+    }
+    return parts.join(' \u00b7 ');
+};
+
+assert.equal(formatChordsReadout(6, 0, 0), '');
+assert.equal(formatChordsReadout(7, 1, 2), '7 strings · Capo 2 · +1 semitone');
+assert.equal(formatChordsReadout(8, -2, 0), '8 strings · −2 semitones');
+assert.equal(formatChordsReadout(6, -1, 3), 'Capo 3 · −1 semitone');
+
+const designCss = fs.readFileSync(new URL('../src/design.css', import.meta.url), 'utf8');
+assert.ok(designCss.includes('.tools-shell .setnav button .tool-name { flex: 0 0 auto; max-width: 100%; font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }'), 'tool-name must not wrap or shrink into tool-read');
+assert.ok(designCss.includes('.tools-shell .setnav button .tool-read { flex: 1 1 auto; min-width: 0; color: var(--ink2); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; margin-left: auto; }'), 'tool-read must shrink and truncate cleanly without colliding');
+console.log('✓ Tools nav Chord library readout formatting and CSS verified');
+

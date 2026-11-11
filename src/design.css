@@ -3175,8 +3175,8 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 .tools-shell .setgroup { display: flex; flex-direction: column; gap: 2px; }
 .tools-shell .setgroup + .setgroup { margin-top: 20px; }
 .tools-shell .setnav button { min-height: 56px; padding: 8px 12px 8px 20px; color: var(--ink); }
-.tools-shell .setnav button .tool-name { flex: 1; min-width: 0; font-size: 16px; font-weight: 500; }
-.tools-shell .setnav button .tool-read { flex: 0 1 auto; color: var(--ink2); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tools-shell .setnav button .tool-name { flex: 0 0 auto; max-width: 100%; font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tools-shell .setnav button .tool-read { flex: 1 1 auto; min-width: 0; color: var(--ink2); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; margin-left: auto; }
 .tools-shell .setnav button .tool-read:empty { display: none; }
 .tools-shell .tool-stage-title { display: none; }
 @media (min-width: 900px) {

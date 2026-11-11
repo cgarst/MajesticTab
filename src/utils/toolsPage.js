@@ -153,7 +153,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
       <div class="setwrap" data-pane="list">
         <nav class="setnav" aria-label="Tools">
           ${groupTools(tools).map((g) => `<div class="setgroup" role="group">${g.map((t) => `<button type="button" data-tool="${t.id}" ${t.disabled ? 'disabled aria-disabled="true"' : ''} aria-current="false">
-            <span class="tool-name">${escapeHtml(t.title)}</span><span class="tool-read" data-read="${t.id}">${escapeHtml(t.readout?.() || '')}</span><i class="bi-chevron-right chev" aria-hidden="true"></i></button>`).join('')}</div>`).join('')}
+            <span class="tool-name">${escapeHtml(t.title)}</span><span class="tool-read" data-read="${t.id}" title="${escapeHtml(t.readout?.() || '')}">${escapeHtml(t.readout?.() || '')}</span><i class="bi-chevron-right chev" aria-hidden="true"></i></button>`).join('')}</div>`).join('')}
         </nav>
         <div class="setpage tool-pane">
           <h2 class="tool-stage-title"></h2>
@@ -190,7 +190,10 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
     const refreshReadouts = () => nav.querySelectorAll('[data-read]').forEach((el) => {
         const t = tools.find((x) => x.id === el.dataset.read);
         const text = t?.readout?.() || '';
-        if (el.textContent !== text) el.textContent = text;
+        if (el.textContent !== text) {
+            el.textContent = text;
+            el.title = text;
+        }
     });
     readObservers.forEach((o) => o.disconnect());
     readObservers = [];
