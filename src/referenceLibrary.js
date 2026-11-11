@@ -557,7 +557,7 @@ const rootPitchOf = (name) => (sharpNames.indexOf(name) >= 0 ? sharpNames.indexO
 function collectTypeShapes(typeId) {
     const result = getShapesForType(typeId, stringCount);
     return [
-        ...result.root.flatMap(g => g.shapes.map(sh => ({ sh, note: sh.lighter ? 'Lighter shape' : 'Root position' }))),
+        ...result.root.flatMap(g => g.shapes.map(sh => ({ sh, note: sh.lighter ? 'Lighter shape' : sh.bassString !== undefined ? `Root position · ${sh.bassDegree} in the bass` : 'Root position' }))),
         ...result.inversions.flatMap(g => g.shapes.map(sh => ({ sh, note: `${g.degree} in the bass` }))),
         ...['drop2', 'drop3'].flatMap(k => result.drops[k].map(sh => ({ sh, note: `${k === 'drop2' ? 'Drop 2' : 'Drop 3'} · ${sh.bassDegree} in the bass` })))
     ];

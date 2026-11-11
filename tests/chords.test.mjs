@@ -215,6 +215,32 @@ const d13 = getShapesForType('13', 6);
 assert.ok(d13.root.length >= 2 && d13.inversions.length >= 1, 'dominant thirteenth has root and inversion shapes');
 console.log('✓ Movable shape catalogue verified (7 families, 42 chord types, incl. dominant thirteenth)');
 
+// 7 and 8 string defaults reach one string lower with the fifth in the bass; the plain six-string shape stays as an alternate
+import { analysePlayability } from '../src/utils/chordPlayability.js';
+for (const n of [7, 8]) {
+    let extended = 0;
+    for (const t of SHAPE_TYPES) {
+        for (const g of getShapesForType(t.id, n).root) {
+            assert.equal(g.shapes.filter(sh => sh.isDefault).length <= 1, true, 'one default per root string');
+            for (const sh of g.shapes.filter(x => x.bassString !== undefined)) {
+                extended++;
+                assert.ok(sh.isDefault && g.shapes[0] === sh, 'the extended shape leads its group');
+                assert.equal(sh.labels[sh.bassString], sh.bassDegree, 'the added note is labelled');
+                assert.ok(['5', '♭5', '♯5'].includes(sh.bassDegree), 'the added bass note is the fifth');
+                assert.equal(sh.labels[sh.bassString + 1], 'R', 'the root sits directly above the added fifth');
+                assert.equal(sh.offsets[sh.rootString] !== null, true, 'the root string is still played');
+                assert.ok(analysePlayability(sh.offsets.map(o => (o === null ? 'x' : String(o + 1)))).ok, `${t.id} ${sh.frets} is playable`);
+                assert.ok(g.shapes.some(x => !x.isDefault && x.offsets.every((o, i) => i === sh.bassString ? o === null : o === sh.offsets[i])), 'the plain six-string shape stays as an alternate');
+            }
+        }
+    }
+    assert.ok(extended > 70, `${n} strings: most defaults reach the extra string (${extended})`);
+}
+const major7 = getShapesForType('major', 7).root.find(g => g.string === 1).shapes;
+assert.equal(major7[0].frets, '1 1 3 3 2 1 1', 'major on the E string: the barre runs onto the 7th string');
+assert.ok(major7.some(sh => sh.frets === 'x 1 3 3 2 1 1'), 'the plain 133211 stays as an alternate');
+assert.equal(getShapesForType('major', 6).root[0].shapes[0].frets, 'x 1 3 3 2 1 1'.replace('x ', ''), 'six strings are unchanged');
+
 // 8. Tools nav Chord library readout formatting and CSS resilience
 const formatChordsReadout = (strings, offset, capo) => {
     const parts = [];

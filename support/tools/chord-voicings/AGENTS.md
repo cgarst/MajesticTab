@@ -2,7 +2,7 @@
 
 Read before changing chord data or the rules.
 
-The chord library data is `chordData` in `src/referenceLibrary.js` (6 strings) and `chordData7` / `chordData8` in `src/extendedRangeChords.js`. Every change to it, by hand or generated, must pass `node support/tools/chord-voicings/check.mjs`. `node support/tools/chord-voicings/repair.mjs [--apply]` finds failing rows and searches for the closest valid, playable replacement. The rules live in `support/tools/chord-voicings/` (`rules.mjs` for the notes, `playability.mjs` for the hand); change a rule there, not just in the data, and keep `check.mjs`'s well-known shapes passing.
+The chord library data is `chordData` in `src/referenceLibrary.js` (6 strings) and `chordData7` / `chordData8` in `src/extendedRangeChords.js`. Every change to it, by hand or generated, must pass `node support/tools/chord-voicings/check.mjs`. `node support/tools/chord-voicings/repair.mjs [--apply]` finds failing rows and searches for the closest valid, playable replacement. The rules live in `support/tools/chord-voicings/` (`rules.mjs` for the notes) and `src/utils/chordPlayability.js` (the hand; the movable shape generator uses it at runtime, and `playability.mjs` here re-exports it); change a rule there, not just in the data, and keep `check.mjs`'s well-known shapes passing.
 
 **Data format**
 

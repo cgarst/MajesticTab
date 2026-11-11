@@ -11,10 +11,13 @@
 // teaches rather than every shape that is mathematically possible.
 //
 // The first shape of each root string is the standard default from chordShapeDefaults.js (see its header for the
-// source), so the familiar barre shapes lead; the generated voicings follow as alternates.
+// source), so the familiar barre shapes lead; the generated voicings follow as alternates. On 7 and 8 string guitars
+// the default also reaches one string lower with the fifth in the bass when that fits (see extendLow); the plain
+// six-string shape stays as an alternate.
 
 import { TUNINGS_MIDI } from './chordEngine.js';
 import { DEFAULT_SHAPES } from './chordShapeDefaults.js';
+import { analysePlayability } from './chordPlayability.js';
 
 const SEMI = {
     'R': 0, '♭9': 1, '♭2': 1, '2': 2, '9': 2, '♯9': 3, '♭3': 3, '3': 4, '4': 5, '11': 5, '♯11': 6, '♭5': 6,
@@ -216,6 +219,44 @@ function generateForType(type, stringCount) {
             kept.push(list[0]);
         }
     }
+    // 7 and 8 string guitars: the six-string default with its lowest note's string neighbour added below it. The
+    // string under the lowest note is a fourth lower, so fretted at the shape's lowest fret it sounds the fifth of
+    // the chord an octave under the fifth above (the barre simply runs one string lower, and the library's bass
+    // rule allows the fifth with the root directly above it). It is added only when that note is a chord tone and
+    // the shape is still playable (chordPlayability.js); otherwise the shape keeps the extra strings muted. Only the one string
+    // is used: the next one down would sound the ninth, and a deeper bass would repeat another root string's shape.
+    const fifth = type.tones.find(d => d === '5' || d === '♭5' || d === '♯5');
+    function extendLow(def, rel, w, lo) {
+        if (!fifth || lo < 1) return null;
+        const played = def.notes;
+        const atLow = rel.filter(o => o === 0).length;
+        const top = Math.max(...rel.filter(o => o !== null));
+        let pick = -1;
+        for (let o = 0; o <= top && pick < 0; o++) {
+            if ((tuning[lo - 1] + w + o) % 12 !== SEMI[fifth]) continue;
+            const trial = [...rel];
+            trial[lo - 1] = o;
+            if (analysePlayability(trial.map(v => (v === null ? 'x' : String(v + 1)))).ok) pick = o;
+        }
+        if (pick < 0) return null;
+        const offsets = [...rel];
+        offsets[lo - 1] = pick;
+        const labels = [...def.labels];
+        labels[lo - 1] = fifth;
+        return {
+            ...def,
+            id: `${type.id}|${offsets.map(v => (v === null ? 'x' : v)).join(',')}`,
+            offsets,
+            labels,
+            frets: offsets.map(v => (v === null ? 'x' : String(v + 1))).join(' '),
+            notes: played + 1,
+            tones: new Set(labels.filter(Boolean)).size,
+            barreChord: atLow + (pick === 0 ? 1 : 0) > 1 ? 1 : 0,
+            bassString: lo - 1,
+            bassDegree: fifth,
+            isDefault: true
+        };
+    }
     // The standard default for each root string leads its group, whether or not the generator found it.
     const shift = n - 6; // 7 and 8 string guitars keep the six standard strings on top
     const defaults = DEFAULT_SHAPES[type.id] || {};
@@ -241,9 +282,13 @@ function generateForType(type, stringCount) {
             notes: played.length, tones: semis.size, span: Math.max(...played.map(i => rel[i])) + 1,
             barreChord: atLow > 1 ? 1 : 0, isMoveable: true, isDefault: true
         };
-        const dup = kept.findIndex(k => k.id === def.id);
-        if (dup >= 0) kept.splice(dup, 1);
-        kept.push(def);
+        let wide = n > 6 ? extendLow(def, rel, w, lo) : null;
+        if (wide && kept.some(k => k.isDefault && k.id === wide.id)) wide = null; // a symmetric chord can land on another root string's default
+        for (const sh of wide ? [wide, { ...def, isDefault: false }] : [def]) {
+            const dup = kept.findIndex(k => k.id === sh.id);
+            if (dup >= 0) kept.splice(dup, 1);
+            kept.push(sh);
+        }
     }
     kept.sort((a, b) => a.lowString - b.lowString || !!b.isDefault - !!a.isDefault || !!a.lighter - !!b.lighter || a.notes - b.notes || a.span - b.span);
     return kept;
