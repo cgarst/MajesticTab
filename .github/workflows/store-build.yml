@@ -50,7 +50,7 @@ env:
 
 jobs:
   build:
-    runs-on: ${{ fromJSON('{"play":"ubuntu-latest","fdroid":"ubuntu-latest","appstore-ios":"macos-26","appstore-mac":"macos-26","msstore":"windows-latest"}')[inputs.channel] }}
+    runs-on: ${{ fromJSON('{"play":"ubuntu-latest","fdroid":"ubuntu-latest","appstore-ios":"xcode-27","appstore-mac":"xcode-27","msstore":"windows-latest"}')[inputs.channel] }}
     env:
       TARGET: ${{ fromJSON('{"play":"android","fdroid":"android","appstore-ios":"ios","appstore-mac":"macos","msstore":"windows"}')[inputs.channel] }}
     steps:
@@ -90,15 +90,10 @@ jobs:
           test -n "$ANDROID_KEYSTORE_B64" || { echo "::error::Missing ANDROID_KEYSTORE_B64 secret"; exit 1; }
           echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-      # The iOS plugins use iOS 27 SDK APIs (hinge and fold geometry), so the build needs Xcode 27.
-      - name: Select Xcode 27
-        if: inputs.channel == 'appstore-ios'
-        run: |
-          ls -d /Applications/Xcode*.app
-          xcode=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -n1)
-          test -n "$xcode" || { echo "::error::No Xcode 27 on this runner image (see the list above)"; exit 1; }
-          sudo xcode-select -s "$xcode"
-          xcodebuild -version
+      # The iOS plugins use iOS 27 SDK APIs (hinge and fold geometry), so the build needs Xcode 27; the xcode-27 runner has it.
+      - name: Show Xcode
+        if: inputs.channel == 'appstore-ios' || inputs.channel == 'appstore-mac'
+        run: xcodebuild -version
       - name: Install iOS build tools
         if: inputs.channel == 'appstore-ios'
         run: brew install xcodegen
