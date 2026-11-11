@@ -2276,6 +2276,7 @@ export function libraryEmptyStateHtml({ icon, title, message, actionsHtml = '' }
 
 // Welcomes and handholds new users when the library / collection is empty
 export function libraryEmptyWelcomeHtml({ title, subtitle }) {
+    const searchLabel = isNative() ? 'Search the catalog and web' : 'Search the catalog';
     return `
     <div class="empty-welcome-container" role="region" aria-label="Welcome and getting started">
       <div class="empty-welcome-hero">
@@ -2283,7 +2284,7 @@ export function libraryEmptyWelcomeHtml({ title, subtitle }) {
         <p class="empty-welcome-sub">${subtitle}</p>
         <div class="empty-welcome-cta-group">
           <button type="button" class="btn btn-theme-primary empty-primary-btn" id="emptyStateSearchBtn">
-            <i class="bi-search me-2" aria-hidden="true"></i>Search the catalog and web
+            <i class="bi-search me-2" aria-hidden="true"></i>${searchLabel}
           </button>
         </div>
       </div>
@@ -2873,9 +2874,10 @@ function setupLibraryFilter(container, context = {}) {
             statusSlot.style.display = 'none';
         }
 
+        const sectionTitle = isNative() ? 'From the music catalog and web' : 'From the music catalog';
         let html = `
         <div class="search-stream-section">
-          <div class="search-stream-section-title">From the music catalog and web</div>
+          <div class="search-stream-section-title">${sectionTitle}</div>
           <div class="search-stream-list">
         `;
 

@@ -67,7 +67,8 @@ const {
     isWebCtaCollapsed,
     setWebCtaCollapsed,
     toggleWebCtaCollapse,
-    syncWebCtaCollapseState
+    syncWebCtaCollapseState,
+    libraryEmptyWelcomeHtml
 } = await import('../src/libraryModal.js');
 
 test('webCtaBanner description uses "web tab search with ad blocking" instead of "ad-free tab search"', () => {
@@ -143,6 +144,23 @@ test('toggleWebCtaCollapse toggles DOM classes, aria attributes, and storage', (
     assert.strictEqual(classes.has('is-collapsed'), false);
     assert.strictEqual(toggleBtn.textContent, 'Collapse');
     assert.strictEqual(attrs['aria-expanded'], 'true');
+});
+
+test('libraryEmptyWelcomeHtml says "Search the catalog" in web app and "Search the catalog and web" in native app', () => {
+    // Web app environment (no Tauri or native downloader bridge)
+    delete globalThis.window.__TAURI__;
+    delete globalThis.window.MajesticDownloaderNative;
+
+    const webHtml = libraryEmptyWelcomeHtml({ title: 'Welcome', subtitle: 'Start playing' });
+    assert.match(webHtml, /Search the catalog/);
+    assert.doesNotMatch(webHtml, /Search the catalog and web/);
+
+    // Native app environment
+    globalThis.window.__TAURI__ = {};
+    const nativeHtml = libraryEmptyWelcomeHtml({ title: 'Welcome', subtitle: 'Start playing' });
+    assert.match(nativeHtml, /Search the catalog and web/);
+
+    delete globalThis.window.__TAURI__;
 
     setTimeout(() => process.exit(0), 20);
 });
