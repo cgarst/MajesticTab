@@ -860,9 +860,8 @@ export async function renderLibraryModal() {
         page.appendChild(content);
     }
 
-    syncWebCtaBanner(page);
-
     await renderView();
+    syncWebCtaBanner(page);
 }
 
 export async function switchLibraryView(view, pushHistory = true) {
@@ -903,6 +902,7 @@ async function renderView() {
     try {
         await renderViewContent(content);
         syncNativeSearch();
+        syncWebCtaBanner();
     } finally {
         if (savedScroll) content.scrollTop = savedScroll;
     }
@@ -2201,24 +2201,35 @@ export function syncWebCtaBanner(page = document.getElementById('libraryPage')) 
         return;
     }
     let banner = document.getElementById('webCtaBanner');
-    const content = document.getElementById('libraryModalContent');
     if (!banner) {
         const temp = document.createElement('div');
         temp.innerHTML = webCtaBannerHtml();
         banner = temp.firstElementChild;
         if (!banner) return;
-        if (content && content.parentNode === page) {
-            page.insertBefore(banner, content);
-        } else {
-            page.prepend(banner);
-        }
         banner.querySelector('#webCtaDismissBtn')?.addEventListener('click', () => {
             banner.classList.add('is-dismissing');
             dismissWebCta();
             setTimeout(() => banner.remove(), 250);
         });
-    } else if (content && content.parentNode === page && banner.nextElementSibling !== content) {
-        page.insertBefore(banner, content);
+    }
+
+    if (banner.classList.contains('is-dismissing')) return;
+
+    // Confine CTA banner to the detail stage on two-menu / split views
+    const setPage = page.querySelector('.setshell .setpage');
+    if (setPage) {
+        if (banner.parentElement !== setPage || banner !== setPage.firstElementChild) {
+            setPage.prepend(banner);
+        }
+    } else {
+        const content = document.getElementById('libraryModalContent');
+        if (content && content.parentNode === page) {
+            if (banner.parentElement !== page || banner.nextElementSibling !== content) {
+                page.insertBefore(banner, content);
+            }
+        } else if (banner.parentElement !== page || banner !== page.firstElementChild) {
+            page.prepend(banner);
+        }
     }
 }
 
