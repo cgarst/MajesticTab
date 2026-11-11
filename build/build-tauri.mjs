@@ -295,8 +295,12 @@ if (target === 'android') {
   }
 }
 
+// App Store Connect wants a new CFBundleVersion for every upload of the same version. It is the version unless IOS_BUILD_NUMBER
+// (a plain integer such as 2, raised for each upload of this version) says otherwise.
+const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() || appVersion;
+
 async function readVersioned(file) {
-  return (await readFile(file, 'utf8')).replaceAll('__APP_VERSION__', appVersion);
+  return (await readFile(file, 'utf8')).replaceAll('__APP_VERSION__', appVersion).replaceAll('__BUILD_NUMBER__', iosBuildNumber);
 }
 
 async function ensureCrateTypeForTarget(currentTarget) {
@@ -595,7 +599,9 @@ if (target === 'android') {
   if (debugTools) {
     buildArgs.push('--debug');
   }
-  if (process.env.IOS_SIGNING_IDENTITY) {
+  // IOS_EXPORT_METHOD=app-store-connect gives the .ipa that fastlane's `ios beta` lane uploads. It signs with Xcode's automatic signing
+  // for the team in APPLE_DEVELOPMENT_TEAM (an Apple Distribution certificate and the App Store profile are made on demand).
+  if (process.env.IOS_SIGNING_IDENTITY || process.env.IOS_EXPORT_METHOD) {
     buildArgs.push('--export-method', process.env.IOS_EXPORT_METHOD || 'debugging');
   } else {
     buildArgs.push('--no-sign');
@@ -724,6 +730,28 @@ if (target === 'android') {
   if (macosAppStore) {
     // Sandbox entitlements. The identity comes from APPLE_SIGNING_IDENTITY (an Apple Distribution certificate).
     buildArgs.push('--config', path.join(tauriDir, 'src-tauri', 'tauri.macos.appstore.conf.json'));
+    // The Mac App Store also needs the app's identifier and team in its entitlements, and the provisioning profile inside the
+    // bundle. Both come from the environment (APPLE_TEAM_ID, MACOS_PROVISIONING_PROFILE), never from the repo.
+    const teamId = (process.env.APPLE_TEAM_ID ?? '').trim();
+    const profile = (process.env.MACOS_PROVISIONING_PROFILE ?? '').trim();
+    if (teamId || profile) {
+      const macOS = {};
+      if (teamId) {
+        const base = await readFile(path.join(tauriDir, 'src-tauri', 'Entitlements.appstore.plist'), 'utf8');
+        const extra = `\t<key>com.apple.application-identifier</key>\n\t<string>${teamId}.net.zathu.majestictab</string>\n\t<key>com.apple.developer.team-identifier</key>\n\t<string>${teamId}</string>\n`;
+        const generated = path.join(tauriDir, 'target', 'Entitlements.appstore.generated.plist');
+        await mkdir(path.dirname(generated), { recursive: true });
+        await writeFile(generated, base.replace('</dict>', `${extra}</dict>`));
+        macOS.entitlements = generated;
+      }
+      if (profile) {
+        if (!(await stat(profile).catch(() => null))) fail(`MACOS_PROVISIONING_PROFILE does not exist: ${profile}`);
+        macOS.files = { 'embedded.provisionprofile': path.resolve(profile) };
+      }
+      const appstoreEnv = path.join(tauriDir, 'target', 'appstore-mac-config.json');
+      await writeFile(appstoreEnv, JSON.stringify({ bundle: { macOS } }));
+      buildArgs.push('--config', appstoreEnv);
+    }
   }
   if (debugTools) buildArgs.push('--features', 'debug-tools');
   if (macosX64) buildArgs.push('--target', 'x86_64-apple-darwin');
@@ -738,6 +766,14 @@ if (target === 'android') {
     await rm(path.join(distDir, 'MajesticTab-appstore.app'), { recursive: true, force: true });
     await mkdir(distDir, { recursive: true });
     await cp(path.join(bundleRoot, 'macos', 'MajesticTab.app'), path.join(distDir, 'MajesticTab-appstore.app'), { recursive: true });
+    // The Mac App Store takes a signed installer package, not the .app. MACOS_INSTALLER_IDENTITY is the "3rd Party Mac Developer
+    // Installer" (Mac Installer Distribution) certificate's name.
+    const installerIdentity = (process.env.MACOS_INSTALLER_IDENTITY ?? '').trim();
+    if (installerIdentity) {
+      const pkg = path.join(distDir, 'MajesticTab-appstore.pkg');
+      await rm(pkg, { force: true });
+      run('productbuild', ['--component', path.join(distDir, 'MajesticTab-appstore.app'), '/Applications', '--sign', installerIdentity, pkg]);
+    }
   } else {
     await copyBundleArtifacts(path.join(bundleRoot, target === 'macos' ? 'dmg' : 'nsis'), target === 'macos' ? '.dmg' : '.exe');
   }

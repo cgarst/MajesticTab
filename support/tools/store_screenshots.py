@@ -446,6 +446,16 @@ def device_layout(kind, a, avail_w, avail_h):
         def build(sw):
             sh = sw / a
             return dict(sw=sw, sh=sh, bz=(0.05 * sh,) * 4, rim=0.006 * sh, sr=0.03 * sh, extra=0)
+    elif kind == "ipad":  # an iPad Pro: a thin even bezel (about 3% of the short side), whatever the orientation
+        def build(sw):
+            sh = sw / a
+            short = min(sw, sh)
+            return dict(sw=sw, sh=sh, bz=(0.03 * short,) * 4, rim=0.005 * short, sr=0.04 * short, extra=0)
+    elif kind == "foldable":  # iPhone Duo's inner display: a thin even bezel, no camera or island, a phone's rounded corners
+        def build(sw):
+            sh = sw / a
+            short = min(sw, sh)
+            return dict(sw=sw, sh=sh, bz=(0.012 * short,) * 4, rim=0.004 * short, sr=0.05 * short, extra=0)
     elif kind == "laptop":
         def build(sw):
             sh = sw / a
@@ -498,6 +508,10 @@ def device_html(kind, d, x, y, data_uri):
         for ky, kh in ((0.17, 0.04), (0.24, 0.07), (0.33, 0.07)):
             p.append(_box(bx - 0.8 * kw, y + ky * bh, kw, kh * bh, RIM, f"{kw / 2:.1f}px"))
         p.append(_box(bx + bw - 0.2 * kw, y + 0.27 * bh, kw, 0.11 * bh, RIM, f"{kw / 2:.1f}px"))
+    elif kind == "ipad":  # the front camera sits on the long edge, so only a landscape iPad shows it
+        if sw > sh:
+            c = 0.012 * sh
+            p.append(_box(sx + (sw - c) / 2, y + rim + bt / 2 - c / 2, c, c, RIM, "50%"))
     elif kind == "tablet":  # front camera in the bezel
         c = 0.016 * sh
         p.append(_box(sx + (sw - c) / 2, y + rim + bt / 2 - c / 2, c, c, RIM, "50%"))

@@ -34,3 +34,4 @@ __pycache__/
 .claude/
 /build/tauri/frontend-dist-*/
 /build/tauri/.frontend-dist-*.lock
+/support/store/appstore-*/raw/
