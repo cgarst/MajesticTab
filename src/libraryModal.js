@@ -850,9 +850,13 @@ export async function renderLibraryModal() {
     // Ensure content container is present
     let content = document.getElementById('libraryModalContent');
     if (!content) {
-        page.innerHTML = `<div class="library-page-body" id="libraryModalContent"></div>`;
-        content = document.getElementById('libraryModalContent');
+        content = document.createElement('div');
+        content.className = 'library-page-body';
+        content.id = 'libraryModalContent';
+        page.appendChild(content);
     }
+
+    syncWebCtaBanner(page);
 
     await renderView();
 }
@@ -1018,8 +1022,7 @@ async function renderLibraryBrowseView(container) {
             ? 'Play, practice, and sync guitar tabs.'
             : 'Add your favorite songs and albums to this collection, or link existing files from your device.';
 
-        const ctaHtml = webCtaBannerHtml();
-        container.innerHTML = headerHtml + ctaHtml + libraryListToolbarHtml({ leftHtml: collectionSelectHtml }) + `
+        container.innerHTML = headerHtml + libraryListToolbarHtml({ leftHtml: collectionSelectHtml }) + `
           <div id="libBrowseContent">
             ${libraryEmptyWelcomeHtml({ title: welcomeTitle, subtitle: welcomeSubtitle })}
           </div>
@@ -1745,9 +1748,8 @@ async function renderLibraryBrowseView(container) {
         }
     }
 
-    const ctaHtml = (!selectedArtist && !selectedAlbum && !inTunings) ? webCtaBannerHtml() : '';
     if (!toolbarHtml) toolbarHtml = libraryListToolbarHtml({ leftHtml: collectionSelectHtml, actionsHtml: toolbarActionsHtml });
-    container.innerHTML = headerHtml + ctaHtml + toolbarHtml + `
+    container.innerHTML = headerHtml + toolbarHtml + `
       <div id="libBrowseContent">${bodyHtml}</div>
       <div id="libFilteredSearchResults" style="display: none;"></div>
     </div>
@@ -2190,6 +2192,34 @@ export function webCtaBannerHtml() {
         <button type="button" class="web-cta-dismiss-btn" id="webCtaDismissBtn" aria-label="Dismiss banner">Dismiss</button>
       </div>
     </section>`;
+}
+
+export function syncWebCtaBanner(page = document.getElementById('libraryPage')) {
+    if (!page) return;
+    if ((typeof window !== 'undefined' && window.__TAURI__) || isWebCtaDismissed()) {
+        document.getElementById('webCtaBanner')?.remove();
+        return;
+    }
+    let banner = document.getElementById('webCtaBanner');
+    const content = document.getElementById('libraryModalContent');
+    if (!banner) {
+        const temp = document.createElement('div');
+        temp.innerHTML = webCtaBannerHtml();
+        banner = temp.firstElementChild;
+        if (!banner) return;
+        if (content && content.parentNode === page) {
+            page.insertBefore(banner, content);
+        } else {
+            page.prepend(banner);
+        }
+        banner.querySelector('#webCtaDismissBtn')?.addEventListener('click', () => {
+            banner.classList.add('is-dismissing');
+            dismissWebCta();
+            setTimeout(() => banner.remove(), 250);
+        });
+    } else if (content && content.parentNode === page && banner.nextElementSibling !== content) {
+        page.insertBefore(banner, content);
+    }
 }
 
 // Centered page title for library pages that are not a switcher tab (Open File, Add Music)
