@@ -3,7 +3,7 @@
 // element ids, so the modules that bind to them work unchanged. This file adds:
 //   - open / close / placement of the menu
 //   - a live Jam session pill and a status dot on the Tools button
-//   - keyboard shortcut handling for the Tuner (T key)
+//   - keyboard shortcuts for Tuner (T), Chord library (C), Scales (S), and Circle of fifths (O)
 // The playback dock is always on, and there is no pinned tool: the bar has fixed labelled buttons.
 
 import { updateGlobalAudioControls } from './navigationUtils.js';
@@ -135,23 +135,52 @@ export function initToolsMenu() {
         });
     });
 
-    // ---- Keyboard shortcuts (T: Tuner) ---------------
+    // ---- Keyboard shortcuts (T: Tuner, C: Chords, S: Scales, O: Circle) ---------------
 
     const isTypingTarget = (el) => Boolean(el) && (
         (el.tagName === 'INPUT' && !['radio', 'checkbox', 'button', 'submit', 'range'].includes(el.type)) ||
         el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable
     );
 
+    const REF_KEY_MAP = { c: 'chords', s: 'scales', o: 'circle' };
+
     // Pressing the key again closes the tool; any other open modal blocks it
     window.addEventListener('keydown', async (e) => {
         if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || isTypingTarget(document.activeElement)) return;
         const key = e.key.toLowerCase();
-        if (key !== 't') return;
-        if ($('metronomeModal') && $('metronomeModal').style.display !== 'none') return; // T taps the tempo there
-        e.preventDefault();
-        const tunerOpen = $('tunerToggleBtn')?.classList.contains('active');
-        if (tunerOpen) (await import('../tuner/tuner.js')).closeTunerModal();
-        else if (!document.body.classList.contains('modal-open')) $('tunerToggleBtn')?.click();
+
+        if (key === 't') {
+            if ($('metronomeModal') && $('metronomeModal').style.display !== 'none') return; // T taps the tempo there
+            e.preventDefault();
+            if (isOpen()) closeMenu();
+            const tunerOpen = $('tunerToggleBtn')?.classList.contains('active');
+            if (tunerOpen) (await import('../tuner/tuner.js')).closeTunerModal();
+            else if (!document.body.classList.contains('modal-open')) $('tunerToggleBtn')?.click();
+            return;
+        }
+
+        if (key in REF_KEY_MAP) {
+            const targetTab = REF_KEY_MAP[key];
+            const ref = await import('../referenceLibrary.js');
+            if (ref.isReferenceOpen()) {
+                e.preventDefault();
+                if (isOpen()) closeMenu();
+                if (ref.getActiveReferenceTab() === targetTab) {
+                    ref.closeReferenceModal();
+                } else {
+                    ref.openReferenceModal(targetTab);
+                }
+                return;
+            }
+            const modalOpen = document.body.classList.contains('modal-open');
+            const tunerOpen = $('tunerToggleBtn')?.classList.contains('active');
+            const metroOpen = $('metronomeModal') && $('metronomeModal').style.display !== 'none';
+            if (!modalOpen && !tunerOpen && !metroOpen) {
+                e.preventDefault();
+                if (isOpen()) closeMenu();
+                ref.openReferenceModal(targetTab);
+            }
+        }
     });
 
     forward('jamLiveBtn', 'jamToggleBtn');

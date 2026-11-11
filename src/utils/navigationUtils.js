@@ -363,8 +363,8 @@ export function setupKeyboardNavigation(getConfig) {
             return;
         }
 
-        // C key toggles the count-in
-        if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey && isSynthAvailable()) {
+        // I key toggles the count-in
+        if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.defaultPrevented && isSynthAvailable()) {
             e.preventDefault();
             toggleCountIn();
             return;
