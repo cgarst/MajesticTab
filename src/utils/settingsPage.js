@@ -498,6 +498,13 @@ export function initSettingsPage() {
 
     // About
     const abt = [];
+    if (typeof window !== 'undefined' && !window.__TAURI__) {
+        const dlBtn = el('a', 'btn btn-sm btn-theme-primary', 'Download');
+        dlBtn.href = 'https://majestictab.zathu.net/#download';
+        dlBtn.target = '_blank';
+        dlBtn.rel = 'noopener noreferrer';
+        abt.push(row('Desktop & mobile apps', 'Permanent offline storage, local Jam hosting, and built-in tab search with ad-blocking.', dlBtn));
+    }
     if (aboutBtn) { aboutBtn.className = 'btn btn-sm btn-theme-outline'; aboutBtn.innerHTML = 'About MajesticTab'; abt.push(row('About', 'Credits and licences.', aboutBtn)); }
     if (privacy) { privacy.className = 'btn btn-sm btn-theme-outline'; privacy.textContent = 'Read'; abt.push(row('Privacy policy', 'What stays on your device.', privacy)); }
     if (support) { support.className = 'btn btn-sm btn-theme-outline'; support.textContent = 'Report'; abt.push(row('Support', 'Report a problem or ask for a feature.', support)); }

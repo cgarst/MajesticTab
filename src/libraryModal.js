@@ -1018,7 +1018,8 @@ async function renderLibraryBrowseView(container) {
             ? 'Play, practice, and sync guitar tabs.'
             : 'Add your favorite songs and albums to this collection, or link existing files from your device.';
 
-        container.innerHTML = headerHtml + libraryListToolbarHtml({ leftHtml: collectionSelectHtml }) + `
+        const ctaHtml = webCtaBannerHtml();
+        container.innerHTML = headerHtml + ctaHtml + libraryListToolbarHtml({ leftHtml: collectionSelectHtml }) + `
           <div id="libBrowseContent">
             ${libraryEmptyWelcomeHtml({ title: welcomeTitle, subtitle: welcomeSubtitle })}
           </div>
@@ -1744,8 +1745,9 @@ async function renderLibraryBrowseView(container) {
         }
     }
 
+    const ctaHtml = (!selectedArtist && !selectedAlbum && !inTunings) ? webCtaBannerHtml() : '';
     if (!toolbarHtml) toolbarHtml = libraryListToolbarHtml({ leftHtml: collectionSelectHtml, actionsHtml: toolbarActionsHtml });
-    container.innerHTML = headerHtml + toolbarHtml + `
+    container.innerHTML = headerHtml + ctaHtml + toolbarHtml + `
       <div id="libBrowseContent">${bodyHtml}</div>
       <div id="libFilteredSearchResults" style="display: none;"></div>
     </div>
@@ -2158,6 +2160,38 @@ export function libraryPaneHeadHtml({ backLabel = 'Library', backId = 'paneBackB
     `;
 }
 
+const WEB_CTA_DISMISSED_KEY = 'majestictab_web_cta_dismissed';
+
+export function isWebCtaDismissed() {
+    try {
+        return localStorage.getItem(WEB_CTA_DISMISSED_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
+export function dismissWebCta() {
+    try {
+        localStorage.setItem(WEB_CTA_DISMISSED_KEY, '1');
+    } catch {}
+}
+
+export function webCtaBannerHtml() {
+    if (typeof window !== 'undefined' && window.__TAURI__) return '';
+    if (isWebCtaDismissed()) return '';
+    return `
+    <section class="web-cta-banner" id="webCtaBanner" aria-label="Install MajesticTab">
+      <div class="web-cta-content">
+        <div class="web-cta-title">Browser storage is temporary</div>
+        <div class="web-cta-desc">Tabs and sync points saved in the browser can be cleared by your system when storage is low or browsing data is cleared. Install MajesticTab for permanent offline storage, local Jam hosting, and built-in tab search with ad-blocking.</div>
+      </div>
+      <div class="web-cta-actions">
+        <a href="https://majestictab.zathu.net/#download" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-theme-primary web-cta-btn">Get the app</a>
+        <button type="button" class="web-cta-dismiss-btn" id="webCtaDismissBtn" aria-label="Dismiss banner">Dismiss</button>
+      </div>
+    </section>`;
+}
+
 // Centered page title for library pages that are not a switcher tab (Open File, Add Music)
 export function libraryPageTitleHtml({ icon, title, subtitle = '' }) {
     return `<div class="library-page-title" data-tauri-drag-region>
@@ -2454,6 +2488,16 @@ function bindLibraryToolbarEvents(container) {
     });
 
     container.querySelectorAll('[data-lib-sync]').forEach(b => b.addEventListener('click', () => import('./syncUi.js').then(m => m.openSyncModal())));
+
+    const ctaDismissBtn = container.querySelector('#webCtaDismissBtn');
+    ctaDismissBtn?.addEventListener('click', () => {
+        const banner = container.querySelector('#webCtaBanner');
+        if (banner) {
+            banner.classList.add('is-dismissing');
+            dismissWebCta();
+            setTimeout(() => banner.remove(), 250);
+        }
+    });
 }
 
 // "5 songs", "1 album": count plus its unit, lowercase, plural unless exactly 1
