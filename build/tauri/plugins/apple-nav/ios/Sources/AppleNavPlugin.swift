@@ -170,7 +170,18 @@ class AppleNavPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
             self.fillItems()
             self.selectItem(args.selected ?? 0)
             self.relayout()
-            invoke.resolve(["supported": true, "major": major, "vertical": self.verticalEdge != 0])
+            invoke.resolve([
+                "supported": true,
+                "major": major,
+                "vertical": self.verticalEdge != 0,
+                "w": Double(window.bounds.width),
+                "h": Double(window.bounds.height),
+                "safeR": Double(window.safeAreaInsets.right),
+                "safeL": Double(window.safeAreaInsets.left),
+                "safeT": Double(window.safeAreaInsets.top),
+                "safeB": Double(window.safeAreaInsets.bottom),
+                "edge": self.verticalEdge
+            ])
         }
     }
 

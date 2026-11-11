@@ -602,6 +602,13 @@ if (target === 'android') {
   if (debugTools) {
     buildArgs.push('--debug');
   }
+  // Tauri rewrites CFBundleVersion to the app version after the build unless bundle.iOS.bundleVersion says otherwise.
+  if (appStoreBuildNumber) {
+    const iosBuildConfig = path.join(tauriDir, 'target', 'ios-build-number-config.json');
+    await mkdir(path.dirname(iosBuildConfig), { recursive: true });
+    await writeFile(iosBuildConfig, JSON.stringify({ bundle: { iOS: { bundleVersion: appStoreBuildNumber } } }));
+    buildArgs.push('--config', iosBuildConfig);
+  }
   // IOS_EXPORT_METHOD=app-store-connect gives the .ipa that fastlane's `ios beta` lane uploads. It signs with Xcode's automatic signing
   // for the team in APPLE_DEVELOPMENT_TEAM (an Apple Distribution certificate and the App Store profile are made on demand). CI has no cloud signing, so it sets
   // IOS_CERTIFICATE, IOS_CERTIFICATE_PASSWORD and IOS_MOBILE_PROVISION (base64 .p12 and .mobileprovision), which Tauri installs and signs with.
