@@ -135,6 +135,7 @@ assert.ok(horizMoveableSvg.includes('>R<'), 'Root labeled with R in horizontal')
 const vertCapoSvg = buildChordDiagramSvg(sampleChord, 1, 'vertical', null, 2);
 assert.ok(vertCapoSvg.includes('class="ref-chord-capo-bar"'), 'Capo bar rendered in vertical');
 assert.ok(vertCapoSvg.includes('Capo 2'), 'Capo fret 2 text rendered in vertical');
+assert.ok(vertCapoSvg.includes('text-anchor="end"'), 'Vertical capo text right-aligned to avoid diagram collision');
 
 const horizCapoSvg = buildChordDiagramSvg(sampleChord, 1, 'horizontal', null, 3);
 assert.ok(horizCapoSvg.includes('class="ref-chord-capo-bar"'), 'Capo bar rendered in horizontal');
@@ -143,6 +144,12 @@ assert.ok(horizCapoSvg.includes('Capo 3'), 'Capo fret 3 text rendered in horizon
 const chordObjCapoSvg = buildChordDiagramSvg({ ...sampleChord, capo: 4 }, 1, 'vertical');
 assert.ok(chordObjCapoSvg.includes('class="ref-chord-capo-bar"'), 'Capo bar rendered from chord object');
 assert.ok(chordObjCapoSvg.includes('Capo 4'), 'Capo fret 4 text rendered from chord object');
+
+// Verify capo text has clearance from capo bar (no overlap)
+const capoBarXMatch = vertCapoSvg.match(/class="ref-chord-capo-bar"\s+x="([0-9.]+)"/);
+const capoTextXMatch = vertCapoSvg.match(/class="ref-chord-capo-text"\s+x="([0-9.]+)"/);
+assert.ok(capoBarXMatch && capoTextXMatch, 'Capo bar and text coordinates must be present');
+assert.ok(parseFloat(capoTextXMatch[1]) < parseFloat(capoBarXMatch[1]), 'Capo text end coordinate must be before capo bar x start');
 
 console.log('✓ Diagram rendering verified (Vertical default & Horizontal, including Capo)');
 

@@ -153,10 +153,10 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
 
     if (orientation === 'vertical') {
         // Vertical layout: Nut on top, strings vertical, frets horizontal
-        const startX = (capoFret > 0 && !isLeftHanded) ? 28 : 22;
+        const startX = (capoFret > 0 && !isLeftHanded) ? 42 : 22;
         const stringGap = numStrings > 6 ? 12 : 14;
         const boardWidth = lastString * stringGap;
-        const width = startX + boardWidth + (capoFret > 0 && isLeftHanded ? 28 : 22);
+        const width = startX + boardWidth + (capoFret > 0 && isLeftHanded ? 42 : 22);
         const startY = 22;
         const fretGap = numFrets > 4 ? 16 : 18;
         const boardHeight = numFrets * fretGap;
@@ -191,20 +191,23 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
 
         let svg = `<svg viewBox="0 0 ${width} ${height}" class="ref-chord-diagram-svg ref-chord-diagram-vertical" style="aspect-ratio: ${width} / ${height}" aria-hidden="true">`;
 
-        const badgeX = isLeftHanded ? (startX + boardWidth + (capoFret > 0 ? 14 : 11)) : (capoFret > 0 ? 14 : 11);
+        const capoTextX = isLeftHanded ? (startX + boardWidth + 7) : (startX - 7);
+        const capoAnchor = isLeftHanded ? 'start' : 'end';
+        const fretBadgeX = capoFret > 0 ? capoTextX : (isLeftHanded ? (startX + boardWidth + 11) : (startX - 11));
+        const fretBadgeAnchor = capoFret > 0 ? capoAnchor : 'middle';
 
         // Nut / Capo (horizontal top line)
         if (baseFret === 1) {
             if (capoFret > 0) {
                 svg += `<rect class="ref-chord-capo-bar" x="${startX - 2.5}" y="${startY - 3}" width="${boardWidth + 5}" height="6" rx="3" fill="var(--ink)" fill-opacity="0.85" />`;
-                svg += `<text class="ref-chord-capo-text" x="${badgeX}" y="${startY + 2.8}" fill="var(--ink2)" font-size="8" font-weight="700" text-anchor="middle">Capo ${capoFret}</text>`;
+                svg += `<text class="ref-chord-capo-text" x="${capoTextX}" y="${startY + 2.8}" fill="var(--ink2)" font-size="7.5" font-weight="700" text-anchor="${capoAnchor}">Capo ${capoFret}</text>`;
             } else {
                 svg += `<line x1="${startX}" y1="${startY}" x2="${startX + boardWidth}" y2="${startY}" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/>`;
             }
         } else {
             svg += `<line x1="${startX}" y1="${startY}" x2="${startX + boardWidth}" y2="${startY}" stroke="var(--border-prominent)" stroke-width="1.8" stroke-linecap="round"/>`;
             if (capoFret > 0) {
-                svg += `<text class="ref-chord-capo-text" x="${badgeX}" y="${startY - 5}" fill="var(--ink2)" font-size="7.5" font-weight="700" text-anchor="middle">Capo ${capoFret}</text>`;
+                svg += `<text class="ref-chord-capo-text" x="${capoTextX}" y="${startY - 5}" fill="var(--ink2)" font-size="7.5" font-weight="700" text-anchor="${capoAnchor}">Capo ${capoFret}</text>`;
             }
         }
 
@@ -235,7 +238,7 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
         }
 
         if (baseFret > 1) {
-            svg += `<text x="${badgeX}" y="${startY + 0.5 * fretGap + 3}" fill="var(--ink2)" font-size="8.5" font-weight="bold" text-anchor="middle">${baseFret}fr</text>`;
+            svg += `<text x="${fretBadgeX}" y="${startY + 0.5 * fretGap + 3}" fill="var(--ink2)" font-size="8.5" font-weight="bold" text-anchor="${fretBadgeAnchor}">${baseFret}fr</text>`;
         }
 
         svg += buildVerticalBarsSvg();
@@ -280,7 +283,9 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
 
     const fretGap = numFrets > 4 ? 18 : 22;
     const boardWidth = numFrets * fretGap;
-    const width = 30 + boardWidth + 12;
+    const startX = (capoFret > 0 && baseFret > 1 && !isLeftHanded) ? 38 : 30;
+    const rightMargin = (capoFret > 0 && baseFret > 1 && isLeftHanded) ? 38 : 12;
+    const width = startX + boardWidth + rightMargin;
     const fretNumY = startY + lastString * stringGap + 12;
     const height = fretNumY + 6;
 
@@ -297,8 +302,6 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
     let svg = `<svg viewBox="0 0 ${width} ${height}" class="ref-chord-diagram-svg ref-chord-diagram-horizontal" style="aspect-ratio: ${width} / ${height}" aria-hidden="true">`;
 
     if (!isLeftHanded) {
-        const startX = 30;
-
         // Nut / Capo
         if (baseFret === 1) {
             if (capoFret > 0) {
@@ -310,7 +313,7 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
         } else {
             svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + lastString * stringGap}" stroke="var(--border-prominent)" stroke-width="1.8" stroke-linecap="round"/>`;
             if (capoFret > 0) {
-                svg += `<text class="ref-chord-capo-text" x="${startX - 4}" y="8" fill="var(--ink2)" font-size="7.5" font-weight="700" text-anchor="middle">Capo ${capoFret}</text>`;
+                svg += `<text class="ref-chord-capo-text" x="${startX - 6}" y="8" fill="var(--ink2)" font-size="7.5" font-weight="700" text-anchor="end">Capo ${capoFret}</text>`;
             }
         }
 
@@ -379,7 +382,7 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
         }
     } else {
         // Left-handed horizontal
-        const nutX = width - 30;
+        const nutX = width - (capoFret > 0 && baseFret > 1 ? 38 : 30);
 
         // Nut / Capo
         if (baseFret === 1) {
@@ -392,7 +395,7 @@ export function buildChordDiagramSvg(chordOrFrets, explicitStartFret, explicitOr
         } else {
             svg += `<line x1="${nutX}" y1="${startY}" x2="${nutX}" y2="${startY + lastString * stringGap}" stroke="var(--border-prominent)" stroke-width="1.8" stroke-linecap="round"/>`;
             if (capoFret > 0) {
-                svg += `<text class="ref-chord-capo-text" x="${nutX + 4}" y="8" fill="var(--ink2)" font-size="7.5" font-weight="700" text-anchor="middle">Capo ${capoFret}</text>`;
+                svg += `<text class="ref-chord-capo-text" x="${nutX + 6}" y="8" fill="var(--ink2)" font-size="7.5" font-weight="700" text-anchor="start">Capo ${capoFret}</text>`;
             }
         }
 
