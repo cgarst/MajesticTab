@@ -4500,7 +4500,7 @@ body > #controllerHelpModal { display: none; }
     .downloader-sources-btn {
         padding: 4px 6px;
         font-size: 12px;
-        max-width: 72px;
+        max-width: 140px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
