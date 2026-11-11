@@ -147,14 +147,20 @@ class MetronomeController {
     close() {
         this.stop();
         const modal = $('metronomeModal');
+        const wasEmbedded = modal?.classList.contains('tool-embedded');
         if (modal) {
             modal.style.display = 'none';
             modal.setAttribute('aria-hidden', 'true');
         }
         $('metronomeToggleBtn')?.classList.remove('active');
+        if (wasEmbedded) return;
+
         const libPage = $('libraryPage');
         if (libPage && libPage.style.display !== 'none') {
-            import('../libraryModal.js').then((m) => updateUrl(m.getActiveLibraryView?.() || 'library'));
+            import('../libraryModal.js').then((m) => {
+                const view = m.getActiveLibraryView?.() || 'library';
+                if (view !== 'tools') updateUrl(view);
+            });
         } else {
             clearUrl();
         }
@@ -369,12 +375,13 @@ class MetronomeController {
             `<span class="metro-beat${i === 0 ? ' is-downbeat' : ''}" aria-hidden="true"></span>`).join('');
     }
 
-    /** Take one tone step on the pattern row that is playing. */
+    /** When alternating parts exist, mark the playing row with the active-item inlay dot. */
     markPart(part) {
         if (this.shownPart === part) return;
         this.shownPart = part;
+        const multi = this.pattern.length > 1;
         document.querySelectorAll('#metroPattern .metro-row').forEach((row) =>
-            row.classList.toggle('is-current', Number(row.dataset.part) === part));
+            row.classList.toggle('is-current', multi && Number(row.dataset.part) === part));
     }
 
     renderPattern() {
