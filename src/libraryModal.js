@@ -4786,11 +4786,11 @@ function renderToolsView(container) {
     tools.push(
         { id: 'openfile', group: 'gettabs', title: 'Open file' },
         { id: 'classtab', group: 'gettabs', title: 'Classical tab browser', readout: classtabReadout },
-        { id: 'missingtabs', group: 'gettabs', title: 'Fill in missing tabs', readout: missingTabsReadout },
+        ...(isNative() ? [{ id: 'missingtabs', group: 'gettabs', title: 'Fill in missing tabs', readout: missingTabsReadout }] : []),
         { id: 'bulkimport', group: 'library', title: 'Bulk import', readout: bulkImportReadout },
         { id: 'bulkexport', group: 'library', title: 'Bulk export', readout: bulkExportReadout }
     );
-    import('./bulkFill/missingTabsTool.js').then((m) => m.refreshMissingTabsCount()).catch(() => {});
+    if (isNative()) import('./bulkFill/missingTabsTool.js').then((m) => m.refreshMissingTabsCount()).catch(() => {});
     renderToolsPage(container, { tools, escapeHtml });
 }
 
