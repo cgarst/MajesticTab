@@ -2162,41 +2162,70 @@ export function libraryPaneHeadHtml({ backLabel = 'Library', backId = 'paneBackB
     `;
 }
 
-const WEB_CTA_DISMISSED_KEY = 'majestictab_web_cta_dismissed';
+const WEB_CTA_COLLAPSED_KEY = 'majestictab_web_cta_collapsed';
 
-export function isWebCtaDismissed() {
+export function isWebCtaCollapsed() {
     try {
-        return localStorage.getItem(WEB_CTA_DISMISSED_KEY) === '1';
+        return localStorage.getItem(WEB_CTA_COLLAPSED_KEY) === '1';
     } catch {
         return false;
     }
 }
 
-export function dismissWebCta() {
+export function setWebCtaCollapsed(collapsed) {
     try {
-        localStorage.setItem(WEB_CTA_DISMISSED_KEY, '1');
+        localStorage.setItem(WEB_CTA_COLLAPSED_KEY, collapsed ? '1' : '0');
     } catch {}
+}
+
+export function syncWebCtaCollapseState(banner = document.getElementById('webCtaBanner')) {
+    if (!banner) return;
+    const collapsed = isWebCtaCollapsed();
+    banner.classList.toggle('is-collapsed', collapsed);
+    const toggleBtn = banner.querySelector('#webCtaToggleBtn');
+    if (toggleBtn) {
+        toggleBtn.textContent = collapsed ? 'Expand' : 'Collapse';
+        toggleBtn.setAttribute('aria-label', collapsed ? 'Expand banner' : 'Collapse banner');
+        toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+}
+
+export function toggleWebCtaCollapse(banner = document.getElementById('webCtaBanner')) {
+    if (!banner) return;
+    const isNowCollapsed = !banner.classList.contains('is-collapsed');
+    setWebCtaCollapsed(isNowCollapsed);
+    syncWebCtaCollapseState(banner);
+}
+
+function bindWebCtaEvents(banner) {
+    if (!banner || banner.dataset.ctaBound) return;
+    banner.dataset.ctaBound = '1';
+    banner.addEventListener('click', (e) => {
+        if (e.target.closest('#webCtaToggleBtn')) {
+            toggleWebCtaCollapse(banner);
+        }
+    });
 }
 
 export function webCtaBannerHtml() {
     if (typeof window !== 'undefined' && window.__TAURI__) return '';
-    if (isWebCtaDismissed()) return '';
+    const collapsed = isWebCtaCollapsed();
     return `
-    <section class="web-cta-banner" id="webCtaBanner" aria-label="Install MajesticTab">
+    <section class="web-cta-banner${collapsed ? ' is-collapsed' : ''}" id="webCtaBanner" aria-label="Install MajesticTab">
       <div class="web-cta-content">
         <div class="web-cta-title">Browser storage is temporary</div>
-        <div class="web-cta-desc">Tabs and sync points saved in the browser can be cleared by your system when storage is low or browsing data is cleared. Install MajesticTab for permanent offline storage, ad-free tab search, batch album downloading, local Jam hosting, backing track separation, a secure credential store, and iCloud sync for Apple devices.</div>
+        <div class="web-cta-desc">Tabs and sync points saved in the browser can be cleared by your system when storage is low or browsing data is cleared. Install MajesticTab for permanent offline storage, web tab search with ad blocking, batch album downloading, local Jam hosting, backing track separation, a secure credential store, and iCloud sync for Apple devices.</div>
       </div>
       <div class="web-cta-actions">
         <a href="https://majestictab.zathu.net/#download" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-theme-primary web-cta-btn">Get the app</a>
-        <button type="button" class="web-cta-dismiss-btn" id="webCtaDismissBtn" aria-label="Dismiss banner">Dismiss</button>
+        <button type="button" class="web-cta-toggle-btn" id="webCtaToggleBtn" aria-label="${collapsed ? 'Expand banner' : 'Collapse banner'}" aria-expanded="${collapsed ? 'false' : 'true'}">${collapsed ? 'Expand' : 'Collapse'}</button>
       </div>
     </section>`;
 }
 
 export function syncWebCtaBanner(page = document.getElementById('libraryPage')) {
     if (!page) return;
-    if ((typeof window !== 'undefined' && window.__TAURI__) || isWebCtaDismissed()) {
+    if (typeof window !== 'undefined' && window.__TAURI__) {
         document.getElementById('webCtaBanner')?.remove();
         return;
     }
@@ -2206,14 +2235,9 @@ export function syncWebCtaBanner(page = document.getElementById('libraryPage')) 
         temp.innerHTML = webCtaBannerHtml();
         banner = temp.firstElementChild;
         if (!banner) return;
-        banner.querySelector('#webCtaDismissBtn')?.addEventListener('click', () => {
-            banner.classList.add('is-dismissing');
-            dismissWebCta();
-            setTimeout(() => banner.remove(), 250);
-        });
     }
-
-    if (banner.classList.contains('is-dismissing')) return;
+    bindWebCtaEvents(banner);
+    syncWebCtaCollapseState(banner);
 
     // Confine CTA banner to the detail stage on two-menu / split views
     const setPage = page.querySelector('.setshell .setpage');
@@ -2530,16 +2554,6 @@ function bindLibraryToolbarEvents(container) {
     });
 
     container.querySelectorAll('[data-lib-sync]').forEach(b => b.addEventListener('click', () => import('./syncUi.js').then(m => m.openSyncModal())));
-
-    const ctaDismissBtn = container.querySelector('#webCtaDismissBtn');
-    ctaDismissBtn?.addEventListener('click', () => {
-        const banner = container.querySelector('#webCtaBanner');
-        if (banner) {
-            banner.classList.add('is-dismissing');
-            dismissWebCta();
-            setTimeout(() => banner.remove(), 250);
-        }
-    });
 }
 
 // "5 songs", "1 album": count plus its unit, lowercase, plural unless exactly 1
