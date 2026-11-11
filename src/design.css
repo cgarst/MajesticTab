@@ -3221,6 +3221,34 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 .tunings-view .tuning-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 20px 12px; }
 .setlists-view .setlist-add-songs { margin-inline: 20px; }
 .setlists-view .setlist-danger { padding: 24px 20px 12px; }
+.setlist-title-input {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  font: 700 24px/1.2 var(--font-display, inherit);
+  letter-spacing: -0.01em;
+  padding: 4px 8px;
+  margin-left: -8px;
+  border-radius: var(--r-control, 6px);
+  outline: none;
+  box-sizing: border-box;
+  transition: background var(--dur-fast, 150ms) ease, border-color var(--dur-fast, 150ms) ease;
+}
+.setlist-title-input:hover {
+  background: var(--s1);
+}
+.setlist-title-input:focus {
+  background: var(--s1);
+  border-color: var(--border-subtle, rgba(255, 255, 255, 0.12));
+}
+.setlist-title-input::placeholder {
+  color: var(--ink2);
+  opacity: 0.6;
+}
+@media (max-width: 576px) {
+  .setlist-title-input { font-size: 20px; }
+}
 .setlist-card[aria-current="true"],
 .tuning-card[aria-current="true"] { background: var(--s2) !important; position: relative; }
 .setlist-card[aria-current="true"]::before,

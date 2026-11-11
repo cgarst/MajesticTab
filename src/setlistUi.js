@@ -8,7 +8,7 @@ import {
 import { getSongById, getAllSongs, getRecents } from './libraryStore.js';
 import { getPlaceholderCoverSvg, hydrateCachedImages, getSynchronousCachedArtUrl } from './musicbrainz.js';
 import { playSetlist } from './setlistPlayer.js';
-import { openThemedInputModal, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, setlistsEmptyWelcomeHtml, libraryPaneHeadHtml, bindTwoPaneFilter } from './libraryModal.js';
+import { libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, setlistsEmptyWelcomeHtml, libraryPaneHeadHtml, bindTwoPaneFilter } from './libraryModal.js';
 import { getCurrentFile } from './main.js';
 import { visibleTuningsForSong, visibleTuningLabel, isTuningHiddenForSong } from './utils/tuningUtils.js';
 import { showToast } from './utils/toast.js';
@@ -19,6 +19,7 @@ let selectedSetlistId = null;
 let activePane = 'list'; // 'list' | 'songs' (phones show one pane at a time)
 let songSearchQuery = '';
 let keepAddSongsOpen = false; // keep the search block after the first add to an empty setlist
+let focusTitleOnNextRender = false;
 const MAX_SEARCH_RESULTS = 25;
 
 function escapeHtml(str) {
@@ -191,9 +192,11 @@ async function renderSetlistsPage(container, onBack) {
         ${libraryPaneHeadHtml({
             backLabel: 'Setlists',
             backId: 'setlistsBackBtn',
-            countText: summary,
-            title: setlist.name
+            countText: summary
         })}
+        <div class="pane-head-title setlist-head-title">
+          <input type="text" class="setlist-title-input" id="setlistTitleInput" value="${escapeHtml(setlist.name)}" placeholder="Setlist name" aria-label="Setlist name" autocomplete="off" spellcheck="false" maxlength="80">
+        </div>
         <div class="setlist-actions">
           ${setlist.items.length > 0 && !isEditMode ? `<button class="btn btn-sm btn-theme-primary" id="playSetlistBtn" title="Start set from the first song">Start set</button>` : ''}
           <button class="btn btn-sm theme-control-btn" id="renameSetlistBtn" title="Rename setlist">Rename</button>
@@ -252,7 +255,64 @@ async function renderSetlistsPage(container, onBack) {
         keepAddSongsOpen = false;
         rerender();
     });
-    container.querySelector('#renameSetlistBtn')?.addEventListener('click', () => promptRenameSetlist(setlist, rerender));
+    const titleInput = container.querySelector('#setlistTitleInput');
+    if (titleInput) {
+        const commitTitle = async () => {
+            const raw = titleInput.value.trim();
+            const newName = raw || 'Untitled setlist';
+            if (titleInput.value !== newName) {
+                titleInput.value = newName;
+            }
+            if (newName !== setlist.name) {
+                setlist.name = newName;
+                await renameSetlist(setlist.id, newName);
+                const section = container.querySelector('.pane.songs');
+                if (section) section.setAttribute('aria-label', newName);
+                const card = container.querySelector(`.setlist-card[data-setlist-id="${setlist.id}"]`);
+                if (card) {
+                    const h6 = card.querySelector('h6');
+                    if (h6) {
+                        h6.textContent = newName;
+                        h6.title = newName;
+                    }
+                    card.dataset.name = newName.toLowerCase();
+                }
+            }
+        };
+
+        titleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                titleInput.blur();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                titleInput.value = setlist.name;
+                titleInput.blur();
+            }
+        });
+
+        titleInput.addEventListener('blur', () => {
+            commitTitle();
+        });
+    }
+
+    container.querySelector('#renameSetlistBtn')?.addEventListener('click', () => {
+        if (titleInput) {
+            titleInput.focus();
+            titleInput.select();
+        }
+    });
+
+    if (focusTitleOnNextRender) {
+        focusTitleOnNextRender = false;
+        setTimeout(() => {
+            const el = container.querySelector('#setlistTitleInput');
+            if (el) {
+                el.focus();
+                el.select();
+            }
+        }, 50);
+    }
     container.querySelector('#playSetlistBtn')?.addEventListener('click', () => playSetlist(setlist.id, 0));
     const deleteBtn = container.querySelector('#deleteSetlistBtn');
     if (deleteBtn) {
@@ -342,36 +402,23 @@ async function renderSetlistsPage(container, onBack) {
 
 
 function bindSetlistsChrome(container, rerender) {
-    container.querySelector('#newSetlistBtn')?.addEventListener('click', () => promptNewSetlist((sl) => {
-        selectedSetlistId = sl.id;
-        activePane = 'songs';
-        isEditMode = true;
-        rerender();
-    }));
-}
-
-function promptNewSetlist(onCreated) {
-    openThemedInputModal({
-        title: 'New Setlist',
-        icon: 'bi-collection-play',
-        inputLabel: 'Setlist Name',
-        placeholder: 'Friday gig',
-        confirmText: 'Create',
-        onConfirm: async (name) => onCreated(await createSetlist(name))
-    });
-}
-
-function promptRenameSetlist(setlist, onDone) {
-    openThemedInputModal({
-        title: 'Rename Setlist',
-        icon: 'bi-pencil-square',
-        inputLabel: 'Setlist Name',
-        initialValue: setlist.name,
-        confirmText: 'Save',
-        onConfirm: async (name) => {
-            await renameSetlist(setlist.id, name);
-            onDone();
-        }
+    container.querySelectorAll('#newSetlistBtn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const setlists = await getAllSetlists();
+            let baseName = 'Untitled setlist';
+            let name = baseName;
+            let counter = 2;
+            const existingNames = new Set(setlists.map(s => (s.name || '').trim().toLowerCase()));
+            while (existingNames.has(name.toLowerCase())) {
+                name = `${baseName} ${counter++}`;
+            }
+            const sl = await createSetlist(name);
+            selectedSetlistId = sl.id;
+            activePane = 'songs';
+            isEditMode = true;
+            focusTitleOnNextRender = true;
+            await rerender();
+        });
     });
 }
 
@@ -411,7 +458,7 @@ export async function openAddToSetlistModal({ songId, tabId, title }) {
               </button>`).join('')}
           </div>` : ''}
         <form id="addToSetlistNewForm" class="d-flex gap-2">
-          <input type="text" class="form-control form-control-sm" id="addToSetlistNewName" placeholder="New setlist name" autocomplete="off" aria-label="New setlist name">
+          <input type="text" class="form-control form-control-sm" id="addToSetlistNewName" placeholder="Setlist name" autocomplete="off" aria-label="Setlist name">
           <button type="submit" class="btn btn-sm btn-theme-primary px-3 flex-shrink-0">Create</button>
         </form>
       </div>
