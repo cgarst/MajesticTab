@@ -165,6 +165,7 @@ const topBar = document.getElementById('topBar');
 // Native macOS shell uses an overlay title bar; reserve room for the traffic lights.
 if (window.__TAURI__ && /Mac/i.test(navigator.platform) && !isIOSDevice()) {
     const root = document.documentElement;
+    root.classList.add('tauri-macos');
     const appWindow = window.__TAURI__.window?.getCurrentWindow?.();
     // Traffic lights are hidden in fullscreen, so revert to the standard layout then.
     let syncToken = 0;
@@ -175,7 +176,7 @@ if (window.__TAURI__ && /Mac/i.test(navigator.platform) && !isIOSDevice()) {
             try { fs = await appWindow.isFullscreen(); } catch {}
         }
         if (token === syncToken) {
-            root.classList.toggle('tauri-macos', !fs);
+            root.classList.toggle('window-fullscreen', fs);
             initNativeTabBar();
         }
     };
@@ -195,6 +196,7 @@ if (window.__TAURI__ && /Mac/i.test(navigator.platform) && !isIOSDevice()) {
 // In fullscreen the controls are hidden, so the top bar controls return to the right edge.
 if (window.__TAURI__ && /Win/i.test(navigator.platform)) {
     const root = document.documentElement;
+    root.classList.add('tauri-windows');
     const appWindow = window.__TAURI__.window?.getCurrentWindow?.();
     const maxIcon = document.getElementById('winMaxIcon');
     const maxBtn = document.getElementById('winMaxBtn');
@@ -208,7 +210,7 @@ if (window.__TAURI__ && /Win/i.test(navigator.platform)) {
             try { maximized = await appWindow.isMaximized(); } catch {}
         }
         if (token !== syncToken) return;
-        root.classList.toggle('tauri-windows', !fs);
+        root.classList.toggle('window-fullscreen', fs);
         if (maxIcon) maxIcon.className = maximized ? 'bi-fullscreen-exit' : 'bi-square';
         if (maxBtn) { const t = maximized ? 'Restore' : 'Maximize'; maxBtn.title = t; maxBtn.setAttribute('aria-label', t); }
     };

@@ -153,7 +153,8 @@ function syncSearch() {
 
 function applyVisibility() {
     if (state !== 'on') return;
-    const isMac = document.documentElement.classList.contains('tauri-macos');
+    const isMac = document.documentElement.classList.contains('tauri-macos') ||
+                  (typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) && !isIOSDevice());
     document.body.classList.toggle('native-tabbar', wantVisible);
     document.body.classList.toggle('native-rail', wantVisible && isMac);
     if (shown === !wantVisible) return;

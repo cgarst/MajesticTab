@@ -1241,6 +1241,17 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   --wc-r: 56px;
 }
 
+html.window-fullscreen, body.window-fullscreen {
+  --wc-l: 0px !important;
+  --wc-r: 0px !important;
+}
+html.window-fullscreen #winControls {
+  display: none !important;
+}
+html.window-fullscreen #readingDragStrip {
+  display: none !important;
+}
+
 #topBar {
   padding-left: max(calc(12px + var(--wc-l, 0px)), calc(env(safe-area-inset-left, 0px) + 6px)) !important;
   padding-right: max(calc(12px + var(--wc-r, 0px)), calc(var(--inset-far) + 6px)) !important;
@@ -5157,10 +5168,10 @@ body.native-tabbar:not(.native-rail).library-view-active #libraryPage {
   padding-right: max(env(safe-area-inset-right, 0px), var(--native-rail-right, 0px));
 }
 body.native-rail.library-view-active #libraryPage {
-  padding-left: var(--native-rail-w, 76px) !important;
+  padding-left: var(--native-rail-w, 88px) !important;
 }
 body.native-rail.library-view-active #topBar {
-  padding-left: var(--native-rail-w, 76px) !important;
+  padding-left: var(--native-rail-w, 88px) !important;
 }
 /* The horizontal bar overlays the page at every width, so pages reserve its height; the side rail is already a safe-area inset */
 html:not(.native-vertical) body.native-tabbar.library-view-active .library-page-body { padding-bottom: calc(var(--native-tabbar-h, 83px) + 1rem) !important; }

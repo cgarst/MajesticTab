@@ -177,7 +177,7 @@ final class MacRailView: NSVisualEffectView {
     private(set) var buttons: [MacRailButton] = []
     private(set) var settingsButton: MacRailButton?
 
-    var currentWidth: CGFloat = 76 {
+    var currentWidth: CGFloat = 88 {
         didSet {
             widthConstraint?.constant = currentWidth
             let expanded = currentWidth >= 160
@@ -416,6 +416,7 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
     private func setupNotifications() {
         NotificationCenter.default.addObserver(self, selector: #selector(onWindowResize), name: NSWindow.didResizeNotification, object: window)
         NotificationCenter.default.addObserver(self, selector: #selector(onWindowWillEnterFullScreen), name: NSWindow.willEnterFullScreenNotification, object: window)
+        NotificationCenter.default.addObserver(self, selector: #selector(onWindowDidEnterFullScreen), name: NSWindow.didEnterFullScreenNotification, object: window)
         NotificationCenter.default.addObserver(self, selector: #selector(onWindowDidExitFullScreen), name: NSWindow.didExitFullScreenNotification, object: window)
     }
 
@@ -426,14 +427,14 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
     }
 
     private func calculateSearchWidth(for windowWidth: CGFloat) -> CGFloat {
-        let railW = railView?.currentWidth ?? 76
+        let railW = railView?.currentWidth ?? 88
         let available = windowWidth - railW - 40
         return max(available, 280)
     }
 
     @objc private func onWindowResize() {
         guard let win = window else { return }
-        let width: CGFloat = win.frame.width >= 1000 ? 212 : 76
+        let width: CGFloat = win.frame.width >= 1000 ? 212 : 88
         if railView?.currentWidth != width {
             railView?.currentWidth = width
             sendEvent(["type": "width", "value": Double(width)])
@@ -443,7 +444,7 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
                 searchLeadingConstraint?.constant = searchCustomX
                 w.constant = searchCustomWidth
             } else {
-                searchLeadingConstraint?.constant = (railView?.currentWidth ?? 76) + 20
+                searchLeadingConstraint?.constant = (railView?.currentWidth ?? 88) + 20
                 w.constant = calculateSearchWidth(for: cv.bounds.width)
             }
         }
@@ -456,11 +457,16 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
         }
     }
 
+    @objc private func onWindowDidEnterFullScreen() {
+        onWindowResize()
+    }
+
     @objc private func onWindowDidExitFullScreen() {
         railView?.setFullscreen(false)
         if searchWanted && !searchCustomBounds {
             searchTopConstraint?.constant = 16
         }
+        onWindowResize()
     }
 
     func configure(items: [(key: String, title: String, symbol: String)], selected: Int?, minMajor: Int) -> Bool {
@@ -471,7 +477,7 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
         self.items = items
         if railView == nil {
             let rail = MacRailView(frame: .zero)
-            let initialWidth: CGFloat = win.frame.width >= 1000 ? 212 : 76
+            let initialWidth: CGFloat = win.frame.width >= 1000 ? 212 : 88
             rail.attach(to: contentView, width: initialWidth)
             rail.setFullscreen(win.styleMask.contains(.fullScreen))
             railView = rail
@@ -484,7 +490,7 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
         detachInspector()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.detachInspector() }
 
-        sendEvent(["type": "width", "value": Double(railView?.currentWidth ?? 76)])
+        sendEvent(["type": "width", "value": Double(railView?.currentWidth ?? 88)])
         return true
     }
 
@@ -576,7 +582,7 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
             hosting.translatesAutoresizingMaskIntoConstraints = false
             contentView.addSubview(hosting, positioned: .above, relativeTo: nil)
 
-            let defaultLeading = (railView?.currentWidth ?? 76) + 20
+            let defaultLeading = (railView?.currentWidth ?? 88) + 20
             let leading = hosting.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: isCustom ? searchCustomX : defaultLeading)
             let initialTop = CGFloat(y ?? (win.styleMask.contains(.fullScreen) ? 10 : 16))
             let top = hosting.topAnchor.constraint(equalTo: contentView.topAnchor, constant: initialTop)
@@ -607,7 +613,7 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
                     searchTopConstraint?.constant = CGFloat(customY)
                 }
             } else {
-                let defaultLeading = (railView?.currentWidth ?? 76) + 20
+                let defaultLeading = (railView?.currentWidth ?? 88) + 20
                 searchLeadingConstraint?.constant = defaultLeading
                 searchWidthConstraint?.constant = calculateSearchWidth(for: contentView.bounds.width)
                 if let customY = y {
