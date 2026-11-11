@@ -230,7 +230,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
         : '<button type="button" class="btn btn-sm btn-theme-primary" data-act="choose">Choose ZIP file</button>'}
         </div>
         ${state.message ? `<p class="ct-note" role="status">${esc(state.message)}</p>` : ''}${state.error ? `<p class="ct-error" role="alert">${esc(state.error)}</p>` : ''}
-        <p class="ct-sub">${native ? `About 14 MB. From <a href="${CLASSTAB_HOME}" data-ct-home>classtab.org</a>.` : `<a href="${CLASSTAB_ZIP_URL}" data-ct-zip>Download the ZIP</a> in your browser, then choose it here.`} Not part of your backup.</p>`}`;
+        <p class="ct-sub">${native ? `About 14 MB. From <a href="${CLASSTAB_HOME}" data-ct-home>classtab.org</a>.` : `<a href="${CLASSTAB_ZIP_URL}" data-ct-zip>Download the ZIP</a> in your browser, then choose it here.`}</p>`}`;
     }
 
     function pieceRow(m, showComposer) {
