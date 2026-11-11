@@ -161,10 +161,12 @@ const json = (body, status = 200) => ({ ok: status >= 200 && status < 300, statu
     const desktopIntro = stemdeckIntroText({ desktop: true, local: true });
     assert.ok(desktopIntro.includes('your computer'), 'desktop intro should say your computer');
     assert.ok(!desktopIntro.includes('this computer'), 'desktop intro should not say this computer');
+    assert.ok(desktopIntro.includes('<a href="https://stemdeck.app/" target="_blank" rel="noopener noreferrer">the StemDeck app</a>'));
 
     const phoneIntro = stemdeckIntroText({ desktop: false, local: false });
     assert.ok(phoneIntro.includes('your computer'), 'mobile intro should say your computer');
     assert.ok(!phoneIntro.includes('this computer'), 'mobile intro should not say this computer');
+    assert.ok(phoneIntro.includes('<a href="https://stemdeck.app/" target="_blank" rel="noopener noreferrer">the StemDeck app</a>'));
 
     const desktopHelpDown = stemdeckHelpText({ desktop: true, conn: { kind: 'down' }, local: true });
     assert.ok(desktopHelpDown.includes('your computer') && !desktopHelpDown.includes('this computer'));

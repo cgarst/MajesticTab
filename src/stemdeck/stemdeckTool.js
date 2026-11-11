@@ -25,6 +25,14 @@ const mediaOf = (meta) => ({ kind: 'local', audioId: meta.id, name: meta.name, d
 const readLocal = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
 const writeLocal = (key, value) => { try { localStorage.setItem(key, value); } catch { /* optional */ } };
 
+export const STEMDECK_URL = 'https://stemdeck.app/';
+
+async function openExternal(url) {
+    const opener = window.__TAURI__?.opener;
+    if (opener?.openUrl) await opener.openUrl(url);
+    else window.open(url, '_blank', 'noopener');
+}
+
 // --- The batch -----------------------------------------------------------------------------------------------------
 
 // What the page remembers between draws
@@ -149,11 +157,12 @@ async function startBatch(jobs, client) {
 
 /** Returns the introductory description text for the backing tracks tool based on platform and connection. */
 export function stemdeckIntroText({ desktop, local = false }) {
+    const app = `<a href="${STEMDECK_URL}" target="_blank" rel="noopener noreferrer">the StemDeck app</a>`;
     if (desktop) {
         const detail = local ? ' Nothing leaves your computer.' : '';
-        return `Sends a song’s audio file to the StemDeck app on your computer and saves the mix without guitar as the song’s backing track.${detail} Each song also appears in your StemDeck library.`;
+        return `Sends a song’s audio file to ${app} on your computer and saves the mix without guitar as the song’s backing track.${detail} Each song also appears in your StemDeck library.`;
     }
-    return 'Sends a song’s audio file over your network to the StemDeck app on your computer and saves the mix without guitar as the song’s backing track. Each song also appears in your StemDeck library.';
+    return `Sends a song’s audio file over your network to ${app} on your computer and saves the mix without guitar as the song’s backing track. Each song also appears in your StemDeck library.`;
 }
 
 /**
@@ -325,7 +334,7 @@ export function renderStemdeckTool(container) {
         const typing = document.activeElement?.matches?.('.sd-addr-input') ? document.activeElement.value : null;
         const scroll = root.querySelector('.sd-list')?.scrollTop || 0;
         root.innerHTML = `
-          <p class="ct-sub">${esc(stemdeckIntroText({ desktop, local: local() }))}</p>
+          <p class="ct-sub">${stemdeckIntroText({ desktop, local: local() })}</p>
           <div class="sd-conn">
             <label class="sd-addr">StemDeck address <input type="text" class="sd-addr-input" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="80" placeholder="${desktop ? 'Your computer' : `192.168.1.20:${DEFAULT_PORT}`}" value="${esc(shownAddress())}" ${batch.running ? 'disabled' : ''}></label>
             <button type="button" class="ct-text" data-act="check" ${batch.running ? 'disabled' : ''}>Check again</button>
@@ -398,6 +407,12 @@ export function renderStemdeckTool(container) {
         if (e.target.value.trim() === shownAddress()) check(); else e.target.blur();
     });
     root.addEventListener('click', (e) => {
+        const link = e.target.closest('a[href]');
+        if (link) {
+            e.preventDefault();
+            openExternal(link.href);
+            return;
+        }
         const act = e.target.closest('button[data-act]')?.dataset.act;
         if (!act) return;
         if (act === 'check') check();

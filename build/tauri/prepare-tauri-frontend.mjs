@@ -101,6 +101,8 @@ const allowedRemoteHosts = new Set([
   'duckduckgo.com',
   'www.duckduckgo.com',
   'pgl.yoyo.org', // default host list source for tab downloader adblocker
+  'stemdeck.app', // Backing tracks tool: link to the StemDeck home page
+  'www.stemdeck.app',
 ]);
 
 async function copyAsset(source, destination) {
