@@ -42,11 +42,11 @@ globalThis.MutationObserver = class { observe() {} disconnect() {} };
 globalThis.requestAnimationFrame = (fn) => setTimeout(fn, 0);
 
 await import('../src/youtubePlayer.js');
-const { buildFretboardSvg, renderScalesSection, scaleDefinitions } = await import('../src/referenceLibrary.js');
+const { buildFretboardSvg, renderScalesSection, renderCircleInfoPanel, getChordNotesForSymbol, scaleDefinitions } = await import('../src/referenceLibrary.js');
 const { playNote, strumChord } = await import('../src/utils/chordStrum.js');
 const { strumWithSoundFont } = await import('../src/utils/chordSynth.js');
 
-console.log('Running scales sound and clickable notes tests...');
+console.log('Running scales and circle of fifths sound and clickable notes tests...');
 
 // 1. Verify buildFretboardSvg generates interactive clickable note markers with data-midi
 const svgRh = buildFretboardSvg('majorPentatonic', 0); // C Major Pentatonic
@@ -106,5 +106,29 @@ assert.doesNotThrow(() => playNote(NaN), 'playNote should safely ignore NaN');
 assert.equal(typeof strumWithSoundFont, 'function', 'strumWithSoundFont should be exported');
 assert.doesNotThrow(() => strumWithSoundFont([48], { holdTicks: 720 }), 'strumWithSoundFont accepts holdTicks');
 
-console.log('✓ Audio playback helpers and fallback resilience verified');
-console.log('All scales sound tests passed successfully!');
+// 5. Verify Circle of Fifths chord sound buttons and secondary chord-library link
+const circleHtml = renderCircleInfoPanel();
+assert.ok(circleHtml.includes('class="ref-deg-chord-btn ref-chord-play"'), 'Circle of fifths has primary chord play buttons');
+assert.ok(circleHtml.includes('class="ref-deg-link-btn ref-chord-link"'), 'Circle of fifths has secondary chord library link buttons');
+assert.ok(circleHtml.includes('title="Play C chord"'), 'Play button has title attribute for playing');
+assert.ok(circleHtml.includes('title="Show C in chord library"'), 'Secondary link button has title attribute for chord library');
+
+// Verify getChordNotesForSymbol returns sounding MIDI notes
+const cNotes = getChordNotesForSymbol('C');
+assert.ok(Array.isArray(cNotes), 'cNotes should be an array');
+assert.ok(cNotes.filter(n => n >= 0).length >= 3, 'C chord should have at least 3 sounding notes');
+
+const dmNotes = getChordNotesForSymbol('Dm');
+assert.ok(Array.isArray(dmNotes), 'dmNotes should be an array');
+assert.ok(dmNotes.filter(n => n >= 0).length >= 3, 'Dm chord should have at least 3 sounding notes');
+
+const bdimNotes = getChordNotesForSymbol('B°');
+assert.ok(Array.isArray(bdimNotes), 'bdimNotes should be an array');
+assert.ok(bdimNotes.filter(n => n >= 0).length >= 3, 'B° chord should have at least 3 sounding notes');
+
+const fsharpNotes = getChordNotesForSymbol('F♯m');
+assert.ok(Array.isArray(fsharpNotes), 'fsharpNotes should be an array');
+assert.ok(fsharpNotes.filter(n => n >= 0).length >= 3, 'F♯m chord should have at least 3 sounding notes');
+
+console.log('✓ Circle of fifths primary play buttons, secondary links, and chord notes verified');
+console.log('All scales and circle sound tests passed successfully!');

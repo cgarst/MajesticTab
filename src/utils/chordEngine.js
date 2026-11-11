@@ -120,7 +120,7 @@ export async function getChordDataset(stringCount = 6) {
     if (datasets[count]) return datasets[count];
 
     let json;
-    if (typeof process !== 'undefined' && process.versions?.node && typeof window === 'undefined') {
+    if (typeof process !== 'undefined' && process.versions?.node) {
         const fs = await import('node:fs/promises');
         const fileUrl = new URL(`../chordDb/guitar${count}.json`, import.meta.url);
         const data = await fs.readFile(fileUrl, 'utf-8');
@@ -144,7 +144,7 @@ export async function getNormalizedChordList(stringCount = 6) {
     const ds = await getChordDataset(count);
     const result = [];
 
-    const keys = ds.keys || Object.keys(ds.chords);
+    const keys = Object.keys(ds.chords);
     for (const key of keys) {
         const chordList = ds.chords[key] || [];
         const displayKey = KEY_DISPLAY_MAP[key] || key;
@@ -214,7 +214,7 @@ export async function deriveMoveableShapes(stringCount = 6) {
             ? ['7th (B)', '6th (E)', '5th (A)', '4th (D)', '3rd (G)', '2nd (B)', '1st (e)']
             : ['8th (F♯)', '7th (B)', '6th (E)', '5th (A)', '4th (D)', '3rd (G)', '2nd (B)', '1st (e)'];
 
-    const keys = ds.keys || Object.keys(ds.chords);
+    const keys = Object.keys(ds.chords);
 
     for (const key of keys) {
         const rootPitchClass = KEY_PITCH_MAP[key] ?? 0;

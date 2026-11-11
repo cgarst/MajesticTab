@@ -2114,8 +2114,6 @@ export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, s
     } else if (!placeholder || placeholder === 'Search your library') {
         placeholder = 'Search your library or find any artist, song, or album…';
     }
-    const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform || navigator.userAgent);
-    const shortcutHint = isMac ? '⌘K' : 'Ctrl+K';
     return `<div class="lib-view-switch-row">${libraryViewSwitchHtml(activeTab)}</div>
       <div class="library-search-box mb-3">
         <div class="library-search-bar">
@@ -2124,21 +2122,19 @@ export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, s
           <button class="search-clear-btn" type="button" id="${clearId}" title="Clear search" aria-label="Clear search" style="display: none;">
             <i class="bi-x-lg"></i>
           </button>
-          <kbd class="search-key-hint" aria-hidden="true">${shortcutHint}</kbd>
+          <kbd class="search-key-hint" aria-hidden="true">/</kbd>
           <button class="search-close-btn" type="button" aria-label="Close search">Cancel</button>
         </div>
       </div>`;
 }
 
-// ⌘K / Ctrl+K and "/" focus the library search from anywhere that is not a text field
+// "/" focuses the library search from anywhere that is not a text field (one listener for the app)
 let librarySearchShortcutBound = false;
 function bindLibrarySearchShortcut() {
     if (librarySearchShortcutBound || typeof document === 'undefined') return;
     librarySearchShortcutBound = true;
     document.addEventListener('keydown', (e) => {
-        const isSlash = e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey;
-        const isCmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
-        if (!isSlash && !isCmdK) return;
+        if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
         const t = e.target;
         if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
         const input = document.querySelector('.library-page-view .library-search-bar .search-input:not([disabled])');

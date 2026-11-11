@@ -5,7 +5,7 @@
 
 import { TRACK_PALETTE } from './utils/trackColors.js';
 import { fretboardController } from './fretboard/fretboardController.js';
-import { getNormalizedChordList, TUNINGS_MIDI } from './utils/chordEngine.js';
+import { getNormalizedChordList, getNormalizedChordListSync, DISPLAY_KEY_TO_CHORDDB, KEY_DISPLAY_MAP, TUNINGS_MIDI } from './utils/chordEngine.js';
 import { strumChord, prepareChordSound, playNote } from './utils/chordStrum.js';
 import { SHAPE_FAMILIES, SHAPE_TYPES, SHAPE_STRING_NAMES, getShapeTypes, getShapeType, getShapesForType } from './utils/chordShapes.js';
 import {
@@ -25,7 +25,9 @@ export {
     getChordViewMode,
     setChordViewMode,
     buildFretboardSvg,
-    renderScalesSection
+    renderScalesSection,
+    renderCircleInfoPanel,
+    getChordNotesForSymbol
 };
 
 const STORAGE_KEY_LH = 'majestictab_fretboard_left_handed';
@@ -360,6 +362,35 @@ function buildFretboardSvg(scaleKey, rootNote) {
 // View Renderers
 // -----------------------------------------------------------------------------
 
+const chordRootFilters = ['A♭', 'A', 'B♭', 'B', 'C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G'];
+// Circle of fifths spellings that the chord library files under another name
+const chordRootAliases = { 'D♭': 'C♯', 'D♯': 'E♭', 'G♭': 'F♯', 'G♯': 'A♭', 'A♯': 'B♭', 'E♯': 'F', 'B♯': 'C', 'C♭': 'B', 'F♭': 'E' };
+
+function getChordNotesForSymbol(symbol, chordList = null) {
+    const list = chordList || getNormalizedChordListSync(stringCount);
+    const isDim = symbol.endsWith('°');
+    const isMinor = !isDim && symbol.endsWith('m');
+    const symbolRoot = symbol.match(/^[A-G][♯♭]?/)[0];
+    const canonicalRoot = chordRootAliases[symbolRoot] || symbolRoot;
+    const dbKey = DISPLAY_KEY_TO_CHORDDB[canonicalRoot] || canonicalRoot;
+    const dispRoot = KEY_DISPLAY_MAP[dbKey] || canonicalRoot;
+    const targetName = isDim ? dispRoot + 'dim' : isMinor ? dispRoot + 'm' : dispRoot;
+
+    if (list) {
+        const found = list.find(c => c.name === targetName);
+        if (found) {
+            return chordMidiNotes(parseFrets(found.frets));
+        }
+    }
+
+    // Direct harmonic fallback if chord dataset is still loading:
+    const rootPitch = rootPitchOf(canonicalRoot);
+    const baseRoot = 48 + ((rootPitch - (getTuningOffset() % 12) + 12) % 12);
+    const third = isMinor || isDim ? 3 : 4;
+    const fifth = isDim ? 6 : 7;
+    return [baseRoot, baseRoot + third, baseRoot + fifth];
+}
+
 /**
  * Render the selected key's info panel (key signature + diatonic chords).
  * Major-key chords link to the Chord Library.
@@ -372,10 +403,15 @@ function renderCircleInfoPanel() {
     const degrees = isMinor ? ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'] : ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
     const chords = isMinor ? data.minorChords : data.majorChords;
     const chordsHtml = degrees.map((deg, i) => `
-        <button type="button" class="ref-chord-deg-card ref-chord-link" data-chord="${chords[i]}" title="Show ${chords[i]} in the chord library">
-            <span class="ref-deg-label">${deg}</span>
-            <span class="ref-deg-chord">${chords[i]}</span>
-        </button>
+        <div class="ref-chord-deg-card" data-chord="${chords[i]}">
+            <button type="button" class="ref-deg-chord-btn ref-chord-play" data-chord="${chords[i]}" title="Play ${chords[i]} chord" aria-label="Play ${chords[i]} chord">
+                <span class="ref-deg-label">${deg}</span>
+                <span class="ref-deg-chord">${chords[i]}</span>
+            </button>
+            <button type="button" class="ref-deg-link-btn ref-chord-link" data-chord="${chords[i]}" title="Show ${chords[i]} in chord library" aria-label="Show ${chords[i]} in chord library">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11l6-6M6 5h5v5"/></svg>
+            </button>
+        </div>
     `).join('');
     const seg = (mode, label) => `<button type="button" class="ref-chip ref-circle-mode-btn" data-mode="${mode}" aria-pressed="${circleKeyMode === mode}">${label}</button>`;
 
@@ -410,10 +446,6 @@ function renderCircleSection() {
     </div>
     `;
 }
-
-const chordRootFilters = ['A♭', 'A', 'B♭', 'B', 'C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G'];
-// Circle of fifths spellings that the chord library files under another name
-const chordRootAliases = { 'D♭': 'C♯', 'D♯': 'E♭', 'G♭': 'F♯', 'G♯': 'A♭', 'A♯': 'B♭', 'E♯': 'F', 'B♯': 'C', 'C♭': 'B', 'F♭': 'E' };
 
 /** Semitones the strings are tuned down for the current string count (0 when the stored choice isn't offered). */
 function getTuningOffset() {
@@ -861,7 +893,7 @@ export async function renderReferenceLibraryView(container) {
     if (subEl) subEl.textContent = REFERENCE_SUBTITLES[activeTab];
 
     let tabContentHtml = '';
-    if (activeTab === 'circle') tabContentHtml = renderCircleSection();
+    if (activeTab === 'circle') { prepareChordSound(); getChordData(stringCount).catch(() => {}); tabContentHtml = renderCircleSection(); }
     else if (activeTab === 'chords') { prepareChordSound(); tabContentHtml = await renderChordsSection(); }
     else if (activeTab === 'scales') { prepareChordSound(); tabContentHtml = renderScalesSection(); }
 
@@ -1152,7 +1184,7 @@ function refreshCircleSection() {
     attachCircleChordLinks(document.getElementById('refCircleInfoPanel')?.closest('.ref-page-container')?.parentElement);
 }
 
-// Jump to the Chord Library filtered to the clicked chord's root and family
+// Jump to the Chord Library filtered to the clicked chord's root and family, or play chord sound
 function attachCircleChordLinks(container) {
     const infoPanel = document.getElementById('refCircleInfoPanel');
     if (!infoPanel || !container) return;
@@ -1163,7 +1195,8 @@ function attachCircleChordLinks(container) {
         });
     });
     infoPanel.querySelectorAll('.ref-chord-link').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
             const symbol = btn.getAttribute('data-chord');
             const isDim = symbol.endsWith('°');
             const isMinor = !isDim && symbol.endsWith('m');
@@ -1174,6 +1207,36 @@ function attachCircleChordLinks(container) {
             activeTab = 'chords';
             renderReferenceLibraryView(container);
             notifyReferenceTab();
+        });
+    });
+    infoPanel.querySelectorAll('.ref-deg-chord-btn').forEach(btn => {
+        const playChord = async () => {
+            const symbol = btn.getAttribute('data-chord');
+            if (!symbol) return;
+            let list = getNormalizedChordListSync(stringCount);
+            if (!list) {
+                try {
+                    list = await getNormalizedChordList(stringCount);
+                } catch (_) {}
+            }
+            const notes = getChordNotesForSymbol(symbol, list);
+            if (notes && notes.length) {
+                strumChord(notes);
+            }
+            const card = btn.closest('.ref-chord-deg-card') || btn;
+            card.classList.add('playing');
+            setTimeout(() => card.classList.remove('playing'), 250);
+        };
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            playChord();
+        });
+        btn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                playChord();
+            }
         });
     });
 }

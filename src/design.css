@@ -2330,11 +2330,71 @@ body.fretboard-open {
 .ref-circle-slice:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
 .ref-key-headline { font: 700 44px/1.02 var(--font-display) !important; letter-spacing: -.01em !important; margin: 0 0 16px !important; color: var(--ink) !important; }
 .ref-subhead-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 24px 0 8px; }
-.ref-deg-grid { gap: 2px !important; }
-.ref-chord-deg-card { background: var(--ref-rest) !important; border: 0 !important; box-shadow: none !important; border-radius: var(--r-control) !important; min-height: 56px; padding: 8px 4px !important; }
+.ref-deg-grid { gap: 4px !important; }
+.ref-chord-deg-card {
+    position: relative;
+    background: var(--ref-rest) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: var(--r-control) !important;
+    min-height: 58px;
+    padding: 0 !important;
+    display: flex;
+    overflow: hidden;
+    transition: background var(--dur-fast) var(--ease-out);
+}
 @media (hover: hover) { .ref-chord-deg-card:hover { background: var(--ref-on) !important; } }
-.ref-deg-label { font-size: 13px !important; color: var(--ink2) !important; }
-.ref-deg-chord { font-size: 15px !important; }
+.ref-chord-deg-card.playing { background: var(--ref-on) !important; }
+.ref-deg-chord-btn {
+    flex: 1 1 auto;
+    width: 100%;
+    background: transparent;
+    border: 0;
+    margin: 0;
+    padding: 8px 18px 8px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    border-radius: var(--r-control) !important;
+    transition: background var(--dur-fast) var(--ease-out);
+}
+.ref-deg-chord-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.ref-deg-link-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    color: var(--ink2);
+    cursor: pointer;
+    border-radius: var(--r-control, 4px);
+    transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) {
+    .ref-deg-link-btn:hover {
+        color: var(--ink);
+        background: color-mix(in srgb, var(--ink) 12%, transparent);
+    }
+}
+.ref-deg-link-btn:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 1px;
+    color: var(--ink);
+}
+.ref-deg-label { font-size: 12px !important; color: var(--ink2) !important; line-height: 1.2; pointer-events: none; }
+.ref-deg-chord { font-size: 15px !important; font-weight: 600; color: var(--ink) !important; line-height: 1.25; margin-top: 2px; pointer-events: none; }
 @media (max-width: 899px) { .ref-circle-container { grid-template-columns: minmax(0, 1fr) !important; gap: 24px !important; } .ref-key-headline { font-size: 36px !important; } }
 @media (max-width: 576px) { .ref-filter-row .ref-chip-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; } .ref-filter-row .ref-chip-row::-webkit-scrollbar { display: none; } .ref-filter-row .ref-chip { flex: none; } .ref-filter-row { gap: 8px; } .ref-deg-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; } .ref-filter-row { gap: 12px 20px; } }
 @media (prefers-reduced-motion: reduce) { .ref-chip, .ref-circle-slice { transition: none; } }
