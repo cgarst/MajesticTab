@@ -892,6 +892,8 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   .panes[data-pane="list"] .pane.songs { display: none !important; }
   .panes[data-pane="songs"] .pane.list { display: none !important; }
   .collection-root-view:has(.panes[data-pane="songs"]) .resume-card { display: none !important; }
+  /* Second level: the first level's count row ("5 artists") and its filter stay out, so the list is not held down by them */
+  .library-page-container:has(.panes[data-pane="songs"]) > .library-list-toolbar > div:first-child { display: none !important; }
 }
 .library-card[aria-current="true"], .artist-card[aria-current="true"] { background: var(--s2) !important; position: relative; }
 .library-card[aria-current="true"]::before, .artist-card[aria-current="true"]::before {
