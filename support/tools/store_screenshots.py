@@ -456,6 +456,16 @@ def device_layout(kind, a, avail_w, avail_h):
             sh = sw / a
             short = min(sw, sh)
             return dict(sw=sw, sh=sh, bz=(0.012 * short,) * 4, rim=0.004 * short, sr=0.05 * short, extra=0)
+    elif kind == "duo-closed":  # iPhone Duo's outer display: hinge spine on the left, rounded outer corners on the right
+        def build(sw):
+            sh = sw / a
+            return dict(
+                sw=sw, sh=sh,
+                bz=(0.024 * sw, 0.024 * sw, 0.024 * sw, 0.024 * sw),
+                rim=(0.038 * sw, 0.010 * sw, 0.010 * sw, 0.010 * sw),
+                sr=(0.055 * sw, 0.125 * sw, 0.125 * sw, 0.055 * sw),
+                extra=0
+            )
     elif kind == "laptop":
         def build(sw):
             sh = sw / a
@@ -466,8 +476,9 @@ def device_layout(kind, a, avail_w, avail_h):
             return dict(sw=sw, sh=sh, bz=(0.009 * sh,) * 4, rim=0.004 * sh, sr=0, extra=0.075 * sh)
 
     def total(d):
-        w = d["sw"] + d["bz"][0] + d["bz"][2] + 2 * d["rim"]
-        h = d["sh"] + d["bz"][1] + d["bz"][3] + 2 * d["rim"] + d["extra"]
+        rim_l, rim_t, rim_r, rim_b = d["rim"] if isinstance(d["rim"], tuple) else (d["rim"],) * 4
+        w = d["sw"] + d["bz"][0] + d["bz"][2] + rim_l + rim_r
+        h = d["sh"] + d["bz"][1] + d["bz"][3] + rim_t + rim_b + d["extra"]
         return (w * 1.07 if kind == "laptop" else w), h  # a laptop's base is wider than its lid
     lo, hi = 10.0, 20000.0
     for _ in range(40):
@@ -485,16 +496,28 @@ def _box(x, y, w, h, color, radius="0"):
 
 def device_html(kind, d, x, y, data_uri):
     """Flat device with its total box's top-left at x, y: rim, glass, the screenshot, then the device's own details."""
-    rim, (bl, bt, br, bb) = d["rim"], d["bz"]
+    rim_l, rim_t, rim_r, rim_b = d["rim"] if isinstance(d["rim"], tuple) else (d["rim"],) * 4
+    bl, bt, br, bb = d["bz"]
     sw, sh = d["sw"], d["sh"]
-    bw, bh = sw + bl + br + 2 * rim, sh + bt + bb + 2 * rim
+    bw, bh = sw + bl + br + rim_l + rim_r, sh + bt + bb + rim_t + rim_b
     tw, _ = d["total"]
     bx = x + (tw - bw) / 2  # centre the lid over a laptop's wider base
-    gr = d["sr"] + max(bl, bt)
-    sx, sy = bx + rim + bl, y + rim + bt
-    p = [_box(bx, y, bw, bh, RIM, f"{gr + rim:.1f}px"),
-         _box(bx + rim, y + rim, bw - 2 * rim, bh - 2 * rim, GLASS, f"{gr:.1f}px"),
-         f"<img src='{data_uri}' style='left:{sx:.1f}px;top:{sy:.1f}px;width:{sw:.1f}px;height:{sh:.1f}px;border-radius:{d['sr']:.1f}px'>"]
+    if isinstance(d["sr"], tuple):
+        sr_tl, sr_tr, sr_br, sr_bl = d["sr"]
+        gr_tl, gr_tr, gr_br, gr_bl = sr_tl + bl, sr_tr + br, sr_br + br, sr_bl + bl
+        rr_tl, rr_tr, rr_br, rr_bl = gr_tl + rim_l, gr_tr + rim_r, gr_br + rim_r, gr_bl + rim_l
+        sr_css = f"{sr_tl:.1f}px {sr_tr:.1f}px {sr_br:.1f}px {sr_bl:.1f}px"
+        gr_css = f"{gr_tl:.1f}px {gr_tr:.1f}px {gr_br:.1f}px {gr_bl:.1f}px"
+        rr_css = f"{rr_tl:.1f}px {rr_tr:.1f}px {rr_br:.1f}px {rr_bl:.1f}px"
+    else:
+        gr = d["sr"] + max(bl, bt)
+        sr_css = f"{d['sr']:.1f}px"
+        gr_css = f"{gr:.1f}px"
+        rr_css = f"{gr + rim_t:.1f}px"
+    sx, sy = bx + rim_l + bl, y + rim_t + bt
+    p = [_box(bx, y, bw, bh, RIM, rr_css),
+         _box(bx + rim_l, y + rim_t, bw - rim_l - rim_r, bh - rim_t - rim_b, GLASS, gr_css),
+         f"<img src='{data_uri}' style='left:{sx:.1f}px;top:{sy:.1f}px;width:{sw:.1f}px;height:{sh:.1f}px;border-radius:{sr_css}'>"]
     if kind == "phone":  # punch-hole camera, power and volume keys
         c = 0.034 * sw
         p.append(_box(sx + (sw - c) / 2, sy + 0.022 * sw, c, c, GLASS, "50%"))
@@ -508,6 +531,21 @@ def device_html(kind, d, x, y, data_uri):
         for ky, kh in ((0.17, 0.04), (0.24, 0.07), (0.33, 0.07)):
             p.append(_box(bx - 0.8 * kw, y + ky * bh, kw, kh * bh, RIM, f"{kw / 2:.1f}px"))
         p.append(_box(bx + bw - 0.2 * kw, y + 0.27 * bh, kw, 0.11 * bh, RIM, f"{kw / 2:.1f}px"))
+    elif kind == "duo-closed":  # hinge spine on the left, top-right punch-hole camera aligned with the status cluster
+        p.append(_box(bx, y + 0.08 * bh, rim_l, max(2.0, 0.003 * bh), "#141c2c"))
+        p.append(_box(bx, y + bh - 0.08 * bh, rim_l, max(2.0, 0.003 * bh), "#141c2c"))
+        p.append(_box(bx + 2, y + 0.08 * bh + 4, max(2.0, 0.004 * sw), bh * 0.84 - 8, "rgba(255,255,255,0.08)"))
+        cd = 0.076 * sw
+        cx = sx + 0.8956 * sw
+        cy = sy + 0.064 * sh
+        p.append(_box(cx - cd / 2, cy - cd / 2, cd, cd, GLASS, "50%"))
+        ld = cd * 0.65
+        p.append(_box(cx - ld / 2, cy - ld / 2, ld, ld, "#0d1522", "50%"))
+        gd = cd * 0.22
+        p.append(_box(cx + ld * 0.12, cy - ld * 0.28, gd, gd, "#2d3d58", "50%"))
+        kw = 0.012 * sw
+        for ky, kh in ((0.20, 0.07), (0.29, 0.07), (0.42, 0.10)):
+            p.append(_box(bx + bw - 0.2 * kw, y + ky * bh, kw, kh * bh, RIM, f"{kw / 2:.1f}px"))
     elif kind == "ipad":  # the front camera sits on the long edge, so only a landscape iPad shows it
         if sw > sh:
             c = 0.012 * sh

@@ -648,7 +648,8 @@ def capture(name, args):
                     final = out / f"{n:02d}-{sid}.png"
                     from PIL import Image
                     size = (2853, 2007) if pose == "book" else (2007, 2853)
-                    compose(frame, raw, final, size, headline, subtitle, None if args.no_bezel else dev["bezel"])
+                    bezel = "duo-closed" if pose == "closed" else dev["bezel"]
+                    compose(frame, raw, final, size, headline, subtitle, None if args.no_bezel else bezel)
                     print(f"  wrote {final}", flush=True)
             if name != "duo":
                 from PIL import Image
@@ -777,7 +778,8 @@ def capture(name, args):
             if fold and not args.no_bezel:
                 (compose_laptop if pose == "tabletop" else compose_book)(frame, raw, final, size, headline, subtitle, fold)
             else:
-                compose(frame, raw, final, size, headline, subtitle, None if args.no_bezel else dev["bezel"])
+                bezel = "duo-closed" if (name == "duo" and pose == "closed") else dev["bezel"]
+                compose(frame, raw, final, size, headline, subtitle, None if args.no_bezel else bezel)
             print(f"  wrote {final}", flush=True)
         browser.close()
     if udid:
