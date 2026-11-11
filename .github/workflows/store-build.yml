@@ -18,6 +18,11 @@ on:
         required: false
         type: string
         default: ''
+      build_number:
+        description: App Store build number (defaults to the run number)
+        required: false
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       channel:
@@ -30,6 +35,11 @@ on:
           - appstore-ios
           - appstore-mac
           - msstore
+      build_number:
+        description: App Store build number (appstore channels; for a dry run use 1000 or more, above any real run number)
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -40,7 +50,7 @@ env:
 
 jobs:
   build:
-    runs-on: ${{ fromJSON('{"play":"ubuntu-latest","fdroid":"ubuntu-latest","appstore-ios":"xcode-27","appstore-mac":"macos-latest","msstore":"windows-latest"}')[inputs.channel] }}
+    runs-on: ${{ fromJSON('{"play":"ubuntu-latest","fdroid":"ubuntu-latest","appstore-ios":"macos-26","appstore-mac":"macos-26","msstore":"windows-latest"}')[inputs.channel] }}
     env:
       TARGET: ${{ fromJSON('{"play":"android","fdroid":"android","appstore-ios":"ios","appstore-mac":"macos","msstore":"windows"}')[inputs.channel] }}
     steps:
@@ -84,10 +94,71 @@ jobs:
         if: inputs.channel == 'appstore-ios'
         run: brew install xcodegen
 
+      # Apple signing material goes into a temporary keychain that is deleted at the end. The Mac needs the distribution and installer
+      # certificates plus the profile; iOS uses Xcode's automatic signing with the App Store Connect API key (no profile file).
+      - name: Set up Apple signing
+        if: inputs.channel == 'appstore-ios' || inputs.channel == 'appstore-mac'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_INSTALLER_CERTIFICATE_P12: ${{ secrets.APPLE_INSTALLER_CERTIFICATE_P12 }}
+          APPLE_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_INSTALLER_CERTIFICATE_PASSWORD }}
+          MACOS_PROVISIONING_PROFILE_B64: ${{ secrets.MACOS_PROVISIONING_PROFILE_B64 }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in APPLE_CERTIFICATE_P12 APPLE_CERTIFICATE_PASSWORD APPLE_TEAM_ID ASC_KEY_CONTENT; do
+            test -n "${!name}" || { echo "::error::Missing $name secret"; exit 1; }
+          done
+          keychain="$RUNNER_TEMP/appstore.keychain-db"
+          password=$(uuidgen)
+          echo "APPSTORE_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          import_p12() {
+            echo "$1" | base64 -d > "$RUNNER_TEMP/cert.p12"
+            security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$2" -T /usr/bin/codesign -T /usr/bin/productbuild
+            rm -f "$RUNNER_TEMP/cert.p12"
+          }
+          import_p12 "$APPLE_CERTIFICATE_P12" "$APPLE_CERTIFICATE_PASSWORD"
+          if [ "$TARGET" = macos ]; then
+            for name in APPLE_INSTALLER_CERTIFICATE_P12 APPLE_INSTALLER_CERTIFICATE_PASSWORD MACOS_PROVISIONING_PROFILE_B64; do
+              test -n "${!name}" || { echo "::error::Missing $name secret"; exit 1; }
+            done
+            import_p12 "$APPLE_INSTALLER_CERTIFICATE_P12" "$APPLE_INSTALLER_CERTIFICATE_PASSWORD"
+            echo "$MACOS_PROVISIONING_PROFILE_B64" | base64 -d > "$RUNNER_TEMP/macos.provisionprofile"
+            echo "MACOS_PROVISIONING_PROFILE=$RUNNER_TEMP/macos.provisionprofile" >> "$GITHUB_ENV"
+          fi
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" > /dev/null
+          # Signing identities are the names of the imported certificates (the names are not secret).
+          identities=$(security find-identity -v "$keychain")
+          echo "$identities"
+          dist=$(echo "$identities" | sed -n 's/.*"\(Apple Distribution: [^"]*\)".*/\1/p' | head -n1)
+          installer=$(echo "$identities" | sed -n 's/.*"\(3rd Party Mac Developer Installer: [^"]*\)".*/\1/p' | head -n1)
+          test -n "$dist" || { echo "::error::No Apple Distribution identity in the imported certificate"; exit 1; }
+          echo "APPLE_SIGNING_IDENTITY=$dist" >> "$GITHUB_ENV"
+          if [ "$TARGET" = macos ]; then
+            test -n "$installer" || { echo "::error::No 3rd Party Mac Developer Installer certificate imported"; exit 1; }
+            echo "MACOS_INSTALLER_IDENTITY=$installer" >> "$GITHUB_ENV"
+          fi
+          # The API key lets Xcode create and fetch the iOS App Store profile (Tauri reads these three variables).
+          echo "$ASC_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+
       - name: Build
         shell: bash
         run: node build/build-tauri.mjs "$TARGET" --channel=${{ inputs.channel }} ${{ inputs.channel == 'fdroid' && '--abi=arm64-v8a' || '' }}
         env:
+          # App Store Connect wants a higher build number for every upload of one version; the run number only rises.
+          APPSTORE_BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.ASC_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          IOS_EXPORT_METHOD: ${{ inputs.channel == 'appstore-ios' && 'app-store-connect' || '' }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
@@ -128,3 +199,9 @@ jobs:
           name: store-${{ inputs.channel }}
           path: store-dist/*
           if-no-files-found: error
+      - name: Remove Apple signing material
+        if: always() && (inputs.channel == 'appstore-ios' || inputs.channel == 'appstore-mac')
+        shell: bash
+        run: |
+          security delete-keychain "$APPSTORE_KEYCHAIN" || true
+          rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/macos.provisionprofile"

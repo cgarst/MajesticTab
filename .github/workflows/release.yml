@@ -38,9 +38,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # appstore-ios and appstore-mac are left out until Apple signing is set up in CI. fdroid is built (signed) by
-        # build.yml's android-no-gms job for the release; F-Droid builds its own unsigned copy from source.
-        channel: [play, msstore]
+        # fdroid is built (signed) by build.yml's android-no-gms job for the release; F-Droid builds its own unsigned
+        # copy from source. The appstore channels use the run number as the build number.
+        channel: [play, msstore, appstore-ios, appstore-mac]
     uses: ./.github/workflows/store-build.yml
     secrets: inherit
     with:
@@ -121,6 +121,61 @@ jobs:
           MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
           MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
           MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
+
+  # Upload to TestFlight only; submitting for App Store review stays manual in App Store Connect. External distribution happens
+  # in the lane when the TESTFLIGHT_GROUPS repo variable names the external group(s). Skipped when the ASC_* secrets are missing.
+  publish-appstore-ios:
+    needs: [build, store]
+    runs-on: macos-26
+    steps:
+      # Checkout first: it cleans untracked files, which would delete the downloaded artifact.
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v8
+        with:
+          name: store-appstore-ios
+          path: store-appstore-ios
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          TESTFLIGHT_GROUPS: ${{ vars.TESTFLIGHT_GROUPS }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_CONTENT" ]; then
+            echo "::warning::ASC_* secrets are not set; skipping the TestFlight upload"
+            exit 0
+          fi
+          bundle exec fastlane ios beta ipa:"$(ls store-appstore-ios/*.ipa)"
+
+  publish-appstore-mac:
+    needs: [build, store]
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v8
+        with:
+          name: store-appstore-mac
+          path: store-appstore-mac
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          TESTFLIGHT_GROUPS: ${{ vars.TESTFLIGHT_GROUPS }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_CONTENT" ]; then
+            echo "::warning::ASC_* secrets are not set; skipping the TestFlight upload"
+            exit 0
+          fi
+          bundle exec fastlane mac beta pkg:"$(ls store-appstore-mac/*.pkg)"
 
   publish:
     needs: build

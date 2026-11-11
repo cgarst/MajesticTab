@@ -296,8 +296,11 @@ if (target === 'android') {
 }
 
 // App Store Connect wants a new CFBundleVersion for every upload of the same version. It is the version unless IOS_BUILD_NUMBER
-// (a plain integer such as 2, raised for each upload of this version) says otherwise.
-const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() || appVersion;
+// (a plain integer such as 2, raised for each upload of this version) says otherwise. APPSTORE_BUILD_NUMBER sets it for both the iOS
+// and the Mac App Store build (CI passes the run number); IOS_BUILD_NUMBER is the older iOS-only name.
+const appStoreBuildNumber = (process.env.APPSTORE_BUILD_NUMBER || process.env.IOS_BUILD_NUMBER || '').trim();
+if (appStoreBuildNumber && !/^[1-9]\d{0,8}$/.test(appStoreBuildNumber)) fail(`The App Store build number must be a plain integer, got "${appStoreBuildNumber}".`);
+const iosBuildNumber = appStoreBuildNumber || appVersion;
 
 async function readVersioned(file) {
   return (await readFile(file, 'utf8')).replaceAll('__APP_VERSION__', appVersion).replaceAll('__BUILD_NUMBER__', iosBuildNumber);
@@ -734,8 +737,10 @@ if (target === 'android') {
     // bundle. Both come from the environment (APPLE_TEAM_ID, MACOS_PROVISIONING_PROFILE), never from the repo.
     const teamId = (process.env.APPLE_TEAM_ID ?? '').trim();
     const profile = (process.env.MACOS_PROVISIONING_PROFILE ?? '').trim();
-    if (teamId || profile) {
+    if (teamId || profile || appStoreBuildNumber) {
       const macOS = {};
+      // CFBundleVersion: raised per upload while CFBundleShortVersionString stays the app version.
+      if (appStoreBuildNumber) macOS.bundleVersion = appStoreBuildNumber;
       if (teamId) {
         const base = await readFile(path.join(tauriDir, 'src-tauri', 'Entitlements.appstore.plist'), 'utf8');
         const extra = `\t<key>com.apple.application-identifier</key>\n\t<string>${teamId}.net.zathu.majestictab</string>\n\t<key>com.apple.developer.team-identifier</key>\n\t<string>${teamId}</string>\n`;
