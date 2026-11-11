@@ -534,8 +534,20 @@ export async function pickDriveFile({ title = 'Select a file from Google Drive' 
     await loadPickerApi();
 
     document.body.classList.add('drive-picker-active');
+    let watch = 0;
     try {
-        return await new Promise((resolve) => {
+        return await new Promise((resolveRaw) => {
+            // The picker only reports PICKED and CANCEL. If its dialog goes away (or never shows, as when the webview
+            // blocks its cross-site frame) without either, nothing would clear drive-picker-active, and the native
+            // tab bar would stay hidden over a blank library. Treat that as a cancel.
+            const resolve = (value) => { clearInterval(watch); resolveRaw(value); };
+            const startedAt = Date.now();
+            let seen = false;
+            watch = setInterval(() => {
+                const present = Boolean(document.querySelector('.picker-dialog, iframe[src*="picker"]'));
+                if (present) seen = true;
+                else if (seen || Date.now() - startedAt > 15000) resolve(null);
+            }, 500);
             const { picker: gp } = window.google;
             const view = new gp.DocsView()
                 .setIncludeFolders(true)
@@ -562,6 +574,7 @@ export async function pickDriveFile({ title = 'Select a file from Google Drive' 
                 .setVisible(true);
         });
     } finally {
+        clearInterval(watch);
         document.body.classList.remove('drive-picker-active');
     }
 }
