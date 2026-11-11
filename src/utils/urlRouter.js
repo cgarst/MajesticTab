@@ -4,16 +4,10 @@
 // - #library
 // - #recents
 // - #settings
-// - #setlists, #openfile, #search (add music)
-// - #classtab (Tools > Classical tab; #classical also works)
-// - #tuner
-// - #metronome
-// - #reference
-// - #reference/circle
-// - #reference/chords
-// - #reference/scales
-// - #reference/tone
-// (also supports corresponding slash formats e.g. #/library, #/reference/scales, and query params e.g. ?view=tuner, ?view=reference&tab=scales)
+// - #setlists, #tunings
+// - #tools (or #tools/scales, #tools/chords, #tools/circle, #tools/tuner, #tools/metronome, #tools/jam, #tools/classtab, #tools/openfile, #tools/bulkexport, #tools/bulkimport, #tools/missingtabs, #tools/stemdeck)
+// - Legacy routes supported and redirected: #reference/scales, #classtab, #tuner, #metronome, etc.
+// (also supports corresponding slash formats e.g. #/library, #/tools/scales, and query params e.g. ?view=tools&tab=scales)
 
 import { openLibraryModal, isLibraryOpen, switchLibraryView, goLibraryTab } from '../libraryModal.js';
 import { openTunerModal, closeTunerModal } from '../tuner/tuner.js';
@@ -22,6 +16,8 @@ import { getActiveReferenceTab, setReferenceTabChangeListener, closeReferenceMod
 
 let isSyncingUrl = false;
 let isInitialized = false;
+
+const ALL_TOOLS = ['chords', 'scales', 'circle', 'tuner', 'metronome', 'jam', 'openfile', 'classtab', 'classical', 'stemdeck', 'bulkexport', 'bulkimport', 'missingtabs'];
 
 export function getRouteFromUrl() {
     const rawHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
@@ -50,10 +46,15 @@ export function updateUrl(main, sub = null, replace = false) {
     if (typeof window === 'undefined' || isSyncingUrl) return;
 
     let targetHash = '';
-    if (main === 'reference' || main === 'chords' || main === 'scales' || main === 'circle') {
-        const activeSub = (main !== 'reference' ? main : sub) || getActiveReferenceTab() || 'chords';
-        targetHash = `#reference/${activeSub}`;
-    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'metronome' || main === 'setlists' || main === 'tools' || main === 'settings' || main === 'openfile' || main === 'classtab' || main === 'bulkexport' || main === 'tunings') {
+    if (main === 'tools') {
+        targetHash = sub ? `#tools/${sub}` : '#tools';
+    } else if (ALL_TOOLS.includes(main)) {
+        const tool = main === 'classical' ? 'classtab' : main;
+        targetHash = `#tools/${tool}`;
+    } else if (main === 'reference') {
+        const activeSub = (sub || getActiveReferenceTab() || 'chords');
+        targetHash = `#tools/${activeSub}`;
+    } else if (main === 'library' || main === 'recents' || main === 'setlists' || main === 'settings' || main === 'tunings') {
         targetHash = `#${main}`;
     } else if (!main) {
         targetHash = '';
@@ -89,88 +90,65 @@ export async function navigateToUrlRoute(route, isInitial = false) {
 
     isSyncingUrl = true;
     try {
-        if (route.main === 'tuner') {
-            closeMetronomeModal();
-            openTunerModal();
-            return true;
-        }
-
-        if (route.main === 'metronome') {
+        if (route.main === 'tools') {
             closeTunerModal();
-            openMetronomeModal();
-            return true;
+            closeMetronomeModal();
+            closeReferenceModal();
+            const targetTool = route.sub === 'classical' ? 'classtab' : route.sub;
+            if (targetTool) {
+                const targetRefTab = targetTool;
+                (await import('./toolsPage.js')).openToolOnNextRender(targetRefTab);
+                if (isLibraryOpen()) {
+                    const { getActiveLibraryView } = await import('../libraryModal.js');
+                    if (getActiveLibraryView?.() !== 'tools') {
+                        await switchLibraryView('tools', false);
+                    }
+                } else {
+                    await openLibraryModal('tools');
+                }
+                await new Promise((r) => setTimeout(r, 400));
+                const btn = document.querySelector(`.tools-shell button[data-tool="${targetRefTab}"]`);
+                if (btn && (btn.getAttribute('aria-current') !== 'true' || document.querySelector('.tools-shell')?.dataset?.tool !== targetRefTab)) {
+                    btn.click();
+                }
+                updateUrl('tools', targetRefTab, true);
+                return true;
+            } else {
+                if (isLibraryOpen()) {
+                    const { getActiveLibraryView } = await import('../libraryModal.js');
+                    if (getActiveLibraryView?.() !== 'tools') {
+                        await switchLibraryView('tools', false);
+                    } else {
+                        const setback = document.querySelector('.tools-shell .setback');
+                        if (setback && document.querySelector('.tools-shell')?.dataset?.pane === 'page') {
+                            setback.click();
+                        }
+                    }
+                } else {
+                    await openLibraryModal('tools');
+                }
+                updateUrl('tools', null, true);
+                return true;
+            }
         }
 
         if (route.main === 'reference' || route.main === 'chords' || route.main === 'scales' || route.main === 'circle') {
-            closeTunerModal();
-            closeMetronomeModal();
-            closeReferenceModal();
             const targetRefTab = route.main === 'reference'
                 ? ((route.sub && ['circle', 'chords', 'scales'].includes(route.sub)) ? route.sub : 'chords')
                 : route.main;
-            (await import('./toolsPage.js')).openToolOnNextRender(targetRefTab);
-            if (isLibraryOpen()) {
-                const { getActiveLibraryView } = await import('../libraryModal.js');
-                if (getActiveLibraryView?.() !== 'tools') {
-                    await switchLibraryView('tools', false);
-                }
-            } else {
-                await openLibraryModal('tools');
-            }
-            await new Promise((r) => setTimeout(r, 400));
-            const btn = document.querySelector(`.tools-shell button[data-tool="${targetRefTab}"]`);
-            if (btn && (btn.getAttribute('aria-current') !== 'true' || !document.querySelector('#referenceModal.tool-embedded') || document.querySelector('.tools-shell')?.dataset?.tool !== targetRefTab)) {
-                btn.click();
-            }
-            return true;
+            return await navigateToUrlRoute({ main: 'tools', sub: targetRefTab }, isInitial);
         }
 
         if (route.main === 'classtab' || route.main === 'classical') {
-            closeTunerModal();
-            closeMetronomeModal();
-            closeReferenceModal();
-            // The Tools page opens on this tool when it is drawn; when Tools is already showing, press the tool's row
-            (await import('./toolsPage.js')).openToolOnNextRender('classtab');
-            if (isLibraryOpen()) {
-                await switchLibraryView('tools', false);
-            } else {
-                await openLibraryModal('tools');
-            }
-            // The page picks the pending tool on its own after it paints; press the row only if that did not happen
-            await new Promise((r) => setTimeout(r, 400));
-            const btn = document.querySelector('.tools-shell button[data-tool="classtab"]');
-            if (btn && btn.getAttribute('aria-current') !== 'true' && !document.querySelector('.classtab-tool-embedded')) btn.click();
-            return true;
+            return await navigateToUrlRoute({ main: 'tools', sub: 'classtab' }, isInitial);
         }
 
-        if (route.main === 'bulkexport') {
-            closeTunerModal();
-            closeMetronomeModal();
-            closeReferenceModal();
-            (await import('./toolsPage.js')).openToolOnNextRender('bulkexport');
-            if (isLibraryOpen()) {
-                await switchLibraryView('tools', false);
-            } else {
-                await openLibraryModal('tools');
-            }
-            await new Promise((r) => setTimeout(r, 400));
-            const btn = document.querySelector('.tools-shell button[data-tool="bulkexport"]');
-            if (btn && btn.getAttribute('aria-current') !== 'true' && !document.querySelector('.bulkexport-tool-embedded')) btn.click();
-            return true;
+        if (route.main === 'bulkexport' || route.main === 'bulkimport' || route.main === 'missingtabs' || route.main === 'stemdeck' || route.main === 'openfile') {
+            return await navigateToUrlRoute({ main: 'tools', sub: route.main }, isInitial);
         }
 
-        if (route.main === 'openfile') {
-            closeTunerModal();
-            closeMetronomeModal();
-            closeReferenceModal();
-            if (isLibraryOpen()) {
-                await switchLibraryView('tools', false);
-            } else {
-                await openLibraryModal('tools');
-            }
-            const btn = document.querySelector('.tools-shell button[data-tool="openfile"]');
-            btn?.click();
-            return true;
+        if (route.main === 'tuner' || route.main === 'metronome' || route.main === 'jam') {
+            return await navigateToUrlRoute({ main: 'tools', sub: route.main }, isInitial);
         }
 
         const libraryViews = { library: 'library', recents: 'recents', setlists: 'setlists', tools: 'tools', settings: 'settings', search: 'library', tunings: 'tunings' };
@@ -202,7 +180,7 @@ export function initUrlRouter() {
 
     // Listen to Reference tab change events
     setReferenceTabChangeListener((tab) => {
-        updateUrl('reference', tab);
+        updateUrl('tools', tab);
     });
 
     // Listen to hash and popstate changes

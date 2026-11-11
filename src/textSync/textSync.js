@@ -29,7 +29,8 @@ const $ = (id) => document.getElementById(id);
 
 // --- Recordings -------------------------------------------------------------------------------------------------------
 
-const ytSource = createYouTubeSource(jamYouTubeControl, onYouTubeEvent);
+let _ytSource = null;
+const getYtSource = () => (_ytSource || (_ytSource = createYouTubeSource(jamYouTubeControl, onYouTubeEvent)));
 const midiSource = {
     kind: 'midi',
     id: 'midi',
@@ -59,7 +60,8 @@ function activeRecording(file) {
     const midi = midiSynthActive
         ? { source: midiSource, label: 'MIDI', media: { kind: 'local', audioId: `midi_${file.librarySongId || file.name}`, name: 'MIDI', durationMs: null, fingerprint: '' } }
         : null;
-    const yt = ytSource.id ? { source: ytSource, label: 'Video', media: { kind: 'youtube', videoId: ytSource.id } } : null;
+    const ytSrc = getYtSource();
+    const yt = ytSrc.id ? { source: ytSrc, label: 'Video', media: { kind: 'youtube', videoId: ytSrc.id } } : null;
     const l = getLocalRecording();
     const local = l ? { source: l.source, label: 'Audio file', media: l.media } : null;
     // The dock's choice leads: with Synth selected the MIDI file is the recording, and with Original selected it is not,

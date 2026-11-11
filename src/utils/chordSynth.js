@@ -22,12 +22,12 @@ const vlq = (n) => {
 };
 
 /** A one-track Standard MIDI File: steel guitar program, then each string a little after the last. */
-function buildStrumMidi(notes) {
+function buildStrumMidi(notes, { holdTicks = HOLD_TICKS } = {}) {
     const events = [{ tick: 0, bytes: [0xff, 0x51, 0x03, 0x07, 0xa1, 0x20] }, { tick: 0, bytes: [0xc0, PROGRAM_STEEL_GUITAR] }];
     notes.forEach((n, i) => {
         const on = i * STRUM_TICKS;
         events.push({ tick: on, bytes: [0x90, n, Math.max(60, 104 - i * 3)] });
-        events.push({ tick: on + HOLD_TICKS, bytes: [0x80, n, 0] });
+        events.push({ tick: on + holdTicks, bytes: [0x80, n, 0] });
     });
     events.sort((a, b) => a.tick - b.tick);
     const body = [];
@@ -79,12 +79,12 @@ export function chordSynthReady() {
 }
 
 /** Strum MIDI notes (lowest string first) on the SoundFont's steel guitar. Returns false when it is not ready. */
-export function strumWithSoundFont(midiNotes) {
+export function strumWithSoundFont(midiNotes, { holdTicks = HOLD_TICKS } = {}) {
     if (!chordSynthReady()) return false;
     try {
         const notes = midiNotes.filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
         if (!notes.length) return true;
-        const { file } = readMidiFile(buildStrumMidi(notes), globalThis.alphaTab);
+        const { file } = readMidiFile(buildStrumMidi(notes, { holdTicks }), globalThis.alphaTab);
         api.player.playOneTimeMidiFile(file);
         return true;
     } catch (e) {

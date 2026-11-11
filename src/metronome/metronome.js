@@ -140,7 +140,7 @@ class MetronomeController {
         modal.setAttribute('aria-hidden', 'false');
         $('metronomeToggleBtn')?.classList.add('active');
         this.render();
-        updateUrl('metronome');
+        updateUrl('tools', 'metronome');
         $('metroPlayBtn')?.focus({ preventScroll: true });
     }
 

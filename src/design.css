@@ -266,6 +266,8 @@ body.library-view-active #viewPill { display: none; }
   --r: var(--r-control);
   --r-sm: 6px;
   --r-lg: var(--r-card);
+  --rail-ground: color-mix(in srgb, var(--s1) 45%, #000);
+  --setnav-ground: color-mix(in srgb, var(--s1) 80%, var(--s2));
   /* Section families on the bar ruler: six hues, the same in every theme and every file, so a chorus looks like a
      chorus. A block keeps its surface's own lightness (text contrast is unchanged) and takes the hue at low chroma. */
   --sec-verse: 200;
@@ -274,6 +276,18 @@ body.library-view-active #viewPill { display: none; }
   --sec-solo: 60;
   --sec-bookend: 285;
   --sec-instrumental: 245;
+}
+[data-theme="Dark Side"] {
+  --rail-ground: #000000;
+  --setnav-ground: var(--s1);
+}
+[data-theme="Slate Blue"] {
+  --rail-ground: color-mix(in srgb, var(--s1) 45%, #000);
+  --setnav-ground: var(--ground);
+}
+[data-theme="Snow White"] {
+  --rail-ground: var(--s3);
+  --setnav-ground: var(--ground);
 }
 .tauri-macos, .tauri-ios { --r-control: 10px; --r-card: 12px; }
 .tauri-windows { --r-control: 6px; --r-card: 8px; }
@@ -803,7 +817,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
     padding-right: 8px;
     padding-top: max(env(safe-area-inset-top, 0px), 14px);
     padding-bottom: max(env(safe-area-inset-bottom, 0px), 14px);
-    gap: 2px; background: var(--ground) !important; border: 0 !important;
+    gap: 2px; background: var(--rail-ground) !important; border: 0 !important;
   }
   body.library-view-active #libraryPage {
     padding-left: calc(76px + env(safe-area-inset-left, 0px));
@@ -2252,8 +2266,57 @@ body.fretboard-open {
 .ref-kv > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; min-height: 44px; padding: 8px 12px; border-radius: var(--r-control); background: var(--ref-rest); margin-bottom: 2px; }
 .ref-kv dd { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; }
 .ref-scale-facts .ref-scale-formula, .ref-scale-facts .ref-scale-notes { font-family: inherit !important; color: var(--ink) !important; font-weight: 600; }
+.ref-scale-note-btn {
+    background: transparent;
+    border: 0;
+    padding: 2px 4px;
+    margin: 0;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    border-radius: var(--r-control, 4px);
+    transition: background var(--dur-fast, 150ms) var(--ease-out, ease-out), color var(--dur-fast, 150ms) var(--ease-out, ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+    .ref-scale-note-btn:hover {
+        background: var(--ref-on, rgba(255, 255, 255, 0.08));
+    }
+}
+.ref-scale-note-btn:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+}
+.ref-scale-note-btn.playing {
+    background: var(--ref-on, rgba(255, 255, 255, 0.14));
+}
+.ref-scale-note-sep {
+    color: var(--ink2);
+    user-select: none;
+}
 .ref-fretboard-scroll-container { background: transparent !important; padding: 8px 0 0 !important; }
-.ref-fretboard-svg .ref-fret-note { filter: none; }
+.ref-fretboard-svg .ref-fret-note {
+    filter: none;
+    cursor: pointer;
+    user-select: none;
+}
+.ref-fretboard-svg .ref-fret-note circle.ref-note-marker {
+    transition: opacity var(--dur-fast, 150ms) var(--ease-out, ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+    .ref-fretboard-svg .ref-fret-note:hover circle.ref-note-marker {
+        opacity: 0.82;
+    }
+}
+.ref-fretboard-svg .ref-fret-note:focus-visible {
+    outline: none;
+}
+.ref-fretboard-svg .ref-fret-note:focus-visible circle.ref-note-marker,
+.ref-fretboard-svg .ref-fret-note.playing circle.ref-note-marker {
+    stroke: var(--ink);
+    stroke-width: 2.5;
+}
 
 /* Circle of fifths: flat wedges, the chosen key one tone step up with the inlay dot */
 .ref-circle-container { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; gap: 48px !important; align-items: center !important; }
@@ -3060,12 +3123,12 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
   /* The page title belongs to the list column only: the shell is a two-column grid, so the detail pane starts at the top */
   .setshell { display: grid; grid-template-columns: var(--set-col) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .setshell > .setwrap { display: contents; }
-  .setshell > h1.set-title { grid-column: 1; grid-row: 1; background: var(--ground); }
+  .setshell > h1.set-title { grid-column: 1; grid-row: 1; background: var(--setnav-ground); }
   .setshell .setnav { grid-column: 1; grid-row: 2; min-height: 0; }
   .setshell .setpage { grid-column: 2; grid-row: 1 / span 2; min-height: 0; }
-  .setshell .setnav { background: var(--ground); }
-  @media (hover: hover) { .setshell .setnav button:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 5%, var(--ground)); } }
-  .setshell .setnav button[aria-current="true"] { background: color-mix(in srgb, var(--ink) 9%, var(--ground)); }
+  .setshell .setnav { background: var(--setnav-ground); }
+  @media (hover: hover) { .setshell .setnav button:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 5%, var(--setnav-ground)); } }
+  .setshell .setnav button[aria-current="true"] { background: color-mix(in srgb, var(--ink) 9%, var(--setnav-ground)); }
   .setshell .setpage { background: var(--s1); }
 }
 @keyframes tools-stage-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -3097,11 +3160,9 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 .setlists-view .setlist-actions .theme-control-btn, .setlists-view .pane-head .in-view-back-btn,
 .tunings-view .tuning-actions .theme-control-btn, .tunings-view .pane-head .in-view-back-btn { color: var(--ink2) !important; }
 
-/* Slate Blue: the rail sits a step darker than the library ground, as in the other finishes */
+/* Sunken rail across all finishes: the rail sits a step darker than the library ground */
 @media (min-width: 577px) {
-  [data-theme="Slate Blue"] body.library-view-active .library-bottom-nav { background: color-mix(in srgb, var(--s1) 45%, #000) !important; }
-  body[data-theme="Slate Blue"].library-view-active .library-bottom-nav,
-  [data-theme="Slate Blue"].library-view-active .library-bottom-nav { background: color-mix(in srgb, var(--s1) 45%, #000) !important; }
+  body.library-view-active .library-bottom-nav { background: var(--rail-ground) !important; }
 }
 
 /* Mockup: a row that runs edge to edge (Library, Setlists, Tunings and Recents) is a rectangle; anything inset from the edge (rail, settings nav, Tools rows) is rounded */
@@ -5553,6 +5614,13 @@ body.library-view-active .yt-sheet { display: none !important; }
   .web-cta-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 576px) {
+  .web-cta-banner {
+    margin: max(env(safe-area-inset-top, 0px), 8px) 8px 0;
+    padding: 12px 14px;
   }
 }
 

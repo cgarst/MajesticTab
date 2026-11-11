@@ -2189,7 +2189,7 @@ export function webCtaBannerHtml() {
     <section class="web-cta-banner" id="webCtaBanner" aria-label="Install MajesticTab">
       <div class="web-cta-content">
         <div class="web-cta-title">Browser storage is temporary</div>
-        <div class="web-cta-desc">Tabs and sync points saved in the browser can be cleared by your system when storage is low or browsing data is cleared. Install MajesticTab for permanent offline storage, ad-free tab search, batch album downloading, local Jam hosting, backing track separation, secure keychain storage for cloud credentials, and iCloud sync for Apple devices.</div>
+        <div class="web-cta-desc">Tabs and sync points saved in the browser can be cleared by your system when storage is low or browsing data is cleared. Install MajesticTab for permanent offline storage, ad-free tab search, batch album downloading, local Jam hosting, backing track separation, a secure credential store, and iCloud sync for Apple devices.</div>
       </div>
       <div class="web-cta-actions">
         <a href="https://majestictab.zathu.net/#download" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-theme-primary web-cta-btn">Get the app</a>

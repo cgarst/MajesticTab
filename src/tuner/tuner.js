@@ -453,7 +453,7 @@ class PitchCraftTunerController {
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden', 'false');
         document.getElementById('tunerToggleBtn')?.classList.add('active');
-        updateUrl('tuner');
+        updateUrl('tools', 'tuner');
 
         // Accessibility focus
         const firstBtn = modal.querySelector('.tuner-mic-btn');

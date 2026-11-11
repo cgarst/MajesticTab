@@ -6,7 +6,7 @@
 import { TRACK_PALETTE } from './utils/trackColors.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { getNormalizedChordList, TUNINGS_MIDI } from './utils/chordEngine.js';
-import { strumChord, prepareChordSound } from './utils/chordStrum.js';
+import { strumChord, prepareChordSound, playNote } from './utils/chordStrum.js';
 import { SHAPE_FAMILIES, SHAPE_TYPES, SHAPE_STRING_NAMES, getShapeTypes, getShapeType, getShapesForType } from './utils/chordShapes.js';
 import {
     buildChordDiagramSvg,
@@ -23,7 +23,9 @@ export {
     getChordOrientation,
     setChordOrientation,
     getChordViewMode,
-    setChordViewMode
+    setChordViewMode,
+    buildFretboardSvg,
+    renderScalesSection
 };
 
 const STORAGE_KEY_LH = 'majestictab_fretboard_left_handed';
@@ -216,9 +218,17 @@ function buildFretboardSvg(scaleKey, rootNote) {
     // Standard strings: Index 0 is high e, Index 5 is low E (standard tablature)
     const tuningSpec = tuningSpecs[stringCount];
     const openStringNames = getStringLabelsHighToLow();
+    const baseMidi = TUNINGS_MIDI[stringCount] || TUNINGS_MIDI[6];
     const standardStrings = openStringNames.map((name, i) => {
-        const step = tuningSpec.steps[stringCount - 1 - i];
-        return { name, tuning: (tuningSpec.low + step - getTuningOffset() + 120) % 12, gauge: 1 + 0.35 * (stringCount - 1 - i) };
+        const stringIdx = stringCount - 1 - i;
+        const step = tuningSpec.steps[stringIdx];
+        const openMidi = (baseMidi[stringIdx] ?? (tuningSpec.low + step + 36)) - getTuningOffset();
+        return {
+            name,
+            tuning: (tuningSpec.low + step - getTuningOffset() + 120) % 12,
+            openMidi,
+            gauge: 1 + 0.35 * stringIdx
+        };
     });
     const visualStrings = isFlipped ? [...standardStrings].reverse() : standardStrings;
 
@@ -270,10 +280,13 @@ function buildFretboardSvg(scaleKey, rootNote) {
                     const circleFill = scaleDegreeColor(matched.lbl);
                     const textFill = isRoot ? 'var(--ground)' : '#111';
                     const noteName = noteNames[notePitch];
+                    const midiNote = s.openMidi + f;
+                    const spoken = `${noteName}, fret ${f}, ${s.name} string`;
 
-                    svg += `<g transform="translate(${x}, ${y})" class="ref-fret-note" data-note="${noteName}">
-                        <circle cx="0" cy="0" r="${isRoot ? 13 : 10.5}" fill="${circleFill}"/>
-                        <text x="0" y="3.5" fill="${textFill}" font-size="${isRoot ? 11 : 9.5}" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
+                    svg += `<g transform="translate(${x}, ${y})" class="ref-fret-note ref-note-play" data-midi="${midiNote}" data-note="${noteName}" role="button" tabindex="0" aria-label="Play ${spoken}">
+                        <circle cx="0" cy="0" r="16" fill="transparent"/>
+                        <circle cx="0" cy="0" r="${isRoot ? 13 : 10.5}" fill="${circleFill}" class="ref-note-marker" pointer-events="none"/>
+                        <text x="0" y="3.5" fill="${textFill}" font-size="${isRoot ? 11 : 9.5}" font-weight="bold" text-anchor="middle" pointer-events="none">${matched.lbl}</text>
                     </g>`;
                 }
             }
@@ -326,10 +339,13 @@ function buildFretboardSvg(scaleKey, rootNote) {
                     const circleFill = scaleDegreeColor(matched.lbl);
                     const textFill = isRoot ? 'var(--ground)' : '#111';
                     const noteName = noteNames[notePitch];
+                    const midiNote = s.openMidi + f;
+                    const spoken = `${noteName}, fret ${f}, ${s.name} string`;
 
-                    svg += `<g transform="translate(${x}, ${y})" class="ref-fret-note" data-note="${noteName}">
-                        <circle cx="0" cy="0" r="${isRoot ? 13 : 10.5}" fill="${circleFill}"/>
-                        <text x="0" y="3.5" fill="${textFill}" font-size="${isRoot ? 11 : 9.5}" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
+                    svg += `<g transform="translate(${x}, ${y})" class="ref-fret-note ref-note-play" data-midi="${midiNote}" data-note="${noteName}" role="button" tabindex="0" aria-label="Play ${spoken}">
+                        <circle cx="0" cy="0" r="16" fill="transparent"/>
+                        <circle cx="0" cy="0" r="${isRoot ? 13 : 10.5}" fill="${circleFill}" class="ref-note-marker" pointer-events="none"/>
+                        <text x="0" y="3.5" fill="${textFill}" font-size="${isRoot ? 11 : 9.5}" font-weight="bold" text-anchor="middle" pointer-events="none">${matched.lbl}</text>
                     </g>`;
                 }
             }
@@ -681,10 +697,13 @@ function renderScalesSection() {
     const currentScale = scaleDefinitions[selectedScaleKey] || scaleDefinitions.majorPentatonic;
     const rootName = noteNames[selectedRootNote];
 
-    const activeNoteNames = currentScale.intervals.map(item => {
+    const baseRootMidi = 48 + selectedRootNote;
+    const activeNoteButtons = currentScale.intervals.map(item => {
         const noteIndex = (item.int + selectedRootNote) % 12;
-        return noteNames[noteIndex];
-    }).join(' · ');
+        const name = noteNames[noteIndex];
+        const midi = baseRootMidi + item.int;
+        return `<button type="button" class="ref-scale-note-btn ref-note-play" data-midi="${midi}" aria-label="Play ${name}">${name}</button>`;
+    }).join('<span class="ref-scale-note-sep" aria-hidden="true"> · </span>');
 
     const scaleOptions = Object.keys(scaleDefinitions).map(k => `
         <option value="${k}" ${k === selectedScaleKey ? 'selected' : ''}>${scaleDefinitions[k].name}</option>
@@ -695,7 +714,7 @@ function renderScalesSection() {
     `).join('');
 
     return `
-    <div class="ref-section-box" role="tabpanel">
+    <div class="ref-section-box ref-scales-section" role="tabpanel">
         <div class="ref-filter-row">
             <div class="ref-field">
                 <label class="ref-filter-group-label" for="refScaleSelect">Scale or mode</label>
@@ -716,7 +735,7 @@ function renderScalesSection() {
         </div>
 
         <dl class="ref-kv ref-scale-facts">
-            <div><dt>${rootName} ${currentScale.name}</dt><dd class="ref-scale-notes">${activeNoteNames}</dd></div>
+            <div><dt>${rootName} ${currentScale.name}</dt><dd class="ref-scale-notes">${activeNoteButtons}</dd></div>
             <div><dt>Formula</dt><dd class="ref-scale-formula">${currentScale.formula}</dd></div>
         </dl>
 
@@ -844,7 +863,7 @@ export async function renderReferenceLibraryView(container) {
     let tabContentHtml = '';
     if (activeTab === 'circle') tabContentHtml = renderCircleSection();
     else if (activeTab === 'chords') { prepareChordSound(); tabContentHtml = await renderChordsSection(); }
-    else if (activeTab === 'scales') tabContentHtml = renderScalesSection();
+    else if (activeTab === 'scales') { prepareChordSound(); tabContentHtml = renderScalesSection(); }
 
     container.innerHTML = `
     <div class="ref-page-container">
@@ -1080,6 +1099,29 @@ function attachReferenceEventListeners(container) {
             }
         });
     });
+
+    // 8. Scale note audio playback (fretboard notes and scale notes)
+    const scalesSection = container.querySelector('.ref-scales-section');
+    if (scalesSection) {
+        const playScaleNoteFrom = (el) => {
+            const midi = parseInt(el.getAttribute('data-midi'), 10);
+            if (!Number.isFinite(midi)) return;
+            playNote(midi);
+            el.classList.add('playing');
+            setTimeout(() => el.classList.remove('playing'), 250);
+        };
+        scalesSection.addEventListener('click', (e) => {
+            const target = e.target.closest('.ref-note-play');
+            if (target) playScaleNoteFrom(target);
+        });
+        scalesSection.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            const target = e.target.closest('.ref-note-play');
+            if (!target) return;
+            e.preventDefault();
+            playScaleNoteFrom(target);
+        });
+    }
 }
 
 function attachCircleSliceListeners() {

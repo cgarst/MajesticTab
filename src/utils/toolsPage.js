@@ -183,8 +183,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         shell.dataset.tool = id;
         await openTool(id, host);
         refreshReadouts();
-        if (id === 'classtab' || id === 'bulkexport') import('./urlRouter.js').then((m) => m.updateUrl(id)).catch(() => {});
-        else if (REFERENCE_TOOLS.includes(id)) import('./urlRouter.js').then((m) => m.updateUrl('reference', id)).catch(() => {});
+        import('./urlRouter.js').then((m) => m.updateUrl('tools', id)).catch(() => {});
     }
     // Readouts follow real state: re-read them when a tool's own readout element changes, after any click or change inside the
     // open tool, and whenever the tool changes
@@ -211,6 +210,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
             const t = tools.find((x) => x.id === e.detail);
             if (t) setTitle(t.title);
             nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.tool === e.detail)));
+            import('./urlRouter.js').then((m) => m.updateUrl('tools', e.detail)).catch(() => {});
         }
     };
     document.addEventListener('reference-tab', refTabHandler);

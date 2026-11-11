@@ -106,3 +106,43 @@ export function strumChord(midiNotes, { spread = 0.032, volume = 0.9 } = {}) {
         });
     } catch (_) { /* audio unavailable */ }
 }
+
+/**
+ * Play a single note, shorter than a full chord strum.
+ * Uses the SoundFont synth when ready, and falls back to synthesized acoustic pluck.
+ */
+export function playNote(midiNote, { duration = 0.8, volume = 0.9 } = {}) {
+    const midi = Number(midiNote);
+    if (!Number.isFinite(midi) || midi < 0 || midi > 127) return;
+    const holdTicks = Math.round(duration * 2 * 480);
+    if (strumWithSoundFont([midi], { holdTicks })) return;
+    prepareChordSound();
+    const audio = getContext();
+    if (!audio) return;
+    try {
+        const now = audio.currentTime + 0.01;
+
+        // Output chain: gentle body resonances and a soft high roll-off
+        const master = audio.createGain();
+        master.gain.value = volume * 0.35;
+        const body1 = audio.createBiquadFilter();
+        body1.type = 'peaking'; body1.frequency.value = 105; body1.Q.value = 1.1; body1.gain.value = 5;
+        const body2 = audio.createBiquadFilter();
+        body2.type = 'peaking'; body2.frequency.value = 215; body2.Q.value = 1.4; body2.gain.value = 3;
+        const air = audio.createBiquadFilter();
+        air.type = 'lowpass'; air.frequency.value = 6500; air.Q.value = 0.5;
+        master.connect(body1); body1.connect(body2); body2.connect(air); air.connect(audio.destination);
+
+        const src = audio.createBufferSource();
+        src.buffer = pluckBuffer(audio, midi);
+        const g = audio.createGain();
+        const fadeStart = Math.max(0.05, duration - 0.22);
+        g.gain.setValueAtTime(1, now);
+        g.gain.setValueAtTime(1, now + fadeStart);
+        g.gain.linearRampToValueAtTime(0, now + duration);
+        src.connect(g);
+        g.connect(master);
+        src.start(now);
+        src.stop(now + duration + 0.05);
+    } catch (_) { /* audio unavailable */ }
+}
