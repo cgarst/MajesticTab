@@ -149,6 +149,7 @@ The output will be saved to `dist/MajesticTab-ios.ipa`.
 ## Acknowledgments
 
 - [AlphaTab](https://github.com/CoderLine/alphaTab) for Guitar Pro rendering and playback support
+- [chords-db](https://github.com/tombatossals/chords-db) by David Rubert for guitar chord data (MIT License)
 - [PitchCraft](https://github.com/indjoov/pitchcraft) for chromatic tuner and pitch detection implementation
 - [The Minimal Metronome](https://github.com/ZaneH/metronome) by Zane Helton for the metronome's tempo tapper, time signatures, swing-arm display and keyboard controls
 - [Classtab](https://www.classtab.org/) for the classical guitar tabs and MIDI files in the Classical tab browser; the archive is downloaded by the user and never shipped

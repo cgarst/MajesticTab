@@ -18,7 +18,7 @@
 import { openLibraryModal, isLibraryOpen, switchLibraryView, goLibraryTab } from '../libraryModal.js';
 import { openTunerModal, closeTunerModal } from '../tuner/tuner.js';
 import { openMetronomeModal, closeMetronomeModal } from '../metronome/metronome.js';
-import { getActiveReferenceTab, setReferenceTabChangeListener, openReferenceModal, closeReferenceModal } from '../referenceLibrary.js';
+import { getActiveReferenceTab, setReferenceTabChangeListener, closeReferenceModal } from '../referenceLibrary.js';
 
 let isSyncingUrl = false;
 let isInitialized = false;
@@ -50,8 +50,8 @@ export function updateUrl(main, sub = null, replace = false) {
     if (typeof window === 'undefined' || isSyncingUrl) return;
 
     let targetHash = '';
-    if (main === 'reference') {
-        const activeSub = sub || getActiveReferenceTab() || 'chords';
+    if (main === 'reference' || main === 'chords' || main === 'scales' || main === 'circle') {
+        const activeSub = (main !== 'reference' ? main : sub) || getActiveReferenceTab() || 'chords';
         targetHash = `#reference/${activeSub}`;
     } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'metronome' || main === 'setlists' || main === 'tools' || main === 'settings' || main === 'openfile' || main === 'classtab' || main === 'bulkexport' || main === 'tunings') {
         targetHash = `#${main}`;
@@ -101,11 +101,27 @@ export async function navigateToUrlRoute(route, isInitial = false) {
             return true;
         }
 
-        if (route.main === 'reference') {
+        if (route.main === 'reference' || route.main === 'chords' || route.main === 'scales' || route.main === 'circle') {
             closeTunerModal();
             closeMetronomeModal();
-            const targetRefTab = (route.sub && ['circle', 'chords', 'scales', 'tone'].includes(route.sub)) ? route.sub : 'chords';
-            openReferenceModal(targetRefTab);
+            closeReferenceModal();
+            const targetRefTab = route.main === 'reference'
+                ? ((route.sub && ['circle', 'chords', 'scales'].includes(route.sub)) ? route.sub : 'chords')
+                : route.main;
+            (await import('./toolsPage.js')).openToolOnNextRender(targetRefTab);
+            if (isLibraryOpen()) {
+                const { getActiveLibraryView } = await import('../libraryModal.js');
+                if (getActiveLibraryView?.() !== 'tools') {
+                    await switchLibraryView('tools', false);
+                }
+            } else {
+                await openLibraryModal('tools');
+            }
+            await new Promise((r) => setTimeout(r, 400));
+            const btn = document.querySelector(`.tools-shell button[data-tool="${targetRefTab}"]`);
+            if (btn && (btn.getAttribute('aria-current') !== 'true' || !document.querySelector('#referenceModal.tool-embedded') || document.querySelector('.tools-shell')?.dataset?.tool !== targetRefTab)) {
+                btn.click();
+            }
             return true;
         }
 

@@ -5304,7 +5304,6 @@ body.library-view-active #brandSection .brand-title {
   width: 100%;
   max-width: 136px;
   height: auto;
-  aspect-ratio: 136 / 82;
 }
 
 .ref-chord-frets {

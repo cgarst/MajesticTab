@@ -2238,6 +2238,8 @@ body.fretboard-open {
 .ref-chord-name { font-size: 16px !important; }
 .ref-chord-cat { font-size: 13px !important; color: var(--ink2) !important; }
 .ref-chord-diagram-svg { max-width: 176px !important; }
+.ref-chord-diagram-svg.ref-chord-diagram-vertical { max-width: 130px !important; }
+.ref-mode-row, .ref-orient-row { gap: 4px; }
 .ref-chord-frets { font-family: inherit !important; font-size: 13px !important; color: var(--ink2) !important; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
 .ref-chord-card [class*="fingering"], .ref-chord-card code { font-family: inherit !important; }
 
@@ -5421,3 +5423,19 @@ body.library-view-active .yt-sheet { display: none !important; }
   .be-remove-btn { min-width: 44px; min-height: 44px; }
 }
 
+
+
+/* Movable shapes: one tile per chord type, stepped with arrows; the count sits at the bottom of the tile */
+.ref-shape-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; cursor: default; }
+.ref-shape-count { font-size: 13px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.ref-shape-nav-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; border: 0; border-radius: var(--r-control, 8px); background: transparent; color: var(--ink2); cursor: pointer; transition: background var(--dur-fast, 150ms) var(--ease-out); }
+.ref-shape-nav-btn:disabled { opacity: 0.3; cursor: default; }
+.ref-shape-nav-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (hover: hover) { .ref-shape-nav-btn:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 8%, transparent); } }
+@media (pointer: coarse) { .ref-shape-nav-btn { min-width: 44px; min-height: 44px; } }
+
+/* Chord tiles: the whole tile plays the chord; cursor pointer everywhere except the shape nav */
+.ref-chord-card.ref-chord-play { cursor: pointer; }
+.ref-chord-card.ref-chord-play:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.ref-chord-play { cursor: pointer; border-radius: var(--r-control, 8px); }
+.ref-chord-play:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
