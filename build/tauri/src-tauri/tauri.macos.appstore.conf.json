@@ -2,6 +2,7 @@
   "bundle": {
     "macOS": {
       "entitlements": "Entitlements.appstore.plist",
+      "minimumSystemVersion": "12.0",
       "signingIdentity": null
     }
   }
