@@ -1,0 +1,5 @@
+- Chord library: movable shapes, capo diagrams on chord charts, and lower default shapes for 7- and 8-string guitars
+- Circle of fifths plays chords, and scales now play with a natural release
+- Tools open at their own address, with interactive scale sounds
+- Setlists can be created and renamed inline
+- New keyboard shortcuts C, S and O; count-in is now I
