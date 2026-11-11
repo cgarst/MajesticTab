@@ -4329,7 +4329,7 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
             file.librarySongTitle = song.title;
             file.artist = song.artist;
             file.album = song.album;
-            file.coverUrl = song.coverUrl;
+            file.coverUrl = getSynchronousCachedArtUrl(song.coverUrl) || song.coverUrl || null;
             file.tunings = song.tunings;
             file.hiddenTunings = song.hiddenTunings || [];
             file.startPage = (tabOption.startPage !== undefined && tabOption.startPage !== null) ? parseInt(tabOption.startPage, 10) : null;
@@ -4811,6 +4811,7 @@ export async function openRecentItem(r) {
                 stored.file.librarySongTitle = r.songTitle || r.name;
                 stored.file.artist = r.artist || '';
                 stored.file.album = r.album || '';
+                stored.file.coverUrl = getSynchronousCachedArtUrl(r.coverUrl) || r.coverUrl || null;
                 stored.file.startPage = r.startPage || null;
                 stored.file.endPage = r.endPage || null;
                 stored.file.tabId = r.tabId || null;
