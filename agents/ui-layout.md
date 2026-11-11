@@ -1,0 +1,21 @@
+# UI layout and navigation
+
+Read when changing library, Settings, Tools, navigation or any list or spacing. Principles: `ui-principles.md`.
+
+**Layout**
+- **Rows, not cards.** Lists of artists, songs, setlists, recents, tunings and settings are flat rows on a 56px pitch with the same left edge. No card grids.
+- **One title per screen and one back control.** Do not repeat a title in a pane header, a breadcrumb bar and a back button. A breadcrumb appears only when the user is at least two levels deep.
+- **One primary action per screen.** Everything else is a text action ("Add tab", "Rename", "Edit"): ghost style, `--ink2`, one tone step on hover. Do not stack several filled buttons in one row.
+- **Redundancy is a defect.** The same control, readout or setting must not live in two places on one screen (for example position shown in both the ruler and a percentage, or a setting reachable from both a menu and a page). Remove the weaker copy.
+- **Settings is a page in the navigation**, reached only from the library rail or tab bar. It is not a drawer, and there is no hamburger or edge swipe for it. It is a library view like Tools (`activeView = 'settings'`, route `#settings`, the same back history), drawn in the library's content area; no key, URL parameter, gesture or controller button opens it. `#fileMenu` only parks the built page while another view shows. The rail highlights Settings while it is open and any other destination closes it. Settings pages have one row per setting with the label and a short description; the whole row is the target.
+- **Library order:** Pinned songs (its own group, selected by default when anything is pinned), then Custom Music, then the Artists list. Album shelves show artwork only, since the album header already names the album.
+- **The rail has four destinations:** Library, Setlists, Tools and Settings (Settings last, aligned to the bottom). Tools is a page of flat rows, one per tool (Chord library, Scales, Circle of fifths, Tuner, Metronome, Jam); the reader's Tools button keeps a small menu with the same tools. Tunings and Recents are "Browse by" choices inside Library, next to Artists; they are not rail items.
+- **The navigation shell is chosen by container width, not user agent:** a sidebar rail (76px from 577px wide, full width from 1000px), a bottom tab bar below that (phone), at most five items, always with labels. The library has no reader controls on phones; the reader has no library chrome.
+- **Destructive actions** sit in a Danger zone, use the danger color, and need a second press or confirmation.
+
+## Spacing
+
+- **Only real Bootstrap spacing steps.** Bootstrap 5 utilities exist for `0` to `5` only. Never write fractional or Tailwind-style classes (`px-3.5`, `py-2.5`, `gap-2.5`, `m-1.5`, `mt-1.5`): the browser ignores them and the padding or gap silently becomes `0`. Use `gap-2` / `gap-3`, or a CSS rule.
+- **Padding of rows lives in CSS.** Define explicit padding in `src/style.css` or `src/design.css` for reusable row containers (e.g. `.library-song-row`, `.library-track-row`, `.library-album-banner`) instead of relying on inline utilities.
+- **No edge or sibling collisions.** A leading number or artwork has fixed dimensions and `flex-shrink: 0` (e.g. `.badge-track-num { min-width: 28px; width: 28px; height: 28px; flex-shrink: 0; }`) and a `gap-2` or `gap-3` to the title. A trailing action group has `flex-shrink: 0` and left separation (`ms-2` or `gap-2`), so `Add tab`, Edit or Delete never touch the row's edge or overlap the title. Metadata under a title is plain grey text with a vertical gap (`mt-1` or `mt-2`), never a pill. Separate sub-sections with a tone step or space, not a divider border.
+  - **Top Bar Centering (`#centerSection`):** The middle section (`#centerSection` containing the Page/Scroll mode selector and library navigation buttons) must remain perfectly centered horizontally across all screen sizes and viewport widths. `#topBar` uses a symmetric 3-column grid (`grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)`). Side containers (`#brandSection` and `#rightSection`) must retain `min-width: 0` so that differing content lengths on the left (e.g. song breadcrumbs) vs right (audio pills) do not distort the `1fr` track distributions and push the center controls off-center.
