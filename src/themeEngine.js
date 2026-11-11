@@ -32,7 +32,7 @@ export const THEMES = [
     name: 'Blue Pearl',
     subtitle: 'Sapphire Pearl Shimmer',
     gradient: 'linear-gradient(135deg, #1d4ed8, #38bdf8)',
-    bg: '#060d1f',
+    bg: '#0e1a3d',
     accent: '#2563eb',
     secondary: '#38bdf8',
     colorway: ['#38bdf8', '#2563eb', '#60a5fa', '#0ea5e9', '#818cf8', '#2dd4bf']
@@ -42,7 +42,7 @@ export const THEMES = [
     name: 'Cerulean Paradise',
     subtitle: 'Tropical Azure Flame',
     gradient: 'linear-gradient(135deg, #06b6d4, #0284c7)',
-    bg: '#03141a',
+    bg: '#0a2a33',
     accent: '#06b6d4',
     secondary: '#0284c7',
     colorway: ['#06b6d4', '#0284c7', '#14b8a6', '#22d3ee', '#38bdf8', '#10b981']
