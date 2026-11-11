@@ -1386,6 +1386,19 @@ pub fn tab_downloader_prefill(
 }
 
 #[tauri::command]
+pub fn tab_downloader_eval(
+    app: AppHandle,
+    script: String,
+) -> Result<(), String> {
+    if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
+        let _ = w.eval(&script);
+    } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+        let _ = w.eval(&script);
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn tab_downloader_nav(
     app: AppHandle,
     _state: State<'_, TabDownloaderState>,

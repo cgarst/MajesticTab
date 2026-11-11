@@ -171,6 +171,7 @@ test('getSources upgrades existing user sources by moving DuckDuckGo first', () 
 
 test('adblock starts disabled and handles enabling with mocked fetch and caching', async () => {
     localStorage.clear();
+    localStorage.setItem(ADBLOCK_ENABLED_KEY, 'false');
     assert.equal(isAdblockEnabled(), false);
     const initialStatus = getAdblockStatus();
     assert.equal(initialStatus.enabled, false);

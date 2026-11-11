@@ -67,18 +67,168 @@ export function isWsaTabUrl(url) {
     }
 }
 
-/**
- * Dynamically derives the downloader URL by injecting the domain label into -downloader.com
- * e.g. a /a/wsa/ page on host "www.<name>.com" maps to host "www.<name>-downloader.com" (no full URLs here: the Tauri build rejects unapproved hosts, even in comments)
- * @param {string} targetUrl
- * @returns {string|null}
- */
-export function getDownloaderUrlFromMatchedUrl(targetUrl) {
+export function extractTabSongId(urlOrPath) {
+    if (!urlOrPath || typeof urlOrPath !== 'string') return null;
+    try {
+        const path = urlOrPath.startsWith('http') ? new URL(urlOrPath).pathname : urlOrPath;
+        const matches = path.match(/(?:-|\/)s(\d+)(?:\/|$)/g);
+        if (matches && matches.length > 0) {
+            const last = matches[matches.length - 1];
+            const num = last.match(/\d+/);
+            return num ? Number(num[0]) : null;
+        }
+        const m = path.match(/-s(\d+)/g);
+        return m ? Number(m[m.length - 1].slice(2)) : null;
+    } catch {
+        return null;
+    }
+}
+
+export function encodeTabDownloaderPayload(current, targetUrl) {
+    if (!current || typeof current !== 'object') return '';
+    let byLinkUrl = '';
+    try {
+        const u = new URL(unwrapRedirectUrl(targetUrl));
+        byLinkUrl = u.origin + u.pathname;
+    } catch {
+        byLinkUrl = targetUrl || '';
+    }
+    const tracks = (current.tracks || []).map(u => ({
+        partId: u.partId,
+        instrumentId: u.instrumentId,
+        title: u.title,
+        name: u.name,
+        tuning: u.tuning,
+        isDrums: u.isDrums
+    }));
+    const payload = JSON.stringify({
+        songId: current.songId,
+        revisionId: current.revisionId,
+        image: current.image,
+        title: current.title,
+        artist: current.artist,
+        artistId: current.artistId,
+        tracks,
+        byLinkUrl
+    });
+    const bytes = new TextEncoder().encode(payload);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export function extractTabMetaFromHtml(html, targetUrl) {
+    if (!html || typeof html !== 'string') return null;
+    const songId = targetUrl ? extractTabSongId(targetUrl) : null;
+    let jsonText = null;
+    if (typeof DOMParser !== 'undefined') {
+        try {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const el = doc.getElementById('state');
+            if (el && el.textContent) jsonText = el.textContent;
+        } catch {}
+    }
+    if (!jsonText) {
+        const match = html.match(/<script[^>]*id=["']state["'][^>]*>([\s\S]*?)<\/script>/i);
+        if (match && match[1]) jsonText = match[1];
+    }
+    if (!jsonText) return null;
+    try {
+        const d = JSON.parse(jsonText);
+        const current = d && d.meta && d.meta.current ? d.meta.current : null;
+        if (!current) return null;
+        if (songId !== null && current.songId && current.songId !== songId) return null;
+        return current;
+    } catch {
+        return null;
+    }
+}
+
+export function generateDownloaderTransferScript() {
+    return `(function() {
+    const host = location.hostname.replace(/^www\\./i, '').toLowerCase();
+    const parts = host.split('.');
+    let label = parts[0];
+    if (parts.length > 2 && (parts[parts.length - 2] === 'co' || parts[parts.length - 2] === 'com')) {
+        label = parts[parts.length - 3] || parts[0];
+    } else if (parts.length > 1) {
+        label = parts[parts.length - 2];
+    }
+    if (!label) return;
+    const base = 'https:/' + '/www.' + label + '-downloader.com/';
+    function getSongId(path) {
+        const o = path.match(/(?:-|\\/)s(\\d+)(?:\\/|$)/g);
+        if (o && o.length > 0) {
+            const m = o[o.length - 1].match(/\\d+/);
+            if (m) return Number(m[0]);
+        }
+        const m = path.match(/-s(\\d+)/g);
+        return m ? Number(m[m.length - 1].slice(2)) : null;
+    }
+    function readState(doc) {
+        const el = doc.getElementById('state');
+        if (!el || !el.textContent) return null;
+        try {
+            const d = JSON.parse(el.textContent);
+            return d && d.meta && d.meta.current ? d.meta.current : null;
+        } catch (_) {
+            return null;
+        }
+    }
+    function encode(curr) {
+        const tracks = (curr.tracks || []).map(function(u) {
+            return {
+                partId: u.partId,
+                instrumentId: u.instrumentId,
+                title: u.title,
+                name: u.name,
+                tuning: u.tuning,
+                isDrums: u.isDrums
+            };
+        });
+        const d = JSON.stringify({
+            songId: curr.songId,
+            revisionId: curr.revisionId,
+            image: curr.image,
+            title: curr.title,
+            artist: curr.artist,
+            artistId: curr.artistId,
+            tracks: tracks,
+            byLinkUrl: location.origin + location.pathname
+        });
+        const g = new TextEncoder().encode(d);
+        let m = '';
+        for (let u = 0; u < g.length; u++) m += String.fromCharCode(g[u]);
+        return btoa(m).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
+    }
+    function send(curr) {
+        const dest = base + '#' + label + '=' + encode(curr);
+        window.open(dest, label + '-downloader') || (location.href = dest);
+    }
+    const songId = getSongId(location.pathname);
+    if (!songId) return;
+    const docMeta = readState(document);
+    if (docMeta && docMeta.songId === songId) {
+        send(docMeta);
+        return;
+    }
+    fetch(location.href, { credentials: 'include' })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            const parsed = readState(new DOMParser().parseFromString(html, 'text/html'));
+            if (parsed && parsed.songId === songId) {
+                send(parsed);
+            }
+        })
+        .catch(function() {});
+})();`;
+}
+
+export function getDownloaderUrlFromMatchedUrl(targetUrl, currentMeta = null) {
     try {
         const u = new URL(unwrapGoogleUrl(targetUrl));
         const host = u.hostname.replace(/^www\./i, '').toLowerCase();
         const parts = host.split('.');
-        // Extract primary domain name (handle multi-part TLDs like .co.uk if present)
         let label = parts[0];
         if (parts.length > 2 && (parts[parts.length - 2] === 'co' || parts[parts.length - 2] === 'com')) {
             label = parts[parts.length - 3] || parts[0];
@@ -86,7 +236,12 @@ export function getDownloaderUrlFromMatchedUrl(targetUrl) {
             label = parts[parts.length - 2];
         }
         if (!label) return null;
-        return `https://www.${label}-downloader.com/`;
+        const baseUrl = `https://www.${label}-downloader.com/`;
+        if (currentMeta) {
+            const hashPayload = encodeTabDownloaderPayload(currentMeta, targetUrl);
+            if (hashPayload) return `${baseUrl}#${label}=${hashPayload}`;
+        }
+        return baseUrl;
     } catch {
         return null;
     }

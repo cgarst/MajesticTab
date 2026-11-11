@@ -12,7 +12,9 @@ import {
     isWsaTabUrl,
     getDownloaderUrlFromMatchedUrl,
     unwrapGoogleUrl,
-    attachSyncForMatchedUrl
+    attachSyncForMatchedUrl,
+    extractTabMetaFromHtml,
+    generateDownloaderTransferScript
 } from './utils/downloaderIntercept.js';
 
 export const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
@@ -103,55 +105,16 @@ export function navigateToDownloaderUrl(nextUrl) {
     try { window.MajesticDownloaderNative?.loadUrl?.(nextUrl); } catch {}
 }
 
-const PREFILL_URL_PLACEHOLDER = '__MAJESTICTAB_PREFILL_URL__';
-let prefillScriptTemplate = null;
-
-/**
- * Android only: fetch the prefill script once, with a placeholder for the page address. On Android the shell
- * answers commands by evaluating script in the most recently created webview, which is the downloader once it
- * exists, so a command called after the downloader opens never resolves in the app. The script is therefore
- * requested while only the app's own webview exists (at startup, and again before the downloader opens).
- */
-function loadPrefillScript() {
-    if (prefillScriptTemplate) return prefillScriptTemplate;
-    if (!window.__TAURI__?.core?.invoke || typeof window.MajesticDownloaderNative?.evalInDownloader !== 'function') return null;
-    prefillScriptTemplate = window.__TAURI__.core.invoke('tab_downloader_prefill_script', { targetUrl: PREFILL_URL_PLACEHOLDER })
-        .catch(() => { prefillScriptTemplate = null; return null; });
-    return prefillScriptTemplate;
-}
-loadPrefillScript();
-
-/**
- * Fill the converter page's URL field. Each run dies with the document it ran in and a slow page
- * can take many seconds to load, so it repeats for ~25s; a filled field is a no-op.
- * Android runs the script in its native downloader view, since the shell's eval does not reach it.
- * @param {string} targetUrl
- */
-function prefillDownloaderUrl(targetUrl) {
-    if (!window.__TAURI__?.core?.invoke) return;
-    if (typeof window.MajesticDownloaderNative?.evalInDownloader !== 'function') {
-        window.__TAURI__.core.invoke('tab_downloader_prefill', { targetUrl }).catch(() => {});
-        return;
+function evalInDownloaderView(script) {
+    if (typeof window.MajesticDownloaderNative?.evalInDownloader === 'function') {
+        window.MajesticDownloaderNative.evalInDownloader(script);
+        return true;
     }
-    Promise.resolve(loadPrefillScript()).then(template => {
-        if (!template) return;
-        const quote = JSON.stringify;
-        const script = template.split(quote(PREFILL_URL_PLACEHOLDER)).join(quote(targetUrl));
-        const delays = [0, 150, 400, 800, 1500, 2500, 4000, ...Array(21).fill(1000)];
-        let at = 0;
-        delays.forEach(d => {
-            at += d;
-            setTimeout(() => {
-                if (activeEphemeralSource?.targetUrl !== targetUrl) return;
-                try {
-                    // The run can start before the navigation lands; never fill the page the user came from.
-                    const here = new URL(window.MajesticDownloaderNative.currentUrl?.() || 'about:blank').hostname;
-                    if (here !== new URL(activeEphemeralSource.url).hostname) return;
-                    window.MajesticDownloaderNative.evalInDownloader(script);
-                } catch {}
-            }, at);
-        });
-    }).catch(() => {});
+    if (window.__TAURI__?.core?.invoke) {
+        window.__TAURI__.core.invoke('tab_downloader_eval', { script }).catch(() => {});
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -217,7 +180,7 @@ function showCopyTabUrlBanner(tabUrl) {
     showAdvisoryBadge(`Tab page: ${tabUrl}`, async () => {
         try {
             await navigator.clipboard.writeText(tabUrl);
-            showToast('Tab URL copied. Paste it into the converter.', 'success');
+            showToast('Tab URL copied', 'success');
         } catch {
             showToast('Could not copy the tab URL', 'error');
         }
@@ -1458,16 +1421,7 @@ export function switchActiveSource(src) {
     currentDownloaderUrl = nextUrl;
 
     if (window.__TAURI__?.core?.invoke) {
-        const prefill = () => {
-            if (src.id === 'downloader' && activeEphemeralSource?.targetUrl) {
-                prefillDownloaderUrl(activeEphemeralSource.targetUrl);
-            }
-        };
-        // Android's command replies never reach the app once the downloader exists, so it cannot wait for this one.
-        if (typeof window.MajesticDownloaderNative?.evalInDownloader === 'function') prefill();
-        window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl }).then(() => {
-            if (typeof window.MajesticDownloaderNative?.evalInDownloader !== 'function') prefill();
-        }).catch(err => {
+        window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl }).catch(err => {
             console.error('[Tab Downloader] Failed to navigate to source:', err);
         });
     }
@@ -1642,32 +1596,53 @@ export function hideTabDownloaderBar() {
  * @param {string} url
  * @returns {boolean} true if intercepted
  */
-export function handleWsaUrlIntercept(url) {
+export async function handleWsaUrlIntercept(url) {
     const cleanUrl = unwrapGoogleUrl(url);
     if (pendingMatchedTabUrl === cleanUrl && activeSourceId === 'downloader') {
         return true;
     }
-    const downloaderUrl = getDownloaderUrlFromMatchedUrl(cleanUrl);
-    if (!downloaderUrl) return false;
+    const baseDownloaderUrl = getDownloaderUrlFromMatchedUrl(cleanUrl);
+    if (!baseDownloaderUrl) return false;
 
     pendingMatchedTabUrl = cleanUrl;
     activeEphemeralSource = {
         id: 'downloader',
         name: 'Downloader',
-        url: downloaderUrl,
+        url: baseDownloaderUrl,
         targetUrl: cleanUrl
     };
     syncDownloaderAdblockButton();
     renderDownloaderTabs();
-    switchActiveSource(activeEphemeralSource);
+
+    let executed = false;
+    try {
+        const here = window.MajesticDownloaderNative?.currentUrl?.() || currentDownloaderUrl || '';
+        if (isWsaTabUrl(here)) {
+            executed = evalInDownloaderView(generateDownloaderTransferScript());
+        }
+    } catch {}
+
+    if (!executed) {
+        let dest = baseDownloaderUrl;
+        try {
+            const { fetchText } = await import('./urlImport/openFromUrl.js');
+            const html = await fetchText(cleanUrl);
+            const meta = extractTabMetaFromHtml(html, cleanUrl);
+            if (meta) {
+                dest = getDownloaderUrlFromMatchedUrl(cleanUrl, meta) || baseDownloaderUrl;
+            }
+        } catch {}
+        activeEphemeralSource.url = dest;
+        switchActiveSource(activeEphemeralSource);
+    } else {
+        activeSourceId = 'downloader';
+        syncDownloaderAdblockButton();
+        renderDownloaderTabs();
+    }
     showCopyTabUrlBanner(cleanUrl);
     return true;
 }
 
-/**
- * Show a downloader page address in the URL bar and highlight its source tab
- * @param {string} rawUrl
- */
 function applyDownloaderUrl(rawUrl) {
     const url = stripAdFragment(rawUrl || '');
     let offeredWsaBanner = false;
@@ -1679,6 +1654,9 @@ function applyDownloaderUrl(rawUrl) {
     } else if (url && activeSourceId === 'downloader' && activeEphemeralSource?.targetUrl) {
         showCopyTabUrlBanner(activeEphemeralSource.targetUrl);
         offeredWsaBanner = true;
+    }
+    if (activeEphemeralSource && url && url.includes('-downloader.com')) {
+        activeEphemeralSource.url = url;
     }
     const urlText = document.getElementById('downloaderUrlText');
     const urlGroup = document.getElementById('downloaderUrlGroup');
@@ -1703,12 +1681,6 @@ function applyDownloaderUrl(rawUrl) {
             });
         } else if (!offeredWsaBanner) {
             hideAdvisoryBadge();
-        }
-    }
-
-    if (activeSourceId === 'downloader' && activeEphemeralSource?.targetUrl) {
-        if (window.__TAURI__?.core?.invoke) {
-            prefillDownloaderUrl(activeEphemeralSource.targetUrl);
         }
     }
 }
@@ -1771,7 +1743,6 @@ let debugToolsEnabled = null;
  * @param {Object} [options.targetSong]
  */
 export async function openTabDownloader(options = {}) {
-    loadPrefillScript();
     activeEphemeralSource = null;
     pendingMatchedTabUrl = null;
     if (!isNative()) {
@@ -1883,9 +1854,6 @@ export async function openTabDownloader(options = {}) {
         });
         // A batch keeps the site view up after each save, so the next song's search shows in it
         window.__TAURI__.core.invoke('tab_downloader_set_batch', { active: activeBatchMode }).catch(() => {});
-        if (activeEphemeralSource?.targetUrl) {
-            prefillDownloaderUrl(activeEphemeralSource.targetUrl);
-        }
         // open_tab_downloader overwrites the native offset with the height measured before the pills
         // rendered, and the ResizeObserver won't refire if the bar already settled, so push the final height.
         const settledBar = document.getElementById('tabDownloaderBar');

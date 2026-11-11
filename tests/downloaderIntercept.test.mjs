@@ -6,7 +6,11 @@ import {
     unwrapRedirectUrl,
     isWsaTabUrl,
     getDownloaderUrlFromMatchedUrl,
-    attachSyncForMatchedUrl
+    attachSyncForMatchedUrl,
+    extractTabSongId,
+    encodeTabDownloaderPayload,
+    extractTabMetaFromHtml,
+    generateDownloaderTransferScript
 } from '../src/utils/downloaderIntercept.js';
 
 test('unwrapRedirectUrl unwraps redirects across search engines and proxies', () => {
@@ -62,6 +66,113 @@ test('getDownloaderUrlFromMatchedUrl dynamically derives downloader destination'
         getDownloaderUrlFromMatchedUrl(googleRedirect),
         'https://www.brandname-downloader.com/'
     );
+});
+
+test('extractTabSongId parses numeric song IDs from score paths', () => {
+    assert.equal(extractTabSongId('https://www.custombrand.com/a/wsa/artist-song-s1234'), 1234);
+    assert.equal(extractTabSongId('/a/wsa/artist-song-s5678/r2'), 5678);
+    assert.equal(extractTabSongId('/a/wsa/song-s999/'), 999);
+    assert.equal(extractTabSongId('/invalid/path-without-id'), null);
+    assert.equal(extractTabSongId(''), null);
+    assert.equal(extractTabSongId(null), null);
+});
+
+test('encodeTabDownloaderPayload normalizes tracks and serializes to base64url', () => {
+    const current = {
+        songId: 1234,
+        revisionId: 5678,
+        image: 'https://example.com/cover.jpg',
+        title: 'Song Title',
+        artist: 'Artist Name',
+        artistId: 99,
+        tracks: [
+            {
+                partId: 10,
+                instrumentId: 25,
+                title: 'Guitar Lead',
+                name: 'Clean Guitar',
+                tuning: [64, 59, 55, 50, 45, 40],
+                isDrums: false,
+                internalField: 'ignore_me'
+            }
+        ]
+    };
+    const targetUrl = 'https://www.custombrand.com/a/wsa/artist-song-s1234?tab=lead#anchor';
+    const b64 = encodeTabDownloaderPayload(current, targetUrl);
+
+    assert.ok(b64.length > 0);
+    assert.ok(!b64.includes('+'));
+    assert.ok(!b64.includes('/'));
+    assert.ok(!b64.endsWith('='));
+
+    let base64Std = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64Std.length % 4) base64Std += '=';
+    const decoded = JSON.parse(Buffer.from(base64Std, 'base64').toString('utf8'));
+
+    assert.equal(decoded.songId, 1234);
+    assert.equal(decoded.revisionId, 5678);
+    assert.equal(decoded.image, 'https://example.com/cover.jpg');
+    assert.equal(decoded.title, 'Song Title');
+    assert.equal(decoded.artist, 'Artist Name');
+    assert.equal(decoded.artistId, 99);
+    assert.equal(decoded.byLinkUrl, 'https://www.custombrand.com/a/wsa/artist-song-s1234');
+    assert.equal(decoded.tracks.length, 1);
+    assert.equal(decoded.tracks[0].partId, 10);
+    assert.equal(decoded.tracks[0].instrumentId, 25);
+    assert.equal(decoded.tracks[0].title, 'Guitar Lead');
+    assert.equal(decoded.tracks[0].name, 'Clean Guitar');
+    assert.deepEqual(decoded.tracks[0].tuning, [64, 59, 55, 50, 45, 40]);
+    assert.equal(decoded.tracks[0].isDrums, false);
+    assert.equal(decoded.tracks[0].internalField, undefined);
+});
+
+test('extractTabMetaFromHtml extracts state and matches song id', () => {
+    const htmlWithMatchingId = `
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <script id="state" type="application/json">{"meta":{"current":{"songId":1234,"title":"Valid Song"}}}</script>
+            </head>
+            <body></body>
+        </html>
+    `;
+    const meta = extractTabMetaFromHtml(htmlWithMatchingId, 'https://www.custombrand.com/a/wsa/artist-song-s1234');
+    assert.ok(meta);
+    assert.equal(meta.songId, 1234);
+    assert.equal(meta.title, 'Valid Song');
+
+    const mismatched = extractTabMetaFromHtml(htmlWithMatchingId, 'https://www.custombrand.com/a/wsa/artist-song-s9999');
+    assert.equal(mismatched, null);
+
+    const empty = extractTabMetaFromHtml('<html><body></body></html>', 'https://www.custombrand.com/a/wsa/artist-song-s1234');
+    assert.equal(empty, null);
+});
+
+test('getDownloaderUrlFromMatchedUrl builds url with hash payload when metadata provided', () => {
+    const current = {
+        songId: 4321,
+        revisionId: 100,
+        image: '',
+        title: 'Track',
+        artist: 'Band',
+        artistId: 1,
+        tracks: []
+    };
+    const targetUrl = 'https://www.custombrand.com/a/wsa/band-track-s4321';
+    const fullUrl = getDownloaderUrlFromMatchedUrl(targetUrl, current);
+    assert.ok(fullUrl.startsWith('https://www.custombrand-downloader.com/#custombrand='));
+    const hash = fullUrl.split('#custombrand=')[1];
+    assert.ok(hash && hash.length > 0);
+
+    const baseOnly = getDownloaderUrlFromMatchedUrl(targetUrl);
+    assert.equal(baseOnly, 'https://www.custombrand-downloader.com/');
+});
+
+test('generateDownloaderTransferScript produces executable script string', () => {
+    const script = generateDownloaderTransferScript();
+    assert.ok(typeof script === 'string');
+    assert.ok(script.includes('-downloader.com/'));
+    assert.ok(script.includes('readState'));
 });
 
 test('attachSyncForMatchedUrl feeds matched URL into sync pipeline and calls toast', async () => {
