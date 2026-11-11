@@ -3,7 +3,7 @@
 // element ids, so the modules that bind to them work unchanged. This file adds:
 //   - open / close / placement of the menu
 //   - a live Jam session pill and a status dot on the Tools button
-//   - the R and T keys
+//   - keyboard shortcut handling for the Tuner (T key)
 // The playback dock is always on, and there is no pinned tool: the bar has fixed labelled buttons.
 
 import { updateGlobalAudioControls } from './navigationUtils.js';

@@ -354,8 +354,10 @@ export function setupKeyboardNavigation(getConfig) {
             }
         }
 
-        // M key toggles the metronome
-        if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey && isSynthAvailable()) {
+        // M key toggles the metronome (ignored if metronome modal is open or handled)
+        if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.defaultPrevented && isSynthAvailable()) {
+            const metroModal = document.getElementById('metronomeModal');
+            if (metroModal && metroModal.style.display !== 'none') return;
             e.preventDefault();
             toggleMetronome();
             return;
