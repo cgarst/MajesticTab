@@ -27,7 +27,7 @@ import {
 import { buildTimelineModel } from './timelineModel.js';
 import { playedBarsFromLookup, buildScoreTimeline } from './scorePositions.js';
 import {
-    getMidiTickLookup, synthPlayerState, playClick, setAudioSyncEnabled, playPauseSynth, rewindSynth10Seconds
+    getMidiTickLookup, synthPlayerState, playClick, setAudioSyncEnabled, playPauseSynth, pauseSynthPlayer, rewindSynth10Seconds
 } from '../gpProcessor/gpPlayer.js';
 import { getAudioSyncSession } from './audioSyncController.js';
 
@@ -399,6 +399,13 @@ export function playPauseRealAudio() {
         }
     }
     startRealAudio();
+}
+
+export function pauseRealAudio() {
+    if (countingIn) { clearTimeout(countingIn); countingIn = null; }
+    pauseYouTube();
+    pauseAudioFile();
+    if (synthPlayerState.audioSyncEnabled) pauseSynthPlayer();
 }
 
 function startRealAudio() {

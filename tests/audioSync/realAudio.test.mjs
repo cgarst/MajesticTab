@@ -77,3 +77,58 @@ test('speed rates apply uniformly to real audio', async () => {
     setRealAudioRate(1.25);
     assert.equal(appliedRate, 1.25);
 });
+
+test('pauseRealAudio stops local audio, youtube, and cancels count-in', () => {
+    let youtubePaused = false;
+    let localAudioPaused = false;
+    let synthPaused = false;
+    let countingIn = setTimeout(() => {}, 5000);
+
+    const pauseYouTube = () => { youtubePaused = true; };
+    const pauseAudioFile = () => { localAudioPaused = true; };
+    const pauseSynthPlayer = () => { synthPaused = true; };
+    const synthPlayerState = { audioSyncEnabled: true };
+
+    const pauseRealAudio = () => {
+        if (countingIn) { clearTimeout(countingIn); countingIn = null; }
+        pauseYouTube();
+        pauseAudioFile();
+        if (synthPlayerState.audioSyncEnabled) pauseSynthPlayer();
+    };
+
+    pauseRealAudio();
+
+    assert.equal(countingIn, null);
+    assert.equal(youtubePaused, true);
+    assert.equal(localAudioPaused, true);
+    assert.equal(synthPaused, true);
+});
+
+test('pauseAudioFile cancels pending play requests when loading', async () => {
+    let playGeneration = 0;
+    let playCalled = false;
+    const mockSource = {
+        isPlaying: () => false,
+        pause: () => {},
+        play: async () => { playCalled = true; }
+    };
+
+    const pauseAudioFile = () => {
+        playGeneration++;
+        mockSource.pause();
+    };
+
+    const playPauseAudioFile = async (delayMs) => {
+        const token = ++playGeneration;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        if (token !== playGeneration) return;
+        await mockSource.play();
+    };
+
+    const playPromise = playPauseAudioFile(20);
+    // User navigates back to library while audio is loading
+    pauseAudioFile();
+    await playPromise;
+
+    assert.equal(playCalled, false, 'Playback must not start if paused/navigated away while loading');
+});

@@ -31,6 +31,8 @@ import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.
 import { showToast } from './utils/toast.js';
 import { scoreOptionsState, pauseSynthPlayer } from './gpProcessor/gpPlayer.js';
 import { pauseYouTube } from './youtubePlayer.js';
+import { pauseAudioFile } from './audioSync/audioFilePlayer.js';
+import { pauseRealAudio } from './audioSync/realAudioController.js';
 import { metronome } from './metronome/metronome.js';
 import { pitchCraftTuner } from './tuner/tuner.js';
 import { fretboardController } from './fretboard/fretboardController.js';
@@ -457,7 +459,9 @@ export async function openLibraryModal(initialView = 'library') {
     import('./gpProcessor/gpPlayer.js').then((m) => m.savePlaybackPosition(true)).catch(() => {});
     // Going back to the library stops whatever song is playing
     pauseSynthPlayer();
+    pauseRealAudio();
     pauseYouTube();
+    pauseAudioFile();
     initLibraryTopBar();
     // 'tunings' is the Tunings tab of the library view
     const wantTunings = initialView === 'tunings';
@@ -2185,7 +2189,7 @@ export function webCtaBannerHtml() {
     <section class="web-cta-banner" id="webCtaBanner" aria-label="Install MajesticTab">
       <div class="web-cta-content">
         <div class="web-cta-title">Browser storage is temporary</div>
-        <div class="web-cta-desc">Tabs and sync points saved in the browser can be cleared by your system when storage is low or browsing data is cleared. Install MajesticTab for permanent offline storage, local Jam hosting, and built-in tab search with ad-blocking.</div>
+        <div class="web-cta-desc">Tabs and sync points saved in the browser can be cleared by your system when storage is low or browsing data is cleared. Install MajesticTab for permanent offline storage, ad-free tab search, batch album downloading, local Jam hosting, backing track separation, secure keychain storage for cloud credentials, and iCloud sync for Apple devices.</div>
       </div>
       <div class="web-cta-actions">
         <a href="https://majestictab.zathu.net/#download" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-theme-primary web-cta-btn">Get the app</a>

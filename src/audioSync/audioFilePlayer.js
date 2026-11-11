@@ -80,8 +80,11 @@ export function isAudioFilePlaying() {
     return Boolean(state.source?.isPlaying());
 }
 
+let playGeneration = 0;
+
 export function pauseAudioFile() {
-    if (state.source?.isPlaying()) state.source.pause();
+    playGeneration++;
+    state.source?.pause();
 }
 
 export function rewindAudioFile10Seconds() {
@@ -91,13 +94,15 @@ export function rewindAudioFile10Seconds() {
 
 export async function playPauseAudioFile() {
     if (state.source?.isPlaying()) {
-        state.source.pause();
+        pauseAudioFile();
         return;
     }
+    const token = ++playGeneration;
     if (!await ensureSource()) {
         toggleAudioFilePanel(true);
         return;
     }
+    if (token !== playGeneration) return;
     // One audio mode at a time
     pauseSynthPlayer();
     clearSynthHighlights();

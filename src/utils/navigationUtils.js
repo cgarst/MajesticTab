@@ -11,7 +11,7 @@ import { isYouTubeAvailable, rewindYouTubeToBeginning, toggleYouTubePanel, getSo
 import { songHasSyncPoints } from '../audioSync/syncStore.js';
 import { songHasLocalAudio } from '../audioSync/libraryAudio.js';
 import {
-    isRealAudioAvailable, isRealAudioPlaying, playPauseRealAudio, rewindRealAudio10Seconds, getRealAudioActiveSource, applyEmbeddedAudioMode
+    isRealAudioAvailable, isRealAudioPlaying, playPauseRealAudio, pauseRealAudio, rewindRealAudio10Seconds, getRealAudioActiveSource, applyEmbeddedAudioMode
 } from '../audioSync/realAudioController.js';
 
 // Navigation action constants
@@ -1206,7 +1206,7 @@ export function selectSound(kind) {
     if (kind === 'synth') {
         if (panelOpen) { toggleSynthPanel(true); return; }
         setActiveAudioMode('synth');
-        pauseYouTube();
+        pauseRealAudio();
         return;
     }
     if (panelOpen || !isRealAudioAvailable()) { toggleYouTubePanel(true); return; }
