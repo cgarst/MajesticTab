@@ -1069,17 +1069,6 @@ async function renderLibraryBrowseView(container) {
             });
         };
 
-        container.querySelector('#emptyStateSearchBtn')?.addEventListener('click', () => {
-            const input = container.querySelector('#libFilterInput');
-            if (input) {
-                // Say what to type: the field takes a song or artist and searches the catalog and the web
-                input.placeholder = 'Type a song or artist';
-                input.scrollIntoView({ block: 'nearest' });
-                input.focus();
-                input.select();
-            }
-        });
-
         makeRowAccessible(container.querySelector('#emptyStateBulkImportBtn'), async () => {
             const { openToolOnNextRender } = await import('./utils/toolsPage.js');
             openToolOnNextRender('bulkimport');
@@ -2296,21 +2285,16 @@ export function libraryEmptyStateHtml({ icon, title, message, actionsHtml = '' }
 
 // Welcomes and handholds new users when the library / collection is empty
 export function libraryEmptyWelcomeHtml({ title, subtitle }) {
-    const searchLabel = isNative() ? 'Search the catalog and web' : 'Search the catalog';
     return `
     <div class="empty-welcome-container" role="region" aria-label="Welcome and getting started">
       <div class="empty-welcome-hero">
         <h2 class="empty-welcome-title">${title}</h2>
         <p class="empty-welcome-sub">${subtitle}</p>
-        <div class="empty-welcome-cta-group">
-          <button type="button" class="btn btn-theme-primary empty-primary-btn" id="emptyStateSearchBtn">
-            <i class="bi-search me-2" aria-hidden="true"></i>${searchLabel}
-          </button>
-        </div>
+        <p class="empty-welcome-sub">Search above for a song, artist or album to add it to your library. That organizes your music but does not include tab files. You add those afterward.</p>
       </div>
 
       <div class="empty-welcome-section">
-        <div class="empty-section-header">Start with your music</div>
+        <div class="empty-section-header">Other ways to get started</div>
         <div class="empty-action-list" role="list">
           
           <div class="empty-action-row" id="emptyStateBulkImportBtn" role="button" tabindex="0" aria-label="Bulk import a folder of tabs: Scan and auto-match an entire directory of .gp*, PDF, or text files">
