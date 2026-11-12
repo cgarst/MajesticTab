@@ -9,7 +9,7 @@ import { loadRecord, saveRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { getScoreContext } from './audioSyncController.js';
 import { pointProblems } from './pointCheck.js';
 import { buildBeatMap } from './beatMap.js';
-import { loadFromUrl, setToPoints, setsFittingScore } from './importers/index.js';
+import { loadFromUrl, setToPoints, setsFittingScore, detectSets } from './importers/index.js';
 import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
 import { hasNativeHttp } from '../s3Client.js';
 import { createSyncTimeline } from './syncTimeline.js';
@@ -295,7 +295,7 @@ export function initAudioSyncEditor() {
             const incoming = setToPoints(urlSets[index], playedBars(), info);
             $('syncImportText').value = toAlphaTexSync(incoming);
             const more = info.extra ? ` The list has ${info.extra} more bars than the score, so it was read from bar 1 and the last ${info.extra} were left out.` : '';
-            status.textContent = `${incoming.length} points ready.${more} Choose Replace Points or Add to Points.`;
+            status.textContent = `${incoming.length} points ready.${more} Choose Replace points or Add to points.`;
         } catch (e) {
             $('syncImportText').value = '';
             status.textContent = e.message;
@@ -337,10 +337,55 @@ export function initAudioSyncEditor() {
         if (isUrl(text)) importFromUrl(text.trim());
     });
     $('syncImportSet').addEventListener('change', (e) => showUrlSet(Number(e.target.value)));
-    $('syncImportFile').addEventListener('change', async (e) => {
+    async function handleImportFileText(text) {
+        $('syncImportText').value = text;
+        const status = $('syncImportStatus');
+        const incoming = importPoints(text);
+        if (incoming && incoming.length) {
+            $('syncImportSet').hidden = true;
+            status.textContent = `${incoming.length} point${incoming.length === 1 ? '' : 's'} ready. Choose Replace points or Add to points.`;
+            return;
+        }
+        try {
+            const found = detectSets(text);
+            urlSets = setsFittingScore(found, playedBars());
+            const select = $('syncImportSet');
+            select.replaceChildren(...urlSets.map((s, i) => Object.assign(document.createElement('option'), { value: String(i), textContent: s.label })));
+            select.hidden = urlSets.length < 2;
+            if (urlSets.length) {
+                showUrlSet(0);
+                return;
+            }
+        } catch (_) {}
+        status.textContent = 'No sync points found in that file';
+    }
+
+    $('syncImportChooseBtn')?.addEventListener('click', async () => {
+        if (window.__TAURI__?.dialog?.open && window.__TAURI__?.fs?.readTextFile) {
+            try {
+                const picked = await window.__TAURI__.dialog.open({
+                    multiple: false,
+                    title: 'Choose a sync points file',
+                    filters: [{ name: 'Sync points', extensions: ['json', 'txt', 'atex', 'tex'] }]
+                });
+                if (!picked) return;
+                const path = Array.isArray(picked) ? picked[0] : picked;
+                const text = await window.__TAURI__.fs.readTextFile(path);
+                await handleImportFileText(text);
+                return;
+            } catch (err) {
+                console.warn('[Audio Sync] Native file open failed, falling back to input:', err);
+            }
+        }
+        $('syncImportFile')?.click();
+    });
+    $('syncImportFile')?.addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
         e.target.value = '';
-        if (file) $('syncImportText').value = await file.text();
+        if (file) {
+            const text = await file.text();
+            await handleImportFileText(text);
+        }
     });
     $('syncCopyBtn').addEventListener('click', async () => {
         try { await navigator.clipboard.writeText(toAlphaTexSync(points)); $('syncEditorInfo').textContent = 'Copied the points as text'; } catch { /* clipboard unavailable */ }

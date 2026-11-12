@@ -15,6 +15,7 @@ import { builtinSource } from './builtinSource.js';
  * `findSource(url)` may return a custom `{ step }` for the address, which then does the fetching instead of the
  * address being read directly.
  */
+export { detectSets };
 export async function loadFromUrl(urlText, fetchText, { findSource = null } = {}) {
     let url;
     try { url = new URL(String(urlText).trim()); } catch { throw new Error('That is not a web address.'); }
