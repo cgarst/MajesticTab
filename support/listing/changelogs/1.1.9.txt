@@ -1,0 +1,5 @@
+- Swipe to turn pages in the reader's page mode
+- Phones can pick files for bulk import, and Guitar Pro files are no longer greyed out on iOS
+- More reliable tab downloader sync extraction
+- Classical tab pieces open at the top, with an attribution link beside the title
+- Library fixes: scroll position kept when filtering tunings, tighter phone layout, count in the list heading
