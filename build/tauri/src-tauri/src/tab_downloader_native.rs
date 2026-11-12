@@ -1488,7 +1488,7 @@ pub fn tab_downloader_is_debug_tools_enabled() -> bool {
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios", test))]
+#[cfg(any(feature = "in-app-browser", target_os = "macos", target_os = "ios", test))]
 #[allow(dead_code)]
 pub fn regex_escape_domain(domain: &str) -> String {
     let mut escaped = String::with_capacity(domain.len() * 2);
