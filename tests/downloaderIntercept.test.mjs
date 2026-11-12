@@ -9,8 +9,10 @@ import {
     attachSyncForMatchedUrl,
     extractTabSongId,
     encodeTabDownloaderPayload,
+    decodeTabDownloaderPayload,
     extractTabMetaFromHtml,
-    generateDownloaderTransferScript
+    generateDownloaderTransferScript,
+    switchToOriginalSound
 } from '../src/utils/downloaderIntercept.js';
 
 test('unwrapRedirectUrl unwraps redirects across search engines and proxies', () => {
@@ -228,4 +230,76 @@ test('attachSyncForMatchedUrl passes songKey and file when attaching to library 
     assert.equal(passedOptions.songKey, 'Test Artist - Test Song');
     assert.deepEqual(result.saved, ['Official Video']);
 });
+
+test('encodeTabDownloaderPayload and decodeTabDownloaderPayload roundtrip metadata with syncPoints', () => {
+    const current = {
+        songId: 508298,
+        revisionId: 8240004,
+        image: 'https://example.com/cover.jpg',
+        title: 'Lippincott',
+        artist: 'Not Animals As Leaders',
+        artistId: 67409,
+        tracks: [
+            { partId: 1, instrumentId: 25, title: 'Guitar', name: 'Guitar', tuning: [64, 59], isDrums: false }
+        ],
+        syncPoints: [
+            { videoId: '8saKHKt1A5Q', points: [0, 3.23, 6.43, 9.59], status: 'done', feature: null }
+        ]
+    };
+    const targetUrl = 'https://www.custombrand.com/a/wsa/not-animals-as-leaders-lippincott-tab-s508298';
+    const b64 = encodeTabDownloaderPayload(current, targetUrl);
+    assert.ok(b64.length > 0);
+
+    const fullUrl = `https://www.custombrand-downloader.com/#custombrand=${b64}`;
+    const decoded = decodeTabDownloaderPayload(fullUrl);
+    assert.ok(decoded);
+    assert.equal(decoded.songId, 508298);
+    assert.equal(decoded.revisionId, 8240004);
+    assert.equal(decoded.title, 'Lippincott');
+    assert.equal(decoded.artist, 'Not Animals As Leaders');
+    assert.equal(decoded.tracks.length, 1);
+    assert.ok(Array.isArray(decoded.syncPoints));
+    assert.equal(decoded.syncPoints.length, 1);
+    assert.equal(decoded.syncPoints[0].videoId, '8saKHKt1A5Q');
+    assert.deepEqual(decoded.syncPoints[0].points, [0, 3.23, 6.43, 9.59]);
+});
+
+test('generateDownloaderTransferScript fetches video points in DOM before redirecting', () => {
+    const script = generateDownloaderTransferScript();
+    assert.ok(typeof script === 'string');
+    assert.ok(script.includes('/api/video-points/'));
+    assert.ok(script.includes('withSyncPointsAndSend'));
+    assert.ok(script.includes('syncPoints'));
+});
+
+test('attachSyncForMatchedUrl uses pre-supplied syncPoints directly without fetching URL', async () => {
+    let loadCalled = false;
+    let attachedSets = null;
+
+    const mockLoad = async () => {
+        loadCalled = true;
+        return [];
+    };
+
+    const mockAttach = async (sets) => {
+        attachedSets = sets;
+        return { saved: ['Preloaded Video'], skipped: [] };
+    };
+
+    const preloadedPoints = [
+        { videoId: '8saKHKt1A5Q', points: [0, 3.23, 6.43], status: 'done', feature: null }
+    ];
+
+    const result = await attachSyncForMatchedUrl('https://www.example.com/a/wsa/song-s123', {
+        loadFromUrlFn: mockLoad,
+        attachSyncSetsFn: mockAttach,
+        syncPoints: preloadedPoints
+    });
+
+    assert.equal(loadCalled, false, 'loadFromUrl should not be called when preloaded syncPoints exist');
+    assert.ok(attachedSets && attachedSets.length === 1);
+    assert.equal(attachedSets[0].videoId, '8saKHKt1A5Q');
+    assert.deepEqual(result.saved, ['Preloaded Video']);
+});
+
 

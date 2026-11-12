@@ -101,7 +101,7 @@ export function encodeTabDownloaderPayload(current, targetUrl) {
         tuning: u.tuning,
         isDrums: u.isDrums
     }));
-    const payload = JSON.stringify({
+    const payloadObj = {
         songId: current.songId,
         revisionId: current.revisionId,
         image: current.image,
@@ -110,11 +110,43 @@ export function encodeTabDownloaderPayload(current, targetUrl) {
         artistId: current.artistId,
         tracks,
         byLinkUrl
-    });
+    };
+    if (current.syncPoints && Array.isArray(current.syncPoints) && current.syncPoints.length > 0) {
+        payloadObj.syncPoints = current.syncPoints;
+    }
+    const payload = JSON.stringify(payloadObj);
     const bytes = new TextEncoder().encode(payload);
     let binary = '';
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
     return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export function decodeTabDownloaderPayload(hashOrUrl) {
+    if (!hashOrUrl || typeof hashOrUrl !== 'string') return null;
+    try {
+        let hash = hashOrUrl;
+        if (hash.includes('#')) hash = hash.split('#')[1];
+        if (hash.includes('=')) {
+            const parts = hash.split('=');
+            hash = parts.slice(1).join('=');
+        }
+        if (hash.includes('&')) hash = hash.split('&')[0];
+        if (!hash) return null;
+        let base64Std = hash.replace(/-/g, '+').replace(/_/g, '/');
+        while (base64Std.length % 4) base64Std += '=';
+        let binary = '';
+        if (typeof atob === 'function') {
+            binary = atob(base64Std);
+        } else if (typeof Buffer !== 'undefined') {
+            binary = Buffer.from(base64Std, 'base64').toString('binary');
+        }
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const text = new TextDecoder().decode(bytes);
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
 }
 
 export function extractTabMetaFromHtml(html, targetUrl) {
@@ -186,7 +218,7 @@ export function generateDownloaderTransferScript() {
                 isDrums: u.isDrums
             };
         });
-        const d = JSON.stringify({
+        const obj = {
             songId: curr.songId,
             revisionId: curr.revisionId,
             image: curr.image,
@@ -195,7 +227,11 @@ export function generateDownloaderTransferScript() {
             artistId: curr.artistId,
             tracks: tracks,
             byLinkUrl: location.origin + location.pathname
-        });
+        };
+        if (curr.syncPoints && curr.syncPoints.length > 0) {
+            obj.syncPoints = curr.syncPoints;
+        }
+        const d = JSON.stringify(obj);
         const g = new TextEncoder().encode(d);
         let m = '';
         for (let u = 0; u < g.length; u++) m += String.fromCharCode(g[u]);
@@ -205,11 +241,41 @@ export function generateDownloaderTransferScript() {
         const dest = base + '#' + label + '=' + encode(curr);
         window.open(dest, label + '-downloader') || (location.href = dest);
     }
+    function withSyncPointsAndSend(curr) {
+        let sent = false;
+        function done() {
+            if (sent) return;
+            sent = true;
+            send(curr);
+        }
+        const timer = setTimeout(done, 1500);
+        if (!curr.songId || !curr.revisionId) { done(); return; }
+        fetch('/api/video-points/' + curr.songId + '/' + curr.revisionId + '/list', { credentials: 'include' })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(points) {
+                clearTimeout(timer);
+                if (Array.isArray(points) && points.length > 0) {
+                    curr.syncPoints = points.map(function(p) {
+                        return {
+                            videoId: p.videoId,
+                            points: p.points,
+                            status: p.status,
+                            feature: p.feature
+                        };
+                    });
+                }
+                done();
+            })
+            .catch(function() {
+                clearTimeout(timer);
+                done();
+            });
+    }
     const songId = getSongId(location.pathname);
     if (!songId) return;
     const docMeta = readState(document);
     if (docMeta && docMeta.songId === songId) {
-        send(docMeta);
+        withSyncPointsAndSend(docMeta);
         return;
     }
     fetch(location.href, { credentials: 'include' })
@@ -217,7 +283,7 @@ export function generateDownloaderTransferScript() {
         .then(function(html) {
             const parsed = readState(new DOMParser().parseFromString(html, 'text/html'));
             if (parsed && parsed.songId === songId) {
-                send(parsed);
+                withSyncPointsAndSend(parsed);
             }
         })
         .catch(function() {});
@@ -251,9 +317,12 @@ export function getDownloaderUrlFromMatchedUrl(targetUrl, currentMeta = null) {
 export async function switchToOriginalSound() {
     try {
         const { switchRealAudioSlot } = await import('../audioSync/realAudioController.js');
-        const { toggleYouTubePanel } = await import('../youtubePlayer.js');
+        const { setActiveAudioMode } = await import('./navigationUtils.js');
+        const { pauseSynthPlayer, clearSynthHighlights } = await import('../gpProcessor/gpPlayer.js');
         switchRealAudioSlot('original');
-        toggleYouTubePanel(true);
+        if (typeof setActiveAudioMode === 'function') setActiveAudioMode('youtube');
+        if (typeof pauseSynthPlayer === 'function') pauseSynthPlayer();
+        if (typeof clearSynthHighlights === 'function') clearSynthHighlights();
     } catch (e) {
         console.warn('[Tab Downloader] Could not switch to original audio:', e);
     }
@@ -269,14 +338,27 @@ export async function switchToOriginalSound() {
  * @param {File|Blob|Uint8Array} [options.file]
  * @param {string} [options.songKey]
  * @param {boolean} [options.switchToOriginal] switch the dock to the Original sound once points were saved (the score is open in the reader)
+ * @param {Array|string} [options.syncPoints] pre-extracted sync points from DOM transfer or payload
  * @returns {Promise<{saved: string[], skipped: string[]}>}
  */
-export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, loadFromUrlFn = null, attachSyncSetsFn = null, file = null, songKey = null, switchToOriginal = false } = {}) {
-    if (!matchedUrl) return { saved: [], skipped: [] };
+export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, loadFromUrlFn = null, attachSyncSetsFn = null, file = null, songKey = null, switchToOriginal = false, syncPoints = null } = {}) {
+    if (!matchedUrl && !syncPoints) return { saved: [], skipped: [] };
     try {
-        const load = loadFromUrlFn || (await import('../audioSync/importers/index.js')).loadFromUrl;
-        const { fetchText } = await import('../urlImport/openFromUrl.js');
-        const sets = await load(matchedUrl, fetchText);
+        let sets = null;
+        if (syncPoints) {
+            try {
+                const { detectSets } = await import('../audioSync/importers/detect.js');
+                const raw = typeof syncPoints === 'string' ? syncPoints : JSON.stringify(syncPoints);
+                sets = detectSets(raw);
+            } catch (err) {
+                console.warn('[Tab Downloader] Failed to detect sync sets from provided syncPoints:', err);
+            }
+        }
+        if (!sets?.length && matchedUrl) {
+            const load = loadFromUrlFn || (await import('../audioSync/importers/index.js')).loadFromUrl;
+            const { fetchText } = await import('../urlImport/openFromUrl.js');
+            sets = await load(matchedUrl, fetchText);
+        }
         if (!sets?.length) return { saved: [], skipped: ['No sync points found in source'] };
 
         let bars = null;

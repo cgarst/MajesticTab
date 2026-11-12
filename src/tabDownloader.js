@@ -14,7 +14,8 @@ import {
     unwrapGoogleUrl,
     attachSyncForMatchedUrl,
     extractTabMetaFromHtml,
-    generateDownloaderTransferScript
+    generateDownloaderTransferScript,
+    decodeTabDownloaderPayload
 } from './utils/downloaderIntercept.js';
 
 export const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
@@ -83,6 +84,7 @@ let currentDownloaderUrl = '';
 // Hidden ephemeral source spawned only when a matched endpoint link is clicked
 let activeEphemeralSource = null;
 let pendingMatchedTabUrl = null;
+let pendingMatchedSyncPoints = null;
 let pendingSourceTimer = null;
 let loadingBarTimer = null;
 
@@ -700,6 +702,28 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             };
             window.dispatchEvent(new CustomEvent('libraryDataChanged'));
 
+            const matchedUrl = pendingMatchedTabUrl;
+            let syncPoints = pendingMatchedSyncPoints;
+            if (!syncPoints && currentDownloaderUrl && currentDownloaderUrl.includes('-downloader.com')) {
+                const payload = decodeTabDownloaderPayload(currentDownloaderUrl);
+                if (payload?.syncPoints?.length) syncPoints = payload.syncPoints;
+            }
+            pendingMatchedTabUrl = null;
+            pendingMatchedSyncPoints = null;
+
+            if (matchedUrl || syncPoints) {
+                const batchSongKey = [currentTrack.artist || activeBatchArtistName, currentTrack.title].filter(Boolean).join(' - ') || currentTrack.title || file.name;
+                attachSyncForMatchedUrl(matchedUrl || sourceUrl, {
+                    showToast,
+                    file,
+                    songKey: batchSongKey,
+                    syncPoints,
+                    switchToOriginal: false
+                }).catch(err => {
+                    console.warn('[Tab Downloader] Batch sync point attachment failed:', err);
+                });
+            }
+
             let nextIdx = activeBatchQueue.findIndex((t, i) => i > activeBatchIndex && !t.acquired);
             if (nextIdx === -1) nextIdx = activeBatchQueue.findIndex(t => !t.acquired);
 
@@ -734,6 +758,11 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     const targetAlbum = activeTargetAlbum;
     const onFileSelectedCb = activeDownloaderOnFileSelected;
     const matchedUrl = pendingMatchedTabUrl;
+    let syncPoints = pendingMatchedSyncPoints;
+    if (!syncPoints && currentDownloaderUrl && currentDownloaderUrl.includes('-downloader.com')) {
+        const payload = decodeTabDownloaderPayload(currentDownloaderUrl);
+        if (payload?.syncPoints?.length) syncPoints = payload.syncPoints;
+    }
     const autoOpen = activeAutoOpenOnDownload;
 
     // Reset targets once consumed
@@ -741,6 +770,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     activeTargetAlbum = null;
     activeDownloaderOnFileSelected = null;
     pendingMatchedTabUrl = null;
+    pendingMatchedSyncPoints = null;
     activeEphemeralSource = null;
     activeAutoOpenOnDownload = false;
 
@@ -776,9 +806,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             const output = document.getElementById('output');
             if (output && output.style.display !== 'none') output.focus();
         } catch {}
-        if (matchedUrl) {
+        if (matchedUrl || syncPoints) {
             const songKey = [targetSong.artist, targetSong.title].filter(Boolean).join(' - ') || targetSong.title || file.name;
-            attachSyncForMatchedUrl(matchedUrl, { showToast, file, songKey, switchToOriginal: true }).catch(err => {
+            attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, songKey, switchToOriginal: true, syncPoints }).catch(err => {
                 console.warn('[Tab Downloader] Background sync point attachment failed:', err);
             });
         }
@@ -828,9 +858,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         showToast(`Added "${file.name}" to ${targetSong.title || 'song'}`, 'success');
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
 
-        if (matchedUrl) {
+        if (matchedUrl || syncPoints) {
             const songKey = [targetSong.artist, targetSong.title].filter(Boolean).join(' - ') || targetSong.title || file.name;
-            attachSyncForMatchedUrl(matchedUrl, { showToast, file, songKey }).catch(err => {
+            attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, songKey, syncPoints }).catch(err => {
                 console.warn('[Tab Downloader] Background sync point attachment failed:', err);
             });
         }
@@ -877,8 +907,8 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         }
     } catch {}
 
-    if (matchedUrl) {
-        attachSyncForMatchedUrl(matchedUrl, { showToast, file, switchToOriginal: true });
+    if (matchedUrl || syncPoints) {
+        attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, switchToOriginal: true, syncPoints });
     }
 }
 
@@ -1655,6 +1685,12 @@ function applyDownloaderUrl(rawUrl) {
         showCopyTabUrlBanner(activeEphemeralSource.targetUrl);
         offeredWsaBanner = true;
     }
+    if (url && url.includes('-downloader.com')) {
+        const payload = decodeTabDownloaderPayload(url);
+        if (payload?.syncPoints?.length) {
+            pendingMatchedSyncPoints = payload.syncPoints;
+        }
+    }
     if (activeEphemeralSource && url && url.includes('-downloader.com')) {
         activeEphemeralSource.url = url;
     }
@@ -1745,6 +1781,8 @@ let debugToolsEnabled = null;
 export async function openTabDownloader(options = {}) {
     activeEphemeralSource = null;
     pendingMatchedTabUrl = null;
+    pendingMatchedSyncPoints = null;
+    pendingMatchedSyncPoints = null;
     if (!isNative()) {
         console.warn('[Tab Downloader] openTabDownloader aborted: isNative() returned false');
         return;
@@ -1877,6 +1915,7 @@ export function closeTabDownloaderModal(invokeNative = true) {
     activeTargetAlbum = null;
     activeEphemeralSource = null;
     pendingMatchedTabUrl = null;
+    pendingMatchedSyncPoints = null;
     activeBatchMode = false;
     activeBatchQueue = [];
     activeBatchIndex = 0;
