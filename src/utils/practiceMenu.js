@@ -24,11 +24,13 @@ function activePresets() {
 }
 
 /**
- * A local audio file can play at any speed, so its plus and minus move one percent. YouTube only plays the speeds it
- * offers (it snaps to the nearest), so a video keeps stepping through the presets.
+ * A local audio file (or audio stored inside the Guitar Pro file) can play at any speed, so its plus and minus move one
+ * percent. YouTube only plays the speeds it offers (it snaps to the nearest), so a video keeps stepping through the presets.
  */
 function onLocalRecording() {
-    return onRecording() && getRealAudioActiveSource() === 'local';
+    if (!onRecording()) return false;
+    const src = getRealAudioActiveSource();
+    return src === 'local' || src === 'embedded';
 }
 
 function currentSpeedLabel() {

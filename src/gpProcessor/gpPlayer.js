@@ -9,7 +9,7 @@ import { gpState, renderGPPage, applyGpTrackSelection } from './gpHandler.js';
 import { getPagesPerView, isPhoneReader } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
 import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
-import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning, recoverAudioContexts, endSynthContextCapture, forgetSynthContexts, onSynthContextState, isSynthContextDead } from '../utils/iosAudioUnlock.js';
+import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning, recoverAudioContexts, beginSynthContextCapture, endSynthContextCapture, forgetSynthContexts, onSynthContextState, isSynthContextDead } from '../utils/iosAudioUnlock.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { deriveSections, DEFAULT_MIN_BARS } from './songSections.js';
@@ -62,7 +62,10 @@ let pendingVisuals = [];
 
 /** Run a visual update now, or after the audio latency while playing. Order is preserved. */
 function deferVisual(fn) {
-    if (!audioLatencyMs || !synthPlayerState.isPlaying) { fn(); return; }
+    // AlphaTab places the first glide as playback starts, before our own state flag is set: its own state counts too,
+    // or the cursor would leave the first beat a latency early
+    const playing = synthPlayerState.isPlaying || currentApi?.playerState === 1;
+    if (!audioLatencyMs || !playing) { fn(); return; }
     const entry = { fn, timer: 0 };
     entry.timer = setTimeout(() => {
         pendingVisuals = pendingVisuals.filter(e => e !== entry);
@@ -1449,7 +1452,7 @@ document.addEventListener('visibilitychange', async () => {
     }
     // iOS may have closed the synth's AudioContext while the app was away: it can never run again, so reopen the
     // song now (the player is ready before Play is pressed) and carry on if it was playing
-    if (currentApi && isSynthContextDead()) {
+    if (currentApi && !synthPlayerState.audioSyncEnabled && isSynthContextDead()) {
         const resume = resumeAfterBackground;
         resumeAfterBackground = false;
         rebuildDeadSynth('closed while away', { resume });
@@ -1507,7 +1510,10 @@ export function attachAlphaTabApi(api, opts = {}) {
 
     if (!api.customCursorHandler) {
         api.customCursorHandler = createCustomCursorHandler(api);
-        const handler = api.customCursorHandler;
+    }
+    const handler = api.customCursorHandler;
+    if (handler && !handler._deferredVisual) {
+        handler._deferredVisual = true;
         for (const name of ['placeBeatCursor', 'transitionBeatCursor']) {
             const orig = handler[name].bind(handler);
             handler[name] = (...args) => deferVisual(() => orig(...args));
@@ -1812,6 +1818,12 @@ export function setAudioSyncEnabled(enabled) {
         pauseSynthPlayer();
     }
 
+    if (!enabled) {
+        beginSynthContextCapture();
+    } else {
+        forgetSynthContexts();
+    }
+
     currentApi.settings.player.playerMode = enabled
         ? alphaTab.PlayerMode.EnabledBackingTrack
         : alphaTab.PlayerMode.EnabledSynthesizer;
@@ -1822,7 +1834,9 @@ export function setAudioSyncEnabled(enabled) {
     }
 
     currentApi.playbackSpeed = synthPlayerState.playbackSpeed;
+    try { currentApi.masterVolume = effectiveVolume(); } catch (_) {}
     if (!enabled) {
+        applySoundFontsToApi(currentApi).catch((e) => console.error('[SoundFont] Failed to restore SoundFonts:', e));
         applySynthTrackMode();
     }
     updateSynthUI();
@@ -1870,11 +1884,11 @@ function playPauseSynthLocal(forcePlay = false) {
         // Jam starts must not toggle: a pause issued moments earlier may not have reached the
         // synth worker yet, and playPause() would then pause instead of play.
         const wasPlaying = synthPlayerState.isPlaying;
-        if (!wasPlaying && isSynthContextDead()) {
+        if (!wasPlaying && !synthPlayerState.audioSyncEnabled && isSynthContextDead()) {
             rebuildDeadSynth('closed at Play', { resume: true });
             return;
         }
-        if (!wasPlaying && !areTrackedAudioContextsRunning()) {
+        if (!wasPlaying && !synthPlayerState.audioSyncEnabled && !areTrackedAudioContextsRunning()) {
             // Back from the background the context is suspended/interrupted (or closed): wait for it before
             // starting, or AlphaTab plays into a dead output and Play seems to do nothing.
             const api = currentApi;
@@ -1935,7 +1949,7 @@ async function resumeOnNewPlayer(oldApi, tick, wasPlaying) {
 
 // The synth's context reports 'closed' / 'interrupted' the moment it happens, even in the background
 onSynthContextState((state) => {
-    if (!currentApi) return;
+    if (!currentApi || synthPlayerState.audioSyncEnabled) return;
     if (state === 'closed') {
         // Hidden: the return check above reopens it; visible: do it now. A throwaway context closing at setup is not it.
         if (!document.hidden && isSynthContextDead()) rebuildDeadSynth('closed', { resume: synthPlayerState.isPlaying });
@@ -1948,7 +1962,7 @@ onSynthContextState((state) => {
 // (a worker that stopped). Checked after every Play press. Only the tick is judged: a context's own clock is not a
 // reliable signal (the one found can be idle while another drives the output, and it reads 0 for a while on a fresh page).
 async function watchPlaybackStall(api) {
-    if (!synthPlayerState.isReady) return;
+    if (!synthPlayerState.isReady || synthPlayerState.audioSyncEnabled) return;
     const tick = api.tickPosition;
     await new Promise((r) => setTimeout(r, 1800));
     if (api !== currentApi || !synthPlayerState.isPlaying || document.hidden) return;
@@ -1960,6 +1974,7 @@ async function watchPlaybackStall(api) {
 // if it still will not run, rebuild the synth (soundfont/worklet reload) once and play again.
 let audioRebuilding = false;
 async function verifySynthAudioAfterPlay(api) {
+    if (synthPlayerState.audioSyncEnabled) return;
     watchPlaybackStall(api).catch(() => {});
     if (audioRebuilding) return;
     const ok = await recoverAudioContexts();

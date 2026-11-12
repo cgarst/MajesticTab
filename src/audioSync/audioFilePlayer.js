@@ -189,7 +189,7 @@ async function rebuildPeaks(id, data) {
  * decodedAudioSource.js). The audio element is the fallback for a file the webview cannot decode, one too long to hold
  * in memory, or a webview without AudioWorklet. `localStorage.mt_decoded_audio = 'off'` forces the element, for debugging.
  */
-async function openSource(file) {
+export async function openAudioSource(file, { onError } = {}) {
     let forceElement = false;
     try { forceElement = localStorage.getItem('mt_decoded_audio') === 'off'; } catch { /* optional */ }
     if (!forceElement && decodedPlaybackSupported()) {
@@ -208,7 +208,7 @@ async function openSource(file) {
         return element;
     } catch (e) {
         element.destroy();
-        setStatus(e.message);
+        onError?.(e.message);
         return null;
     }
 }
@@ -226,7 +226,10 @@ function ensureSource() {
                 await refreshFiles();
                 return false;
             }
-            const source = await openSource({ id, name: rec.name, type: rec.type, data: rec.data, durationMs: rec.durationMs });
+            const source = await openAudioSource(
+                { id, name: rec.name, type: rec.type, data: rec.data, durationMs: rec.durationMs },
+                { onError: setStatus }
+            );
             if (!source) return false;
             if (state.currentId !== id) {
                 source.destroy();

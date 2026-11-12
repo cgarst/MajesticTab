@@ -192,6 +192,9 @@ function tagSynthContext(ctx) {
 
 /** Forget the synth's contexts (the player was destroyed; the next one opens its own). */
 export function forgetSynthContexts() {
+    for (const ctx of synthContexts) {
+        trackedAudioContexts.delete(ctx);
+    }
     synthContexts.clear();
 }
 

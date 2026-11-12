@@ -5,7 +5,7 @@
 // The bar drives the existing sync controls (tap to sync, which links on to the point editor) rather than copying them.
 
 import { getSongKey, playerState } from '../youtubePlayer.js';
-import { getActiveRecording, getActiveMedia } from './realAudioController.js';
+import { getActiveRecording, getActiveMedia, getEmbeddedSyncPoints } from './realAudioController.js';
 import { loadRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { sessionPointsFor, isJamGuestFollowing, JAM_BRIDGE_EVENT } from './jamBridge.js';
 import { buildTimelineModel } from './timelineModel.js';
@@ -55,15 +55,15 @@ export function initScoreRecordingStrip() {
     let drawnKey = '';
 
     const prefixOf = (r) => (r.kind === 'local' ? 'af' : 'yt');
-    const canAuthor = () => Boolean(rec) && !isTvMode() && !(rec.kind === 'youtube' && isJamGuestFollowing());
+    const canAuthor = () => Boolean(rec) && rec.kind !== 'embedded' && !isTvMode() && !(rec.kind === 'youtube' && isJamGuestFollowing());
 
     function readPoints() {
         points = [];
         fromHost = false;
         summary = { full: false, flaggedBar: null };
         if (!rec) return;
-        const host = sessionPointsFor(rec.media);
-        const record = host ? { points: host } : loadRecord(getSongKey(), rec.media);
+        const host = rec.kind === 'embedded' ? null : sessionPointsFor(rec.media);
+        const record = rec.kind === 'embedded' ? { points: getEmbeddedSyncPoints() } : host ? { points: host } : loadRecord(getSongKey(), rec.media);
         points = record?.points || [];
         fromHost = Boolean(host);
         if (!points.length) return;
@@ -166,7 +166,10 @@ export function initScoreRecordingStrip() {
         let noPoints = Boolean(rec) && points.length === 0;
         if (!rec && !hidden) {
             const media = getActiveMedia();
-            if (media) noPoints = media.kind === 'youtube' ? !loadRecord(getSongKey(), media)?.points?.length : true;
+            if (media) {
+                noPoints = media.kind === 'embedded' ? false
+                    : media.kind === 'youtube' ? !loadRecord(getSongKey(), media)?.points?.length : true;
+            }
         }
         document.body.classList.toggle('score-cursor-hidden', noPoints);
         if (!rec) return;

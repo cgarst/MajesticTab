@@ -14,12 +14,12 @@ import {
 } from '../youtubePlayer.js';
 import {
     isAudioFileAvailable, isAudioFilePlaying, playPauseAudioFile, pauseAudioFile,
-    rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, renderAudioFile, getLocalRecording
+    rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, renderAudioFile, getLocalRecording, openAudioSource
 } from './audioFilePlayer.js';
 import { createYouTubeSource } from './mediaSource.js';
 import { closeSheet } from '../ytSheet.js';
 import { preferredSlot, rememberLastSlot } from './libraryAudio.js';
-import { updateGlobalAudioControls } from '../utils/navigationUtils.js';
+import { setActiveAudioMode, updateGlobalAudioControls } from '../utils/navigationUtils.js';
 import {
     loadRecord, SYNC_CHANGED_EVENT, setSlotMediaResolver,
     isSyncSharedFromOriginal, setSyncSharedFromOriginal
@@ -27,9 +27,9 @@ import {
 import { buildTimelineModel } from './timelineModel.js';
 import { playedBarsFromLookup, buildScoreTimeline } from './scorePositions.js';
 import {
-    getMidiTickLookup, synthPlayerState, playClick, setAudioSyncEnabled, playPauseSynth, pauseSynthPlayer, rewindSynth10Seconds
+    getMidiTickLookup, synthPlayerState, playClick, pauseSynthPlayer, clearSynthHighlights, isSynthPlaying, onTransportEvent
 } from '../gpProcessor/gpPlayer.js';
-import { getAudioSyncSession } from './audioSyncController.js';
+import { startAudioSync, stopAudioSync, getAudioSyncSession } from './audioSyncController.js';
 
 const SLOT_SOURCE_KEY = (songKey, slot) => `real_audio_source_${encodeURIComponent(String(songKey).toLowerCase())}_${slot}`;
 
@@ -37,6 +37,14 @@ const state = {
     slot: 'original',   // 'original' | 'backing'
     rate: 1,            // playback speed multiplier
     initialized: false
+};
+
+const embedded = {
+    score: null,
+    source: null,
+    points: [],
+    loading: null,
+    playGen: 0
 };
 
 const $ = (id) => document.getElementById(id);
@@ -48,6 +56,85 @@ const $ = (id) => document.getElementById(id);
 /** True when the open Guitar Pro file carries its own audio track (an Original source, not part of the Synth). */
 export function hasEmbeddedAudio() {
     return Boolean(synthPlayerState.audioSyncAvailable);
+}
+
+/** Sync points stored inside the Guitar Pro file (`exportFlatSyncPoints`), shaped like a saved sync record's points. */
+export function getEmbeddedSyncPoints(score = window.gpApi?.score) {
+    try {
+        return (score?.exportFlatSyncPoints?.() || []).map((p) => ({
+            id: `e_${p.barIndex}_${p.barOccurence}_${Math.round(p.barPosition * 1000)}`,
+            barIndex: p.barIndex,
+            occurrence: p.barOccurence,
+            pos: p.barPosition,
+            timeMs: Math.max(0, p.millisecondOffset),
+            source: 'auto'
+        }));
+    } catch { return []; }
+}
+
+function destroyEmbeddedSource() {
+    embedded.playGen++;
+    if (embedded.source) {
+        if (getAudioSyncSession()?.source === embedded.source) stopAudioSync();
+        embedded.source.destroy();
+        embedded.source = null;
+    }
+    embedded.score = null;
+    embedded.points = [];
+    embedded.loading = null;
+}
+
+function syncEmbeddedFollower(kind = 'idle', originalSelected = $('ytToggleBtn')?.classList.contains('active-audio-mode')) {
+    const session = getAudioSyncSession();
+    const mine = Boolean(session && embedded.source && session.source === embedded.source);
+    const wanted = Boolean(originalSelected)
+        && getRealAudioActiveSource() === 'embedded'
+        && Boolean(embedded.source)
+        && embedded.points.length > 0
+        && !isSynthPlaying();
+    if (!wanted) {
+        if (mine) stopAudioSync();
+        return;
+    }
+    if (mine) {
+        session.setPoints(embedded.points);
+        return;
+    }
+    if (kind === 'stop') return;
+    startAudioSync({ source: embedded.source, points: embedded.points, alignToCursor: true });
+}
+
+function ensureEmbeddedSource() {
+    const score = window.gpApi?.score;
+    const raw = score?.backingTrack?.rawAudioFile;
+    if (!raw?.byteLength) {
+        destroyEmbeddedSource();
+        return Promise.resolve(false);
+    }
+    if (embedded.source && embedded.score === score) return Promise.resolve(true);
+    if (embedded.score && embedded.score !== score) destroyEmbeddedSource();
+    embedded.loading ||= (async () => {
+        embedded.score = score;
+        embedded.points = getEmbeddedSyncPoints(score);
+        const data = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
+        const source = await openAudioSource({ id: 'embedded', name: 'In the file', type: 'audio/mpeg', data, durationMs: null });
+        if (!source || window.gpApi?.score !== score) {
+            source?.destroy();
+            return false;
+        }
+        embedded.source = source;
+        source.setRate(state.rate);
+        source.on((e) => {
+            if (e.type === 'state') {
+                updateGlobalAudioControls();
+                syncEmbeddedFollower(e.playing ? 'play' : 'stop');
+            }
+        });
+        syncEmbeddedFollower('idle');
+        updateGlobalAudioControls();
+        return true;
+    })().finally(() => { embedded.loading = null; });
+    return embedded.loading;
 }
 
 export function getSlotSource(slot = state.slot) {
@@ -70,14 +157,27 @@ export function getSlotSource(slot = state.slot) {
 }
 
 /**
- * The file's embedded audio plays through the score player (AlphaTab's backing-track mode), so it is on exactly
- * while Original is the selected sound and its source is "In the file"; the Synth, or any other source, turns it off.
+ * The file's embedded audio is decoded and followed through `startAudioSync` (just like a local audio file) while
+ * Original is the selected sound and its source is "In the file"; the Synth, or any other source, turns it off.
  * `originalSelected` is passed by the caller that just changed the sound.
  */
 export function applyEmbeddedAudioMode(originalSelected = $('ytToggleBtn')?.classList.contains('active-audio-mode')) {
-    if (!hasEmbeddedAudio()) return;
+    if (!hasEmbeddedAudio()) {
+        destroyEmbeddedSource();
+        return;
+    }
     const wanted = Boolean(originalSelected) && getRealAudioActiveSource() === 'embedded';
-    if (wanted !== synthPlayerState.audioSyncEnabled) setAudioSyncEnabled(wanted);
+    if (!wanted) {
+        embedded.playGen++;
+        embedded.source?.pause();
+        syncEmbeddedFollower('stop', false);
+        return;
+    }
+    if (embedded.source && embedded.score === window.gpApi?.score) {
+        syncEmbeddedFollower('idle', true);
+    } else {
+        ensureEmbeddedSource();
+    }
 }
 
 /**
@@ -147,10 +247,7 @@ export function setRealAudioRate(rate) {
     state.rate = rate;
     setYouTubePlaybackRate(rate);
     setAudioFileRate(rate);
-    if (getRealAudioActiveSource() === 'embedded' && synthPlayerState.audioSyncEnabled) {
-        synthPlayerState.playbackSpeed = rate;
-        try { (window.gpApi || window.gpState?.canvases?.[0]?.api).playbackSpeed = rate; } catch { /* not ready */ }
-    }
+    embedded.source?.setRate(rate);
 
     document.querySelectorAll('#realAudioRates [data-rate]').forEach((b) => {
         b.classList.toggle('active', Math.abs(Number(b.dataset.rate) - rate) < 0.01);
@@ -201,13 +298,16 @@ let ytSource = null;
  * The recording the Original button plays now, as `{ source, media, kind }`, or null when the slot has nothing loaded.
  * The media descriptor is the one the sync points are stored under.
  */
-/** The media attached to the Original slot (YouTube or local file), even when its player is not loaded yet; null when none. */
+/** The media attached to the Original slot (YouTube, local file, or audio in the file), even when its player is not loaded yet; null when none. */
 export function getActiveMedia() {
+    if (state.slot === 'original' && getSlotSource('original') === 'embedded') return { kind: 'embedded' };
     return getMediaForSlot(state.slot);
 }
 
 export function getActiveRecording() {
-    if (getRealAudioActiveSource() === 'embedded') return null; // already aligned to the score: nothing to sync
+    if (getRealAudioActiveSource() === 'embedded') {
+        return embedded.source ? { source: embedded.source, media: { kind: 'embedded' }, kind: 'embedded' } : null;
+    }
     if (!getMediaForSlot(state.slot)) return null;
     if (getRealAudioActiveSource() === 'local') {
         const local = getLocalRecording();
@@ -339,6 +439,9 @@ export function switchRealAudioSlot(slot) {
     // Notify Local Audio of slot change
     setAudioFileSlot(slot);
 
+    applyEmbeddedAudioMode();
+    if (getRealAudioActiveSource() !== 'embedded') window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+
     // Update panel view and dock icon
     updateRealAudioPanelView();
     updateGlobalAudioControls();
@@ -354,12 +457,15 @@ export function switchRealAudioSource(source) {
     // Pause whichever was currently playing before swapping
     pauseYouTube();
     pauseAudioFile();
+    embedded.playGen++;
+    embedded.source?.pause();
 
     setSlotSource(source, state.slot);
     if (source !== 'youtube') cancelYouTubeSearch(); // a search under way stops: the slot plays its own audio now
     else showYouTubeSource();
     if (source === 'embedded') closeSheet(); // the file's audio has no video (closing pauses)
     applyEmbeddedAudioMode();
+    if (source !== 'embedded') window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
     updateRealAudioPanelView();
     setRealAudioRate(state.rate);
     updateGlobalAudioControls();
@@ -369,8 +475,6 @@ export function switchRealAudioSource(source) {
 export async function switchToOriginalSound() {
     try {
         switchRealAudioSlot('original');
-        const { setActiveAudioMode } = await import('../utils/navigationUtils.js');
-        const { clearSynthHighlights } = await import('../gpProcessor/gpPlayer.js');
         const { toggleYouTubePanel } = await import('../youtubePlayer.js');
         if (typeof setActiveAudioMode === 'function') setActiveAudioMode('youtube');
         if (typeof toggleYouTubePanel === 'function') toggleYouTubePanel(false);
@@ -390,15 +494,13 @@ export function isRealAudioAvailable() {
 }
 
 export function isRealAudioPlaying() {
-    return isYouTubePlaying() || isAudioFilePlaying() || Boolean(synthPlayerState.audioSyncEnabled && synthPlayerState.isPlaying);
+    return isYouTubePlaying() || isAudioFilePlaying() || Boolean(embedded.source?.isPlaying());
 }
 
 let countingIn = null;
 
 export function playPauseRealAudio() {
     if (countingIn) { clearTimeout(countingIn); countingIn = null; return; }
-    // The file's own audio is played by the score player, which has its own count-in
-    if (getRealAudioActiveSource() === 'embedded') { startRealAudio(); return; }
     // With sync data and the count-in on, a bar of clicks at the recording's tempo comes before it starts
     if (synthPlayerState.countInEnabled && !isRealAudioPlaying()) {
         const plan = getAudioSyncSession()?.usable?.() ? getAudioSyncSession().countInPlan?.() : null;
@@ -421,13 +523,35 @@ export function pauseRealAudio() {
     if (countingIn) { clearTimeout(countingIn); countingIn = null; }
     pauseYouTube();
     pauseAudioFile();
-    if (synthPlayerState.audioSyncEnabled) pauseSynthPlayer();
+    embedded.playGen++;
+    embedded.source?.pause();
+}
+
+async function playPauseEmbeddedAudio() {
+    if (embedded.source?.isPlaying()) {
+        embedded.playGen++;
+        embedded.source.pause();
+        return;
+    }
+    const token = ++embedded.playGen;
+    if (!await ensureEmbeddedSource()) return;
+    if (token !== embedded.playGen) return;
+    pauseSynthPlayer();
+    clearSynthHighlights();
+    pauseYouTube();
+    pauseAudioFile();
+    setActiveAudioMode('real');
+    syncEmbeddedFollower('play', true);
+    try {
+        await embedded.source.play();
+    } catch (e) {
+        console.warn('[Real Audio] embedded play blocked:', e);
+    }
 }
 
 function startRealAudio() {
     if (getRealAudioActiveSource() === 'embedded') {
-        applyEmbeddedAudioMode(true);
-        playPauseSynth();
+        playPauseEmbeddedAudio();
     } else if (getRealAudioActiveSource() === 'local') {
         playPauseAudioFile();
     } else {
@@ -437,7 +561,7 @@ function startRealAudio() {
 
 export function rewindRealAudio10Seconds() {
     if (getRealAudioActiveSource() === 'embedded') {
-        rewindSynth10Seconds();
+        if (embedded.source) embedded.source.seek(Math.max(0, embedded.source.getTimeMs() - 10000));
     } else if (getRealAudioActiveSource() === 'local') {
         rewindAudioFile10Seconds();
     } else {
@@ -455,6 +579,11 @@ export function updateSongForRealAudio() {
     updateRealAudioDockIcon();
     setRealAudioRate(1);
     updateGlobalAudioControls();
+    // A file with its own audio opens on it (its sync points are in the file), as a recording with sync points does
+    if (state.slot === 'original' && getRealAudioActiveSource() === 'embedded') {
+        setActiveAudioMode('real');
+        return;
+    }
     applyEmbeddedAudioMode();
 }
 
@@ -480,10 +609,28 @@ export function initRealAudioController() {
     });
 
     // Whether the open file carries audio is known only once its player is set up (and is false again when it closes)
-    window.addEventListener('majestictab:embedded-audio', () => { updateRealAudioPanelView(); updateGlobalAudioControls(); });
+    window.addEventListener('majestictab:embedded-audio', () => {
+        if (!hasEmbeddedAudio()) destroyEmbeddedSource();
+        else applyEmbeddedAudioMode();
+        updateRealAudioPanelView();
+        updateGlobalAudioControls();
+    });
 
     // The player reports a video's title and channel once it has loaded: the slot rows name the video
-    onYouTubeEvent((e) => { if (e.type === 'info') updateRecordingSlots(); });
+    onYouTubeEvent((e) => {
+        if (e.type === 'info') updateRecordingSlots();
+        else if (e.type === 'state' && e.playing) { embedded.playGen++; embedded.source?.pause(); }
+    });
+    onTransportEvent((e) => {
+        if (e.type === 'state') {
+            if (e.playing) { embedded.playGen++; embedded.source?.pause(); }
+            syncEmbeddedFollower('stop');
+        } else if (e.type === 'ready' || e.type === 'attached') {
+            applyEmbeddedAudioMode();
+        } else if (e.type === 'detached') {
+            destroyEmbeddedSource();
+        }
+    });
 
     // Track Slot radio buttons
     $('ytTrackOriginal')?.addEventListener('change', () => {

@@ -77,6 +77,8 @@ export async function buildMtab(file) {
                     parts.push(rec.data);
                     usedMedia.add(mediaKey({ kind: 'local', audioId: id }));
                 }
+            } else if (source === 'embedded') {
+                header.recordings[slot] = { source: 'embedded' };
             } else {
                 const videoId = localStorage.getItem(`yt_track_${enc(songKey)}_${slot}`);
                 if (videoId) {
@@ -163,7 +165,7 @@ async function applyMtabExtras(data, part) {
     const { getSongKey } = await import('./youtubePlayer.js');
     const { saveAudioFile } = await import('./audioSync/audioFileStore.js');
     const { saveRecord, setSyncSharedFromOriginal, mediaKey, SYNC_CHANGED_EVENT } = await import('./audioSync/syncStore.js');
-    const { setSlotSource, updateRecordingSlots } = await import('./audioSync/realAudioController.js');
+    const { setSlotSource, getSlotSource, updateRecordingSlots, hasEmbeddedAudio } = await import('./audioSync/realAudioController.js');
     const songKey = getSongKey();
     if (!songKey) return;
 
@@ -176,8 +178,12 @@ async function applyMtabExtras(data, part) {
         try {
             if (r.source === 'youtube' && r.videoId) {
                 localStorage.setItem(`yt_track_${enc(songKey)}_${slot}`, String(r.videoId));
-                setSlotSource('youtube', slot);
+                const hasSync = data.sync?.some((rec) => rec?.points?.length && rec.media?.kind === 'youtube' && rec.media?.videoId === r.videoId);
+                const preferEmbedded = slot === 'original' && !hasSync && hasEmbeddedAudio();
+                setSlotSource(preferEmbedded ? 'embedded' : 'youtube', slot);
                 remap.set(mediaKey({ kind: 'youtube', videoId: r.videoId }), { kind: 'youtube', videoId: r.videoId });
+            } else if (r.source === 'embedded') {
+                setSlotSource('embedded', slot);
             } else if (r.source === 'local' && r.audio) {
                 const audioPart = await part(partIndex++, r.audio.type || '');
                 const meta = await saveAudioFile({
@@ -201,6 +207,9 @@ async function applyMtabExtras(data, part) {
     }
     if (data.shareSyncFromOriginal) setSyncSharedFromOriginal(songKey, true);
 
+    try {
+        if (getSlotSource('original') === 'embedded') (await import('./utils/navigationUtils.js')).setActiveAudioMode('real');
+    } catch { /* optional */ }
     try { updateRecordingSlots(); } catch { /* the reader draws them next time */ }
     window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
 }
