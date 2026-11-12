@@ -1,0 +1,5 @@
+- Add your own songs from search, directed into your Custom Music folder
+- Choose the folder, tuning, string count and book when adding custom music
+- Open added items straight from search results
+- Search fields now read "Search any artist, song, or album" on every screen size
+- Toasts no longer cover the native search bar
