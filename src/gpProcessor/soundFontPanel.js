@@ -25,8 +25,30 @@ function iconButton(cls, icon, label) {
 
 function buildRow({ id, name, detail, checked, editing, deletable, canMoveUp, canMoveDown }) {
     const row = document.createElement('div');
-    row.className = 'soundfont-row d-flex align-items-center gap-2';
+    row.className = 'soundfont-row srow';
     row.dataset.id = id;
+    row.style.cursor = 'pointer';
+
+    const text = document.createElement('div');
+    text.className = 'st';
+    const b = document.createElement('b');
+    b.textContent = name;
+    b.title = name;
+    const span = document.createElement('span');
+    span.textContent = detail;
+    text.append(b, span);
+
+    const sc = document.createElement('div');
+    sc.className = 'sc';
+
+    if (editing) {
+        const up = iconButton('soundfont-move-up-btn srow-ghost', 'bi-chevron-up', `Move ${name} up`);
+        up.disabled = !canMoveUp;
+        const down = iconButton('soundfont-move-down-btn srow-ghost', 'bi-chevron-down', `Move ${name} down`);
+        down.disabled = !canMoveDown;
+        sc.append(up, down);
+        if (deletable) sc.appendChild(iconButton('btn-theme-danger soundfont-delete-btn', 'bi-trash', `Delete ${name}`));
+    }
 
     const sw = document.createElement('div');
     sw.className = 'form-check form-switch mb-0 flex-shrink-0';
@@ -37,30 +59,9 @@ function buildRow({ id, name, detail, checked, editing, deletable, canMoveUp, ca
     input.checked = checked;
     input.setAttribute('aria-label', `Use ${name}`);
     sw.appendChild(input);
+    sc.appendChild(sw);
 
-    const label = document.createElement('label');
-    label.className = 'soundfont-row-label flex-grow-1 small mb-0';
-    label.htmlFor = input.id;
-    const title = document.createElement('div');
-    title.className = 'text-truncate';
-    title.textContent = name;
-    title.title = name;
-    const sub = document.createElement('div');
-    sub.className = 'text-white-50';
-    sub.style.fontSize = '0.7rem';
-    sub.textContent = detail;
-    label.append(title, sub);
-
-    row.append(sw, label);
-
-    if (editing) {
-        const up = iconButton('soundfont-move-up-btn', 'bi-chevron-up', `Move ${name} up`);
-        up.disabled = !canMoveUp;
-        const down = iconButton('soundfont-move-down-btn', 'bi-chevron-down', `Move ${name} down`);
-        down.disabled = !canMoveDown;
-        row.append(up, down);
-        if (deletable) row.appendChild(iconButton('btn-theme-danger soundfont-delete-btn', 'bi-trash', `Delete ${name}`));
-    }
+    row.append(text, sc);
     return row;
 }
 
@@ -74,11 +75,18 @@ export function initSoundFontPanel() {
     let editing = false;
 
     const strictToggle = document.getElementById('soundFontStrictToggle');
+    const strictRow = document.getElementById('soundFontStrictRow');
     if (strictToggle) {
         strictToggle.checked = getSoundFontStrict();
         strictToggle.addEventListener('change', () => {
             setSoundFontStrict(strictToggle.checked);
             scheduleReload();
+        });
+        strictRow?.addEventListener('click', (e) => {
+            if (e.target !== strictToggle) {
+                strictToggle.checked = !strictToggle.checked;
+                strictToggle.dispatchEvent(new Event('change'));
+            }
         });
     }
 
@@ -181,8 +189,10 @@ export function initSoundFontPanel() {
 
     list.addEventListener('click', async (e) => {
         const row = e.target.closest('.soundfont-row');
+        if (!row) return;
+
         const moveBtn = e.target.closest('.soundfont-move-up-btn, .soundfont-move-down-btn');
-        if (moveBtn && row) {
+        if (moveBtn) {
             const ids = (await listOrderedSoundFonts()).map(f => f.id);
             const from = ids.indexOf(row.dataset.id);
             const to = from + (moveBtn.classList.contains('soundfont-move-up-btn') ? -1 : 1);
@@ -194,29 +204,41 @@ export function initSoundFontPanel() {
             scheduleReload();
             return;
         }
+
         const btn = e.target.closest('.soundfont-delete-btn');
-        if (!btn || !row) return;
-        // Two-step confirm: the viewer suppresses native confirm dialogs
-        if (btn.dataset.armed !== '1') {
-            btn.dataset.armed = '1';
-            const label = btn.title;
-            btn.title = 'Click again to confirm delete';
-            btn.classList.add('active');
-            btn.innerHTML = '<i class="bi-exclamation-triangle-fill" aria-hidden="true"></i>';
-            setTimeout(() => {
-                if (!btn.isConnected) return;
-                btn.dataset.armed = '';
-                btn.classList.remove('active');
-                btn.title = label;
-                btn.innerHTML = '<i class="bi-trash" aria-hidden="true"></i>';
-            }, 3000);
+        if (btn) {
+            // Two-step confirm: the viewer suppresses native confirm dialogs
+            if (btn.dataset.armed !== '1') {
+                btn.dataset.armed = '1';
+                const label = btn.title;
+                btn.title = 'Click again to confirm delete';
+                btn.classList.add('active');
+                btn.innerHTML = '<i class="bi-exclamation-triangle-fill" aria-hidden="true"></i>';
+                setTimeout(() => {
+                    if (!btn.isConnected) return;
+                    btn.dataset.armed = '';
+                    btn.classList.remove('active');
+                    btn.title = label;
+                    btn.innerHTML = '<i class="bi-trash" aria-hidden="true"></i>';
+                }, 3000);
+                return;
+            }
+            const wasEnabled = getSelectedSoundFontIds().includes(row.dataset.id);
+            if (getForcedPreset()?.id === row.dataset.id) setForcedPreset(null);
+            await deleteSoundFont(row.dataset.id);
+            await render();
+            if (wasEnabled) scheduleReload();
             return;
         }
-        const wasEnabled = getSelectedSoundFontIds().includes(row.dataset.id);
-        if (getForcedPreset()?.id === row.dataset.id) setForcedPreset(null);
-        await deleteSoundFont(row.dataset.id);
-        await render();
-        if (wasEnabled) scheduleReload();
+
+        // Clicking row toggles SoundFont unless clicking the switch itself (which fires 'change' natively)
+        if (!e.target.closest('button, input, select, label')) {
+            const sw = row.querySelector('input[type="checkbox"]');
+            if (sw) {
+                sw.checked = !sw.checked;
+                sw.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
     });
 
     addBtn.addEventListener('click', () => {

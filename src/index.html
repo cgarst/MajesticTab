@@ -1119,26 +1119,44 @@
     </header>
     <div class="theme-modal-body">
     <div id="soundFontSection">
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <label class="form-label small mb-0 fw-semibold text-muted">SoundFonts:</label>
-        <div class="d-flex align-items-center gap-2">
-          <button type="button" class="btn btn-sm theme-control-btn" id="soundFontEditBtn" title="Reorder or delete SoundFonts">Edit</button>
-          <button type="button" class="btn btn-sm theme-control-btn" id="soundFontAddBtn" title="Add an .sf2 or .sf3 SoundFont"><i class="bi-plus-lg" aria-hidden="true"></i> Add</button>
-        </div>
-      </div>
       <input type="file" id="soundFontFileInput" accept=".sf2,.sf3" multiple hidden>
-      <div id="soundFontList" class="soundfont-list" role="group" aria-label="Enabled SoundFonts"></div>
-      <div class="small text-white-50 mt-1" style="font-size: 0.72rem;">Enabled SoundFonts layer top to bottom; lower ones override higher ones.</div>
-      <div class="d-flex align-items-center gap-2 mt-2">
-        <div class="form-check form-switch mb-0 flex-shrink-0">
-          <input class="form-check-input theme-switch" type="checkbox" id="soundFontStrictToggle" aria-label="Strict program matching">
+      <div class="sgroup soundfont-sgroup">
+        <div class="soundfont-toolbar d-flex align-items-center justify-content-between">
+          <h3 class="mb-0">SoundFonts</h3>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <button type="button" class="btn btn-sm srow-ghost" id="soundFontEditBtn" title="Reorder or delete SoundFonts">Edit</button>
+            <button type="button" class="btn btn-sm srow-ghost" id="soundFontAddBtn" title="Add an .sf2 or .sf3 SoundFont">Add</button>
+          </div>
         </div>
-        <label class="small mb-0" for="soundFontStrictToggle" title="Off: tracks the enabled SoundFonts lack use the closest instrument they have. On: play exact instruments only; others stay silent.">Strict instrument matching</label>
+        <p class="snote mt-1 mb-2">Enabled SoundFonts layer top to bottom; lower ones override higher ones.</p>
+        <div id="soundFontList" class="srows soundfont-list" role="group" aria-label="Enabled SoundFonts"></div>
       </div>
-      <div class="mt-2">
-        <label class="small mb-1" for="soundFontForceFont" title="Play every instrument (except drums) with one preset from a single SoundFont.">Force one preset</label>
-        <select id="soundFontForceFont" class="form-select form-select-sm" aria-label="Force all instruments to one SoundFont"></select>
-        <select id="soundFontForcePreset" class="form-select form-select-sm mt-1" aria-label="Forced preset" hidden></select>
+
+      <div class="sgroup mt-4">
+        <h3>Playback options</h3>
+        <div class="srows">
+          <div class="srow" id="soundFontStrictRow" style="cursor: pointer;">
+            <div class="st">
+              <b>Strict instrument matching</b>
+              <span>Tracks that enabled SoundFonts lack stay silent instead of playing the closest instrument.</span>
+            </div>
+            <div class="sc">
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input theme-switch" type="checkbox" id="soundFontStrictToggle" aria-label="Strict instrument matching">
+              </div>
+            </div>
+          </div>
+          <div class="srow">
+            <div class="st">
+              <b>Force one preset</b>
+              <span>Play every instrument (except drums) with a single preset from one SoundFont.</span>
+            </div>
+            <div class="sc d-flex flex-column align-items-end gap-1">
+              <select id="soundFontForceFont" class="form-select form-select-sm" aria-label="Force all instruments to one SoundFont"></select>
+              <select id="soundFontForcePreset" class="form-select form-select-sm mt-1" aria-label="Forced preset" hidden></select>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

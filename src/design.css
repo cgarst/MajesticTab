@@ -1155,6 +1155,105 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .sgroup .settings-advanced-details summary { color: var(--ink2) !important; min-height: 40px; display: flex; align-items: center; }
 @media (max-width: 899px) { .srow { flex-wrap: wrap; } .srow .sc { width: 100%; } }
 
+/* SoundFonts in Settings and reader modal */
+#soundFontSection .soundfont-toolbar {
+  min-height: 32px;
+}
+#soundFontSection .soundfont-toolbar .srow-ghost {
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: var(--r-control, 8px);
+}
+#soundFontSection .soundfont-toolbar .srow-ghost.active {
+  background: var(--s3);
+  color: var(--ink);
+}
+#soundFontSection .soundfont-list,
+.soundfont-list.srows {
+  gap: 2px;
+  max-height: none;
+  overflow-y: visible;
+}
+#soundFontSection .soundfont-row,
+.soundfont-row.srow {
+  background: var(--s2) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  min-height: 60px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  #soundFontSection .soundfont-row:hover,
+  .soundfont-row.srow:hover,
+  #soundFontStrictRow:hover {
+    background: var(--s3) !important;
+  }
+}
+#soundFontSection .soundfont-move-up-btn,
+#soundFontSection .soundfont-move-down-btn,
+#soundFontSection .soundfont-delete-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-control, 8px);
+}
+#soundFontSection .soundfont-delete-btn.active {
+  background: color-mix(in srgb, var(--danger, #f87171) 22%, var(--s3)) !important;
+  color: var(--danger, #f87171) !important;
+}
+#soundFontSection .form-select {
+  background-color: var(--s3) !important;
+  border: 0 !important;
+  color: var(--ink) !important;
+  border-radius: var(--r-control, 8px) !important;
+  font-size: 13px;
+  min-height: 34px;
+}
+#soundFontSection .form-select:focus {
+  outline: 2px solid var(--hue) !important;
+  outline-offset: -1px;
+}
+#soundFontSection .form-select option {
+  background-color: var(--s1) !important;
+  color: var(--ink) !important;
+}
+#soundFontModal .soundfont-sgroup h3 {
+  display: none;
+}
+
+.about-credits-box {
+  background: var(--s2);
+  border-radius: var(--r);
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink2);
+}
+.about-credits-box .about-third-party {
+  margin-top: 14px;
+}
+.about-credits-box .about-third-party .fw-semibold {
+  color: var(--ink);
+}
+.about-credits-box a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.about-credits-box ul {
+  padding-left: 1.25rem;
+  margin-top: 6px;
+}
+.about-credits-box li {
+  margin-bottom: 4px;
+}
+
 /* Phone: five tabs, no brand or Tools (Tools stays in the top bar) */
 @media (max-width: 576px) {
   body.library-view-active .library-bottom-nav { background: var(--s1) !important; }

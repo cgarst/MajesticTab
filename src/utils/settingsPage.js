@@ -134,14 +134,6 @@ function makeStringingRow() {
     return row('Stringing', 'Standard puts the high string on top, as in tab; upside down puts the low string on top.', seg);
 }
 
-function proxyButton(label, targetId, className = 'btn btn-sm btn-theme-outline') {
-    const b = el('button', className);
-    b.type = 'button';
-    b.textContent = label;
-    b.addEventListener('click', () => $(targetId)?.click());
-    return b;
-}
-
 function makeHideNoTabSongsRow() {
     const sw = el('input', 'form-check-input theme-switch');
     sw.type = 'checkbox';
@@ -322,9 +314,10 @@ export function initSettingsPage() {
     }
 
     // Sound
-    const soundRows = [];
-    if ($('soundFontModalBtn')) soundRows.push(row('SoundFonts', 'Choose and manage the instrument sounds.', proxyButton('Manage', 'soundFontModalBtn')));
-    if (soundRows.length) panes.sound.appendChild(group('Playback', ...soundRows));
+    const sfSection = $('soundFontSection');
+    if (sfSection) {
+        panes.sound.appendChild(sfSection);
+    }
 
     // Library and backup
     // The data tasks are rows like every other setting. Choosing one opens it in place under its row, and only one
@@ -505,7 +498,6 @@ export function initSettingsPage() {
         dlBtn.rel = 'noopener noreferrer';
         abt.push(row('Desktop & mobile apps', 'Permanent offline storage, local Jam hosting, and built-in tab search with ad-blocking.', dlBtn));
     }
-    if (aboutBtn) { aboutBtn.className = 'btn btn-sm btn-theme-outline'; aboutBtn.innerHTML = 'About MajesticTab'; abt.push(row('About', 'Credits and licences.', aboutBtn)); }
     if (privacy) { privacy.className = 'btn btn-sm btn-theme-outline'; privacy.textContent = 'Read'; abt.push(row('Privacy policy', 'What stays on your device.', privacy)); }
     if (support) { support.className = 'btn btn-sm btn-theme-outline'; support.textContent = 'Report'; abt.push(row('Support', 'Report a problem or ask for a feature.', support)); }
     if (quitBtn && canQuitApp()) {
@@ -527,6 +519,15 @@ export function initSettingsPage() {
             aboutGroup.querySelector('.srows')?.prepend(row('Version', '', v));
         }).catch(() => {});
     }
+    const aboutModal = $('aboutModal');
+    const aboutBody = aboutModal?.querySelector('.theme-modal-body');
+    if (aboutBody) {
+        const credBox = el('div', 'about-credits-box');
+        credBox.appendChild(aboutBody);
+        panes.about.appendChild(group('Credits and licences', credBox));
+    }
+    aboutBtn?.remove();
+    aboutModal?.remove();
 
     // ---- put it together; the static markup is emptied of its controls and removed ----
     wrap.appendChild(nav);
@@ -605,6 +606,11 @@ let parking = null;
 /** Show the Settings page inside `container` (the library's content area). */
 export function mountSettingsPage(container) {
     if (!built) return;
+    const soundPane = built.shell?.querySelector('section[data-section="sound"]');
+    const sf = document.getElementById('soundFontSection');
+    if (soundPane && sf && !soundPane.contains(sf)) {
+        soundPane.appendChild(sf);
+    }
     built.resetToList();
     container.replaceChildren(built.shell);
 }

@@ -12,6 +12,13 @@ const closeTimers = new WeakMap();
 export function openModal(id) {
     const modal = document.getElementById(id);
     if (!modal) return;
+    if (id === 'soundFontModal') {
+        const body = modal.querySelector('.theme-modal-body');
+        const sf = document.getElementById('soundFontSection');
+        if (body && sf && !body.contains(sf)) {
+            body.appendChild(sf);
+        }
+    }
     clearTimeout(closeTimers.get(modal));
     modal.classList.remove('is-closing');
     toggleSynthPanel(false);
@@ -32,6 +39,13 @@ export function closeModal(id) {
         modal.style.display = 'none';
         modal.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('modal-open');
+        if (id === 'soundFontModal') {
+            const host = document.querySelector('section[data-section="sound"]');
+            const sf = document.getElementById('soundFontSection');
+            if (host && sf && !host.contains(sf)) {
+                host.appendChild(sf);
+            }
+        }
     };
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         finishClose();
