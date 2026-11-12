@@ -592,6 +592,9 @@ export async function navigateToAlbumInLibrary(artistName, albumTitle) {
     await openLibraryModal('library');
     libraryBrowseMode = 'artists';
     activeView = 'library';
+    // Leave the global search and any catalog sub-view behind
+    libraryFilterQuery = '';
+    searchSubView = null;
     const hierarchy = await getLibraryHierarchy(activeCollectionId);
     const targetArtist = (hierarchy.artists || []).find(a => cleanTrackTitleForMatching(a.name) === cleanTrackTitleForMatching(artistName));
     if (targetArtist) {
@@ -615,7 +618,7 @@ export async function navigateToAlbumInLibrary(artistName, albumTitle) {
 /**
  * Handle 1-click single song fulfillment: creates library song shell and opens downloader pre-targeted
  */
-export async function handleGetTabSingleSong(songItem, { addOnly = false } = {}) {
+export async function handleGetTabSingleSong(songItem, { addOnly = false, navigate = false } = {}) {
     if (!songItem) return;
     const title = songItem.title || '';
     const artist = songItem.artist || '';
@@ -665,6 +668,7 @@ export async function handleGetTabSingleSong(songItem, { addOnly = false } = {})
 
     if (addOnly) {
         showToast(`Added "${title}" to library`, 'success');
+        if (navigate) await navigateToAlbumInLibrary(targetSong?.artist || artist, targetSong?.album || songItem.album || '');
         return targetSong;
     }
 
@@ -688,7 +692,7 @@ export async function handleGetTabSingleSong(songItem, { addOnly = false } = {})
  * Handle Guided Batch Tab Assistant for albums:
  * Pre-flights library for existing tabs, builds smart queue, launches downloader in batch mode
  */
-export async function handleAddAlbumBatch(albumItem, btnEl, { addOnly = false } = {}) {
+export async function handleAddAlbumBatch(albumItem, btnEl, { addOnly = false, navigate = false } = {}) {
     if (!albumItem) return;
     const albumTitle = albumItem.title || albumItem.name || '';
     const artistName = albumItem.artist || albumItem.artistName || '';
@@ -735,6 +739,7 @@ export async function handleAddAlbumBatch(albumItem, btnEl, { addOnly = false } 
                 btnEl.textContent = 'In library';
                 btnEl.disabled = true;
             }
+            if (navigate) await navigateToAlbumInLibrary(artistObj?.name || artistName, albumObj?.title || albumTitle);
             return;
         }
 
@@ -1008,6 +1013,12 @@ async function renderLibraryBrowseView(container) {
         hierarchy.artists = artists;
     }
 
+    // Custom Music is always there once the library has anything, so adding a custom song has a fixed home
+    if (artists.length > 0 && !artists.some(a => a.isCustom)) {
+        artists = [...artists, { name: 'Custom Music', artistMbid: null, isCustom: true, pinned: false, songs: [], rootBooks: 0, albums: [] }];
+        hierarchy.artists = artists;
+    }
+
     // Re-sync selectedArtist and selectedAlbum against latest hierarchy data
     if (selectedArtist) {
         selectedArtist = artists.find(a => a.name === selectedArtist.name || (selectedArtist.artistMbid && a.artistMbid === selectedArtist.artistMbid)) || null;
@@ -1084,6 +1095,7 @@ async function renderLibraryBrowseView(container) {
             }
         });
 
+        makeRowAccessible(container.querySelector('#emptyStateCustomSongBtn'), () => startAddCustomSong(''));
         makeRowAccessible(container.querySelector('#emptyStateOpenFileBtn'), () => switchView('openFile'));
 
         makeRowAccessible(container.querySelector('#emptyStateClasstabBtn'), async () => {
@@ -1738,7 +1750,7 @@ async function renderLibraryBrowseView(container) {
                   backId: 'paneBackBtn',
                   backAct: 'paneback',
                   countText: `${totalSongsForPane} ${totalSongsForPane === 1 ? 'song' : 'songs'}${!isCustomArtist && selectedArtist.albums.length > 0 ? ` · ${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'album' : 'albums'}` : ''}`,
-                  actionsHtml: `${!isCustomArtist && selectedArtist ? `<button class="btn btn-sm btn-theme-icon pin-artist-btn me-1 ${isArtistPinnedState ? 'text-warning' : 'text-muted'}" data-artist-name="${escapeHtml(selectedArtist.name)}" title="${isArtistPinnedState ? 'Unpin artist' : 'Pin artist'}"><i class="bi-pin-angle${isArtistPinnedState ? '-fill' : ''}"></i></button>` : ''}<button class="btn btn-sm btn-theme-outline toggle-album-edit-btn" id="toggleAlbumEditBtn" title="${isAlbumEditMode ? 'Done editing' : 'Edit and delete songs'}">${isAlbumEditMode ? 'Done' : 'Edit'}</button>`,
+                  actionsHtml: `${isCustomArtist ? `<button class="btn btn-sm btn-theme-icon me-1" id="addCustomSongBtn" title="Add custom song" aria-label="Add custom song"><i class="bi-plus-lg" aria-hidden="true"></i></button>` : ''}${!isCustomArtist && selectedArtist ? `<button class="btn btn-sm btn-theme-icon pin-artist-btn me-1 ${isArtistPinnedState ? 'text-warning' : 'text-muted'}" data-artist-name="${escapeHtml(selectedArtist.name)}" title="${isArtistPinnedState ? 'Unpin artist' : 'Pin artist'}"><i class="bi-pin-angle${isArtistPinnedState ? '-fill' : ''}"></i></button>` : ''}<button class="btn btn-sm btn-theme-outline toggle-album-edit-btn" id="toggleAlbumEditBtn" title="${isAlbumEditMode ? 'Done editing' : 'Edit and delete songs'}">${isAlbumEditMode ? 'Done' : 'Edit'}</button>`,
                   title: selectedArtist.name
               })}
               ${isCustomArtist ? breadcrumbHtml : ''}
@@ -1795,6 +1807,8 @@ async function renderLibraryBrowseView(container) {
             }
         });
     });
+
+    container.querySelector('#addCustomSongBtn')?.addEventListener('click', () => startAddCustomSong('', selectedFolderPath.join('/')));
 
     // Drop a file on the custom music space (the whole library pane, or the Custom Music card) to add it directly
     const getCustomDropTarget = (e) => {
@@ -2319,6 +2333,17 @@ export function libraryEmptyWelcomeHtml({ title, subtitle }) {
             <i class="bi-chevron-right empty-action-chevron flex-shrink-0" aria-hidden="true"></i>
           </div>
 
+          <div class="empty-action-row" id="emptyStateCustomSongBtn" role="button" tabindex="0" aria-label="Add custom music: Name your own song or exercise, then attach a tab file">
+            <div class="empty-action-icon flex-shrink-0" aria-hidden="true">
+              <i class="bi-file-earmark-plus"></i>
+            </div>
+            <div class="empty-action-content">
+              <div class="empty-action-title">Add custom music</div>
+              <div class="empty-action-desc">Name your own song or exercise, then attach a tab file</div>
+            </div>
+            <i class="bi-chevron-right empty-action-chevron flex-shrink-0" aria-hidden="true"></i>
+          </div>
+
           <div class="empty-action-row" id="emptyStateOpenFileBtn" role="button" tabindex="0" aria-label="Open a single file: Play a tab without adding it to your library">
             <div class="empty-action-icon flex-shrink-0" aria-hidden="true">
               <i class="bi-file-earmark-music"></i>
@@ -2806,7 +2831,7 @@ function setupLibraryFilter(container, context = {}) {
                         title: btn.dataset.albumTitle,
                         artist: btn.dataset.artistName,
                         year: btn.dataset.year
-                    }, btn, { addOnly: true });
+                    }, btn, { addOnly: true, navigate: true });
                 });
             });
 
@@ -2965,7 +2990,7 @@ function setupLibraryFilter(container, context = {}) {
                     title: btn.dataset.albumTitle,
                     artist: btn.dataset.artistName,
                     year: btn.dataset.year
-                }, btn, { addOnly: true });
+                }, btn, { addOnly: true, navigate: true });
             });
         });
 
@@ -2990,7 +3015,7 @@ function setupLibraryFilter(container, context = {}) {
                     album: btn.dataset.album,
                     year: btn.dataset.year,
                     recordingMbid: btn.dataset.recordingMbid
-                }, { addOnly: true });
+                }, { addOnly: true, navigate: true });
             });
         });
     };
@@ -3158,9 +3183,28 @@ function setupLibraryFilter(container, context = {}) {
         </div>
 
         <div class="search-catalog-results" id="libSearchCatalogResults"></div>
+
+        <div class="search-stream-section" id="libCustomSongSection">
+          <div class="search-stream-list">
+            <div class="search-stream-row is-navigable" id="libCustomSongRow" role="button" tabindex="0">
+              <div class="search-row-meta min-w-0 flex-grow-1">
+                <div class="search-row-title text-truncate">Add "${escapeHtml(rawQuery)}" as a custom song</div>
+                <div class="search-row-sub text-truncate">Not in the catalog? Add it yourself, then attach a tab</div>
+              </div>
+              <button type="button" class="btn btn-sm lib-ghost-action flex-shrink-0 ms-2" id="libCustomSongBtn">Add song</button>
+            </div>
+          </div>
+        </div>
         `;
 
         filterResults.innerHTML = html;
+
+        const customSongRow = filterResults.querySelector('#libCustomSongRow');
+        customSongRow?.addEventListener('click', () => startAddCustomSong(rawQuery));
+        customSongRow?.addEventListener('keydown', (e) => {
+            if (e.target !== customSongRow) return;
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startAddCustomSong(rawQuery); }
+        });
 
         renderTuningSearchSection(filterResults.querySelector('#libTuningSearch'), rawQuery, (key) => {
             pushLibraryNavigationState();
@@ -5094,6 +5138,48 @@ function formatTimeAgo(timestamp) {
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return `${Math.floor(diff / 86400)}d ago`;
+}
+
+/**
+ * Custom song flow: ask for a title, create the song in Custom Music, then open the "Add a tab" picker for it.
+ * Used by the search row ("Add ... as a custom song") and the empty-state row.
+ */
+export function startAddCustomSong(initialTitle = '', folderPath = '') {
+    openThemedInputModal({
+        title: 'Add a custom song',
+        subtitle: folderPath ? `It goes in Custom Music / ${folderPath}. You add its tab next.` : 'It goes in Custom Music. You add its tab next.',
+        icon: 'bi-music-note-beamed',
+        inputLabel: 'Title',
+        placeholder: 'Song or exercise name',
+        initialValue: initialTitle,
+        confirmText: 'Add song',
+        onConfirm: async (title) => {
+            try {
+                const song = await saveSongToLibrary({
+                    id: `song_custom_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                    collectionId: activeCollectionId,
+                    title,
+                    artist: 'Custom Music',
+                    album: folderPath,
+                    folderPath,
+                    isCustom: true,
+                    tabOptions: [],
+                    addedAt: Date.now()
+                }, activeCollectionId);
+                showToast(`Added "${title}" to Custom Music${folderPath ? ' / ' + folderPath : ''}`, 'success');
+                window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                const songId = song?.id;
+                if (!songId) return;
+                // The page redraws on the change; open the picker once the search bar is back to anchor it
+                await new Promise(r => setTimeout(r, 150));
+                const anchor = document.querySelector('#libFilterInput');
+                if (anchor) await toggleSongTabsPicker(anchor, songId, 'add', { forceOpen: true });
+            } catch (err) {
+                console.warn('Could not add custom song:', err);
+                showToast('Could not add the song', 'error');
+            }
+        }
+    });
 }
 
 /**
