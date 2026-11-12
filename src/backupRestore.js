@@ -1196,7 +1196,7 @@ export function setTaskOpenState(openTab) {
 
 async function mountBackupInSettings(host, tab, options) {
     const modal = getOrCreateModal();
-    modal.classList.add('is-embedded');
+    modal.classList.add('is-embedded', 'tool-embedded');
     modal.style.display = 'block';
     setTaskOpenState(tab);
     // Open at once; the screen's counts take a moment to read, so say so instead of showing an empty row
@@ -1209,7 +1209,7 @@ async function mountBackupInSettings(host, tab, options) {
 function leaveEmbeddedBackup() {
     const modal = modalElement;
     if (!modal?.classList.contains('is-embedded')) return false;
-    modal.classList.remove('is-embedded');
+    modal.classList.remove('is-embedded', 'tool-embedded');
     modal.style.display = 'none';
     document.body.appendChild(modal);
     setTaskOpenState(null);

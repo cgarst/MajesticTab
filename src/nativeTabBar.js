@@ -7,6 +7,8 @@
 // The HTML bar remains the source of truth for what a tap does: a native tap clicks the matching HTML button, so
 // navigation, Settings and the "leave Settings" handling stay in one place (libraryModal.js).
 
+import { isIOSDevice } from './utils/iosAudioUnlock.js';
+
 const MIN_APPLE_MAJOR = 26;
 const TABS = [
     { key: 'library', title: 'Library', symbol: 'books.vertical' },
@@ -155,8 +157,10 @@ function applyVisibility() {
     if (state !== 'on') return;
     const isMac = document.documentElement.classList.contains('tauri-macos') ||
                   (typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) && !isIOSDevice());
-    document.body.classList.toggle('native-tabbar', wantVisible);
-    document.body.classList.toggle('native-rail', wantVisible && isMac);
+    const inLibrary = document.body.classList.contains('library-view-active') &&
+                      !document.body.classList.contains('downloader-active');
+    document.body.classList.toggle('native-tabbar', inLibrary);
+    document.body.classList.toggle('native-rail', inLibrary && isMac);
     if (shown === !wantVisible) return;
     shown = !wantVisible;
     invoke('visibility', { hidden: !wantVisible }).catch(() => {});
@@ -169,18 +173,19 @@ function refreshAll() {
 
 // The native bar belongs to the library at every width (phones, iPads, the iPhone Duo in portrait, macOS):
 // A dialog floating over the library (the From URL box, the S3 and WebDAV browsers, the Drive picker): the glass bar and
-// field are native views above the page, so they would sit on top of it. Embedded Tools panes are not floating.
-const FLOATING_DIALOG = '.theme-modal-backdrop:not(.tool-embedded):not(.is-closing), .picker-dialog, .picker-dialog-bg, [class*="picker-dialog"], [class*="picker-frame"], iframe[src*="picker"]';
+// field are native views above the page, so they would sit on top of it. Embedded Tools panes and Settings data tasks are not floating.
+const FLOATING_DIALOG = '.theme-modal-backdrop:not(.tool-embedded):not(.is-embedded):not(.is-closing), .picker-dialog, .picker-dialog-bg, [class*="picker-dialog"], [class*="picker-frame"], iframe[src*="picker"]';
 function dialogOpen() {
     if (document.body.classList.contains('drive-picker-active') ||
         document.body.classList.contains('picker-open') ||
         // A tool shown as a page in Tools (chord library, scales, circle of fifths) still sets modal-open when its
         // modal opens, which is not a floating dialog: the bar stays
-        (document.body.classList.contains('modal-open') && !document.querySelector('.tool-embedded'))) {
+        (document.body.classList.contains('modal-open') && !document.querySelector('.tool-embedded, .is-embedded, .data-task-slot'))) {
         return true;
     }
     return Array.from(document.querySelectorAll(FLOATING_DIALOG)).some(el => {
         if (!el.isConnected) return false;
+        if (el.closest('.data-task-slot, .tool-pane-host, .tool-embedded, .is-embedded')) return false;
         const style = window.getComputedStyle ? getComputedStyle(el) : el.style;
         if (style.display === 'none' || style.visibility === 'hidden') return false;
         const rect = el.getBoundingClientRect();
