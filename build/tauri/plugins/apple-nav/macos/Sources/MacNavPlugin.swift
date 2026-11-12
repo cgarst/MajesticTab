@@ -276,7 +276,7 @@ final class MacRailView: NSVisualEffectView {
 
 final class SearchState: ObservableObject {
     @Published var query: String = ""
-    @Published var placeholder: String = "Search your library or find any artist, song, or album…"
+    @Published var placeholder: String = "Search any artist, song, or album"
     var onSearchChange: ((String) -> Void)?
     var onSubmit: (() -> Void)?
 }

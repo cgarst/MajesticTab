@@ -2132,10 +2132,8 @@ export function libraryViewSwitchHtml(activeTab = null) {
 // Shared chrome for every library view: centered view switcher, then its own search box, then (below, via
 // libraryListToolbarHtml) a count on the left and the primary action on the right.
 export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, searchLabel, searchDisabled = false }) {
-    if (window.matchMedia?.('(max-width: 576px)').matches) {
-        placeholder = 'Search';
-    } else if (!placeholder || placeholder === 'Search your library') {
-        placeholder = 'Search your library or find any artist, song, or album…';
+    if (!placeholder || placeholder === 'Search your library') {
+        placeholder = 'Search any artist, song, or album';
     }
     return `<div class="lib-view-switch-row">${libraryViewSwitchHtml(activeTab)}</div>
       <div class="library-search-box mb-3">
