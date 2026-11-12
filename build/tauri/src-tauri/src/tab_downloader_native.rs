@@ -704,10 +704,6 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
         }
     }
 
-    if url.scheme() == "http" || url.scheme() == "https" {
-        let _ = app_handle.emit("tab-downloader-url-changed", url_str.to_string());
-    }
-
     // 1. Console log forwarding scheme: majestictab://log?msg=...
     if url.scheme() == "majestictab" && (url.host_str() == Some("log") || url_str.starts_with("majestictab://log")) {
         let msg = url
