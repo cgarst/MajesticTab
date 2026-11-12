@@ -11,6 +11,7 @@ Read when cutting a release, writing release notes or maintaining the F-Droid re
 3. Bump `version` in `build/tauri/src-tauri/tauri.conf.json` and `bundle.android.versionCode` in `tauri.android.conf.json` and the versionCode example in `build/AGENTS.md` (Local store builds). The F-Droid recipe lives in F-Droid's `fdroiddata` repo (`metadata/net.zathu.majestictab.yml`), not here, and F-Droid's auto-update adds each new tag.
 4. Write `support/listing/changelogs/<version>.txt`, run `node build/release-notes.mjs --link`, and commit as `Bump to <version>`.
 5. Once the user has approved the notes, tag and push without asking again: asking to cut a release is the authorization. `git tag v<version>` on the bump commit, then `git push origin main v<version>`. Do not tag or push if the notes were never approved, and never move or delete a pushed tag.
+6. Update the F-Droid recipe as part of the same release (see Maintaining the F-Droid recipe), without waiting for the workflow: edit it and commit it on its branch in `~/code/fdroiddata`, and leave it unpushed for the user to push once the signed `no-gms` APKs are on the GitHub release.
 
 ## Release notes
 
@@ -26,7 +27,7 @@ Play and F-Droid read `fastlane/metadata/android/en-US/changelogs/<versionCode>.
 
 ## Maintaining the F-Droid recipe
 
-The recipe is `~/code/fdroiddata/metadata/net.zathu.majestictab.yml` on branch `net.zathu.majestictab` (see the lockstep rule in `build/AGENTS.md`). Changing it needs the user's approval; commit it there, and leave the push to the user unless they ask for it.
+The recipe is `~/code/fdroiddata/metadata/net.zathu.majestictab.yml` on branch `net.zathu.majestictab` (see the lockstep rule in `build/AGENTS.md`). Cutting a release includes updating it (step 6 above), so no separate approval is needed for that update; commit it there, and leave the push to the user unless they ask for it.
 
 - **Keep only the current version.** `Builds` holds only the latest release, as three blocks, one per ABI (armeabi-v7a, arm64-v8a, x86_64), since F-Droid has no ABI-split support and wants one build block per APK. The blocks are identical except `versionCode` (`10 * <versionCode> + 1|2|4`), `binary:` (`...-android-no-gms-no-update-<abi>.apk`) and `--abi=<abi>`. `VercodeOperation` lists the same three codes and auto-update (`UpdateCheckMode: Tags`, `AutoUpdateMode: Version`) generates the blocks from a new tag. Do not hand-write them with YAML anchors: `fdroid rewritemeta` flattens the file into its own form.
 - **After a release:** set each block's `versionName` and `commit` (the full hash of the tag's commit, from `git rev-parse v<version>^{commit}`), remove the older version's blocks, and set `CurrentVersion` and `CurrentVersionCode` (the highest ABI code, `10 * <versionCode> + 4`). Parse the file (`python3 -c "import yaml; yaml.safe_load(open(...))"`). Run `fdroid lint` and `fdroid rewritemeta net.zathu.majestictab` where `fdroidserver` is installed.
