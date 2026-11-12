@@ -21,10 +21,10 @@ export function rewriteCargoToml(content, target, channel) {
   // Android has no use for the iOS and Apple plugins (every `tauri-plugin-ios-*` and `tauri-plugin-apple-*` crate, so a
   // new one is covered without touching this file); a channel without Google Drive has no use for google-auth.
   if (target === 'android') {
-    content = content.replace(/^tauri-plugin-(?:ios|apple)-[a-z0-9-]+ = .*\n/gm, '');
+    content = content.replace(/^tauri-plugin-(?:ios|apple)-[a-z0-9-]+ = .*\r?\n/gm, '');
   }
   if (!channels[channel].capabilities.googleDrive) {
-    content = content.replace(/^tauri-plugin-google-auth = .*\n/m, '');
+    content = content.replace(/^tauri-plugin-google-auth = .*\r?\n/m, '');
     // lib.rs still names the feature in cfg attributes, so keep it declared, with nothing behind it.
     content = content.replace(/^google-auth = \[.*?\]$/m, 'google-auth = []');
   }

@@ -247,7 +247,7 @@ async function writeChannelConfig() {
 // Call sites of tagged modules sit between `// @tag:begin` and `// @tag:end` lines (`<!-- ... -->`
 // inside HTML templates), and are cut out here.
 function makeTagBlockPattern(tag) {
-  return new RegExp(`[ \\t]*(?:\\/\\/|<!--)[ \\t]*@${tag}:begin[ \\t]*(?:-->)?[ \\t]*\\n[\\s\\S]*?[ \\t]*(?:\\/\\/|<!--)[ \\t]*@${tag}:end[ \\t]*(?:-->)?[ \\t]*\\n?`, 'g');
+  return new RegExp(`[ \\t]*(?:\\/\\/|<!--)[ \\t]*@${tag}:begin[ \\t]*(?:-->)?[ \\t]*\\r?\\n[\\s\\S]*?[ \\t]*(?:\\/\\/|<!--)[ \\t]*@${tag}:end[ \\t]*(?:-->)?[ \\t]*(?:\\r?\\n)?`, 'g');
 }
 
 async function stripTaggedBlocks(directory, tag) {

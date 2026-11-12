@@ -423,7 +423,7 @@ if (target === 'android') {
   await cp(path.join(tauriDir, 'src-tauri', 'icons', 'android'), androidRes, { recursive: true });
   let mainActivity = await readFile(path.join(tauriDir, 'android-MainActivity.kt'), 'utf8');
   if (!channelCapabilities.selfUpdate) {
-    mainActivity = mainActivity.replace(/[ \t]*\/\/ @selfUpdate:begin[\s\S]*?\/\/ @selfUpdate:end\n?/, '');
+    mainActivity = mainActivity.replace(/[ \t]*\/\/ @selfUpdate:begin[^\n]*\n[\s\S]*?\/\/ @selfUpdate:end[^\n]*\n?/, '');
   }
   await writeFile(path.join(androidPackageDir, 'MainActivity.kt'), mainActivity);
   // Tauri already declares a plain FileProvider, and Android keys providers by class name, so the update provider needs
