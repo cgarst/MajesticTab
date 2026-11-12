@@ -244,6 +244,31 @@ async function writeChannelConfig() {
   console.log(`Distribution channel: ${id}`);
 }
 
+// Call sites of tagged modules sit between `// @tag:begin` and `// @tag:end` lines (`<!-- ... -->`
+// inside HTML templates), and are cut out here.
+function makeTagBlockPattern(tag) {
+  return new RegExp(`[ \\t]*(?:\\/\\/|<!--)[ \\t]*@${tag}:begin[ \\t]*(?:-->)?[ \\t]*\\n[\\s\\S]*?[ \\t]*(?:\\/\\/|<!--)[ \\t]*@${tag}:end[ \\t]*(?:-->)?[ \\t]*\\n?`, 'g');
+}
+
+async function stripTaggedBlocks(directory, tag) {
+  const pattern = makeTagBlockPattern(tag);
+  let count = 0;
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name !== 'vendor') count += await stripTaggedBlocks(entryPath, tag);
+    } else if (/\.(?:html|js|mjs)$/i.test(entry.name)) {
+      const source = await readFile(entryPath, 'utf8');
+      const stripped = source.replace(pattern, '');
+      if (stripped !== source) {
+        await writeFile(entryPath, stripped);
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
 // Channels without Google Drive get inert modules in place of the real ones, so no Drive code, OAuth client ID or
 // key ships. Callers are gated on the googleDrive capability and never reach the stubs.
 async function stubOutGoogleDrive() {
@@ -254,30 +279,20 @@ async function stubOutGoogleDrive() {
   await rm(path.join(frontendDir, 'googleDesktopClient.js'), { force: true });
   await rm(path.join(frontendDir, 'googleDrive.local.js'), { force: true });
   await rm(path.join(frontendDir, 'pickerKey.local.js'), { force: true });
-  const stripped = await stripGoogleDriveBlocks(frontendDir);
+  const stripped = await stripTaggedBlocks(frontendDir, 'googleDrive');
   console.log(`Google Drive stubbed out and stripped from ${stripped} files: channel has no googleDrive capability.`);
 }
 
-// Call sites of the Drive modules sit between `// @googleDrive:begin` and `// @googleDrive:end` lines (`<!-- ... -->`
-// inside HTML templates), and are cut out here so the Drive UI and its imports do not ship either.
-const driveBlock = /[ \t]*(?:\/\/|<!--)[ \t]*@googleDrive:begin[ \t]*(?:-->)?[ \t]*\n[\s\S]*?[ \t]*(?:\/\/|<!--)[ \t]*@googleDrive:end[ \t]*(?:-->)?[ \t]*\n?/g;
-
-async function stripGoogleDriveBlocks(directory) {
-  let count = 0;
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name !== 'vendor') count += await stripGoogleDriveBlocks(entryPath);
-    } else if (/\.(?:html|js|mjs)$/i.test(entry.name)) {
-      const source = await readFile(entryPath, 'utf8');
-      const stripped = source.replace(driveBlock, '');
-      if (stripped !== source) {
-        await writeFile(entryPath, stripped);
-        count++;
-      }
-    }
-  }
-  return count;
+async function stubOutInAppBrowser() {
+  await cp(
+    path.join(scriptDir, 'stubs', 'system-browser', 'tabDownloader.js'),
+    path.join(frontendDir, 'tabDownloader.js')
+  );
+  await rm(path.join(frontendDir, 'utils', 'downloaderIntercept.js'), { force: true });
+  await rm(path.join(frontendDir, 'audioSync', 'importers', 'builtinSource.js'), { force: true });
+  const strippedBrowser = await stripTaggedBlocks(frontendDir, 'inAppBrowser');
+  const strippedWsa = await stripTaggedBlocks(frontendDir, 'wsaSync');
+  console.log(`In-app browser stubbed out and stripped from ${strippedBrowser} files; /a/wsa/ sync points stripped from ${strippedWsa} files: channel uses system-browser.`);
 }
 
 async function minifyAppScripts(directory) {
@@ -304,9 +319,16 @@ try {
   await cp(sourceDir, frontendDir, { recursive: true });
   await writeBuildInfo();
   await writeChannelConfig();
-  const driveEnabled = resolveChannel(process.env.MAJESTICTAB_STORE_CHANNEL || DEFAULT_CHANNEL).googleDrive;
+  const channel = process.env.MAJESTICTAB_STORE_CHANNEL || DEFAULT_CHANNEL;
+  const channelConfig = resolveChannel(channel);
+  const driveEnabled = channelConfig.googleDrive;
   if (!driveEnabled) {
     await stubOutGoogleDrive();
+  }
+  const isSystemBrowser = channelConfig.tabDownloader === 'system-browser';
+  if (isSystemBrowser) {
+    allowedRemoteHosts.delete('pgl.yoyo.org');
+    await stubOutInAppBrowser();
   }
   if (androidBuild || iosBuild) {
     // Phones sign in through the platform's own flow and never load the desktop client.

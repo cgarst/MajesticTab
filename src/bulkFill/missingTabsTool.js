@@ -5,6 +5,7 @@
 
 import { getAllSongs } from '../libraryStore.js';
 import { isNative, openTabDownloader } from '../tabDownloader.js';
+import { hasFeature } from '../channel.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const hasTab = (s) => Array.isArray(s.tabOptions) && s.tabOptions.length > 0;
@@ -60,8 +61,35 @@ export function renderMissingTabsTool(container) {
         const stats = songs.length === 0
             ? 'Every song in your library has a tab.'
             : `${plural(songs.length, 'song', 'songs')} without a tab · ${plural(artists.length, 'artist', 'artists')}`;
+        const isSystemBrowser = !hasFeature('inAppBrowser')
+            || (typeof localStorage !== 'undefined' && localStorage.getItem('majestictab_web_search_browser') === 'system');
+        const inApp = !isSystemBrowser;
+        const descText = inApp
+            ? 'Search the web for a tab of each song that has none, one song at a time. When a tab is saved the next song’s search opens. Skip a song to come back to it later.'
+            : 'Search the web for a tab of each song that has none. Open a search in your web browser, download the tab file, and open it in MajesticTab.';
+        const actionContent = inApp ? `
+          <div class="be-actions">
+            <button type="button" class="btn btn-sm btn-theme-primary" data-act="start" ${native && scoped.length ? '' : 'disabled'}>
+              ${scoped.length ? `Start with ${plural(scoped.length, 'song', 'songs')}` : 'Start'}
+            </button>
+          </div>` : (scoped.length > 0 ? `
+          <div class="missingtabs-list" role="list" aria-label="Songs without tabs">
+            ${scoped.map((song) => `
+              <div class="missingtabs-row" role="listitem">
+                <div class="missingtabs-info">
+                  <span class="missingtabs-title">${esc(song.title)}</span>
+                  <span class="missingtabs-sub">${esc(song.artist)}${song.album ? ` · ${esc(song.album)}` : ''}</span>
+                </div>
+                <div class="missingtabs-meta">
+                  <button type="button" class="btn btn-sm btn-theme-outline"
+                          data-act="search-song" data-song-id="${esc(song.id)}"
+                          aria-label="Search web for ${esc(song.artist)} – ${esc(song.title)}">Search</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>` : (songs.length > 0 ? '<p class="ct-sub">No songs without tabs for this artist.</p>' : ''));
         root.innerHTML = `
-          <p class="ct-sub">Search the web for a tab of each song that has none, one song at a time. When a tab is saved the next song’s search opens. Skip a song to come back to it later.</p>
+          <p class="ct-sub">${descText}</p>
           <div class="be-stats-row" role="status">${esc(stats)}</div>
           ${songs.length && artists.length > 1 ? `
           <label class="be-option be-field">
@@ -72,11 +100,7 @@ export function renderMissingTabsTool(container) {
             </select>
           </label>` : ''}
           ${native ? '' : '<p class="ct-note">Searching the web for tabs works in the MajesticTab apps for Windows, macOS, Linux, Android and iOS. On the web, add tabs to a song one at a time.</p>'}
-          <div class="be-actions">
-            <button type="button" class="btn btn-sm btn-theme-primary" data-act="start" ${native && scoped.length ? '' : 'disabled'}>
-              ${scoped.length ? `Start with ${plural(scoped.length, 'song', 'songs')}` : 'Start'}
-            </button>
-          </div>`;
+          ${actionContent}`;
     }
 
     async function load() {
@@ -104,6 +128,19 @@ export function renderMissingTabsTool(container) {
 
     root.addEventListener('click', (e) => {
         if (e.target.closest('[data-act="start"]')) start();
+        const searchBtn = e.target.closest('[data-act="search-song"]');
+        if (searchBtn && songs) {
+            const song = songs.find((s) => s.id === searchBtn.dataset.songId);
+            if (song) {
+                openTabDownloader({
+                    artist: song.artist,
+                    songName: song.title,
+                    query: `${song.artist} ${song.title}`.trim(),
+                    songId: song.id,
+                    targetSong: song,
+                });
+            }
+        }
     });
     root.addEventListener('change', (e) => {
         if (e.target.dataset.act === 'artist') { view.artist = e.target.value; render(); }
@@ -111,6 +148,9 @@ export function renderMissingTabsTool(container) {
     // A tab saved in the browser (or added anywhere else) changes the list
     const onData = () => { load(); };
     window.addEventListener('libraryDataChanged', onData);
+    const onBrowserPrefChange = () => { render(); };
+    window.addEventListener('storage', onBrowserPrefChange);
+    window.addEventListener('majestictab-web-search-browser-changed', onBrowserPrefChange);
 
     render();
     load();
@@ -118,5 +158,7 @@ export function renderMissingTabsTool(container) {
     return () => {
         alive = false;
         window.removeEventListener('libraryDataChanged', onData);
-        };
+        window.removeEventListener('storage', onBrowserPrefChange);
+        window.removeEventListener('majestictab-web-search-browser-changed', onBrowserPrefChange);
+    };
 }

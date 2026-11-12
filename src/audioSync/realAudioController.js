@@ -365,6 +365,22 @@ export function switchRealAudioSource(source) {
     updateGlobalAudioControls();
 }
 
+/** Puts the dock on Original (the synced recording) the way pressing it would, on every platform. */
+export async function switchToOriginalSound() {
+    try {
+        switchRealAudioSlot('original');
+        const { setActiveAudioMode } = await import('../utils/navigationUtils.js');
+        const { clearSynthHighlights } = await import('../gpProcessor/gpPlayer.js');
+        const { toggleYouTubePanel } = await import('../youtubePlayer.js');
+        if (typeof setActiveAudioMode === 'function') setActiveAudioMode('youtube');
+        if (typeof toggleYouTubePanel === 'function') toggleYouTubePanel(false);
+        if (typeof pauseSynthPlayer === 'function') pauseSynthPlayer();
+        if (typeof clearSynthHighlights === 'function') clearSynthHighlights();
+    } catch (e) {
+        console.warn('[Real Audio] Could not switch to original audio:', e);
+    }
+}
+
 // --- Transport Delegation -----------------------------------------------------------------------------------------
 
 export function isRealAudioAvailable() {

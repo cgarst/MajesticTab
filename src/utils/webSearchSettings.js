@@ -10,11 +10,16 @@ import {
     stampSourceChanges,
     renderDownloaderTabs,
     DEFAULT_SOURCES,
-    isAdblockEnabled,
-    setAdblockEnabled,
-    getAdblockStatus,
     openTabDownloader
 } from '../tabDownloader.js';
+// @inAppBrowser:begin
+import {
+    isAdblockEnabled,
+    setAdblockEnabled,
+    getAdblockStatus
+} from '../tabDownloader.js';
+// @inAppBrowser:end
+import { hasFeature } from '../channel.js';
 import { showToast } from './toast.js';
 
 // The downloader opens over the library, not over Settings: step back out of the Settings view first
@@ -68,6 +73,9 @@ function formatRelativeTime(timestamp) {
     return `${days} days ago`;
 }
 
+// @inAppBrowser:begin
+let updateAdblockDisabledState = null;
+
 function makeAdblockGroup() {
     const sw = el('input', 'form-check-input theme-switch');
     sw.type = 'checkbox';
@@ -80,6 +88,14 @@ function makeAdblockGroup() {
     refreshBtn.setAttribute('aria-label', 'Refresh ad blocking list');
 
     const updateStatusText = () => {
+        const isSystem = localStorage.getItem('majestictab_web_search_browser') === 'system';
+        if (isSystem) {
+            statusSpan.textContent = 'Only applies when using the in-app browser.';
+            refreshBtn.disabled = true;
+            sw.disabled = true;
+            return;
+        }
+        sw.disabled = false;
         const status = getAdblockStatus();
         if (!status.enabled) {
             statusSpan.textContent = 'Disabled. When turned on, community rules are downloaded dynamically.';
@@ -93,6 +109,7 @@ function makeAdblockGroup() {
     };
 
     refreshBtn.addEventListener('click', async () => {
+        if (refreshBtn.disabled) return;
         refreshBtn.disabled = true;
         refreshBtn.textContent = 'Refreshing...';
         try {
@@ -108,6 +125,7 @@ function makeAdblockGroup() {
     });
 
     sw.addEventListener('change', async () => {
+        if (sw.disabled) return;
         const enabling = sw.checked;
         const status = getAdblockStatus();
         if (enabling && status.count === 0) {
@@ -143,48 +161,101 @@ function makeAdblockGroup() {
     );
     mainRow.querySelector('.st')?.appendChild(statusSpan);
 
+    updateAdblockDisabledState = () => {
+        const isSystem = localStorage.getItem('majestictab_web_search_browser') === 'system';
+        mainRow.classList.toggle('opacity-50', isSystem);
+        updateStatusText();
+    };
+
+    updateAdblockDisabledState();
+
     return group('Ad and tracker blocking', mainRow);
 }
+// @inAppBrowser:end
 
 function makeProvidersGroup() {
     const container = el('div', 'sgroup');
     const heading = el('h3', '', 'Search providers');
     container.appendChild(heading);
-    container.appendChild(note('Choose where the web search downloader looks for tabs, or add custom search templates.'));
+    container.appendChild(note('Choose where web search looks for tabs, or configure custom search templates for your web browser.'));
 
     const listWrap = el('div', 'srows mt-2');
     container.appendChild(listWrap);
 
-    function renderList() {
+    function renderList(openEditorForId = null) {
         listWrap.innerHTML = '';
         const sources = getSources();
 
-        // Default provider row
-        const seg = el('div', 'hud-pill-group');
-        seg.setAttribute('role', 'radiogroup');
-        seg.setAttribute('aria-label', 'Default provider');
-        sources.forEach((src) => {
-            const isFirst = sources[0]?.id === src.id;
-            const b = el('button', 'btn btn-sm' + (isFirst ? ' active' : ''));
-            b.type = 'button';
-            b.textContent = src.name;
-            b.title = `Make ${src.name} default`;
-            b.addEventListener('click', () => {
-                if (sources[0]?.id === src.id) return;
-                const idx = sources.findIndex((s) => s.id === src.id);
-                if (idx > 0) {
-                    const [item] = sources.splice(idx, 1);
-                    sources.unshift(item);
-                    stampSourceChanges(sources);
-                    saveSources(sources);
-                    renderDownloaderTabs();
-                    renderList();
-                }
-            });
-            seg.appendChild(b);
+        // @inAppBrowser:begin
+        // Browser preference (in-app vs system browser)
+        const browserPrefKey = 'majestictab_web_search_browser';
+        const currentBrowser = localStorage.getItem(browserPrefKey) || 'in-app';
+        const browserSeg = el('div', 'hud-pill-group');
+        browserSeg.setAttribute('role', 'radiogroup');
+        browserSeg.setAttribute('aria-label', 'Open search in');
+
+        const inAppBtn = el('button', 'btn btn-sm' + (currentBrowser !== 'system' ? ' active' : ''));
+        inAppBtn.type = 'button';
+        inAppBtn.textContent = 'In-app browser';
+        inAppBtn.addEventListener('click', () => {
+            localStorage.setItem(browserPrefKey, 'in-app');
+            try { window.dispatchEvent(new CustomEvent('majestictab-web-search-browser-changed', { detail: 'in-app' })); } catch {}
+            inAppBtn.classList.add('active');
+            sysBtn.classList.remove('active');
+            updateAdblockDisabledState?.();
+            updateTestSearchState?.();
         });
 
-        const defaultRow = row('Default search provider', 'Opened first when searching for a tab.', seg);
+        const sysBtn = el('button', 'btn btn-sm' + (currentBrowser === 'system' ? ' active' : ''));
+        sysBtn.type = 'button';
+        sysBtn.textContent = 'System default browser';
+        sysBtn.addEventListener('click', () => {
+            localStorage.setItem(browserPrefKey, 'system');
+            try { window.dispatchEvent(new CustomEvent('majestictab-web-search-browser-changed', { detail: 'system' })); } catch {}
+            sysBtn.classList.add('active');
+            inAppBtn.classList.remove('active');
+            updateAdblockDisabledState?.();
+            updateTestSearchState?.();
+        });
+
+        browserSeg.appendChild(inAppBtn);
+        browserSeg.appendChild(sysBtn);
+
+        const browserRow = row('Open search in', 'Choose whether web search opens inside MajesticTab or in your default web browser.', browserSeg);
+        listWrap.appendChild(browserRow);
+        // @inAppBrowser:end
+
+        // Default provider row (dropdown)
+        const defaultSelect = el('select', 'form-select form-select-sm');
+        defaultSelect.setAttribute('aria-label', 'Default search provider');
+        defaultSelect.style.width = 'auto';
+        defaultSelect.style.minWidth = '140px';
+
+        sources.forEach((src) => {
+            const opt = el('option');
+            opt.value = src.id;
+            opt.textContent = src.name;
+            if (sources[0]?.id === src.id) {
+                opt.selected = true;
+            }
+            defaultSelect.appendChild(opt);
+        });
+
+        defaultSelect.addEventListener('change', () => {
+            const selectedId = defaultSelect.value;
+            if (sources[0]?.id === selectedId) return;
+            const idx = sources.findIndex((s) => s.id === selectedId);
+            if (idx > 0) {
+                const [item] = sources.splice(idx, 1);
+                sources.unshift(item);
+                stampSourceChanges(sources);
+                saveSources(sources);
+                renderDownloaderTabs();
+                renderList();
+            }
+        });
+
+        const defaultRow = row('Default search provider', 'Opened first when searching for a tab.', defaultSelect);
         listWrap.appendChild(defaultRow);
 
         // Individual provider rows
@@ -373,6 +444,18 @@ function makeProvidersGroup() {
                 }
             });
 
+            if (openEditorForId && src.id === openEditorForId) {
+                buildEditor();
+                editorSlot.hidden = false;
+                editBtn.textContent = 'Close';
+                editBtn.setAttribute('aria-expanded', 'true');
+                setTimeout(() => {
+                    const input = editorSlot.querySelector('input');
+                    input?.focus();
+                    input?.select();
+                }, 50);
+            }
+
             listWrap.appendChild(itemRow);
             listWrap.appendChild(editorSlot);
         });
@@ -396,14 +479,7 @@ function makeProvidersGroup() {
             stampSourceChanges(all);
             saveSources(all);
             renderDownloaderTabs();
-            renderList();
-
-            // Find the newly rendered row and open its editor immediately
-            setTimeout(() => {
-                const lastEditBtn = listWrap.querySelectorAll('.srow-task .srow-ghost');
-                const targetBtn = lastEditBtn[lastEditBtn.length - 1];
-                targetBtn?.click();
-            }, 50);
+            renderList(newId);
         });
         const addRow = row('Add custom search provider', 'Add another tab website or search engine using $s for keywords.', addBtn);
         addRow.classList.add('srow-task');
@@ -442,24 +518,41 @@ function makeProvidersGroup() {
     return container;
 }
 
+let updateTestSearchState = null;
+
 function makeTestSearchGroup() {
     const testBtn = el('button', 'btn btn-sm srow-ghost srow-hit', 'Test');
     testBtn.type = 'button';
     testBtn.setAttribute('aria-label', 'Test web search');
     testBtn.addEventListener('click', async () => {
+        if (testBtn.disabled) return;
         await hideSettings();
         openTabDownloader({ query: 'Carulli Duo No 2 In G Major' });
     });
 
-    const testRow = row('Test web search', 'Opens the in-app browser.', testBtn);
+    const isSystem = !hasFeature('inAppBrowser') || localStorage.getItem('majestictab_web_search_browser') === 'system';
+    const testRow = row('Test web search', isSystem ? 'Only applies when using the in-app browser.' : 'Opens the in-app browser.', testBtn);
     testRow.classList.add('srow-task');
+
+    updateTestSearchState = () => {
+        const sys = !hasFeature('inAppBrowser') || localStorage.getItem('majestictab_web_search_browser') === 'system';
+        testBtn.disabled = sys;
+        testRow.classList.toggle('opacity-50', sys);
+        const span = testRow.querySelector('.st span');
+        if (span) span.textContent = sys ? 'Only applies when using the in-app browser.' : 'Opens the in-app browser.';
+    };
+
+    updateTestSearchState();
+
     return group('Test', testRow);
 }
 
 export function initWebSearchSettings(container) {
     if (!container) return;
     container.innerHTML = '';
-    container.appendChild(makeAdblockGroup());
     container.appendChild(makeProvidersGroup());
+    // @inAppBrowser:begin
+    container.appendChild(makeAdblockGroup());
+    // @inAppBrowser:end
     container.appendChild(makeTestSearchGroup());
 }

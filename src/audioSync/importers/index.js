@@ -6,7 +6,9 @@
 
 import { detectSets } from './detect.js';
 import { runSyncSteps } from './syncSource.js';
+// @wsaSync:begin
 import { builtinSource } from './builtinSource.js';
+// @wsaSync:end
 
 /**
  * Fetches `urlText` and returns the candidate sets in it (`{ label, points }` or `{ label, barTimesMs }`).
@@ -17,7 +19,11 @@ export async function loadFromUrl(urlText, fetchText, { findSource = null } = {}
     let url;
     try { url = new URL(String(urlText).trim()); } catch { throw new Error('That is not a web address.'); }
     if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Only http and https addresses are supported.');
-    const source = (findSource ? await findSource(url.href) : null) || (builtinSource.matches(url.href) ? builtinSource : null);
+    const source = (findSource ? await findSource(url.href) : null)
+        // @wsaSync:begin
+        || (builtinSource.matches(url.href) ? builtinSource : null)
+        // @wsaSync:end
+    ;
     const text = source ? await runSyncSteps({ url: url.href, step: source.step, fetchText }) : await fetchText(url.href);
     return detectSets(text);
 }

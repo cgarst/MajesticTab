@@ -2,46 +2,16 @@
 // Handles pattern-based link interception, dynamic downloader URL construction,
 // input pre-filling, and sync point population for tab downloads.
 
-const SONG_ID_PATTERN = /(?:-|\/)s(\d+)(?=\/|$)/i;
+import { unwrapRedirectUrl, unwrapGoogleUrl } from '../urlImport/openFromUrl.js';
 
-/**
- * Extracts target URL if wrapped in a known search engine or proxy redirect endpoint
- * (e.g. Google /url?q=..., DuckDuckGo /l/?uddg=..., or generic /url?url=...)
- * @param {string} rawUrl
- * @returns {string}
- */
-export function unwrapRedirectUrl(rawUrl) {
-    if (!rawUrl || typeof rawUrl !== 'string') return '';
-    try {
-        const u = new URL(rawUrl);
-        const host = u.hostname.toLowerCase();
-        const path = u.pathname.toLowerCase();
+export { unwrapRedirectUrl, unwrapGoogleUrl };
 
-        // 1. Google redirect wrapper: ONLY on /url endpoint
-        if (host.includes('google.') && (path === '/url' || path.startsWith('/url/'))) {
-            const val = u.searchParams.get('url') || u.searchParams.get('q');
-            if (val && /^https?:/i.test(val)) return val;
-        }
-
-        // 2. DuckDuckGo redirect wrapper: ONLY on /l/ endpoint with uddg
-        if (host.includes('duckduckgo.com') && (path === '/l' || path.startsWith('/l/'))) {
-            const val = u.searchParams.get('uddg');
-            if (val && /^https?:/i.test(val)) return val;
-        }
-
-        // 3. Generic redirect wrappers on explicit redirect endpoints
-        if (path.includes('url') || path.includes('redirect') || path.includes('goto') || path.includes('link') || path.includes('out')) {
-            for (const key of ['url', 'target', 'dest', 'u', 'r', 'uddg']) {
-                const val = u.searchParams.get(key);
-                if (val && /^https?:/i.test(val)) return val;
-            }
-        }
-    } catch {}
-    return rawUrl;
+export async function switchToOriginalSound() {
+    const { switchToOriginalSound } = await import('../audioSync/realAudioController.js');
+    return switchToOriginalSound();
 }
 
-// Backward-compatible alias
-export const unwrapGoogleUrl = unwrapRedirectUrl;
+const SONG_ID_PATTERN = /(?:-|\/)s(\d+)(?=\/|$)/i;
 
 /**
  * Checks if a URL matches the target score endpoint pattern (/a/wsa/*-s{id})
@@ -365,22 +335,6 @@ export function getDownloaderUrlFromMatchedUrl(targetUrl, currentMeta = null) {
     }
 }
 
-/** Puts the dock on Original (the synced recording) the way pressing it would, on every platform. */
-export async function switchToOriginalSound() {
-    try {
-        const { switchRealAudioSlot } = await import('../audioSync/realAudioController.js');
-        const { setActiveAudioMode } = await import('./navigationUtils.js');
-        const { pauseSynthPlayer, clearSynthHighlights } = await import('../gpProcessor/gpPlayer.js');
-        const { toggleYouTubePanel } = await import('../youtubePlayer.js');
-        switchRealAudioSlot('original');
-        if (typeof setActiveAudioMode === 'function') setActiveAudioMode('youtube');
-        if (typeof toggleYouTubePanel === 'function') toggleYouTubePanel(false);
-        if (typeof pauseSynthPlayer === 'function') pauseSynthPlayer();
-        if (typeof clearSynthHighlights === 'function') clearSynthHighlights();
-    } catch (e) {
-        console.warn('[Tab Downloader] Could not switch to original audio:', e);
-    }
-}
 
 /**
  * Fetches sync points for the matched score URL and attaches them to the opened score.

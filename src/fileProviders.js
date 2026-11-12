@@ -9,8 +9,11 @@ import { openDrivePicker, redirectToGoogleAuth, isTokenValid, ensureFreshToken }
 import { isIcloudDriveSupported } from './icloudDrive.js';
 import { hasFeature } from './channel.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
-import { openTabDownloader, handleWsaUrlIntercept, offerWsaUrlBanner, isNative as isNativeDownloader } from './tabDownloader.js';
-import { isWsaTabUrl, unwrapRedirectUrl } from './utils/downloaderIntercept.js';
+import { openTabDownloader, offerWsaUrlBanner, isNative as isNativeDownloader } from './tabDownloader.js';
+import { unwrapRedirectUrl } from './urlImport/openFromUrl.js';
+// @inAppBrowser:begin
+import { isWsaTabUrl } from './utils/downloaderIntercept.js';
+// @inAppBrowser:end
 import { addTabOptionToSong, addTabOptionToAlbum } from './libraryStore.js';
 import { detectFileMetadata } from './utils/tuningUtils.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
@@ -439,7 +442,9 @@ async function openTabFromUrl(text, options = {}) {
         // pages on (the banner below, and again whenever the page changes)
         if (isNativeDownloader() && /^https?:\/\//i.test(pageUrl) && !looksLikeTabFileUrl(pageUrl)) {
             await openTabDownloader({ ...options, startUrl: pageUrl });
+            // @inAppBrowser:begin
             if (isWsaTabUrl(pageUrl)) offerWsaUrlBanner(pageUrl);
+            // @inAppBrowser:end
             return;
         }
         showToast('Fetching...', 'info', 1500);
@@ -458,7 +463,7 @@ async function openTabFromUrl(text, options = {}) {
         const { saved, skipped } = await attachSyncSets(sync);
         if (saved.length) {
             showToast(`Added sync points for ${saved.length === 1 ? saved[0] : `${saved.length} videos`}`, 'success');
-            const { switchToOriginalSound } = await import('./utils/downloaderIntercept.js');
+            const { switchToOriginalSound } = await import('./audioSync/realAudioController.js');
             await switchToOriginalSound();
         }
         if (skipped.length) {

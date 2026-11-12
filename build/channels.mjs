@@ -7,14 +7,19 @@
 export const DEFAULT_CHANNEL = 'direct';
 
 const FULL = {
-  tabDownloader: 'google-only', // 'google-only' | 'off'
+  tabDownloader: 'in-app', // 'in-app' | 'system-browser'
+  inAppBrowser: true, // true: ships full webview & adblock; false: system browser only
   extensions: 'full', // 'full' | 'off'
   selfUpdate: true,
   googleDrive: true,
   youtube: 'full', // 'full' | 'official-origin' (official IFrame origin, no Referer override)
 };
 
-const STORE_DOWNLOADER = { selfUpdate: false };
+const STORE_DOWNLOADER = {
+  selfUpdate: false,
+  tabDownloader: 'system-browser',
+  inAppBrowser: false,
+};
 
 export const channels = {
   direct: {
@@ -64,9 +69,10 @@ export function resolveChannel(id) {
 
 /** Cargo features the channel builds with (build/tauri/src-tauri/Cargo.toml replaces its `default` with these). */
 export function cargoFeatures(id) {
-  const { selfUpdate, googleDrive } = channels[id].capabilities;
+  const { selfUpdate, googleDrive, inAppBrowser } = channels[id].capabilities;
   return [
     ...(selfUpdate ? ['self-update'] : []),
     ...(googleDrive ? ['google-auth'] : []),
+    ...(inAppBrowser ? ['in-app-browser'] : []),
   ];
 }

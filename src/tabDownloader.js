@@ -1899,6 +1899,19 @@ export async function openTabDownloader(options = {}) {
     }
     currentSearchQuery = query;
 
+    const preferSystemBrowser = typeof localStorage !== 'undefined' && localStorage.getItem('majestictab_web_search_browser') === 'system';
+    if (preferSystemBrowser) {
+        const startUrl = /^https?:\/\//i.test(options.startUrl || '') ? options.startUrl : '';
+        const targetUrl = startUrl || buildSearchUrl(activeSource, currentSearchQuery);
+        const opener = window.__TAURI__?.opener;
+        if (opener?.openUrl) {
+            await opener.openUrl(targetUrl);
+        } else {
+            window.open(targetUrl, '_blank', 'noopener');
+        }
+        return;
+    }
+
     // Every platform renders the bar in this webview and the site in a separate native webview below it,
     // so pinch zooming the site never scales the bar.
     let barHeight = 84;

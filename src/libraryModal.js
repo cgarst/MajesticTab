@@ -4892,7 +4892,7 @@ export async function openRecentItem(r) {
 // The "Add tab" sources for this client, straight from the provider registry: Web Search on the desktop app, iCloud Drive
 // where it is supported, Google Drive only in builds that include it. `attrs` ties each row to its song or album.
 function addTabProviderItemsHtml(buttonClass, attrs = '') {
-    const order = ['tab-downloader', 'local', 'google-drive', 'icloud-drive', 's3', 'webdav', 'url'];
+    const order = ['local', 'google-drive', 'icloud-drive', 's3', 'webdav', 'url', 'tab-downloader'];
     const rank = (p) => { const i = order.indexOf(p.id); return i < 0 ? order.length : i; };
     return [...getFileProviders()].sort((a, b) => rank(a) - rank(b)).map((p) => {
         const tint = String(p.icon).startsWith('icon-') ? '' : ` ${p.iconColorClass || ''}`;

@@ -9,12 +9,13 @@ edition = "2021"
 
 [features]
 # Store channels turn these off (see build/channels.mjs); build-tauri.mjs rewrites `default` per channel.
-default = ["self-update", "google-auth"]
+default = ["self-update", "google-auth", "in-app-browser"]
 debug-tools = ["tauri/devtools"]
 # Google Drive sign-in (the plugin links Google Play services on Android)
 google-auth = ["dep:tauri-plugin-google-auth"]
 # In-app updater (desktop only; the dependency does not exist on mobile)
 self-update = ["dep:tauri-plugin-updater"]
+in-app-browser = []
 
 [lib]
 name = "majestictab_lib"

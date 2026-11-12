@@ -5,12 +5,16 @@ use tauri::{App, AppHandle, Emitter, Manager, State, Wry};
 use objc2_web_kit::WKWebView;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
+#[allow(unused_imports)]
 use objc2::msg_send;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
+#[allow(unused_imports)]
 use objc2::runtime::{AnyClass, AnyObject};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
+#[allow(unused_imports)]
 use objc2_foundation::NSString;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
+#[allow(unused_imports)]
 use block2::RcBlock;
 
 use crate::DownloadedTabPayload;
@@ -1485,6 +1489,7 @@ pub fn tab_downloader_is_debug_tools_enabled() -> bool {
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios", test))]
+#[allow(dead_code)]
 pub fn regex_escape_domain(domain: &str) -> String {
     let mut escaped = String::with_capacity(domain.len() * 2);
     for ch in domain.chars() {
@@ -1499,7 +1504,7 @@ pub fn regex_escape_domain(domain: &str) -> String {
     escaped
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios", test))]
+#[cfg(any(feature = "in-app-browser", test))]
 pub fn generate_webkit_rules_json(hosts: &[String]) -> String {
     // WebKit content rules do not support disjunctions ("a|b") in a url-filter,
     // so each host gets its own rule. Negated character classes ([^/]) are not
@@ -1535,7 +1540,7 @@ pub fn generate_webkit_rules_json(hosts: &[String]) -> String {
     serde_json::to_string(&rules).unwrap_or_else(|_| "[]".to_string())
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(all(feature = "in-app-browser", any(target_os = "macos", target_os = "ios")))]
 pub fn apply_webkit_adblock_rules(app: &AppHandle, enabled: bool, hosts: &[String]) {
     let store_cls = match AnyClass::get(c"WKContentRuleListStore") {
         Some(cls) => cls,
@@ -1607,7 +1612,11 @@ pub fn apply_webkit_adblock_rules(app: &AppHandle, enabled: bool, hosts: &[Strin
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(all(not(feature = "in-app-browser"), any(target_os = "macos", target_os = "ios")))]
+#[allow(dead_code, unused_variables)]
+pub fn apply_webkit_adblock_rules(app: &AppHandle, enabled: bool, hosts: &[String]) {}
+
+#[cfg(all(feature = "in-app-browser", any(target_os = "macos", target_os = "ios")))]
 pub fn attach_cached_adblock_if_enabled(app: &AppHandle) {
     if let Some(state) = app.try_state::<TabDownloaderState>() {
         if !state.adblock_enabled.lock().map(|g| *g).unwrap_or(false) {
@@ -1661,6 +1670,15 @@ pub fn attach_cached_adblock_if_enabled(app: &AppHandle) {
     }
 }
 
+#[cfg(all(not(feature = "in-app-browser"), any(target_os = "macos", target_os = "ios")))]
+#[allow(unused_variables)]
+pub fn attach_cached_adblock_if_enabled(app: &AppHandle) {}
+
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+#[allow(dead_code, unused_variables)]
+pub fn attach_cached_adblock_if_enabled(app: &AppHandle) {}
+
+#[cfg(feature = "in-app-browser")]
 #[tauri::command]
 pub fn tab_downloader_set_adblock_rules(
     app: AppHandle,
@@ -1693,6 +1711,17 @@ pub fn tab_downloader_set_adblock_rules(
         let _ = &app;
     }
 
+    Ok(())
+}
+
+#[cfg(not(feature = "in-app-browser"))]
+#[tauri::command]
+pub fn tab_downloader_set_adblock_rules(
+    _app: AppHandle,
+    _state: State<'_, TabDownloaderState>,
+    _enabled: bool,
+    _hosts: Vec<String>,
+) -> Result<(), String> {
     Ok(())
 }
 
