@@ -1276,6 +1276,28 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .about-credits-box li {
   margin-bottom: 4px;
 }
+.license-expander {
+  margin-top: 4px;
+}
+.license-expander summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+@media (pointer: coarse) {
+  .license-expander summary { display: flex; align-items: center; min-height: 44px; }
+}
+.license-expander-text {
+  max-height: 240px;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 10px;
+  background: var(--s1);
+  border-radius: var(--r);
+  color: var(--ink2);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
 
 /* Phone: five tabs, no brand or Tools (Tools stays in the top bar) */
 @media (max-width: 576px) {

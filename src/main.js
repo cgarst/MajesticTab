@@ -73,6 +73,7 @@ import { initNarrowAlias } from './utils/narrowAlias.js';
 import { initTabletopRows } from './utils/tabletopRows.js';
 import { initTabletopLayout } from './utils/tabletopLayout.js';
 import { initBookMode } from './utils/bookMode.js';
+import { initLicenseText } from './utils/licenseText.js';
 
 // Initialize iOS audio unlock and session configuration as early as possible
 initIOSAudioUnlock();
@@ -949,6 +950,7 @@ async function initApp() {
     initMixerPanel();
     initAudioLatencyModal();
     wireModal('aboutModal', 'aboutModalBtn');
+    initLicenseText();
     initScoreOptionsPanel();
     initPdfBookmarksUI();
     initFretboard();

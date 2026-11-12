@@ -40,6 +40,7 @@ const licenses = [
   ['@coderline/alphatab/LICENSE', 'vendor/licenses/alphatab.txt'],
   ['pdf-lib/LICENSE.md', 'vendor/licenses/pdf-lib.txt'],
   ['@soundtouchjs/audio-worklet/LICENSE', 'vendor/licenses/soundtouchjs.txt'],
+  ['@coderline/alphatab/dist/font/Bravura-OFL.txt', 'vendor/licenses/bravura-ofl.txt'],
 ];
 
 const replacements = new Map([
@@ -347,6 +348,9 @@ try {
   for (const [source, destination] of licenses) {
     await copyAsset(source, destination);
   }
+  // MajesticTab's own MPL text, shown in the About screen beside the third-party ones.
+  await mkdir(path.join(frontendDir, 'vendor/licenses'), { recursive: true });
+  await cp(path.join(rootDir, 'LICENSE'), path.join(frontendDir, 'vendor/licenses/majestictab.txt'));
   const replacementCount = await rewriteFiles(frontendDir);
   if (replacementCount === 0) {
     throw new Error('No CDN asset references were rewritten; check the asset mappings.');
