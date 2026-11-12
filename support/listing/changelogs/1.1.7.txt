@@ -1,0 +1,5 @@
+- Add an album or song straight from global search, with a Tracks button on album rows
+- New empty-library onboarding: search-bar instructions and an "other ways to get started" section
+- SoundFonts and About now open inline in Settings
+- Delete-all and replace-data confirmation checkboxes are now clearly visible
+- Fixed the bottom switcher losing its active state on Settings pages
