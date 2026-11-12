@@ -109,6 +109,7 @@ import { stemdeckReadout } from './stemdeck/stemdeckTool.js';
 import { bulkExportReadout } from './bulkExport/bulkExportTool.js';
 import { missingTabsReadout } from './bulkFill/missingTabsTool.js';
 import { bulkImportReadout } from './bulkImport/bulkImportTool.js';
+import { CLASSTAB_HOME } from './classtab/download.js';
 
 let activeView = 'library'; // 'library', 'recents', 'openFile', 'setlists', 'tools', 'settings'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -4955,7 +4956,17 @@ function renderToolsView(container) {
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', group: 'practice', title: 'Jam', readout: jamReadout, watch: ['jamStatusLabel'] });
     tools.push(
         { id: 'openfile', group: 'gettabs', title: 'Open file' },
-        { id: 'classtab', group: 'gettabs', title: 'Classical tab browser', readout: classtabReadout },
+        {
+            id: 'classtab',
+            group: 'gettabs',
+            title: 'Classical tab browser',
+            readout: classtabReadout,
+            attribution: {
+                label: 'classtab.org',
+                prefix: 'for ',
+                url: CLASSTAB_HOME
+            }
+        },
         ...(isNative() ? [{ id: 'missingtabs', group: 'gettabs', title: 'Fill in missing tabs', readout: missingTabsReadout }] : []),
         { id: 'bulkimport', group: 'library', title: 'Bulk import', readout: bulkImportReadout },
         { id: 'bulkexport', group: 'library', title: 'Bulk export', readout: bulkExportReadout }

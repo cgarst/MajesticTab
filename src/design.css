@@ -1032,6 +1032,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .sethead h1, .sethead .sethead-title { font: 700 44px/1.02 var(--font-display); letter-spacing: -.01em; margin: 0; color: var(--ink); }
 .sethead p { margin: 6px 0 0; color: var(--ink2); font-size: 14px; }
 .sethead .sethead-section { display: none; margin: 0; font: 700 20px/1.2 var(--font-display); color: var(--ink); letter-spacing: -.01em; }
+.sethead .sethead-extra { display: none; }
 .sethead .setback { display: none; }
 /* Page title: the one visible h1 on Tools and Settings (the rail names the destination, but the page should too) */
 .setshell > h1.set-title {
@@ -1093,6 +1094,18 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
     text-overflow: ellipsis;
     flex: 1;
     min-width: 0;
+  }
+  .setshell[data-pane="page"] .sethead .sethead-extra,
+  .setshell:has(.setwrap[data-pane="page"]) .sethead .sethead-extra {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--ink2);
+  }
+  .setshell[data-pane="page"] .sethead .sethead-extra:empty,
+  .setshell:has(.setwrap[data-pane="page"]) .sethead .sethead-extra:empty {
+    display: none;
   }
   .setshell[data-pane="page"] .sethead .setback,
   .setshell:has(.setwrap[data-pane="page"]) .sethead .setback {
@@ -3303,11 +3316,15 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 .tools-shell .setnav button .tool-name { flex: 0 0 auto; max-width: 100%; font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tools-shell .setnav button .tool-read { flex: 1 1 auto; min-width: 0; color: var(--ink2); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; margin-left: auto; }
 .tools-shell .setnav button .tool-read:empty { display: none; }
+.tools-shell .tool-stage-header { display: none; }
 .tools-shell .tool-stage-title { display: none; }
 @media (min-width: 900px) {
   .tools-shell .setnav button[aria-current="true"]::before { left: 8px; }
   .tools-shell .setpage { padding: 28px 44px 44px; }
-  .tools-shell .tool-stage-title { display: block; margin: 0 0 22px; font: 700 40px/1 var(--font-display); color: var(--ink); }
+  .tools-shell .tool-stage-header { display: flex; align-items: baseline; gap: 16px; margin: 0 0 22px; }
+  .tools-shell .tool-stage-title { display: block; margin: 0; font: 700 40px/1 var(--font-display); color: var(--ink); }
+  .tools-shell .tool-stage-extra { font-size: 14px; color: var(--ink2); font-weight: 400; }
+  .tools-shell .tool-stage-extra:empty { display: none; }
   .tools-shell .tool-pane-host > .tool-embedded { align-items: flex-start; justify-content: flex-start; animation: tools-stage-in var(--dur-base) var(--ease-out) both; }
 }
 /* One surface pattern for the Tools and Settings pages: the list is a column on the ground, the detail beside it is the
@@ -4920,6 +4937,19 @@ body > #controllerHelpModal { display: none; }
 /* Search and tracklist rows: titles wrap instead of truncating, so the row
    action stays a short ghost text action. */
 .search-stream-row .search-row-title { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+
+.tool-attribution { display: inline-flex; align-items: baseline; gap: 3px; color: var(--ink2); font-size: inherit; line-height: 1.2; }
+.tool-attribution a { color: var(--ink2); text-decoration: underline; text-underline-offset: 2px; transition: color var(--dur-fast); }
+@media (hover: hover) {
+  .tool-attribution a:hover { color: var(--ink); }
+}
+.tool-attribution a:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+@media (max-width: 420px) {
+  .sethead .tool-attribution-prefix { display: none; }
+}
+@media (pointer: coarse) {
+  .sethead .tool-attribution a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; }
+}
 
 /* Classical tab (Tools): composers left, pieces right; flat rows on the ground ladder, no outlines or pills */
 .classtab-tool-embedded { height: 100%; }

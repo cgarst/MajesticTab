@@ -37,10 +37,6 @@ async function openExternal(url) {
     else window.open(url, '_blank', 'noopener');
 }
 
-/** The credit line, always under the title. */
-const creditHtml = () =>
-    `<p class="ct-credit">Tabs and MIDI files from <a href="${CLASSTAB_HOME}" data-ct-home>classtab.org</a>, a free archive of classical guitar tabs.</p>`;
-
 /** Save the piece's first video as the song's Original source (the same saved choice the video panel reads). */
 export async function linkOriginalVideo(songKey, piece) {
     const url = piece.video_links?.[0]?.url;
@@ -220,7 +216,6 @@ export function renderClasstabTool(container, { onBack } = {}) {
         const native = canDownloadArchive();
         root.innerHTML = `
         <header class="ct-head">
-          ${creditHtml()}
           <p class="ct-sub">About 3,800 pieces by 600 composers. Downloads once, then works offline.</p>
         </header>
         ${state.job ? statusHtml() : `

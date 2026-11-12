@@ -149,6 +149,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
       <div class="sethead" data-tauri-drag-region>
         <button type="button" class="setback btn btn-sm" aria-label="Back to Tools"><i class="bi-chevron-left" aria-hidden="true"></i> <span>Tools</span></button>
         <h2 class="sethead-section" data-tauri-drag-region></h2>
+        <span class="sethead-extra"></span>
       </div>
       <div class="setwrap" data-pane="list">
         <nav class="setnav" aria-label="Tools">
@@ -156,7 +157,10 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
             <span class="tool-name">${escapeHtml(t.title)}</span><span class="tool-read" data-read="${t.id}" title="${escapeHtml(t.readout?.() || '')}">${escapeHtml(t.readout?.() || '')}</span><i class="bi-chevron-right chev" aria-hidden="true"></i></button>`).join('')}</div>`).join('')}
         </nav>
         <div class="setpage tool-pane">
-          <h2 class="tool-stage-title"></h2>
+          <div class="tool-stage-header">
+            <h2 class="tool-stage-title"></h2>
+            <span class="tool-stage-extra"></span>
+          </div>
           <div class="tool-pane-host"></div>
         </div>
       </div>
@@ -167,7 +171,14 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
     const host = container.querySelector('.tool-pane-host');
     const back = container.querySelector('.setback');
     const sectionTitles = container.querySelectorAll('.sethead-section, .tool-stage-title');
+    const stageExtra = container.querySelector('.tool-stage-extra');
+    const headExtra = container.querySelector('.sethead-extra');
     const setTitle = (text) => sectionTitles.forEach((el) => { el.textContent = text; });
+    const setAttribution = (attr) => {
+        const html = attr ? `<span class="tool-attribution"><span class="tool-attribution-prefix">${escapeHtml(attr.prefix || '')}</span><a href="${escapeHtml(attr.url)}" class="tool-attribution-link" target="_blank" rel="noopener" data-external-link data-ct-home>${escapeHtml(attr.label || attr.text || '')}</a></span>` : '';
+        if (stageExtra) stageExtra.innerHTML = html;
+        if (headExtra) headExtra.innerHTML = html;
+    };
     const wide = () => window.matchMedia('(min-width: 900px)').matches;
 
     async function select(id) {
@@ -176,6 +187,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         if (tool.open) { await releaseEmbeddedTools(); tool.open(); return; } // not a section: it works on the song
         if (id !== resumeTool) forgetResume();
         setTitle(tool.title);
+        setAttribution(tool.attribution);
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.tool === id)));
         wrap.dataset.pane = 'page';
         shell.dataset.pane = 'page';
@@ -211,7 +223,10 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         if (embedded && REFERENCE_TOOLS.includes(embedded.id) && nav.isConnected) {
             embedded.id = e.detail;
             const t = tools.find((x) => x.id === e.detail);
-            if (t) setTitle(t.title);
+            if (t) {
+                setTitle(t.title);
+                setAttribution(t.attribution);
+            }
             nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.tool === e.detail)));
             import('./urlRouter.js').then((m) => m.updateUrl('tools', e.detail)).catch(() => {});
         }
@@ -226,9 +241,19 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         wrap.dataset.pane = 'list';
         shell.dataset.pane = 'list';
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', 'false'));
+        setAttribution(null);
         await releaseEmbeddedTools();
         refreshReadouts();
         import('./urlRouter.js').then((m) => m.updateUrl('tools')).catch(() => {});
+    });
+    container.addEventListener('click', async (e) => {
+        const link = e.target.closest('[data-external-link]');
+        if (link && link.href) {
+            e.preventDefault();
+            const opener = window.__TAURI__?.opener;
+            if (opener?.openUrl) await opener.openUrl(link.href);
+            else window.open(link.href, '_blank', 'noopener');
+        }
     });
     // Let the page (title and list) paint first: the chord library draws hundreds of diagrams
     if (pendingTool) {
