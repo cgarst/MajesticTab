@@ -318,6 +318,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
         </div>`;
     }
 
+    let listScroll = 0;
     function render() {
         if (!alive || !root.isConnected) return;
         // Keep focus and caret in the search box while typing
@@ -381,7 +382,10 @@ export function renderClasstabTool(container, { onBack } = {}) {
             state.query = '';
             state.pane = 'pieces';
             state.showPinned = false;
+            listScroll = root.scrollTop;
             render();
+            root.scrollTop = 0; // the phone page scrolls as one, so a new composer starts at the top of its pieces
+            root.querySelector('.ct-pieces')?.scrollTo?.(0, 0);
             return;
         }
         const btn = e.target.closest('[data-act]');
@@ -392,13 +396,13 @@ export function renderClasstabTool(container, { onBack } = {}) {
         else if (act === 'cancel') state.job?.cancel?.();
         else if (act === 'more') { state.moreOpen = !state.moreOpen; render(); }
         else if (act === 'clear') { state.filters.clear(); state.query = ''; render(); }
-        else if (act === 'showpinned') { state.showPinned = true; state.query = ''; state.pane = 'pieces'; render(); }
+        else if (act === 'showpinned') { state.showPinned = true; state.query = ''; state.pane = 'pieces'; listScroll = root.scrollTop; render(); root.scrollTop = 0; }
         else if (act === 'pin') {
             const { composer, piece } = findPiece(btn.dataset.key);
             if (composer && piece) togglePiecePin(composer.name, piece.title);
             render();
         }
-        else if (act === 'back') { state.pane = 'composers'; render(); }
+        else if (act === 'back') { state.pane = 'composers'; render(); root.scrollTop = listScroll; }
         else if (act === 'menu') { state.menuFor = state.menuFor === btn.dataset.key ? null : btn.dataset.key; render(); }
         else if (['open', 'add', 'video'].includes(act)) {
             const { composer, piece } = findPiece(btn.dataset.key);
