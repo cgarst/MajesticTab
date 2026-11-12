@@ -6,7 +6,7 @@ import { clearOverrides } from '../utils/sessionOverrides.js';
 import { showPanel, hidePanel, placePanel } from '../utils/readerPanels.js';
 import { pauseYouTube, toggleYouTubePanel } from '../youtubePlayer.js';
 import { gpState, renderGPPage, applyGpTrackSelection } from './gpHandler.js';
-import { getPagesPerView } from '../utils/viewModeUtils.js';
+import { getPagesPerView, isPhoneReader } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
 import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
 import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning, recoverAudioContexts, endSynthContextCapture, forgetSynthContexts, onSynthContextState, isSynthContextDead } from '../utils/iosAudioUnlock.js';
@@ -1650,7 +1650,10 @@ export function attachAlphaTabApi(api, opts = {}) {
             const pageModeRadio = document.getElementById('pageModeRadio');
             const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
             if (isPageMode) {
+                // Phone page mode rule: the whole area turns pages; no tap moves a bar
+                if (isPhoneReader()) return;
                 if (beat && !scoreClickOverride) {
+                    window.__lastBeatClickTime = Date.now();
                     applyCursorPositionFromBeat(beat);
                 }
             } else {

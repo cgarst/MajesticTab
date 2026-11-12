@@ -9,3 +9,7 @@ Read when touching playback ticks, cursors or bounds lookups.
 - `boundsLookup.findBeat(beat)` only resolves beats for tracks currently rendered.
 - The `.at-cursors` layer and `.gp-reader-cursor` show from load, as in AlphaTab, with the cursor at the start of the score.
 - Public AlphaTab fields are minified (`Qw`, `vy`, `Ny`); avoid depending on them, and if unavoidable, route through a single helper such as `getMidiTickLookup()`.
+- **Page mode vs continuous mode cursor placement:** In continuous mode, clicking the score seeks to the clicked beat via `output`'s click listener (`boundsLookup.getBeatAtPos`). In page mode, the score is paginated via DOM clones (`renderGPPageMode`):
+  - On phones (`isPhoneReader()`), taps on the score never move the cursor ("no tap moves a bar"); seeking is done via the bar ruler.
+  - On desktop/tablet, `beatMouseDown` sets `window.__lastBeatClickTime` so `handleTapNavigation` does not turn the page when selecting a note.
+  - Page-turn swipes record `__swipeStartTick` and restore it upon completing a swipe, so dragging across notation never seeks audio.

@@ -964,6 +964,9 @@ export function setupTapClickNavigation(output, getConfig) {
         touchStartY = touch.clientY;
         touchStartTime = Date.now();
         isSwiping = false;
+        try {
+            window.__swipeStartTick = config.gpState?.canvases?.[0]?.api?.tickPosition;
+        } catch {}
     }, { passive: true });
 
     output.addEventListener('touchmove', (e) => {
@@ -1024,6 +1027,11 @@ export function setupTapClickNavigation(output, getConfig) {
         const isHorizontal = absX > absY * 1.25;
 
         if ((isFlick || isDeliberateSwipe) && isHorizontal) {
+            const api = config.gpState?.canvases?.[0]?.api;
+            if (api && window.__swipeStartTick !== undefined) {
+                try { api.tickPosition = window.__swipeStartTick; } catch {}
+            }
+            window.__swipeStartTick = undefined;
             // Swiping left advances to next page; swiping right goes back to previous page
             handleSwipeNavigation(dx < 0 ? 'left' : 'right', config);
             lastSwipeTime = Date.now();
@@ -1080,6 +1088,11 @@ export function handleTapNavigation(e, config) {
     }
 
     if (e.target && e.target.closest && e.target.closest('button, input, textarea, select, a, .modal, .slider, .ruler, .page-strip, .dock')) {
+        return;
+    }
+
+    // If a beat was clicked in Guitar Pro, the tap was consumed by cursor positioning
+    if (Date.now() - (window.__lastBeatClickTime || 0) < 350) {
         return;
     }
 
