@@ -1531,11 +1531,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             </div>
 
             <!-- Confirmation notice for wipe -->
-            <div id="wipeConfirmContainer" class="form-check mb-3 p-3 rounded-2" style="display:none; background: color-mix(in srgb, var(--danger, #f87171) 12%, var(--s2));">
-              <input class="form-check-input ms-0 me-2" type="checkbox" id="wipeConfirmCheckbox">
-              <label class="form-check-label small" for="wipeConfirmCheckbox" style="color: var(--danger, #f87171); font-weight: 600; font-size: 0.75rem;">
-                I understand this will erase my current stored tabs and settings before restoring.
-              </label>
+            <div id="wipeConfirmContainer" class="confirm-check mb-3" style="display:none;">
+              <input class="form-check-input" type="checkbox" id="wipeConfirmCheckbox">
+              <label for="wipeConfirmCheckbox">I understand this will erase my current stored tabs and settings before restoring.</label>
             </div>
           </div>
 
@@ -1761,11 +1759,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           </div>
 
           <!-- Confirmation Checkbox -->
-          <div class="form-check mb-3 p-3 rounded-2 bg-danger bg-opacity-10 border border-danger border-opacity-25">
-            <input class="form-check-input ms-0 me-2" type="checkbox" id="deleteAllConfirmCheckbox">
-            <label class="form-check-label small text-danger fw-semibold" for="deleteAllConfirmCheckbox" style="font-size: 0.78rem; cursor: pointer;">
-              I understand this action is permanent and cannot be undone. Delete all my data.
-            </label>
+          <div class="confirm-check mb-3">
+            <input class="form-check-input" type="checkbox" id="deleteAllConfirmCheckbox">
+            <label for="deleteAllConfirmCheckbox">I understand this action is permanent and cannot be undone. Delete all my data.</label>
           </div>
 
           <!-- Status / Action -->
@@ -2984,7 +2980,7 @@ function attachModalHandlers(modal, options = {}) {
     modeRadios.forEach(radio => {
         radio.addEventListener('change', () => {
             if (radio.value === 'wipe') {
-                wipeConfirmContainer.style.display = 'block';
+                wipeConfirmContainer.style.display = 'flex';
             } else {
                 wipeConfirmContainer.style.display = 'none';
                 wipeConfirmCheckbox.checked = false;

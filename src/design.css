@@ -2692,8 +2692,13 @@ body.fretboard-open {
 .data-task-slot .small.fw-semibold, .data-task-slot .form-label, .data-task-slot h6, .data-task-slot .fw-bold.text-white.small { text-transform: none !important; letter-spacing: 0 !important; }
 .data-task-slot .text-white-50, .data-task-slot .text-muted { color: var(--ink2) !important; }
 .data-task-slot .text-danger, .data-task-slot .text-danger-emphasis { color: var(--ink) !important; }
-.data-task-slot #wipeConfirmContainer, .data-task-slot #wipeConfirmContainer label, .data-task-slot .text-danger.is-danger-notice { color: var(--danger, #f87171) !important; }
-.data-task-slot #wipeConfirmContainer { background: color-mix(in srgb, var(--danger, #f87171) 14%, var(--s3)) !important; border-radius: var(--r-control, 8px) !important; }
+.data-task-slot .text-danger.is-danger-notice { color: var(--danger, #f87171) !important; }
+/* "I understand" confirmation: a tone row, a box that reads against it, ink label (no red fill) */
+.confirm-check { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: var(--s2); border-radius: var(--r-control, 8px); }
+.confirm-check[style*="display: none"] { display: none !important; }
+.confirm-check .form-check-input:not(.theme-switch)[type="checkbox"] { float: none; margin: 1px 0 0; width: 20px; height: 20px; background-color: color-mix(in srgb, var(--ink) 24%, var(--s2)); }
+.confirm-check .form-check-input:not(.theme-switch)[type="checkbox"]:checked { background-color: var(--action); }
+.confirm-check label { flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; font-weight: 600; color: var(--ink); cursor: pointer; }
 .data-task-slot .text-success { color: var(--ink2) !important; }
 .data-task-slot .bg-danger, .data-task-slot [class*="bg-danger"] { background: transparent !important; }
 .data-task-slot .border, .data-task-slot [class*="border-"] { border: 0 !important; }
