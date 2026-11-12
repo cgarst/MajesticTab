@@ -2290,7 +2290,7 @@ export function libraryEmptyWelcomeHtml({ title, subtitle }) {
       <div class="empty-welcome-hero">
         <h2 class="empty-welcome-title">${title}</h2>
         <p class="empty-welcome-sub">${subtitle}</p>
-        <p class="empty-welcome-sub">Search above for a song, artist or album to add it to your library. That organizes your music but does not include tab files. You add those afterward.</p>
+        <p class="empty-welcome-sub">Search above for a song, artist or album to add tracks to your library. That organizes your music but does not include tab files. You add those afterward.</p>
       </div>
 
       <div class="empty-welcome-section">
