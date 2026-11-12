@@ -1,0 +1,3 @@
+- Embedded Guitar Pro audio now plays in sync with the score
+- The Choose file button in the sync points dialog now opens a file picker
+- Web search hands off to your system browser in store builds
