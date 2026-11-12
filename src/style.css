@@ -1937,6 +1937,10 @@ input[type=range]::-webkit-slider-thumb {
   box-sizing: border-box;
 }
 
+#output:not(.continuous-mode) {
+  touch-action: pan-y pinch-zoom;
+}
+
 #output.continuous-mode {
   overflow-y: auto;
   align-items: center;

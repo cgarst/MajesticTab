@@ -83,13 +83,14 @@ export function navigate(config) {
     // Handle PDFs
     if (pageModeChecked) {
         const currentPages = pages || config.getPages?.();
-        const currentIdx = currentPageIndex || config.getCurrentPageIndex?.();
+        const currentIdx = currentPageIndex ?? config.getCurrentPageIndex?.() ?? 0;
+        const navStep = config.step ?? config.getPageStep?.() ?? step;
         
         if (!currentPages || !currentPages.length) return null;
 
         const newIndex = isNext 
-            ? Math.min(currentIdx + step, Math.max(0, currentPages.length - getPagesPerView()))
-            : Math.max(0, currentIdx - step);
+            ? Math.min(currentIdx + navStep, Math.max(0, currentPages.length - getPagesPerView()))
+            : Math.max(0, currentIdx - navStep);
 
         if (newIndex !== currentIdx) {
             return { newPageIndex: newIndex };
@@ -929,13 +930,137 @@ export function setupViewModeToggles(pageModeRadio, continuousModeRadio, getConf
 }
 
 /**
- * Handle tap/click navigation
+ * Handle tap/click and swipe navigation in page mode
  */
 export function setupTapClickNavigation(output, getConfig) {
+    let touchStartX = null;
+    let touchStartY = null;
+    let touchStartTime = 0;
+    let isSwiping = false;
+    let lastSwipeTime = 0;
+
+    output.addEventListener('touchstart', (e) => {
+        // Multi-touch gestures (e.g. 2-finger pinch zoom) are handled elsewhere
+        if (e.touches.length !== 1) {
+            touchStartX = null;
+            touchStartY = null;
+            isSwiping = false;
+            return;
+        }
+
+        const config = getConfig();
+        if (!config.pageModeRadio?.checked || config.currentFile == null) {
+            touchStartX = null;
+            return;
+        }
+
+        if (e.target && e.target.closest && e.target.closest('button, input, textarea, select, a, .modal, .slider, .ruler, .page-strip, .dock')) {
+            touchStartX = null;
+            return;
+        }
+
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        touchStartTime = Date.now();
+        isSwiping = false;
+    }, { passive: true });
+
+    output.addEventListener('touchmove', (e) => {
+        if (touchStartX === null) return;
+        if (e.touches.length !== 1) {
+            touchStartX = null;
+            isSwiping = false;
+            return;
+        }
+
+        const touch = e.touches[0];
+        const dx = touch.clientX - touchStartX;
+        const dy = touch.clientY - touchStartY;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
+
+        // If horizontal motion begins to dominate, consider it a potential swipe
+        if (absX > 10 && absX > absY) {
+            isSwiping = true;
+            if (e.cancelable) {
+                e.preventDefault();
+            }
+        }
+    }, { passive: false });
+
+    const finishSwipe = (e) => {
+        if (touchStartX === null) return;
+
+        const touch = e.changedTouches?.[0];
+        if (!touch) {
+            touchStartX = null;
+            touchStartY = null;
+            isSwiping = false;
+            return;
+        }
+
+        const dx = touch.clientX - touchStartX;
+        const dy = touch.clientY - touchStartY;
+        const dt = Date.now() - touchStartTime;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
+
+        touchStartX = null;
+        touchStartY = null;
+        isSwiping = false;
+
+        // If finger moved noticeably, suppress the subsequent click event
+        if (Math.hypot(dx, dy) > 10) {
+            lastSwipeTime = Date.now();
+        }
+
+        const config = getConfig();
+        if (!config.pageModeRadio?.checked || config.currentFile == null) return;
+
+        // Swipe threshold: 40px (or 30px on fast flick <300ms) with clear horizontal dominance
+        const isFlick = dt < 300 && absX >= 30;
+        const isDeliberateSwipe = absX >= 40 && (dt < 800 || absX >= 100);
+        const isHorizontal = absX > absY * 1.25;
+
+        if ((isFlick || isDeliberateSwipe) && isHorizontal) {
+            // Swiping left advances to next page; swiping right goes back to previous page
+            handleSwipeNavigation(dx < 0 ? 'left' : 'right', config);
+            lastSwipeTime = Date.now();
+        }
+    };
+
+    output.addEventListener('touchend', finishSwipe, { passive: true });
+    output.addEventListener('touchcancel', () => {
+        touchStartX = null;
+        touchStartY = null;
+        isSwiping = false;
+    }, { passive: true });
+
     output.addEventListener('click', (e) => {
+        // Suppress click if a swipe or touch drag occurred recently
+        if (Date.now() - lastSwipeTime < 450) {
+            return;
+        }
         const config = getConfig();
         handleTapNavigation(e, config);
     });
+}
+
+/**
+ * Handle page-turn swipe navigation in page mode
+ * @param {'left'|'right'} direction
+ * @param {Object} config
+ */
+export function handleSwipeNavigation(direction, config) {
+    if (!config.pageModeRadio?.checked || config.currentFile == null) return null;
+    const action = direction === 'left' ? NavigationAction.NEXT : NavigationAction.PREV;
+    const navigationHandler = new NavigationHandler(config);
+    const result = navigationHandler.handleAction(action);
+    if (result?.newPageIndex !== undefined) {
+        config.setCurrentPageIndex(result.newPageIndex);
+    }
+    return result;
 }
 
 /**
@@ -951,6 +1076,10 @@ export function handleTapNavigation(e, config) {
     }
     if (config.currentFile == null) {
         console.log('Click ignored: no file loaded');
+        return;
+    }
+
+    if (e.target && e.target.closest && e.target.closest('button, input, textarea, select, a, .modal, .slider, .ruler, .page-strip, .dock')) {
         return;
     }
 
@@ -973,20 +1102,20 @@ export function handleTapNavigation(e, config) {
     const pageContainers = config.output.querySelectorAll('.pageWrapper, .gp-page-wrapper');
     console.log('Found page containers:', pageContainers.length);
     
-    for (let i = 0; i < pageContainers.length; i++) {
-        const rect = pageContainers[i].getBoundingClientRect();
-        if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
-            const clickX = e.clientX;
-            const midX = rect.left + rect.width / 2;
-            const action = clickX >= midX ? NavigationAction.NEXT : NavigationAction.PREV;
-            
-            const navigationHandler = new NavigationHandler(config);
-            const result = navigationHandler.handleAction(action);
-            if (result?.newPageIndex !== undefined) {
-                config.setCurrentPageIndex(result.newPageIndex);
-            }
-            break;
-        }
+    let action = null;
+    if (pageContainers.length === 1) {
+        const rect = pageContainers[0].getBoundingClientRect();
+        const midX = rect.left + rect.width / 2;
+        action = e.clientX >= midX ? NavigationAction.NEXT : NavigationAction.PREV;
+    } else {
+        const midX = outputRect.left + outputRect.width / 2;
+        action = e.clientX >= midX ? NavigationAction.NEXT : NavigationAction.PREV;
+    }
+
+    const navigationHandler = new NavigationHandler(config);
+    const result = navigationHandler.handleAction(action);
+    if (result?.newPageIndex !== undefined) {
+        config.setCurrentPageIndex(result.newPageIndex);
     }
 }
 
