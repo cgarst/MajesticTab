@@ -487,7 +487,7 @@ class AppleNavPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
             try? channel?.send(["type": "side", "left": String(Double(sideReserved.left)), "right": String(Double(sideReserved.right))])
         }
         // The page pads for the field's place in the top band; a pane places it itself, so this ignores its offset
-        let searchBottom: CGFloat = (search != nil && !search!.isHidden) ? searchBandTop + search!.frame.height + 8 : 0
+        let searchBottom: CGFloat = (search != nil && !search!.isHidden && searchY == nil) ? searchBandTop + search!.frame.height + 8 : 0
         if abs(searchBottom - lastTop) > 0.5 {
             lastTop = searchBottom
             try? channel?.send(["type": "top", "value": Double(searchBottom)])

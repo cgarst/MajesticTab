@@ -137,8 +137,10 @@ function syncSearch() {
     document.body.classList.toggle('native-search-pane', isPane);
     // The native field reports its height a moment after it shows. Until then the page would pad by 0 and the content
     // would sit under the field for a frame, then jump down; the field's height does not change, so reuse the last one.
-    if (visible && lastSearchTop > 0 && !document.body.classList.contains('native-search')) {
+    if (visible && !isPane && lastSearchTop > 0 && !document.body.classList.contains('native-search')) {
         document.documentElement.style.setProperty('--native-search-top', `${lastSearchTop}px`);
+    } else if (isPane || !visible) {
+        document.documentElement.style.setProperty('--native-search-top', '0px');
     }
     document.body.classList.toggle('native-search', visible);
     const args = { visible, placeholder: input?.placeholder || 'Search', text: input?.value || '' };

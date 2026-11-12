@@ -5335,10 +5335,10 @@ html:not(.native-vertical) body.native-tabbar .classtab-tool-embedded .ct-root {
 
 /* The native search field (see nativeTabBar.js) stands in for the page's own while it is shown; the web field stays
    in the DOM, hidden, because it holds the search logic */
-body.native-search .library-search-box { display: none !important; }
+body.native-search:not(.native-search-pane) .library-search-box { display: none !important; }
 /* ...and it floats at the top of the window, so the page starts below it */
-body.native-search.library-view-active .library-page-body { padding-top: 0 !important; }
-body.native-search .library-page-container { padding-top: calc(var(--native-search-top, 0px) - 4px) !important; }
+body.native-search:not(.native-search-pane).library-view-active .library-page-body { padding-top: 0 !important; }
+body.native-search:not(.native-search-pane) .library-page-container { padding-top: calc(var(--native-search-top, 0px) - 4px) !important; }
 /* Inside a Tools pane (Open file, Classical tab) it is laid over the page's own field, which keeps its space but is not drawn */
 body.native-search .tool-pane-host .library-page-container { padding-top: 12px !important; }
 body.native-search .tool-pane-host .library-search-box { display: flex !important; visibility: hidden; }
