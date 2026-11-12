@@ -14,11 +14,14 @@ const hasBrowserPicker = () => typeof window.showDirectoryPicker === 'function';
 const isPhone = () => /android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
 const hasFolderInput = () => !isPhone() && 'webkitdirectory' in document.createElement('input');
 
-/** Can this client choose a folder at all? Phones cannot: their pickers hand over files, not folders. */
+/** Can this client choose a folder? Phones cannot: their pickers hand over files, not folders (see pickFilesOnly). */
 export function canPickFolder() {
     if (hasNative()) return !isPhone();
     return hasBrowserPicker() || hasFolderInput();
 }
+
+/** Phones choose several files instead of a folder. */
+export const pickFilesOnly = () => isPhone() && !hasBrowserPicker() && !(hasNative() && !isPhone());
 
 const extOf = (name) => (String(name).split('.').pop() || '').toLowerCase();
 export const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'aac', 'ogg', 'opus', 'wav', 'flac'];
@@ -114,6 +117,20 @@ function scanFolderInput(kind) {
     });
 }
 
+// Phones: a plain multiple-file input. No accept list (iOS greys out types it does not know) and the input is off-screen, not display:none.
+function scanFilesInput(kind) {
+    return new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0';
+        input.addEventListener('change', () => { const r = scanFileList(input.files || [], kind); input.remove(); resolve(r && r.entries.length ? { ...r, rootName: 'Chosen files' } : r); }, { once: true });
+        input.addEventListener('cancel', () => { input.remove(); resolve(null); }, { once: true });
+        document.body.appendChild(input);
+        input.click();
+    });
+}
+
 /**
  * Choose a folder and list its tab files. Must run from a click. Resolves null when cancelled.
  * @param {function(number)} [onProgress]  files found so far
@@ -121,6 +138,7 @@ function scanFolderInput(kind) {
  * @param {'tabs'|'audio'} [kind]  which files to keep
  */
 export async function pickAndScanFolder(onProgress, signal, kind = 'tabs') {
+    if (pickFilesOnly()) return scanFilesInput(kind);
     if (hasNative() && !isPhone()) return scanNative(onProgress, signal, kind);
     if (hasBrowserPicker()) return scanBrowser(onProgress, signal, kind);
     if (hasFolderInput()) return scanFolderInput(kind);

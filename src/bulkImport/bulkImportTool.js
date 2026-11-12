@@ -19,7 +19,7 @@ import { detectFileMetadata } from '../utils/tuningUtils.js';
 import { showToast } from '../utils/toast.js';
 import { STRATEGIES, pairFile, baseNameOf, normName, sameArtist, sameTitle, looksLikeAlbumBook, VIA_LABEL } from './pairing.js';
 import { lookup, lookupAlbum, searchSongs, searchAlbums, normKey, resolveAlbumTracklist, matchTrack } from './matcher.js';
-import { canPickFolder, pickAndScanFolder } from './scanFolder.js';
+import { canPickFolder, pickFilesOnly, pickAndScanFolder } from './scanFolder.js';
 import { renderAudioImport, audioImportReadout, onAudioImportChange } from './audioImport.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -485,9 +485,10 @@ function renderTabsImport(container) {
     }
 
     function setupHtml() {
-        const can = canPickFolder();
+        const files = pickFilesOnly();
+        const can = files || canPickFolder();
         return `
-        <p class="ct-sub">Choose a folder of tabs (Guitar Pro, PDF and text files, subfolders included). Each file is paired with a song, checked against your library and MusicBrainz, and shown here for you to look over before anything is imported.</p>
+        <p class="ct-sub">Choose ${files ? 'tab files' : 'a folder of tabs'} (Guitar Pro, PDF and text files, subfolders included). Each file is paired with a song, checked against your library and MusicBrainz, and shown here for you to look over before anything is imported.</p>
         <fieldset class="imp-strategies">
           <legend class="be-option-title">How the files are named</legend>
           ${STRATEGIES.map((s) => `
@@ -499,7 +500,7 @@ function renderTabsImport(container) {
         </fieldset>
         ${can ? '' : '<p class="ct-note">Importing a folder needs the MajesticTab app on a computer, or Chrome or Edge. Phones can add tabs to a song one at a time.</p>'}
         <div class="be-actions">
-          <button type="button" class="btn btn-sm btn-theme-primary" data-act="choose" ${can ? '' : 'disabled'}>Choose folder</button>
+          <button type="button" class="btn btn-sm btn-theme-primary" data-act="choose" ${can ? '' : 'disabled'}>${files ? 'Choose files' : 'Choose folder'}</button>
           <span class="be-status" role="status">${esc(state.summary)}</span>
         </div>`;
     }
