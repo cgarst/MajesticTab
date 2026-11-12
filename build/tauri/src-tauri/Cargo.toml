@@ -4,7 +4,7 @@ version = "0.0.0"
 description = "Guitar tab viewer"
 authors = ["Zathu Software"]
 publish = false
-license = "MIT"
+license = "MPL-2.0"
 edition = "2021"
 
 [features]
