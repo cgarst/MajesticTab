@@ -6,6 +6,7 @@ import { jamPlayerControl } from '../gpProcessor/gpPlayer.js';
 import { getInstrumentMode } from '../utils/tuningUtils.js';
 import { isJamWebGuest } from './jamTransport.js';
 import { trackPolicyFor, trackStateFor, normAudioMode, normListening } from './jamTrackPolicy.js';
+import { isIOSDevice } from '../utils/iosAudioUnlock.js';
 
 // Guests load the app from the host over plain HTTP on the LAN.
 const WEB_SCHEME = 'http:';
@@ -597,8 +598,8 @@ export function createJamModal(manager, { updateSetting }) {
         if (t.id === 'jamShareSongBtn') {
             const input = document.createElement('input');
             input.type = 'file';
-            // Android's picker greys out extensions it has no MIME type for (Guitar Pro), so no filter there
-            if (!/Android/i.test(navigator.userAgent)) input.accept = JAM_SONG_EXTENSIONS.map((ext) => `.${ext}`).join(',');
+            // Android's and iOS's pickers grey out extensions they have no MIME type for (Guitar Pro), so no filter there
+            if (!/Android/i.test(navigator.userAgent) && !isIOSDevice()) input.accept = JAM_SONG_EXTENSIONS.map((ext) => `.${ext}`).join(',');
             input.onchange = () => { if (input.files?.[0]) client?.openSongAsController(input.files[0]); };
             input.click();
             return;
