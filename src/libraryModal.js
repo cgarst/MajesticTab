@@ -615,7 +615,7 @@ export async function navigateToAlbumInLibrary(artistName, albumTitle) {
 /**
  * Handle 1-click single song fulfillment: creates library song shell and opens downloader pre-targeted
  */
-export async function handleGetTabSingleSong(songItem) {
+export async function handleGetTabSingleSong(songItem, { addOnly = false } = {}) {
     if (!songItem) return;
     const title = songItem.title || '';
     const artist = songItem.artist || '';
@@ -663,6 +663,11 @@ export async function handleGetTabSingleSong(songItem) {
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
     }
 
+    if (addOnly) {
+        showToast(`Added "${title}" to library`, 'success');
+        return targetSong;
+    }
+
     if (isNative()) {
         const query = `${artist} ${title}`;
         await openTabDownloader({
@@ -683,7 +688,7 @@ export async function handleGetTabSingleSong(songItem) {
  * Handle Guided Batch Tab Assistant for albums:
  * Pre-flights library for existing tabs, builds smart queue, launches downloader in batch mode
  */
-export async function handleAddAlbumBatch(albumItem, btnEl) {
+export async function handleAddAlbumBatch(albumItem, btnEl, { addOnly = false } = {}) {
     if (!albumItem) return;
     const albumTitle = albumItem.title || albumItem.name || '';
     const artistName = albumItem.artist || albumItem.artistName || '';
@@ -722,6 +727,15 @@ export async function handleAddAlbumBatch(albumItem, btnEl) {
             const updatedHierarchy = await getLibraryHierarchy(activeCollectionId);
             artistObj = (updatedHierarchy.artists || []).find(a => cleanTrackTitleForMatching(a.name) === cleanTrackTitleForMatching(artistName));
             albumObj = artistObj?.albums?.find(al => cleanTrackTitleForMatching(al.title || al.name) === cleanTrackTitleForMatching(albumTitle));
+        }
+
+        if (addOnly) {
+            showToast(`Added "${albumTitle}" to library`, 'success');
+            if (btnEl) {
+                btnEl.textContent = 'In library';
+                btnEl.disabled = true;
+            }
+            return;
         }
 
         const albumTracks = albumObj?.songs || [];
@@ -2779,7 +2793,7 @@ function setupLibraryFilter(container, context = {}) {
                     <button type="button" class="btn btn-sm lib-ghost-action view-album-tracks-btn" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" title="View tracks">
                       Tracks
                     </button>
-                    <button type="button" class="btn btn-sm lib-ghost-action catalog-album-batch-btn" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(artistName)}" data-year="${alb.year || ''}" aria-label="Add album and find tabs">
+                    <button type="button" class="btn btn-sm lib-ghost-action catalog-album-batch-btn" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(artistName)}" data-year="${alb.year || ''}" aria-label="Add album">
                       Add album
                     </button>
                   </div>
@@ -2808,7 +2822,7 @@ function setupLibraryFilter(container, context = {}) {
                         title: btn.dataset.albumTitle,
                         artist: btn.dataset.artistName,
                         year: btn.dataset.year
-                    }, btn);
+                    }, btn, { addOnly: true });
                 });
             });
 
@@ -2910,7 +2924,8 @@ function setupLibraryFilter(container, context = {}) {
                 <div class="search-row-title text-truncate">${escapeHtml(alb.title)} (Album)</div>
                 <div class="search-row-sub text-truncate">${escapeHtml(alb.artist)}${alb.year ? ` · ${alb.year}` : ''}${alb.trackCount ? ` · ${alb.trackCount} tracks` : ''}</div>
               </div>
-              <button type="button" class="btn btn-sm lib-ghost-action catalog-album-batch-btn flex-shrink-0 ms-2" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(alb.artist)}" data-year="${alb.year || ''}" aria-label="Add album and find tabs">Add album</button>
+              <button type="button" class="btn btn-sm lib-ghost-action view-album-tracks-btn flex-shrink-0 ms-2" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(alb.artist)}" data-year="${alb.year || ''}" title="View tracks">Tracks</button>
+              <button type="button" class="btn btn-sm lib-ghost-action catalog-album-batch-btn flex-shrink-0 ms-2" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(alb.artist)}" data-year="${alb.year || ''}" aria-label="Add album">Add album</button>
             </div>
             `;
         }
@@ -2923,7 +2938,7 @@ function setupLibraryFilter(container, context = {}) {
                 <div class="search-row-title text-truncate">${escapeHtml(song.title)}</div>
                 <div class="search-row-sub text-truncate">${escapeHtml(song.artist)}${song.album ? ` · ${escapeHtml(song.album)}` : ''}${song.year ? ` · ${song.year}` : ''}</div>
               </div>
-              <button type="button" class="btn btn-sm lib-ghost-action catalog-song-get-tab-btn flex-shrink-0 ms-2" data-song-id="${song.id}" data-title="${escapeHtml(song.title)}" data-artist="${escapeHtml(song.artist)}" data-album="${escapeHtml(song.album || '')}" data-year="${song.year || ''}" data-recording-mbid="${song.recordingMbid || song.id || ''}" aria-label="Add song and find tab">Add song</button>
+              <button type="button" class="btn btn-sm lib-ghost-action catalog-song-get-tab-btn flex-shrink-0 ms-2" data-song-id="${song.id}" data-title="${escapeHtml(song.title)}" data-artist="${escapeHtml(song.artist)}" data-album="${escapeHtml(song.album || '')}" data-year="${song.year || ''}" data-recording-mbid="${song.recordingMbid || song.id || ''}" aria-label="Add song">Add song</button>
             </div>
             `;
         }
@@ -2966,7 +2981,18 @@ function setupLibraryFilter(container, context = {}) {
                     title: btn.dataset.albumTitle,
                     artist: btn.dataset.artistName,
                     year: btn.dataset.year
-                }, btn);
+                }, btn, { addOnly: true });
+            });
+        });
+
+        catalogContainer.querySelectorAll('.view-album-tracks-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await exploreAlbumTracklist(btn.dataset.albumId, filterResults, null, {
+                    title: btn.dataset.albumTitle,
+                    artist: btn.dataset.artistName,
+                    year: btn.dataset.year
+                });
             });
         });
 
@@ -2980,7 +3006,7 @@ function setupLibraryFilter(container, context = {}) {
                     album: btn.dataset.album,
                     year: btn.dataset.year,
                     recordingMbid: btn.dataset.recordingMbid
-                });
+                }, { addOnly: true });
             });
         });
     };
@@ -4408,6 +4434,9 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
         if (parentArtist?.mbid && currentArtistAlbumsViewHandler) {
             searchSubView = null;
             currentArtistAlbumsViewHandler(parentArtist.mbid, parentArtist.name, targetContainer, libraryFilterQuery);
+        } else if (targetContainer.id === 'libFilteredSearchResults') {
+            searchSubView = null;
+            document.querySelector('#libFilterInput')?.dispatchEvent(new Event('input'));
         } else {
             handleBack();
         }
@@ -4625,7 +4654,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
                     recordingMbid: track.recordingMbid,
                     coverUrl: albumData.coverUrl || track.coverUrl || null
                 };
-                await handleGetTabSingleSong(songItem);
+                await handleGetTabSingleSong(songItem, { addOnly: !btn.dataset.songId });
                 const parent = btn.parentElement;
                 btn.remove();
                 if (parent) {
@@ -4740,7 +4769,7 @@ function renderAddAlbumTracksList(tracks, existingSongMap = new Map(), artistNam
             `;
         } else {
             actionHtml = `
-            <button type="button" class="btn btn-sm lib-ghost-action add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}" aria-label="Add song and find tab">
+            <button type="button" class="btn btn-sm lib-ghost-action add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}" aria-label="Add song">
               Add song
             </button>
             `;
