@@ -985,9 +985,10 @@ function renderMiniBarRulerHtml(currentBar, totalBars) {
 // // -----------------------------------------------------------------------------
 // 1. LIBRARY BROWSER VIEW (Collection > Artist > Album > Song / Tunings)
 // -----------------------------------------------------------------------------
-async function renderLibraryBrowseView(container) {
+async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
+    const savedScroll = container ? container.scrollTop : 0;
     if (container) {
-        container.scrollTop = 0;
+        if (!keepScroll) container.scrollTop = 0;
         blurActiveLibraryElement(container);
     }
     syncLibraryBottomNav();
@@ -2113,6 +2114,7 @@ async function renderLibraryBrowseView(container) {
 
     // Hydrate cached images
     hydrateCachedImages(container);
+    if (keepScroll && container) container.scrollTop = savedScroll;
 }
 
 const LIBRARY_TABS = [
@@ -2578,7 +2580,8 @@ function bindLibraryToolbarEvents(container) {
 
     container.querySelector('#libTuningArtistSelect')?.addEventListener('change', (e) => {
         tuningsArtistFilter = e.target.value;
-        renderLibraryBrowseView(container);
+        // Stay where the list is scrolled; resetting to the top made the content jump
+        renderLibraryBrowseView(container, { keepScroll: true });
     });
 
     container.querySelectorAll('[data-lib-sync]').forEach(b => b.addEventListener('click', () => import('./syncUi.js').then(m => m.openSyncModal())));
