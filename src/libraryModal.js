@@ -5141,43 +5141,29 @@ function formatTimeAgo(timestamp) {
 }
 
 /**
- * Custom song flow: ask for a title, create the song in Custom Music, then open the "Add a tab" picker for it.
- * Used by the search row ("Add ... as a custom song") and the empty-state row.
+ * Custom music flow: the "Add custom music" dialog, then the "Add a tab" picker when the song has no file yet.
+ * Used by the search row, the Custom Music "+" and the empty-library list.
  */
-export function startAddCustomSong(initialTitle = '', folderPath = '') {
-    openThemedInputModal({
-        title: 'Add a custom song',
-        subtitle: folderPath ? `It goes in Custom Music / ${folderPath}. You add its tab next.` : 'It goes in Custom Music. You add its tab next.',
-        icon: 'bi-music-note-beamed',
-        inputLabel: 'Title',
-        placeholder: 'Song or exercise name',
-        initialValue: initialTitle,
-        confirmText: 'Add song',
-        onConfirm: async (title) => {
-            try {
-                const song = await saveSongToLibrary({
-                    id: `song_custom_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-                    collectionId: activeCollectionId,
-                    title,
-                    artist: 'Custom Music',
-                    album: folderPath,
-                    folderPath,
-                    isCustom: true,
-                    tabOptions: [],
-                    addedAt: Date.now()
-                }, activeCollectionId);
-                showToast(`Added "${title}" to Custom Music${folderPath ? ' / ' + folderPath : ''}`, 'success');
-                window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-                const songId = song?.id;
-                if (!songId) return;
-                // The page redraws on the change; open the picker once the search bar is back to anchor it
-                await new Promise(r => setTimeout(r, 150));
-                const anchor = document.querySelector('#libFilterInput');
-                if (anchor) await toggleSongTabsPicker(anchor, songId, 'add', { forceOpen: true });
-            } catch (err) {
-                console.warn('Could not add custom song:', err);
-                showToast('Could not add the song', 'error');
-            }
+export async function startAddCustomSong(initialTitle = '', folderPath = '') {
+    const { openCustomMusicModal } = await import('./customMusicModal.js');
+    let folders = [];
+    try {
+        const hierarchy = await getLibraryHierarchy(activeCollectionId);
+        const custom = (hierarchy.artists || []).find(a => a.isCustom);
+        folders = [...new Set((custom?.albums || []).map(al => (al.folderPath || al.title || '').trim()).filter(Boolean))].sort();
+    } catch (_) { /* suggestions only */ }
+    openCustomMusicModal({
+        collectionId: activeCollectionId,
+        initialTitle,
+        folderPath,
+        folders,
+        onSaved: async ({ song, hasTab }) => {
+            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+            if (!song?.id || hasTab) return;
+            // The page redraws on the change; open the picker once the search bar is back to anchor it
+            await new Promise(r => setTimeout(r, 150));
+            const anchor = document.querySelector('#libFilterInput');
+            if (anchor) await toggleSongTabsPicker(anchor, song.id, 'add', { forceOpen: true });
         }
     });
 }

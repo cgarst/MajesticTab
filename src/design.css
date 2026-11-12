@@ -212,6 +212,12 @@ body.library-view-active #viewPill { display: none; }
   .theme-toast { transform: translateY(-12px); }
   .theme-toast-visible { transform: none; }
   .theme-toast-hiding { transform: translateY(-12px); }
+  /* The native (liquid glass) search field is drawn by the system above the web view, so a toast cannot cover it: start below it */
+  body.native-search:not(.native-search-pane) .theme-toast-container { top: calc(var(--native-search-top, 0px) + 8px); }
+}
+/* Wider screens keep toasts at the bottom; the native tab bar is drawn over the web view there too, so sit above it */
+@media (min-width: 577px) {
+  html:not(.native-vertical) body.native-tabbar .theme-toast-container { bottom: calc(var(--native-tabbar-h, 83px) + var(--dock-h, 0px) + var(--fretboard-effective-h, 0px) + 16px); }
 }
 .theme-toast-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--ink2); }
 .theme-toast-success .theme-toast-dot { background: var(--ok); }
@@ -5876,3 +5882,17 @@ body.library-view-active .yt-sheet { display: none !important; }
   }
 }
 
+
+/* ---------- Add custom music dialog: tone steps, no outlines, no icons beside text ---------- */
+.cm-card { width: min(520px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); display: flex; flex-direction: column; }
+.cm-card form { display: flex; flex-direction: column; min-height: 0; }
+.cm-body { display: flex; flex-direction: column; gap: 16px; padding: 16px 20px; overflow-y: auto; }
+.cm-field { min-width: 0; }
+.cm-field .form-label { display: block; font-size: 13px; font-weight: 500; color: var(--ink2) !important; margin-bottom: 6px; }
+.cm-hint { font-size: 12px; line-height: 1.4; color: var(--ink2); margin-top: 6px; }
+.cm-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cm-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; background: transparent; border: 0; }
+@media (max-width: 480px) { .cm-row { grid-template-columns: 1fr; } }
+.cm-switch { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: var(--s2); border-radius: var(--r-control, 8px); }
+.cm-switch .form-check-label { flex: 1; min-width: 0; font-size: 14px; color: var(--ink); cursor: pointer; }
+.cm-switch .cm-hint { margin-top: 2px; }
