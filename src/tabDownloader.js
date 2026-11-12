@@ -582,6 +582,34 @@ export function extractSourceWebsite(url) {
     }
 }
 
+function deriveSongKeyAndAliases(primaryArtist, primaryTitle, meta, fileName) {
+    const mainKey = [primaryArtist, primaryTitle].filter(Boolean).join(' - ') || primaryTitle || fileName;
+    const fileMetaKey = (meta?.artist || meta?.title) ? [meta.artist || primaryArtist, meta.title || primaryTitle].filter(Boolean).join(' - ') : null;
+    const aliasKeys = [];
+    if (fileMetaKey && fileMetaKey.toLowerCase() !== mainKey.toLowerCase()) aliasKeys.push(fileMetaKey);
+    const artistCandidates = [primaryArtist, meta?.artist].filter(Boolean);
+    for (const a of artistCandidates) {
+        if (/^not\s+/i.test(a)) {
+            const stripped = a.replace(/^not\s+/i, '');
+            aliasKeys.push([stripped, primaryTitle || meta?.title].filter(Boolean).join(' - '));
+        } else {
+            aliasKeys.push(['Not ' + a, primaryTitle || meta?.title].filter(Boolean).join(' - '));
+        }
+    }
+    const uniqueAliases = [...new Set(aliasKeys.filter(k => k && k.toLowerCase() !== mainKey.toLowerCase()))];
+    return { mainKey, aliasKeys: uniqueAliases };
+}
+
+async function linkSongKeysToLibrary(songId, keys = []) {
+    if (!songId) return;
+    try {
+        const { rememberSongKey } = await import('./youtubePlayer.js');
+        for (const k of keys) {
+            if (k) rememberSongKey(songId, k);
+        }
+    } catch {}
+}
+
 /**
  * Core handler for downloaded tab binary payload across all platforms
  * @param {string} name
@@ -712,11 +740,18 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             pendingMatchedSyncPoints = null;
 
             if (matchedUrl || syncPoints) {
-                const batchSongKey = [currentTrack.artist || activeBatchArtistName, currentTrack.title].filter(Boolean).join(' - ') || currentTrack.title || file.name;
+                const { mainKey, aliasKeys } = deriveSongKeyAndAliases(
+                    currentTrack.artist || activeBatchArtistName,
+                    currentTrack.title,
+                    meta,
+                    file.name
+                );
+                await linkSongKeysToLibrary(currentTrack.songId, [mainKey, ...aliasKeys]);
                 attachSyncForMatchedUrl(matchedUrl || sourceUrl, {
                     showToast,
                     file,
-                    songKey: batchSongKey,
+                    songKey: mainKey,
+                    aliasKeys,
                     syncPoints,
                     switchToOriginal: false
                 }).catch(err => {
@@ -807,8 +842,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             if (output && output.style.display !== 'none') output.focus();
         } catch {}
         if (matchedUrl || syncPoints) {
-            const songKey = [targetSong.artist, targetSong.title].filter(Boolean).join(' - ') || targetSong.title || file.name;
-            attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, songKey, switchToOriginal: true, syncPoints }).catch(err => {
+            const { mainKey, aliasKeys } = deriveSongKeyAndAliases(targetSong.artist, targetSong.title, meta, file.name);
+            await linkSongKeysToLibrary(targetSong.id, [mainKey, ...aliasKeys]);
+            attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, songKey: mainKey, aliasKeys, switchToOriginal: true, syncPoints }).catch(err => {
                 console.warn('[Tab Downloader] Background sync point attachment failed:', err);
             });
         }
@@ -859,8 +895,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
 
         if (matchedUrl || syncPoints) {
-            const songKey = [targetSong.artist, targetSong.title].filter(Boolean).join(' - ') || targetSong.title || file.name;
-            attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, songKey, syncPoints }).catch(err => {
+            const { mainKey, aliasKeys } = deriveSongKeyAndAliases(targetSong.artist, targetSong.title, meta, file.name);
+            await linkSongKeysToLibrary(targetSong.id, [mainKey, ...aliasKeys]);
+            attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, songKey: mainKey, aliasKeys, syncPoints }).catch(err => {
                 console.warn('[Tab Downloader] Background sync point attachment failed:', err);
             });
         }
@@ -908,7 +945,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     } catch {}
 
     if (matchedUrl || syncPoints) {
-        attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, switchToOriginal: true, syncPoints });
+        const meta = await detectFileMetadata(file, file.name).catch(() => null);
+        const { mainKey, aliasKeys } = deriveSongKeyAndAliases('', '', meta, file.name);
+        attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, songKey: mainKey, aliasKeys, switchToOriginal: true, syncPoints });
     }
 }
 
@@ -1752,7 +1791,20 @@ export function initTauriDownloadListener() {
 
         // Debug log event from webview
         window.__TAURI__.event.listen('tab-downloader-log', (event) => {
-            console.log('[Tab Downloader Webview]', event.payload || '');
+            const msg = event.payload || '';
+            if (typeof msg === 'string' && msg.startsWith('MAJESTIC_SYNC_POINTS:')) {
+                try {
+                    const data = JSON.parse(msg.slice('MAJESTIC_SYNC_POINTS:'.length));
+                    if (data?.syncPoints?.length) {
+                        pendingMatchedSyncPoints = data.syncPoints;
+                        if (data.matchedUrl) pendingMatchedTabUrl = data.matchedUrl;
+                    }
+                } catch (e) {
+                    console.warn('[Tab Downloader] Failed to parse sync points log:', e);
+                }
+                return;
+            }
+            console.log('[Tab Downloader Webview]', msg);
         });
 
         // URL changed event from native webview

@@ -268,21 +268,25 @@ test('generateDownloaderTransferScript fetches video points in DOM before redire
     const script = generateDownloaderTransferScript();
     assert.ok(typeof script === 'string');
     assert.ok(script.includes('/api/video-points/'));
+    assert.ok(script.includes('/api/meta/'));
     assert.ok(script.includes('withSyncPointsAndSend'));
     assert.ok(script.includes('syncPoints'));
+    assert.ok(script.includes('MAJESTIC_SYNC_POINTS:'));
 });
 
 test('attachSyncForMatchedUrl uses pre-supplied syncPoints directly without fetching URL', async () => {
     let loadCalled = false;
     let attachedSets = null;
+    let passedOptions = null;
 
     const mockLoad = async () => {
         loadCalled = true;
         return [];
     };
 
-    const mockAttach = async (sets) => {
+    const mockAttach = async (sets, opts) => {
         attachedSets = sets;
+        passedOptions = opts;
         return { saved: ['Preloaded Video'], skipped: [] };
     };
 
@@ -293,12 +297,15 @@ test('attachSyncForMatchedUrl uses pre-supplied syncPoints directly without fetc
     const result = await attachSyncForMatchedUrl('https://www.example.com/a/wsa/song-s123', {
         loadFromUrlFn: mockLoad,
         attachSyncSetsFn: mockAttach,
+        songKey: 'Target Artist - Song',
+        aliasKeys: ['Alt Artist - Song'],
         syncPoints: preloadedPoints
     });
 
     assert.equal(loadCalled, false, 'loadFromUrl should not be called when preloaded syncPoints exist');
     assert.ok(attachedSets && attachedSets.length === 1);
     assert.equal(attachedSets[0].videoId, '8saKHKt1A5Q');
+    assert.deepEqual(passedOptions.aliasKeys, ['Alt Artist - Song']);
     assert.deepEqual(result.saved, ['Preloaded Video']);
 });
 

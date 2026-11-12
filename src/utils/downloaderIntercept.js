@@ -238,6 +238,23 @@ export function generateDownloaderTransferScript() {
         return btoa(m).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
     }
     function send(curr) {
+        try {
+            if (curr.syncPoints && curr.syncPoints.length > 0) {
+                const msg = 'MAJESTIC_SYNC_POINTS:' + JSON.stringify({
+                    matchedUrl: location.origin + location.pathname,
+                    songId: curr.songId,
+                    revisionId: curr.revisionId,
+                    artist: curr.artist,
+                    title: curr.title,
+                    syncPoints: curr.syncPoints
+                });
+                const ifr = document.createElement('iframe');
+                ifr.style.display = 'none';
+                ifr.src = 'majestictab://log?msg=' + encodeURIComponent(msg);
+                (document.body || document.documentElement).appendChild(ifr);
+                setTimeout(function() { try { ifr.remove(); } catch(_) {} }, 1000);
+            }
+        } catch(_) {}
         const dest = base + '#' + label + '=' + encode(curr);
         window.open(dest, label + '-downloader') || (location.href = dest);
     }
@@ -248,28 +265,63 @@ export function generateDownloaderTransferScript() {
             sent = true;
             send(curr);
         }
-        const timer = setTimeout(done, 1500);
-        if (!curr.songId || !curr.revisionId) { done(); return; }
-        fetch('/api/video-points/' + curr.songId + '/' + curr.revisionId + '/list', { credentials: 'include' })
-            .then(function(r) { return r.ok ? r.json() : null; })
-            .then(function(points) {
-                clearTimeout(timer);
-                if (Array.isArray(points) && points.length > 0) {
-                    curr.syncPoints = points.map(function(p) {
-                        return {
-                            videoId: p.videoId,
-                            points: p.points,
-                            status: p.status,
-                            feature: p.feature
-                        };
-                    });
-                }
-                done();
-            })
-            .catch(function() {
+        const timer = setTimeout(done, 2500);
+        if (!curr.songId) { done(); return; }
+
+        function tryPoints(points) {
+            if (Array.isArray(points) && points.length > 0) {
+                curr.syncPoints = points.map(function(p) {
+                    return {
+                        videoId: p.videoId,
+                        points: p.points,
+                        status: p.status,
+                        feature: p.feature
+                    };
+                });
                 clearTimeout(timer);
                 done();
-            });
+                return true;
+            }
+            return false;
+        }
+
+        function fetchRevisionPoints(revId) {
+            return fetch('/api/video-points/' + curr.songId + '/' + revId + '/list', { credentials: 'include' })
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .catch(function() { return null; });
+        }
+
+        function fetchOtherRevisions() {
+            fetch('/api/meta/' + curr.songId + '/revisions', { credentials: 'include' })
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(revs) {
+                    const list = (Array.isArray(revs) ? revs : [])
+                        .map(function(r) { return r && r.revisionId; })
+                        .filter(Boolean)
+                        .filter(function(id) { return id !== curr.revisionId; })
+                        .sort(function(a, b) { return b - a; })
+                        .slice(0, 3);
+                    if (!list.length) { done(); return; }
+                    let idx = 0;
+                    function checkNext() {
+                        if (idx >= list.length) { done(); return; }
+                        fetchRevisionPoints(list[idx++]).then(function(pts) {
+                            if (!tryPoints(pts)) checkNext();
+                        }).catch(checkNext);
+                    }
+                    checkNext();
+                })
+                .catch(done);
+        }
+
+        if (curr.revisionId) {
+            fetchRevisionPoints(curr.revisionId).then(function(pts) {
+                if (tryPoints(pts)) return;
+                fetchOtherRevisions();
+            }).catch(fetchOtherRevisions);
+        } else {
+            fetchOtherRevisions();
+        }
     }
     const songId = getSongId(location.pathname);
     if (!songId) return;
@@ -319,8 +371,10 @@ export async function switchToOriginalSound() {
         const { switchRealAudioSlot } = await import('../audioSync/realAudioController.js');
         const { setActiveAudioMode } = await import('./navigationUtils.js');
         const { pauseSynthPlayer, clearSynthHighlights } = await import('../gpProcessor/gpPlayer.js');
+        const { toggleYouTubePanel } = await import('../youtubePlayer.js');
         switchRealAudioSlot('original');
         if (typeof setActiveAudioMode === 'function') setActiveAudioMode('youtube');
+        if (typeof toggleYouTubePanel === 'function') toggleYouTubePanel(false);
         if (typeof pauseSynthPlayer === 'function') pauseSynthPlayer();
         if (typeof clearSynthHighlights === 'function') clearSynthHighlights();
     } catch (e) {
@@ -337,11 +391,12 @@ export async function switchToOriginalSound() {
  * @param {Function} [options.attachSyncSetsFn]
  * @param {File|Blob|Uint8Array} [options.file]
  * @param {string} [options.songKey]
+ * @param {string[]} [options.aliasKeys] additional song keys to store the sync points under
  * @param {boolean} [options.switchToOriginal] switch the dock to the Original sound once points were saved (the score is open in the reader)
  * @param {Array|string} [options.syncPoints] pre-extracted sync points from DOM transfer or payload
  * @returns {Promise<{saved: string[], skipped: string[]}>}
  */
-export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, loadFromUrlFn = null, attachSyncSetsFn = null, file = null, songKey = null, switchToOriginal = false, syncPoints = null } = {}) {
+export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, loadFromUrlFn = null, attachSyncSetsFn = null, file = null, songKey = null, aliasKeys = [], switchToOriginal = false, syncPoints = null } = {}) {
     if (!matchedUrl && !syncPoints) return { saved: [], skipped: [] };
     try {
         let sets = null;
@@ -368,7 +423,7 @@ export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, lo
         }
 
         const attach = attachSyncSetsFn || (await import('../urlImport/attachSync.js')).attachSyncSets;
-        const result = await attach(sets, { songKey, bars });
+        const result = await attach(sets, { songKey, aliasKeys, bars });
         if (switchToOriginal && result?.saved?.length) await switchToOriginalSound();
         if (typeof showToast === 'function') {
             if (result?.saved?.length) {

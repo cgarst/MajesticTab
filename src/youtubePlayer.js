@@ -935,6 +935,31 @@ export function getSyncedVideos() {
 }
 
 /**
+ * Automatically adopt sync points from sibling tabs of the same library song
+ * if the current tab doesn't have any sync points under its own key.
+ */
+export function adoptSiblingSyncPoints(targetKey = getSongKey()) {
+    if (!targetKey || !playerState.librarySongId) return false;
+    try {
+        const siblings = siblingSongKeys();
+        let adopted = 0;
+        for (const sib of siblings) {
+            if (!sib?.key) continue;
+            const records = listRecords(sib.key);
+            for (const r of records) {
+                if (r.media?.kind === 'youtube' && r.points?.length) {
+                    saveRecord(targetKey, r.media, r.points);
+                    adopted++;
+                }
+            }
+        }
+        return adopted > 0;
+    } catch {
+        return false;
+    }
+}
+
+/**
  * Available synced videos on sibling tabs of the same library song.
  */
 export async function getSiblingSyncedVideos() {
@@ -1492,6 +1517,9 @@ export function updateSongForYouTube({
     const adoptId = playerState.librarySongId;
     const adoptKey = getSongKey();
     import('./audioSync/libraryAudio.js').then((m) => m.adoptLibraryAudio(adoptId, adoptKey)).catch(() => {});
+    if (adoptId && adoptKey && !getSyncedVideos().length) {
+        adoptSiblingSyncPoints(adoptKey);
+    }
     playerState.customQueries = { original: '', backing: '' };
     playerState.customQuery = '';
     setVideoId(null, 'song');
@@ -1500,9 +1528,10 @@ export function updateSongForYouTube({
     playerState.hasStarted = false;
     playerState.isSearching = false;
 
-    // A new song closes the video sheet (which pauses) and forgets that it was lowered
+    // A new song closes the video sheet and ensures the sound menu is closed
     closeSheet();
     resetPeek();
+    toggleYouTubePanel(false);
 
     // Show YouTube toggle button in audio source pill
     const ytBtn = document.getElementById('ytToggleBtn');

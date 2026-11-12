@@ -65,10 +65,11 @@ export async function extractPlayedBarsFromFile(file) {
  * @param {Array<{label?: string, videoId: string, barTimesMs: number[]}>} sets
  * @param {object} [options]
  * @param {string} [options.songKey]
+ * @param {string[]} [options.aliasKeys]
  * @param {Array<{barIndex:number, occurrence:number}>} [options.bars]
  * @returns {Promise<{ saved: string[], skipped: string[] }>} labels saved, and a reason for each set left out
  */
-export async function attachSyncSets(sets, { songKey = null, bars = null } = {}) {
+export async function attachSyncSets(sets, { songKey = null, aliasKeys = [], bars = null } = {}) {
     if (!sets?.length) return { saved: [], skipped: [] };
     const playedBars = (bars && bars.length) ? bars : await playedBarsWhenReady();
     if (!playedBars.length) return { saved: [], skipped: ['The score was not ready, so no sync points were added'] };
@@ -89,8 +90,12 @@ export async function attachSyncSets(sets, { songKey = null, bars = null } = {})
     if (extra) for (const p of placed) p.label = `${p.label} (list has ${extra} more bars than the score; read from bar 1)`;
     if (firstPassOnly) for (const p of placed) p.label = `${p.label} (repeats not synced)`;
     const targetKey = songKey || getSongKey();
-    for (const { videoId, points, label } of placed) {
-        saveRecord(targetKey, { kind: 'youtube', videoId, label }, points);
+    const allKeys = [targetKey, ...(Array.isArray(aliasKeys) ? aliasKeys : [])].filter(Boolean);
+    const uniqueKeys = [...new Set(allKeys.map(k => String(k).trim()))].filter(Boolean);
+    for (const key of uniqueKeys) {
+        for (const { videoId, points, label } of placed) {
+            saveRecord(key, { kind: 'youtube', videoId, label }, points);
+        }
     }
     if (placed.length) window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
     return { saved: placed.map(p => p.label), skipped };
