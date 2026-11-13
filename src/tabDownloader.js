@@ -8,6 +8,7 @@ import { detectFileMetadata } from './utils/tuningUtils.js';
 import { closeLibraryModal, navigateToAlbumInLibrary } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
 import { SUPPORTED_TAB_EXTENSIONS } from './utils/fileHandlingUtils.js';
+import { isMtabFile, isMtabBytes, unpackMtab, applyMtabExtras } from './mtab.js';
 import {
     isWsaTabUrl,
     getDownloaderUrlFromMatchedUrl,
@@ -657,7 +658,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             const tabEntries = Object.keys(unzipped).filter(filename => {
                 if (filename.includes('__MACOSX') || filename.endsWith('/')) return false;
                 const ext = filename.split('.').pop()?.toLowerCase();
-                return SUPPORTED_TAB_EXTENSIONS.includes(ext);
+                return SUPPORTED_TAB_EXTENSIONS.includes(ext) || ext === 'mtab';
             });
             const isGpContainer = Object.keys(unzipped).some(f => /(^|\/)score\.gpif$/i.test(f));
             if (tabEntries.length === 0 && isGpContainer) {
@@ -687,8 +688,23 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         }
     }
 
-    const blob = new Blob([uint8], { type: 'application/octet-stream' });
-    const file = new File([blob], name || 'downloaded.gp', { type: blob.type, lastModified: Date.now() });
+    let mtabBundle = null;
+    let file;
+    if (isMtabFile({ name }) || isMtabBytes(uint8)) {
+        try {
+            const rawBlob = new Blob([uint8], { type: 'application/x-majestictab-song' });
+            const rawMtabFile = new File([rawBlob], name || 'downloaded.mtab', { type: rawBlob.type, lastModified: Date.now() });
+            mtabBundle = await unpackMtab(rawMtabFile);
+            file = mtabBundle.tabFile;
+        } catch (mtabErr) {
+            console.warn('[Tab Downloader] Failed to unpack .mtab bundle:', mtabErr);
+            showToast(mtabErr?.message || 'Could not unpack .mtab song bundle.', 'error');
+            return;
+        }
+    } else {
+        const blob = new Blob([uint8], { type: 'application/octet-stream' });
+        file = new File([blob], name || 'downloaded.gp', { type: blob.type, lastModified: Date.now() });
+    }
 
     const sourceUrl = pendingMatchedTabUrl || currentDownloaderUrl || null;
     const sourceWebsite = extractSourceWebsite(sourceUrl);
@@ -696,6 +712,24 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     file.sourceWebsite = sourceWebsite;
     file.providerId = 'tab-downloader';
     file.addedAt = Date.now();
+    if (mtabBundle) file.mtabBundle = mtabBundle;
+
+    const buildMtabSongKeys = (artist, title, meta, fileName) => {
+        const mSong = mtabBundle?.header?.song;
+        const { mainKey, aliasKeys } = deriveSongKeyAndAliases(
+            artist || mSong?.artist || '',
+            title || mSong?.title || '',
+            meta,
+            fileName
+        );
+        if (mSong?.artist || mSong?.title) {
+            const mKey = [mSong.artist, mSong.title].filter(Boolean).join(' - ') || mSong.title;
+            if (mKey && mKey.toLowerCase() !== mainKey.toLowerCase() && !aliasKeys.some(k => k.toLowerCase() === mKey.toLowerCase())) {
+                aliasKeys.push(mKey);
+            }
+        }
+        return { mainKey, aliasKeys };
+    };
 
     // 1. Batch Assistant mode
     if (activeBatchMode && activeBatchQueue.length > 0) {
@@ -714,8 +748,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
                 providerId: 'tab-downloader',
                 relativePath: path || file.name,
                 fileStoreId: stored.id,
-                tuning: meta.primaryTuning,
-                tunings: meta.tunings,
+                tuning: file.tabTuning?.tuning || meta.primaryTuning,
+                tunings: file.tabTuning?.tuning ? [file.tabTuning.tuning] : meta.tunings,
+                tuningSource: file.tabTuning?.source || meta.tuningSource || null,
                 stringCount: meta.stringCount,
                 fileType: file.name.split('.').pop().toLowerCase(),
                 sourceUrl,
@@ -739,7 +774,23 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             pendingMatchedTabUrl = null;
             pendingMatchedSyncPoints = null;
 
-            if (matchedUrl || syncPoints) {
+            if (mtabBundle) {
+                const { mainKey, aliasKeys } = buildMtabSongKeys(
+                    currentTrack.artist || activeBatchArtistName,
+                    currentTrack.title,
+                    meta,
+                    file.name
+                );
+                await linkSongKeysToLibrary(currentTrack.songId, [mainKey, ...aliasKeys]);
+                await applyMtabExtras(mtabBundle.header, mtabBundle.part, {
+                    songKey: mainKey,
+                    aliasKeys,
+                    songId: currentTrack.songId,
+                    applyToActiveReader: false
+                }).catch(err => {
+                    console.warn('[Tab Downloader] Batch .mtab extras attachment failed:', err);
+                });
+            } else if (matchedUrl || syncPoints) {
                 const { mainKey, aliasKeys } = deriveSongKeyAndAliases(
                     currentTrack.artist || activeBatchArtistName,
                     currentTrack.title,
@@ -820,18 +871,21 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             sourceUrl,
             sourceWebsite
         });
-        await addTabOptionToSong(targetSong.id, {
+        const addedTab = await addTabOptionToSong(targetSong.id, {
             name: file.name,
             providerId: 'tab-downloader',
             relativePath: path || file.name,
             fileStoreId: stored.id,
-            tuning: meta.primaryTuning,
-            tunings: meta.tunings,
+            tuning: file.tabTuning?.tuning || meta.primaryTuning,
+            tunings: file.tabTuning?.tuning ? [file.tabTuning.tuning] : meta.tunings,
+            tuningSource: file.tabTuning?.source || meta.tuningSource || null,
             stringCount: meta.stringCount,
             fileType: file.name.split('.').pop().toLowerCase(),
             sourceUrl,
             sourceWebsite
         });
+        file.librarySongId = targetSong.id;
+        if (addedTab?.id) file.tabId = addedTab.id;
         showToast(`Added "${file.name}" to ${targetSong.title || 'song'}`, 'success');
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
         closeLibraryModal(true);
@@ -841,7 +895,18 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             const output = document.getElementById('output');
             if (output && output.style.display !== 'none') output.focus();
         } catch {}
-        if (matchedUrl || syncPoints) {
+        if (mtabBundle) {
+            const { mainKey, aliasKeys } = buildMtabSongKeys(targetSong.artist, targetSong.title, meta, file.name);
+            await linkSongKeysToLibrary(targetSong.id, [mainKey, ...aliasKeys]);
+            await applyMtabExtras(mtabBundle.header, mtabBundle.part, {
+                songKey: mainKey,
+                aliasKeys,
+                songId: targetSong.id,
+                applyToActiveReader: true
+            }).catch(err => {
+                console.warn('[Tab Downloader] .mtab extras attachment failed:', err);
+            });
+        } else if (matchedUrl || syncPoints) {
             const { mainKey, aliasKeys } = deriveSongKeyAndAliases(targetSong.artist, targetSong.title, meta, file.name);
             await linkSongKeysToLibrary(targetSong.id, [mainKey, ...aliasKeys]);
             attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, songKey: mainKey, aliasKeys, switchToOriginal: true, syncPoints }).catch(err => {
@@ -863,7 +928,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             sourceWebsite
         });
         closeLibraryModal(true);
-        onFileSelectedCb({ file, providerId: 'tab-downloader', fileStoreId: stored.id, name: file.name, meta, sourceUrl, sourceWebsite });
+        onFileSelectedCb({ file, providerId: 'tab-downloader', fileStoreId: stored.id, name: file.name, meta, sourceUrl, sourceWebsite, mtabBundle });
         return;
     }
 
@@ -883,8 +948,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             providerId: 'tab-downloader',
             relativePath: path || file.name,
             fileStoreId: stored.id,
-            tuning: meta.primaryTuning,
-            tunings: meta.tunings,
+            tuning: file.tabTuning?.tuning || meta.primaryTuning,
+            tunings: file.tabTuning?.tuning ? [file.tabTuning.tuning] : meta.tunings,
+            tuningSource: file.tabTuning?.source || meta.tuningSource || null,
             stringCount: meta.stringCount,
             fileType: file.name.split('.').pop().toLowerCase(),
             sourceUrl,
@@ -894,7 +960,18 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         showToast(`Added "${file.name}" to ${targetSong.title || 'song'}`, 'success');
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
 
-        if (matchedUrl || syncPoints) {
+        if (mtabBundle) {
+            const { mainKey, aliasKeys } = buildMtabSongKeys(targetSong.artist, targetSong.title, meta, file.name);
+            await linkSongKeysToLibrary(targetSong.id, [mainKey, ...aliasKeys]);
+            await applyMtabExtras(mtabBundle.header, mtabBundle.part, {
+                songKey: mainKey,
+                aliasKeys,
+                songId: targetSong.id,
+                applyToActiveReader: false
+            }).catch(err => {
+                console.warn('[Tab Downloader] Background .mtab extras attachment failed:', err);
+            });
+        } else if (matchedUrl || syncPoints) {
             const { mainKey, aliasKeys } = deriveSongKeyAndAliases(targetSong.artist, targetSong.title, meta, file.name);
             await linkSongKeysToLibrary(targetSong.id, [mainKey, ...aliasKeys]);
             attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, songKey: mainKey, aliasKeys, syncPoints }).catch(err => {
@@ -919,8 +996,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             providerId: 'tab-downloader',
             relativePath: path || file.name,
             fileStoreId: stored.id,
-            tuning: meta.primaryTuning,
-            tunings: meta.tunings,
+            tuning: file.tabTuning?.tuning || meta.primaryTuning,
+            tunings: file.tabTuning?.tuning ? [file.tabTuning.tuning] : meta.tunings,
+            tuningSource: file.tabTuning?.source || meta.tuningSource || null,
             stringCount: meta.stringCount,
             fileType: file.name.split('.').pop().toLowerCase(),
             sourceUrl,
@@ -935,6 +1013,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     // Load file directly into player viewer
     closeLibraryModal(true);
     await loadFile(file);
+    if (mtabBundle) {
+        await applyMtabExtras(mtabBundle.header, mtabBundle.part, { applyToActiveReader: true });
+    }
 
     try {
         window.focus();
@@ -944,7 +1025,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         }
     } catch {}
 
-    if (matchedUrl || syncPoints) {
+    if (!mtabBundle && (matchedUrl || syncPoints)) {
         const meta = await detectFileMetadata(file, file.name).catch(() => null);
         const { mainKey, aliasKeys } = deriveSongKeyAndAliases('', '', meta, file.name);
         attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, songKey: mainKey, aliasKeys, switchToOriginal: true, syncPoints });

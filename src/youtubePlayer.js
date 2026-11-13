@@ -878,7 +878,7 @@ async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = nul
 // Tabs of one library song can carry different score titles, so their sync points sit under different song keys.
 // The keys seen for a library song are remembered, so a tab can offer the synced videos of its sibling tabs.
 const songKeysStore = (id) => `yt_song_keys_${id}`;
-function rememberSongKey(librarySongId, key, meta = {}) {
+export function rememberSongKey(librarySongId, key, meta = {}) {
     if (!librarySongId || !key) return;
     try {
         const raw = JSON.parse(localStorage.getItem(songKeysStore(librarySongId)) || '[]');

@@ -5,7 +5,7 @@ import { getAllSetlists, clearAllSetlists, importSetlists, putSetlistRecord, del
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile, getAllStoredFiles, deleteStoredFile } from './fileStore.js';
 import { detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode, tuningKeyOf, visibleTuningsForSong } from './utils/tuningUtils.js';
 import { canReplaceTuning } from './utils/tabTuningMeta.js';
-import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, filterInstrumentalBonusDiscs } from './musicbrainz.js';
+import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, filterInstrumentalBonusDiscs, lookupMusicBrainzByIds } from './musicbrainz.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
 
@@ -982,7 +982,7 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
     // A tuning the player set in the Song menu while the tab was not yet in the library is theirs, and wins
     const chosen = file.tabTuning && typeof file.tabTuning === 'object' ? file.tabTuning : null;
     const tabOption = {
-        id: `tab_${Date.now()}`,
+        id: `tab_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         name: tabName || file.name,
         providerId,
         relativePath: relativePath || file.name,
@@ -996,8 +996,255 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
         sourceWebsite: file.sourceWebsite || null
     };
 
-    await addTabOptionToSong(songId, tabOption);
-    return { song, tabOption, stored };
+    const addedOption = await addTabOptionToSong(songId, tabOption);
+    song = (await getSongById(songId)) || song;
+    return { song, tabOption: addedOption || tabOption, stored };
+}
+
+function extractSongInfoFields(raw = {}) {
+    if (!raw || typeof raw !== 'object') return {};
+    const mb = (raw.musicbrainz && typeof raw.musicbrainz === 'object') ? raw.musicbrainz : {};
+    const recordingMbid = String(raw.recordingMbid || mb.recordingMbid || mb.recordingId || mb.recording || '').trim() || null;
+    const artistMbid = String(raw.artistMbid || mb.artistMbid || mb.artistId || mb.artist || '').trim() || null;
+    const albumMbid = String(raw.albumMbid || raw.releaseGroupId || raw.releaseId || mb.albumMbid || mb.releaseGroupMbid || mb.releaseGroupId || mb.albumId || mb.releaseId || '').trim() || null;
+    return {
+        id: raw.id || null,
+        title: String(raw.title || raw.songTitle || '').trim(),
+        artist: String(raw.artist || '').trim(),
+        album: String(raw.album || '').trim(),
+        year: raw.year || null,
+        length: typeof raw.length === 'number' ? raw.length : (raw.length ? parseInt(raw.length, 10) : null),
+        trackNumber: raw.trackNumber ? parseInt(raw.trackNumber, 10) : null,
+        mediumNumber: raw.mediumNumber ? parseInt(raw.mediumNumber, 10) : null,
+        mediumTitle: raw.mediumTitle || null,
+        mediumFormat: raw.mediumFormat || null,
+        recordingMbid,
+        artistMbid,
+        albumMbid,
+        coverUrl: raw.coverUrl || null,
+        isCustom: Boolean(raw.isCustom),
+        folderPath: raw.folderPath || null
+    };
+}
+
+function isPlaceholderAlbum(album) {
+    const a = cleanTitle(album);
+    return !a || a === 'unknownalbum' || a === 'singlesother' || a === 'single' || a === 'singles';
+}
+
+/**
+ * Find an existing song in a library collection matching MusicBrainz IDs or Artist/Album/Title.
+ */
+export async function findMatchingSongInLibrary(songInfo = {}, collectionId = DEFAULT_COLLECTION_ID) {
+    const info = extractSongInfoFields(songInfo);
+    const colId = collectionId || DEFAULT_COLLECTION_ID;
+    const allInCol = await getSongsByCollection(colId);
+    const songs = (allInCol || []).filter(s => s && !s.isAlbumTabContainer && !s.isCustom);
+    if (songs.length === 0) return null;
+
+    if (info.id) {
+        const byId = songs.find(s => s.id === info.id);
+        if (byId) return byId;
+    }
+
+    const titleClean = cleanTitle(info.title);
+    const artistClean = cleanTitle(info.artist);
+    const albumClean = cleanTitle(info.album);
+
+    // 1. Match by recordingMbid
+    if (info.recordingMbid) {
+        const recMatches = songs.filter(s => s.recordingMbid && s.recordingMbid === info.recordingMbid);
+        if (recMatches.length === 1) return recMatches[0];
+        if (recMatches.length > 1) {
+            if (info.albumMbid) {
+                const byAlbMbid = recMatches.find(s => s.albumMbid === info.albumMbid);
+                if (byAlbMbid) return byAlbMbid;
+            }
+            if (albumClean && !isPlaceholderAlbum(info.album)) {
+                const byAlbTitle = recMatches.find(s => cleanTitle(s.album) === albumClean);
+                if (byAlbTitle) return byAlbTitle;
+            }
+            return recMatches[0];
+        }
+    }
+
+    // 2. Match by albumMbid + track title or trackNumber
+    if (info.albumMbid) {
+        const albumSongs = songs.filter(s => s.albumMbid && s.albumMbid === info.albumMbid);
+        if (albumSongs.length > 0) {
+            if (titleClean) {
+                const byTitle = albumSongs.find(s => cleanTitle(s.title) === titleClean);
+                if (byTitle) return byTitle;
+            }
+            if (info.trackNumber) {
+                const byTrack = albumSongs.find(s =>
+                    s.trackNumber === info.trackNumber &&
+                    (!info.mediumNumber || (s.mediumNumber || 1) === info.mediumNumber) &&
+                    (!titleClean || !cleanTitle(s.title) || cleanTitle(s.title) === titleClean)
+                );
+                if (byTrack) return byTrack;
+            }
+        }
+    }
+
+    // 3. Match by artist (artistMbid or artist name) + title
+    if (titleClean && (info.artistMbid || (artistClean && artistClean !== 'unknownartist'))) {
+        const candidates = songs.filter(s => {
+            if (cleanTitle(s.title) !== titleClean) return false;
+            if (info.artistMbid && s.artistMbid && s.artistMbid === info.artistMbid) return true;
+            if (artistClean && artistClean !== 'unknownartist' && cleanTitle(s.artist) === artistClean) return true;
+            return false;
+        });
+
+        if (candidates.length > 0) {
+            if (info.albumMbid) {
+                const exactAlbMbid = candidates.find(s => s.albumMbid === info.albumMbid);
+                if (exactAlbMbid) return exactAlbMbid;
+            }
+            if (albumClean && !isPlaceholderAlbum(info.album)) {
+                const exactAlb = candidates.find(s => cleanTitle(s.album) === albumClean);
+                if (exactAlb) return exactAlb;
+            }
+            // Prefer a candidate that already belongs to a real album over a placeholder album
+            const withRealAlbum = candidates.find(s => !isPlaceholderAlbum(s.album));
+            return withRealAlbum || candidates[0];
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Resolve song placement (artist, album, song) via MusicBrainz IDs if needed, then either merge
+ * metadata into an existing song in the library or add a new song in the proper library hierarchy.
+ */
+export async function resolveAndSaveOrMergeSong(
+    songInfo = {},
+    collectionId = DEFAULT_COLLECTION_ID,
+    { queryMusicBrainz = true, allowTextFallback = false } = {}
+) {
+    const colId = collectionId || DEFAULT_COLLECTION_ID;
+    let info = extractSongInfoFields(songInfo);
+
+    if (info.isCustom) {
+        const saved = await saveSongToLibrary({
+            ...songInfo,
+            title: info.title || 'Untitled',
+            artist: info.artist || 'Custom Music',
+            album: info.album || info.folderPath || 'Custom Music',
+            isCustom: true
+        }, colId);
+        return { song: saved, merged: false, created: true };
+    }
+
+    let existing = await findMatchingSongInLibrary(info, colId);
+    const hasMbids = Boolean(info.recordingMbid || info.albumMbid || info.artistMbid);
+    const needsEnrichment = !existing
+        ? (hasMbids || allowTextFallback || isPlaceholderAlbum(info.album) || !info.artist || info.artist === 'Unknown Artist')
+        : (hasMbids && (isPlaceholderAlbum(existing.album) || !existing.coverUrl || !existing.year || !existing.recordingMbid || !existing.albumMbid || !existing.artistMbid));
+
+    if (queryMusicBrainz && needsEnrichment && (hasMbids || allowTextFallback)) {
+        try {
+            const mbResolved = await lookupMusicBrainzByIds({
+                ...info,
+                title: info.title || existing?.title || '',
+                artist: info.artist || existing?.artist || '',
+                album: (!isPlaceholderAlbum(info.album) ? info.album : existing?.album) || ''
+            }, { allowTextFallback });
+
+            if (mbResolved) {
+                info = {
+                    ...info,
+                    title: mbResolved.title || info.title,
+                    artist: (mbResolved.artist && mbResolved.artist !== 'Unknown Artist') ? mbResolved.artist : info.artist,
+                    artistMbid: mbResolved.artistMbid || info.artistMbid,
+                    album: (!isPlaceholderAlbum(mbResolved.album)) ? mbResolved.album : info.album,
+                    albumMbid: mbResolved.albumMbid || info.albumMbid,
+                    recordingMbid: mbResolved.recordingMbid || info.recordingMbid,
+                    year: mbResolved.year || info.year,
+                    length: mbResolved.length ?? info.length,
+                    trackNumber: mbResolved.trackNumber || info.trackNumber,
+                    mediumNumber: mbResolved.mediumNumber || info.mediumNumber,
+                    mediumTitle: mbResolved.mediumTitle || info.mediumTitle,
+                    mediumFormat: mbResolved.mediumFormat || info.mediumFormat,
+                    coverUrl: mbResolved.coverUrl || info.coverUrl
+                };
+                if (!existing) {
+                    existing = await findMatchingSongInLibrary(info, colId);
+                }
+            }
+        } catch (err) {
+            console.warn('[resolveAndSaveOrMergeSong] MusicBrainz lookup failed:', err);
+        }
+    }
+
+    // Inherit album-level metadata (coverUrl, year, albumMbid, artistMbid) from sibling tracks on the same album if present
+    try {
+        const allInCol = await getSongsByCollection(colId);
+        const sibling = (allInCol || []).find(s => {
+            if (!s || s.isCustom || s.isAlbumTabContainer) return false;
+            if (info.albumMbid && s.albumMbid && s.albumMbid === info.albumMbid) return true;
+            if (!isPlaceholderAlbum(info.album) && cleanTitle(s.album) === cleanTitle(info.album) && cleanTitle(s.artist) === cleanTitle(info.artist)) return true;
+            return false;
+        });
+        if (sibling) {
+            if (isPlaceholderAlbum(info.album) && !isPlaceholderAlbum(sibling.album)) info.album = sibling.album;
+            if ((!info.artist || info.artist === 'Unknown Artist') && sibling.artist) info.artist = sibling.artist;
+            if (!info.albumMbid && sibling.albumMbid) info.albumMbid = sibling.albumMbid;
+            if (!info.artistMbid && sibling.artistMbid) info.artistMbid = sibling.artistMbid;
+            if (!info.year && sibling.year) info.year = sibling.year;
+            if (!info.coverUrl && sibling.coverUrl) info.coverUrl = sibling.coverUrl;
+        }
+    } catch (_) {}
+
+    if (existing) {
+        let changed = false;
+        if (info.recordingMbid && !existing.recordingMbid) { existing.recordingMbid = info.recordingMbid; changed = true; }
+        if (info.artistMbid && !existing.artistMbid) { existing.artistMbid = info.artistMbid; changed = true; }
+        if (info.albumMbid && !existing.albumMbid) { existing.albumMbid = info.albumMbid; changed = true; }
+        if (!isPlaceholderAlbum(info.album) && isPlaceholderAlbum(existing.album)) { existing.album = info.album; changed = true; }
+        if (info.artist && info.artist !== 'Unknown Artist' && (!existing.artist || existing.artist === 'Unknown Artist')) { existing.artist = info.artist; changed = true; }
+        if (info.year && !existing.year) { existing.year = info.year; changed = true; }
+        if (typeof info.length === 'number' && info.length > 0 && !existing.length) { existing.length = info.length; changed = true; }
+        if (info.trackNumber && !existing.trackNumber) { existing.trackNumber = info.trackNumber; changed = true; }
+        if (info.mediumNumber && !existing.mediumNumber) { existing.mediumNumber = info.mediumNumber; changed = true; }
+        if (info.mediumTitle && !existing.mediumTitle) { existing.mediumTitle = info.mediumTitle; changed = true; }
+        if (info.mediumFormat && !existing.mediumFormat) { existing.mediumFormat = info.mediumFormat; changed = true; }
+        if (info.coverUrl && (!existing.coverUrl || existing.coverUrl.includes('data:image/svg+xml'))) { existing.coverUrl = info.coverUrl; changed = true; }
+
+        if (changed) {
+            existing = await saveSongToLibrary(existing, existing.collectionId || colId);
+        }
+        return { song: existing, merged: true, created: false };
+    }
+
+    const finalArtist = info.artist || 'Unknown Artist';
+    const finalAlbum = !isPlaceholderAlbum(info.album) ? info.album : (info.album || 'Singles / Other');
+    const finalTitle = info.title || 'Untitled';
+    const medNum = info.mediumNumber || 1;
+    const generatedId = info.id || `song_${info.artistMbid || finalArtist}_${info.albumMbid || finalAlbum}_m${medNum}_${info.recordingMbid || info.trackNumber || finalTitle}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    const newSong = await saveSongToLibrary({
+        id: generatedId,
+        collectionId: colId,
+        title: finalTitle,
+        artist: finalArtist,
+        artistMbid: info.artistMbid || null,
+        album: finalAlbum,
+        albumMbid: info.albumMbid || null,
+        year: info.year || null,
+        length: info.length || null,
+        trackNumber: info.trackNumber || null,
+        mediumNumber: medNum,
+        mediumTitle: info.mediumTitle || null,
+        mediumFormat: info.mediumFormat || null,
+        recordingMbid: info.recordingMbid || null,
+        coverUrl: info.coverUrl || (info.albumMbid ? getCoverArtUrl(info.albumMbid) : null),
+        tunings: [],
+        tabOptions: []
+    }, colId);
+
+    return { song: newSong, merged: false, created: true };
 }
 
 // -----------------------------------------------------------------------------

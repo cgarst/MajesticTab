@@ -28,6 +28,7 @@ import { detectFileMetadata, getTuningInfo, tuningMatchesQuery, setCustomTuningN
 import { renderTuningBarsSvg } from './utils/tuningVisual.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
+import { isMtabFile, saveMtabToLibrary } from './mtab.js';
 import { showToast } from './utils/toast.js';
 import { scoreOptionsState, pauseSynthPlayer } from './gpProcessor/gpPlayer.js';
 import { pauseYouTube } from './youtubePlayer.js';
@@ -4233,6 +4234,20 @@ function setupSongRowActions(container) {
 
             let addedCount = 0;
             for (const file of files) {
+                if (isMtabFile(file)) {
+                    try {
+                        const matchedSong = matchSongInAlbum(selectedAlbum.songs, file.name);
+                        await saveMtabToLibrary(file, {
+                            collectionId: activeCollectionId,
+                            targetSongId: matchedSong?.id || null
+                        });
+                        showToast(`Added "${file.name}" to library`, 'success');
+                        addedCount++;
+                    } catch (err) {
+                        showToast(err?.message || 'Could not add .mtab song file', 'error');
+                    }
+                    continue;
+                }
                 const matchedSong = matchSongInAlbum(selectedAlbum.songs, file.name);
                 if (matchedSong) {
                     const ok = await attachFileToSong(file, matchedSong.id);
@@ -4242,7 +4257,7 @@ function setupSongRowActions(container) {
                     if (ok) addedCount++;
                 } else {
                     if (!(await isSupportedTabFile(file))) {
-                        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+                        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mtab)`, 'warning');
                     }
                 }
             }
@@ -4261,8 +4276,22 @@ function setupSongRowActions(container) {
  */
 async function attachFileToSong(file, songId) {
     if (!file) return false;
+    if (isMtabFile(file)) {
+        try {
+            await saveMtabToLibrary(file, {
+                collectionId: activeCollectionId,
+                targetSongId: songId || null
+            });
+            showToast(`Added "${file.name}" to song`, 'success');
+            return true;
+        } catch (err) {
+            console.error('Error attaching dropped .mtab to song:', err);
+            showToast(`Error attaching tab: ${err.message}`, 'error');
+            return false;
+        }
+    }
     if (!(await isSupportedTabFile(file))) {
-        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mtab)`, 'warning');
         return false;
     }
     try {

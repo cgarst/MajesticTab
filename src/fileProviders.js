@@ -14,10 +14,10 @@ import { unwrapRedirectUrl } from './urlImport/openFromUrl.js';
 // @inAppBrowser:begin
 import { isWsaTabUrl } from './utils/downloaderIntercept.js';
 // @inAppBrowser:end
-import { addTabOptionToSong, addTabOptionToAlbum } from './libraryStore.js';
+import { addTabOptionToSong, addTabOptionToAlbum, getSongById } from './libraryStore.js';
 import { detectFileMetadata } from './utils/tuningUtils.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
-import { isMtabFile, openMtab } from './mtab.js';
+import { isMtabFile, openMtab, unpackMtab, applyMtabExtras } from './mtab.js';
 import { showToast } from './utils/toast.js';
 
 const providers = new Map();
@@ -144,6 +144,16 @@ async function openMtabSafely(file) {
 /** Attach or open a file the user picked, depending on what the caller asked for (song, album, callback or plain open). */
 async function handlePickedFile(file, options = {}) {
     if (isMtabFile(file) && !options.onFileSelected && !options.songId && !options.targetSong?.id && !options.isAlbumTab) return openMtabSafely(file);
+    let mtabBundle = null;
+    if (isMtabFile(file)) {
+        try {
+            mtabBundle = await unpackMtab(file);
+            file = mtabBundle.tabFile;
+        } catch (err) {
+            showToast(err?.message || 'Could not open that song file', 'error');
+            return;
+        }
+    }
     if (typeof options.onFileSelected === 'function' || options.songId || options.targetSong?.id || options.isAlbumTab) {
         if (!(await isSupportedTabFile(file))) {
             showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mtab)`, 'warning');
@@ -165,7 +175,8 @@ async function handlePickedFile(file, options = {}) {
                 name: file.name,
                 meta,
                 sourceUrl: file.sourceUrl || null,
-                sourceWebsite: file.sourceWebsite || null
+                sourceWebsite: file.sourceWebsite || null,
+                mtabBundle
             });
         } catch (err) {
             console.warn('Could not persist file to store:', err);
@@ -184,18 +195,38 @@ async function handlePickedFile(file, options = {}) {
                 sourceUrl: file.sourceUrl || null,
                 sourceWebsite: file.sourceWebsite || null
             });
-            await addTabOptionToSong(targetId, {
+            const addedOption = await addTabOptionToSong(targetId, {
                 name: file.name,
                 providerId: 'local',
                 relativePath: file.name,
                 fileStoreId: stored.id,
-                tuning: meta.primaryTuning,
-                tunings: meta.tunings,
+                tuning: file.tabTuning?.tuning || meta.primaryTuning,
+                tunings: file.tabTuning?.tuning ? [file.tabTuning.tuning] : meta.tunings,
+                tuningSource: file.tabTuning?.source || meta.tuningSource || null,
                 stringCount: meta.stringCount,
                 fileType: file.name.split('.').pop().toLowerCase(),
                 sourceUrl: file.sourceUrl || null,
                 sourceWebsite: file.sourceWebsite || null
             });
+            if (mtabBundle) {
+                const song = await getSongById(targetId).catch(() => null);
+                const mainKey = (song?.artist && song?.title) ? `${song.artist} - ${song.title}` : (song?.title || file.name.replace(/\.[^/.]+$/, ''));
+                const aliasKeys = [];
+                if (mtabBundle.header?.song?.artist && mtabBundle.header?.song?.title) {
+                    const hk = `${mtabBundle.header.song.artist} - ${mtabBundle.header.song.title}`;
+                    if (hk.toLowerCase() !== mainKey.toLowerCase()) aliasKeys.push(hk);
+                }
+                const { rememberSongKey } = await import('./youtubePlayer.js');
+                rememberSongKey(targetId, mainKey, { filename: file.name, tabName: addedOption?.name || file.name });
+                for (const ak of aliasKeys) rememberSongKey(targetId, ak, { filename: file.name, tabName: addedOption?.name || file.name });
+                await applyMtabExtras(mtabBundle.header, mtabBundle.part, {
+                    songKey: mainKey,
+                    aliasKeys,
+                    song: song || undefined,
+                    songId: targetId,
+                    applyToActiveReader: false
+                });
+            }
             showToast(`Added "${file.name}" to song`, 'success');
             window.dispatchEvent(new CustomEvent('libraryDataChanged'));
         } catch (err) {

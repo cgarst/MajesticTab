@@ -454,12 +454,13 @@ class MainActivity : TauriActivity() {
     return Regex("filename\\s*=\\s*\"?([^\";]+)\"?", RegexOption.IGNORE_CASE).find(disposition)?.groupValues?.get(1)?.trim()
   }
 
-  // Gives a file without a tab extension the one its header bytes imply (Guitar Pro 3-5 or the zip-based .gp).
+  // Gives a file without a tab extension the one its header bytes imply (Guitar Pro 3-5, zip-based .gp, or .mtab).
   private fun withTabExtension(name: String, bytes: ByteArray): String {
-    if (Regex("\\.(gp\\d?|gpx|gp7)$", RegexOption.IGNORE_CASE).containsMatchIn(name)) return name
+    if (Regex("\\.(gp\\d?|gpx|gp7|mtab)$", RegexOption.IGNORE_CASE).containsMatchIn(name)) return name
     val base = name.substringBeforeLast('.', name)
     val head = String(bytes, 0, minOf(bytes.size, 32), Charsets.ISO_8859_1)
     return when {
+      head.startsWith("MTAB") -> "$base.mtab"
       head.startsWith("PK") -> "$base.gp"
       head.startsWith("BCFZ") || head.startsWith("BCFS") -> "$base.gpx"
       head.contains("FICHIER GUITAR PRO v3") -> "$base.gp3"

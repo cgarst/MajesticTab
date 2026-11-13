@@ -1251,3 +1251,239 @@ async function getAlbumTracksFresh(releaseGroupMbid) {
         scrubbedMediumNumbers: Array.from(scrubbedMediumNumbers)
     };
 }
+
+function normalizeLookupTitle(str) {
+    return String(str || '')
+        .toLowerCase()
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/**
+ * Resolve canonical song, album, and artist metadata from MusicBrainz using MusicBrainz IDs
+ * (recordingMbid, albumMbid, artistMbid) and optional fallback title/artist/album hints.
+ */
+export async function lookupMusicBrainzByIds(songInfo = {}, { allowTextFallback = false } = {}) {
+    if (!songInfo || typeof songInfo !== 'object') return null;
+
+    const recordingMbid = String(songInfo.recordingMbid || '').trim();
+    const albumMbid = String(songInfo.albumMbid || '').trim();
+    const artistMbid = String(songInfo.artistMbid || '').trim();
+    const hintTitle = String(songInfo.title || '').trim();
+    const hintArtist = String(songInfo.artist || '').trim();
+    const hintAlbum = String(songInfo.album || '').trim();
+    const hintTrackNumber = songInfo.trackNumber ? parseInt(songInfo.trackNumber, 10) : null;
+    const hintMediumNumber = songInfo.mediumNumber ? parseInt(songInfo.mediumNumber, 10) : null;
+
+    // 1. Direct lookup by recordingMbid
+    if (recordingMbid) {
+        try {
+            const url = `${MB_BASE}/recording/${encodeURIComponent(recordingMbid)}?inc=artists+releases+release-groups+media&fmt=json`;
+            const rec = await fetchMusicBrainz(url);
+            if (rec && (rec.id || rec.title)) {
+                const artistCredit = rec['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || hintArtist || 'Unknown Artist';
+                const resolvedArtistMbid = rec['artist-credit']?.[0]?.artist?.id || artistMbid || '';
+                const disambig = (rec.disambiguation || '').trim();
+                let recTitle = rec.title || hintTitle || 'Untitled';
+                if (disambig) {
+                    const cleanD = disambig.replace(/^\((.+)\)$/, '$1').trim();
+                    if (cleanD && !recTitle.toLowerCase().includes(cleanD.toLowerCase())) {
+                        recTitle = `${recTitle} (${cleanD})`;
+                    }
+                }
+
+                const releases = Array.isArray(rec.releases) ? rec.releases : [];
+                let bestRelease = null;
+                let bestRelScore = -9999;
+                const hintAlbumNorm = normalizeLookupTitle(hintAlbum);
+                const recTitleNorm = normalizeLookupTitle(recTitle);
+
+                for (const rel of releases) {
+                    let rScore = 0;
+                    const relTitle = (rel.title || '').toLowerCase();
+                    const status = rel.status || '';
+                    const rg = rel['release-group'] || {};
+                    const rgId = rg.id || '';
+                    const rgTitle = rg.title || rel.title || '';
+                    const primaryType = rg['primary-type'] || '';
+                    const secTypes = (rg['secondary-types'] || []).map(t => String(t).toLowerCase());
+                    const country = (rel.country || '').toUpperCase();
+
+                    if (albumMbid && (rgId === albumMbid || rel.id === albumMbid)) {
+                        rScore += 500;
+                    } else if (hintAlbumNorm && normalizeLookupTitle(rgTitle) === hintAlbumNorm) {
+                        rScore += 200;
+                    }
+
+                    if (status === 'Official') rScore += 50;
+                    else if (status === 'Bootleg') rScore -= 100;
+                    else if (status === 'Promotion') rScore += 10;
+
+                    if (primaryType === 'Album') rScore += 60;
+                    else if (primaryType === 'Single' || primaryType === 'EP') rScore += 25;
+
+                    if (secTypes.includes('live')) rScore -= 90;
+                    if (secTypes.includes('compilation')) rScore -= 45;
+                    if (secTypes.includes('tribute') || secTypes.includes('dj-mix') || secTypes.includes('soundtrack')) rScore -= 70;
+
+                    if (relTitle.includes('tribute') || relTitle.includes('karaoke') || relTitle.includes('compilation') || relTitle.includes('greatest') || relTitle.includes('hits')) {
+                        rScore -= 60;
+                    }
+
+                    if (country === 'US') rScore += 20;
+                    else if (country === 'GB' || country === 'UK') rScore += 15;
+                    else if (country === 'XW' || country === 'XE') rScore += 10;
+
+                    if (normalizeLookupTitle(rgTitle) === recTitleNorm && primaryType === 'Album') {
+                        rScore += 30;
+                    }
+
+                    const relYear = rel.date ? parseInt(rel.date.slice(0, 4), 10) : null;
+                    if (relYear && relYear >= 1950 && relYear <= 2035) {
+                        rScore += (2035 - relYear) / 4;
+                    }
+
+                    if (rScore > bestRelScore) {
+                        bestRelScore = rScore;
+                        bestRelease = rel;
+                    }
+                }
+
+                const rg = bestRelease?.['release-group'] || {};
+                const resolvedAlbum = rg.title || bestRelease?.title || hintAlbum || 'Unknown Album';
+                const resolvedAlbumMbid = rg.id || bestRelease?.id || albumMbid || '';
+                const resolvedReleaseId = bestRelease?.id || null;
+
+                let resolvedTrackNumber = hintTrackNumber;
+                let resolvedMediumNumber = hintMediumNumber || 1;
+                let resolvedMediumTitle = songInfo.mediumTitle || null;
+                let resolvedMediumFormat = songInfo.mediumFormat || null;
+
+                const mediaList = Array.isArray(bestRelease?.media) ? bestRelease.media : [];
+                if (mediaList.length > 0) {
+                    const preferredMed = (hintMediumNumber && mediaList.find(m => m.position === hintMediumNumber)) || mediaList[0];
+                    if (preferredMed) {
+                        resolvedMediumNumber = preferredMed.position || resolvedMediumNumber;
+                        resolvedMediumTitle = preferredMed.title || resolvedMediumTitle;
+                        resolvedMediumFormat = preferredMed.format || resolvedMediumFormat;
+                        const medTracks = preferredMed.tracks || preferredMed.track || [];
+                        const tr = medTracks[0];
+                        if (tr) {
+                            const pos = typeof tr.position === 'number' ? tr.position : parseInt(tr.position || tr.number, 10);
+                            if (pos) resolvedTrackNumber = pos;
+                        }
+                    }
+                }
+
+                const year = rec['first-release-date']
+                    ? parseInt(rec['first-release-date'].slice(0, 4), 10)
+                    : (bestRelease?.date ? parseInt(bestRelease.date.slice(0, 4), 10) : (songInfo.year ? parseInt(songInfo.year, 10) : null));
+                const length = rec.length
+                    ? Math.round(rec.length / 1000)
+                    : (typeof songInfo.length === 'number' ? songInfo.length : null);
+
+                return {
+                    id: rec.id || recordingMbid,
+                    recordingMbid: rec.id || recordingMbid,
+                    title: recTitle,
+                    artist: artistCredit,
+                    artistMbid: resolvedArtistMbid,
+                    album: resolvedAlbum,
+                    albumMbid: resolvedAlbumMbid,
+                    year: year || null,
+                    length,
+                    trackNumber: resolvedTrackNumber || null,
+                    mediumNumber: resolvedMediumNumber || 1,
+                    mediumTitle: resolvedMediumTitle,
+                    mediumFormat: resolvedMediumFormat,
+                    coverUrl: resolvedAlbumMbid ? getCoverArtUrl(resolvedAlbumMbid, resolvedReleaseId) : (songInfo.coverUrl || null)
+                };
+            }
+        } catch (_) {
+            // Fall through to albumMbid / artistMbid lookup if recording lookup fails
+        }
+    }
+
+    // 2. Lookup by albumMbid (Release Group or Release ID)
+    if (albumMbid) {
+        try {
+            const albumData = await getAlbumTracks(albumMbid);
+            if (albumData) {
+                const allTracks = [...(albumData.tracks || []), ...(albumData.excludedTracks || [])];
+                const targetTitleNorm = normalizeLookupTitle(hintTitle);
+                let matchedTrack = null;
+
+                if (recordingMbid) {
+                    matchedTrack = allTracks.find(t => t.recordingMbid === recordingMbid || t.id === recordingMbid);
+                }
+                if (!matchedTrack && targetTitleNorm) {
+                    matchedTrack = allTracks.find(t => normalizeLookupTitle(t.title) === targetTitleNorm);
+                }
+                if (!matchedTrack && hintTrackNumber) {
+                    matchedTrack = allTracks.find(t =>
+                        t.trackNumber === hintTrackNumber &&
+                        (!hintMediumNumber || (t.mediumNumber || 1) === hintMediumNumber)
+                    );
+                }
+                if (!matchedTrack && targetTitleNorm) {
+                    matchedTrack = allTracks.find(t => {
+                        const tn = normalizeLookupTitle(t.title);
+                        return tn && (tn.includes(targetTitleNorm) || targetTitleNorm.includes(tn));
+                    });
+                }
+
+                return {
+                    id: matchedTrack?.recordingMbid || matchedTrack?.id || recordingMbid || null,
+                    recordingMbid: matchedTrack?.recordingMbid || recordingMbid || null,
+                    title: matchedTrack?.title || hintTitle || 'Untitled',
+                    artist: matchedTrack?.artist || albumData.artist || hintArtist || 'Unknown Artist',
+                    artistMbid: albumData.artistMbid || artistMbid || '',
+                    album: albumData.title || hintAlbum || 'Unknown Album',
+                    albumMbid: albumData.releaseGroupId || albumMbid,
+                    year: albumData.year || (songInfo.year ? parseInt(songInfo.year, 10) : null),
+                    length: matchedTrack?.length ?? (typeof songInfo.length === 'number' ? songInfo.length : null),
+                    trackNumber: matchedTrack?.trackNumber || hintTrackNumber || null,
+                    mediumNumber: matchedTrack?.mediumNumber || hintMediumNumber || 1,
+                    mediumTitle: matchedTrack?.mediumTitle || songInfo.mediumTitle || null,
+                    mediumFormat: matchedTrack?.mediumFormat || songInfo.mediumFormat || null,
+                    coverUrl: albumData.coverUrl || getCoverArtUrl(albumData.releaseGroupId || albumMbid, albumData.releaseId)
+                };
+            }
+        } catch (_) {
+            // Fall through to artistMbid lookup
+        }
+    }
+
+    // 3. Lookup by artistMbid + title
+    if (artistMbid && hintTitle) {
+        try {
+            const q = `arid:${artistMbid} AND recording:"${hintTitle.replace(/"/g, '')}"`;
+            const url = `${MB_BASE}/recording/?query=${encodeURIComponent(q)}&limit=25&fmt=json`;
+            const data = await fetchMusicBrainz(url);
+            const ranked = scoreAndRankRecordings(data.recordings || [], `${hintArtist} ${hintTitle}`.trim());
+            if (ranked.length > 0) {
+                const top = ranked[0];
+                return {
+                    ...top,
+                    artistMbid: top.artistMbid || artistMbid,
+                    trackNumber: top.trackNumber || hintTrackNumber || null,
+                    mediumNumber: top.mediumNumber || hintMediumNumber || 1
+                };
+            }
+        } catch (_) {}
+    }
+
+    // 4. Optional text search fallback
+    if (allowTextFallback && (hintTitle || hintArtist)) {
+        try {
+            const q = [hintArtist, hintTitle].filter(Boolean).join(' ');
+            const results = await searchMusicBrainz(q, 'song');
+            if (Array.isArray(results) && results.length > 0) {
+                return results[0];
+            }
+        } catch (_) {}
+    }
+
+    return null;
+}

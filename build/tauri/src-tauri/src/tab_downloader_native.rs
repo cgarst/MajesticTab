@@ -161,7 +161,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         let head = '';
         try { head = atob(base64Data.slice(0, 48)); } catch (_) { return false; }
         if (head.indexOf('FICHIER GUITAR PRO') >= 0 && head.indexOf('FICHIER GUITAR PRO') <= 1) return true;
-        if (head.startsWith('BCFB') || head.startsWith('BCFZ') || head.startsWith('%PDF') || head.startsWith('MThd')) return true;
+        if (head.startsWith('MTAB') || head.startsWith('BCFB') || head.startsWith('BCFZ') || head.startsWith('%PDF') || head.startsWith('MThd')) return true;
         if (head.startsWith('PK\x03\x04')) return true;
         return /\.(txt|cap)$/i.test(filename || '') && !/^\s*[<{]/.test(head);
     }
@@ -304,11 +304,11 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         const href = (a.getAttribute('href') || a.href || '').toLowerCase();
         if (href.startsWith('javascript:') || href === '#' || href === '') return false;
 
-        const isTabFile = /\.(gp\d?|gpx|pdf|txt|mid|midi|cap)(\?|$)/i.test(href);
+        const isTabFile = /\.(gp\d?|gpx|pdf|txt|mid|midi|cap|mtab)(\?|$)/i.test(href);
         const isDownloadEndpoint = href.includes('download') || href.includes('action=download') || href.includes('get_tab');
         const hasDownloadAttr = a.hasAttribute('download');
         const textAndClasses = ((a.innerText || a.textContent || '') + ' ' + (a.getAttribute('title') || '') + ' ' + (a.getAttribute('aria-label') || '') + ' ' + (a.className || '')).toLowerCase();
-        const hasDownloadWord = textAndClasses.includes('download') && (textAndClasses.includes('tab') || textAndClasses.includes('pro') || textAndClasses.includes('gp') || textAndClasses.includes('file') || textAndClasses.includes('guitar') || isDownloadEndpoint);
+        const hasDownloadWord = textAndClasses.includes('download') && (textAndClasses.includes('tab') || textAndClasses.includes('pro') || textAndClasses.includes('gp') || textAndClasses.includes('mtab') || textAndClasses.includes('file') || textAndClasses.includes('guitar') || isDownloadEndpoint);
 
         return isTabFile || isDownloadEndpoint || hasDownloadAttr || hasDownloadWord;
     }
@@ -330,7 +330,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
 
             // If it's HTML without an attachment header and doesn't end in a tab extension, it's an intermediate page -> navigate to it
             const href = (a.getAttribute('href') || a.href || '').toLowerCase();
-            const isTabExt = /\.(gp\d?|gpx|pdf|txt|mid|midi|cap)(\?|$)/i.test(href);
+            const isTabExt = /\.(gp\d?|gpx|pdf|txt|mid|midi|cap|mtab)(\?|$)/i.test(href);
             if (contentType.includes('text/html') && !disp.includes('attachment') && !isTabExt) {
                 window.location.href = a.href;
                 return true;
@@ -855,6 +855,9 @@ pub fn identify_tab_extension(bytes: &[u8], filename: &str) -> Option<&'static s
         }
         return Some("gp5");
     }
+    if bytes.starts_with(b"MTAB") {
+        return Some("mtab");
+    }
     if bytes.starts_with(b"BCFB") {
         return Some("gpx");
     }
@@ -870,6 +873,9 @@ pub fn identify_tab_extension(bytes: &[u8], filename: &str) -> Option<&'static s
     }
 
     // 2. Check file extension for supported formats
+    if lower_name.ends_with(".mtab") {
+        return Some("mtab");
+    }
     if lower_name.ends_with(".gp") {
         return Some("gp");
     }
