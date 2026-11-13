@@ -64,7 +64,7 @@ mdns-sd = "0.21.6"
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-apple-nav = { path = "../plugins/apple-nav" }
 objc2-app-kit = { version = "0.3", features = ["NSView", "NSWindow", "NSEvent", "NSApplication", "NSGraphicsContext", "objc2-quartz-core"] }
-objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSURLRequest", "NSGeometry"] }
+objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSFileManager", "NSURLRequest", "NSGeometry"] }
 objc2-quartz-core = { version = "0.3", features = ["CALayer", "objc2-core-foundation"] }
 objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKNavigation"] }
 block2 = "0.6"

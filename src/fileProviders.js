@@ -335,13 +335,14 @@ export const ICloudDriveFileProvider = {
             return openIcloudBrowser((file) => handlePickedFile(file, options));
         }
         const { getIcloudDriveRoot } = await import('./icloudDrive.js');
-        // Start in the folder MajesticTab uses; its parent is the top of iCloud Drive
+        // Ubiquity container (Documents) is the user-visible MajesticTab folder; in com~apple~CloudDocs/MajesticTab its parent is the top of iCloud Drive
         const root = await getIcloudDriveRoot().catch(() => null);
+        const defaultPath = root ? (root.endsWith('/Documents') ? root : root.replace(/\/[^/]+$/, '')) : null;
         const picked = await dialog.open({
             multiple: false,
             title: 'Open from iCloud Drive',
             filters: [{ name: 'Tab files', extensions: ['gp', 'gp3', 'gp4', 'gp5', 'gpx', 'pdf', 'txt'] }],
-            ...(root ? { defaultPath: root.replace(/\/[^/]+$/, '') } : {})
+            ...(defaultPath ? { defaultPath } : {})
         });
         const path = Array.isArray(picked) ? picked[0] : picked;
         if (!path) return;
