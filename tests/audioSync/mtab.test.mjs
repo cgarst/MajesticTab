@@ -415,7 +415,9 @@ test('buildMtab and readMtab roundtrip MusicBrainz IDs and song metadata', async
 
     assert.equal(filename, 'Megadeth - Holy Wars... The Punishment Due.mtab');
     assert.ok(isMtabFile({ name: filename }));
-    assert.ok(isMtabBytes(await blob.arrayBuffer()));
+    assert.ok(await isMtabBytes(await blob.arrayBuffer()));
+    assert.ok(!(await isMtabBytes(new Uint8Array([0x50, 0x4b, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))));
+    assert.ok(!(await isMtabBytes(new Uint8Array(8))));
 
     const { header, tabFile: unpackedTab } = await unpackMtab(blob);
     assert.equal(header.song.artist, 'Megadeth');
@@ -776,4 +778,43 @@ test('buildMtab roundtrips local audio, youtube fallback, tuning, and sync point
     const extUnpacked = await unpackMtab(extBlob, { externalTab: pdfBytes });
     assert.equal(extUnpacked.tabFile.name, 'realbook.pdf');
     assert.deepEqual(extUnpacked.tabFile.mtabPageRange, { startPage: 12, endPage: 14, pages: 100 });
+});
+
+test('applyMtabExtras keeps every synced YouTube recording, not only the original and backing slots', async () => {
+    lsMap.clear();
+    const point = (bar, timeMs) => ({ timeMs, bar, occurrence: 0, pos: 0 });
+    const syncs = {
+        v1: { anchorType: 'bar', points: [point(0, 1000), point(1, 3000)] },
+        v2: { anchorType: 'bar', points: [point(0, 1100), point(1, 3100)] },
+        v3: { anchorType: 'bar', points: [point(0, 1200), point(1, 3200)] },
+        v4: { anchorType: 'bar', points: [point(0, 1300), point(1, 3300)] },
+        v5: { anchorType: 'bar', points: [point(0, 9999), point(1, 9999 + 1)] },
+        v6: { anchorType: 'bar', points: [point(0, 1500), point(1, 3500)] }
+    };
+    const youtube = (id, videoId, role, label) => ({ id, role, label, sources: [{ type: 'youtube', videoId }] });
+    const data = {
+        tab: { format: 'gp5' },
+        recordings: [
+            youtube('v1', 'AAAAAAAAAAA', 'original', 'Full mix'),
+            youtube('v2', 'BBBBBBBBBBB', 'original', 'Full mix (alternative 1)'),
+            youtube('v3', 'CCCCCCCCCCC', 'backing', 'Backing track (without Drums)'),
+            youtube('v4', 'DDDDDDDDDDD', 'backing', 'Backing track (without Bass)'),
+            youtube('v5', 'BBBBBBBBBBB', 'original', 'Same video again'),
+            youtube('v6', 'EEEEEEEEEEE', 'solo', 'Solo'),
+            { id: 'v7', role: 'original', label: 'No sync', sources: [{ type: 'youtube', videoId: 'FFFFFFFFFFF' }] }
+        ],
+        defaultRecording: 'v1'
+    };
+    const opened = { entries: [], sync: (id) => syncs[id] || null };
+
+    await applyMtabExtras(data, opened, { songKey: 'Band - Song', applyToActiveReader: false });
+
+    const saved = (videoId) => loadRecord('Band - Song', { kind: 'youtube', videoId });
+    assert.equal(saved('AAAAAAAAAAA')?.points[0].timeMs, 1000);
+    assert.equal(saved('BBBBBBBBBBB')?.points[0].timeMs, 1100, 'a video listed twice keeps its first points');
+    assert.equal(saved('BBBBBBBBBBB')?.media.label, 'Full mix (alternative 1)');
+    assert.equal(saved('CCCCCCCCCCC')?.points[0].timeMs, 1200);
+    assert.equal(saved('DDDDDDDDDDD')?.media.label, 'Backing track (without Bass)');
+    assert.equal(saved('EEEEEEEEEEE')?.points[1].timeMs, 3500);
+    assert.equal(saved('FFFFFFFFFFF'), null, 'a recording without sync points is not stored');
 });

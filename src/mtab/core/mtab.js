@@ -4,8 +4,8 @@
 import { LIMITS, MtabError, checkEntryName, readDirectory, readEntry, entryRange, entryStream, zipParts } from './zip.js';
 import { validateManifest, validateSync, ANCHOR } from './check.js';
 
-export const MIMETYPE = 'application/vnd.mtab+zip';
-const MIME_BYTES = new TextEncoder().encode(MIMETYPE);
+/** The media type of a .mtab file. It is not written inside the archive. */
+export const MEDIA_TYPE = 'application/vnd.mtab+zip';
 
 /** Lowercase hex SHA-256 of a Uint8Array, using Web Crypto. */
 export async function sha256(bytes) {
@@ -13,17 +13,9 @@ export async function sha256(bytes) {
   return Array.from(d, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** True when the first bytes are the start of a .mtab archive: a local header whose first entry is a stored `mimetype`. */
-export function isMtabBytes(u8) {
-  if (!u8 || u8.length < 38 + MIME_BYTES.length) return false;
-  const sig = u8[0] === 0x50 && u8[1] === 0x4b && u8[2] === 3 && u8[3] === 4;
-  const name = String.fromCharCode(...u8.subarray(30, 38)) === 'mimetype';
-  return sig && name && MIME_BYTES.every((b, i) => u8[38 + i] === b);
-}
-
 /**
  * Opens a bundle from a ByteSource. Throws MtabError for a bundle a reader must reject.
- * Reads the end of the archive, the central directory, the mimetype, the manifest, the tab and the sync files, and no audio.
+ * Reads the end of the archive, the central directory, the manifest, the tab and the sync files, and no audio.
  * Hash mismatches are warnings, not errors (SPEC section 12).
  *
  * Returns { manifest, entries, warnings, tab, sync(recId), defaultRecording(), file(path, maxSize), stream(path), range(path) }:
@@ -33,10 +25,6 @@ export function isMtabBytes(u8) {
  */
 export async function openMtab(source, { limits = LIMITS, hash = sha256, externalTab } = {}) {
   const entries = await readDirectory(source, limits);
-  const first = entries.slice().sort((a, b) => a.offset - b.offset)[0];
-  if (!first || first.name !== 'mimetype' || first.method !== 0 || first.localExtra !== 0) throw new MtabError('first entry must be a stored mimetype with no extra field');
-  const mime = await readEntry(source, first, { maxSize: 64 });
-  if (mime.length !== MIME_BYTES.length || !MIME_BYTES.every((b, i) => mime[i] === b)) throw new MtabError('wrong mimetype');
   const byName = new Map(entries.map((e) => [e.name, e]));
   const me = byName.get('manifest.json');
   if (!me) throw new MtabError('missing manifest.json');
@@ -127,7 +115,6 @@ export async function buildMtab(manifest, files, { zip64Threshold } = {}) {
   const errs = validateManifest(manifest);
   if (errs.length) throw new MtabError(`invalid manifest:\n  ${errs.join('\n  ')}`);
   const list = [
-    { name: 'mimetype', data: MIME_BYTES, store: true },
     { name: 'manifest.json', data: new TextEncoder().encode(JSON.stringify(manifest, null, 2) + '\n') },
   ];
   for (const [name, data] of files instanceof Map ? files : Object.entries(files))

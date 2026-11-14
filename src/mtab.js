@@ -1,14 +1,15 @@
 // mtab.js
-// The .mtab song bundle (Multi-Track Tab v1 specification): a ZIP container with stored `mimetype`
-// (`application/vnd.mtab+zip`), `manifest.json`, `tab/<name>` (or `tab.externalPath` for shared PDFs),
+// The .mtab song bundle (Multi-Track Tab v1 specification): a ZIP container with `manifest.json`, `tab/<name>` (or `tab.externalPath` for shared PDFs),
 // `audio/<name>` (stored), and `sync/<id>.json`.
 
 import {
-    MIMETYPE,
+    MEDIA_TYPE,
     ANCHOR,
     MtabError,
     sha256,
-    isMtabBytes as coreIsMtabBytes,
+    bytesSource,
+    readDirectory,
+    readEntry,
     openMtab as coreOpenMtab,
     buildMtab as coreBuildMtab,
 } from './mtab/core/index.js';
@@ -36,14 +37,27 @@ const enc = (s) => encodeURIComponent(String(s).toLowerCase());
 
 export const isMtabFile = (file) => /\.mtab$/i.test(file?.name || '');
 
-export function isMtabBytes(bytes) {
-    if (!bytes) return false;
-    const u8 = bytes instanceof Uint8Array
-        ? bytes
-        : (bytes instanceof ArrayBuffer
-            ? new Uint8Array(bytes)
-            : (ArrayBuffer.isView(bytes) ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) : null));
-    return coreIsMtabBytes(u8);
+/**
+ * True when the bytes are a ZIP whose `manifest.json` says `format: "mtab"`. There is no magic number to read: a file
+ * is recognised by its extension or, for bytes with no usable name, by this check. Never throws.
+ */
+export async function isMtabBytes(bytes) {
+    try {
+        if (!bytes) return false;
+        const u8 = bytes instanceof Uint8Array
+            ? bytes
+            : (bytes instanceof ArrayBuffer
+                ? new Uint8Array(bytes)
+                : (ArrayBuffer.isView(bytes) ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) : null));
+        if (!u8 || u8.length < 30 || u8[0] !== 0x50 || u8[1] !== 0x4b) return false;
+        const source = bytesSource(u8);
+        const entry = (await readDirectory(source)).find((e) => e.name === 'manifest.json');
+        if (!entry) return false;
+        const manifest = JSON.parse(new TextDecoder().decode(await readEntry(source, entry, { maxSize: 1 << 20 })));
+        return manifest?.format === MTAB_FORMAT;
+    } catch {
+        return false;
+    }
 }
 
 /** Normalize `song` metadata (including MusicBrainz IDs in direct fields or v1 `ids.musicbrainz` / legacy `musicbrainz`). */
@@ -373,7 +387,7 @@ export async function buildMtab(file, options = {}) {
     const title = clean(normSong.title);
     const base = (artist && title ? `${artist} - ${title}` : title || artist) || name.replace(/\.[^.]+$/, '') || 'song';
     return {
-        blob: new Blob(parts, { type: MIMETYPE }),
+        blob: new Blob(parts, { type: MEDIA_TYPE }),
         filename: `${base}.${MTAB_EXTENSION}`,
     };
 }
@@ -584,7 +598,7 @@ export async function applyMtabExtras(data, opened, options = {}) {
     const { saveAudioFile, linkAudioFile, setAudioPeaks } = await import('./audioSync/audioFileStore.js');
     const { decodePeaks } = await import('./audioSync/peaks.js');
     const { attachLibraryAudio } = await import('./audioSync/libraryAudio.js');
-    const { saveRecord, setSyncSharedFromOriginal, SYNC_CHANGED_EVENT } = await import('./audioSync/syncStore.js');
+    const { saveRecord, setSyncSharedFromOriginal, mediaKey, SYNC_CHANGED_EVENT } = await import('./audioSync/syncStore.js');
 
     let activeReaderKey = null;
     if (!options.songKey || options.applyToActiveReader === undefined) {
@@ -721,6 +735,35 @@ export async function applyMtabExtras(data, opened, options = {}) {
             }
         } catch (e) {
             console.warn('[mtab] could not attach the', slot, 'recording:', e);
+        }
+    }
+
+    // The player has two slots, but a bundle can list any number of synced YouTube videos (several recordings of the
+    // song, backing tracks, solos). Each of the rest is kept as a synced video of the song, with its label. A video
+    // listed twice keeps its first points, and a video already attached to a slot is left as it is.
+    const taken = new Set([...resolvedMedia.values()].map((media) => mediaKey(media)).filter(Boolean));
+    for (const rec of data?.recordings || []) {
+        if (resolvedMedia.has(rec.id)) continue;
+        try {
+            const ytSrc = (rec.sources || []).find((s) => s.type === 'youtube' && s.videoId);
+            if (!ytSrc) continue;
+            const syncDoc = typeof opened?.sync === 'function' ? opened.sync(rec.id) : null;
+            if (!syncDoc?.points?.length || syncDoc.anchorType !== 'bar') continue;
+            const media = { kind: 'youtube', videoId: ytSrc.videoId, ...(rec.label ? { label: rec.label } : {}) };
+            const key = mediaKey(media);
+            if (!key || taken.has(key)) continue;
+            taken.add(key);
+            const points = syncDoc.points.map((p) => ({
+                ...(p.id ? { id: p.id } : {}),
+                barIndex: p.bar,
+                occurrence: p.occurrence ?? 0,
+                pos: p.pos ?? 0,
+                timeMs: p.timeMs,
+                source: p.source || 'manual',
+            }));
+            for (const k of allKeys) saveRecord(k, media, points);
+        } catch (e) {
+            console.warn('[mtab] could not attach the', rec?.id, 'recording:', e);
         }
     }
 

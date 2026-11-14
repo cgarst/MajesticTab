@@ -258,7 +258,6 @@ export async function zipParts(files, { unchecked = false, zip64Threshold = 0xff
     }
     const sizeBig = usize >= T || csize >= T;
     const offBig = offset >= T;
-    if (index === 0 && (sizeBig || offBig)) throw new MtabError('the first entry cannot use zip64');
     const lextra = new Uint8Array(sizeBig ? 20 : 0);
     if (sizeBig) {
       const v = view(lextra);

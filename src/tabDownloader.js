@@ -651,7 +651,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     // A GP7/8 .gp file is itself a ZIP container, so only unpack when the name is not a tab extension.
     const nameExt = (name || '').split('.').pop()?.toLowerCase();
     const looksZip = uint8.length > 4 && uint8[0] === 0x50 && uint8[1] === 0x4B && uint8[2] === 0x03 && uint8[3] === 0x04;
-    const isZip = nameExt === 'zip' || (looksZip && !SUPPORTED_TAB_EXTENSIONS.includes(nameExt));
+    // A .mtab bundle is a ZIP too, but it is opened as a bundle below, not unpacked for its tab
+    const bytesAreMtab = looksZip && await isMtabBytes(uint8);
+    const isZip = !bytesAreMtab && (nameExt === 'zip' || (looksZip && !SUPPORTED_TAB_EXTENSIONS.includes(nameExt)));
     if (isZip && typeof window !== 'undefined' && window.fflate?.unzipSync) {
         try {
             const unzipped = window.fflate.unzipSync(uint8);
@@ -690,7 +692,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
 
     let mtabBundle = null;
     let file;
-    if (isMtabFile({ name }) || isMtabBytes(uint8)) {
+    if (isMtabFile({ name }) || bytesAreMtab) {
         try {
             const rawBlob = new Blob([uint8], { type: 'application/x-majestictab-song' });
             const rawMtabFile = new File([rawBlob], name || 'downloaded.mtab', { type: rawBlob.type, lastModified: Date.now() });

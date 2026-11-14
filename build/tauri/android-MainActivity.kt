@@ -117,8 +117,7 @@ class MainActivity : TauriActivity() {
           val head = ByteArray(64)
           val n = dest.inputStream().use { it.read(head) }
           val headStr = String(head, 0, maxOf(0, n), Charsets.ISO_8859_1)
-          val isV1Mtab = n >= 58 && headStr.startsWith("PK\u0003\u0004") && headStr.substring(30, 58) == "mimetypeapplication/vnd.mtab"
-          val isMtab = isV1Mtab || rawName.endsWith(".mtab", ignoreCase = true)
+          val isMtab = looksLikeMtab(headStr) || intent.type == "application/vnd.mtab+zip" || rawName.endsWith(".mtab", ignoreCase = true)
           if (!isMtab) return@Thread
           val displayName = if (rawName.endsWith(".mtab", ignoreCase = true)) rawName else "$rawName.mtab"
           pendingOpenMtabFile = dest
@@ -570,13 +569,19 @@ class MainActivity : TauriActivity() {
     return Regex("filename\\s*=\\s*\"?([^\";]+)\"?", RegexOption.IGNORE_CASE).find(disposition)?.groupValues?.get(1)?.trim()
   }
 
+  // A .mtab has no magic number. Its first entry is the manifest (`mimetype` in files from an earlier writer), so this
+  // only guesses a name; the app itself decides from the manifest.
+  private fun looksLikeMtab(head: String): Boolean =
+    head.startsWith("PK\u0003\u0004") && head.length >= 43 &&
+      (head.startsWith("manifest.json", 30) || head.startsWith("mimetypeapplication/vnd.mtab", 30))
+
   // Gives a file without a tab extension the one its header bytes imply (Guitar Pro 3-5, zip-based .gp, or .mtab).
   private fun withTabExtension(name: String, bytes: ByteArray): String {
     if (Regex("\\.(gp\\d?|gpx|gp7|mtab)$", RegexOption.IGNORE_CASE).containsMatchIn(name)) return name
     val base = name.substringBeforeLast('.', name)
     val head = String(bytes, 0, minOf(bytes.size, 64), Charsets.ISO_8859_1)
     return when {
-      head.startsWith("PK\u0003\u0004") && bytes.size >= 58 && head.substring(30, 58) == "mimetypeapplication/vnd.mtab" -> "$base.mtab"
+      looksLikeMtab(head) -> "$base.mtab"
       head.startsWith("PK") -> "$base.gp"
       head.startsWith("BCFZ") || head.startsWith("BCFS") -> "$base.gpx"
       head.contains("FICHIER GUITAR PRO v3") -> "$base.gp3"
