@@ -19,7 +19,7 @@ on:
         type: string
         default: ''
       build_number:
-        description: App Store build number (defaults to a UTC timestamp, yymmddHHMM)
+        description: App Store build number (defaults to a UTC timestamp, yydddHHMM)
         required: false
         type: string
         default: ''
@@ -36,7 +36,7 @@ on:
           - appstore-mac
           - msstore
       build_number:
-        description: App Store build number (appstore channels; empty uses a UTC timestamp, yymmddHHMM)
+        description: App Store build number (appstore channels; empty uses a UTC timestamp, yydddHHMM)
         required: false
         type: string
         default: ''
