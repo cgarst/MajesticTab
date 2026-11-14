@@ -28,7 +28,7 @@ There are **no subscriptions, no ads, no accounts, and no locked features**.
 ## Download
 
 <p align="center">
-  <a href="https://apps.apple.com/us/app/majestictab/id6833538312"><img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="44" valign="middle"></a>&nbsp;&nbsp;<a href="https://apps.microsoft.com/detail/9p7mb2c84cfv?referrer=appbadge"><img src="docs/img/ms-store-badge.svg" alt="Get it from Microsoft Store" height="44" valign="middle"></a>&nbsp;&nbsp;<a href="https://play.google.com/store/apps/details?id=net.zathu.majestictab"><img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" height="44" valign="middle"></a>
+  <a href="https://apps.apple.com/us/app/majestictab/id6833538312"><img src="docs/img/app-store-badge.svg" alt="Download on the App Store" height="44" valign="middle"></a>&nbsp;&nbsp;<a href="https://apps.microsoft.com/detail/9p7mb2c84cfv?referrer=appbadge"><img src="docs/img/ms-store-badge.svg" alt="Get it from Microsoft Store" height="44" valign="middle"></a>&nbsp;&nbsp;<a href="https://play.google.com/store/apps/details?id=net.zathu.majestictab"><img src="docs/img/google-play-badge.svg" alt="Get it on Google Play" height="44" valign="middle"></a>
 </p>
 
 Direct installers and packages are published on [GitHub Releases](https://github.com/cgarst/MajesticTab/releases/latest):
