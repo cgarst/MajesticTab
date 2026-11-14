@@ -5,6 +5,7 @@
 // a fit you saved for this song on purpose ("Save for this song"), and your usual guitar (Settings, Defaults).
 import { KNOWN_TUNINGS, getActiveInstrumentTracks, isTrackPercussion, getInstrumentMode } from './tuningUtils.js';
 import { getOverride, setOverride, getTabStorageId } from './sessionOverrides.js';
+import { planFingering } from './fingeringPlanner.js';
 
 const MAX_FRET = 24;
 const MAX_CAPO = 9;
@@ -109,6 +110,25 @@ function forEachNote(staff, fn) {
                 fn(beat, beat.notes || []);
             }
         }
+    }
+}
+
+/** Calls fn with the notes of every moment of the staff; voices that sound together in a bar arrive as one moment. */
+function forEachMoment(staff, fn) {
+    for (const bar of (staff.bars || [])) {
+        const moments = [];
+        const byStart = new Map();
+        (bar.voices || []).forEach((voice, vi) => {
+            (voice.beats || []).forEach((beat, bi) => {
+                const t = Number.isFinite(beat.playbackStart) ? beat.playbackStart : null;
+                const key = t === null ? `v${vi}:${bi}` : t;
+                let m = byStart.get(key);
+                if (!m) { m = { t, notes: [] }; byStart.set(key, m); moments.push(m); }
+                m.notes.push(...(beat.notes || []));
+            });
+        });
+        if (moments.every(x => x.t !== null)) moments.sort((a, b) => a.t - b.t);
+        for (const mo of moments) fn(mo.notes);
     }
 }
 
@@ -289,85 +309,46 @@ function adaptStaff(track, staff, pref, tuning) {
     }
 
     const summary = { notes: 0, remapped: 0, unplayable: 0, harmonics: 0 };
-    let lastFret = capo + 5;
 
-    forEachNote(staff, (beat, notes) => {
-        const used = new Set();
-        const jobs = [];
+    // One unit per moment in time (voices that sound together share a hand), then one plan for the whole staff
+    const units = [];
+    const refs = [];
+    forEachMoment(staff, (notes) => {
+        const unit = [];
+        const ref = [];
         for (const note of notes) {
             const o = note._adaptOrig;
             if (!o || !isStringedNote(note) || o.string < 1 || o.string > n) continue;
             const i = n - o.string;
-            const pitch = tab[i] + o.fret + orig.capo;
             const staticJ = i + k;
             const link = note.isTieDestination ? note.tieOrigin : (note.slideOrigin || note.hammerPullOrigin);
-            jobs.push({ note, i, pitch, staticJ, preferJ: link?._adaptNew?.j, tied: !!(note.isTieDestination && link?._adaptNew), link, orig: o });
-        }
-
-        const place = (job, j, fret, remapped) => {
-            used.add(j);
-            job.note.string = m - j;
-            // AlphaTab stores frets relative to the capo
-            job.note.fret = fret - capo;
-            job.note._adaptNew = { j, fret };
-            if (remapped) summary.remapped++;
-            lastFret = fret;
-            job.done = true;
-        };
-        const fretFor = (job, j) => job.pitch - player[j];
-        const valid = (j, fret) => j >= 0 && j < m && !used.has(j) && fret >= capo && fret <= MAX_FRET;
-        summary.notes += jobs.length;
-
-        for (const job of jobs) {
-            const harmonic = job.note.harmonicType && job.note.harmonicType !== 0;
-            if (harmonic && job.staticJ >= 0 && job.staticJ < m && !used.has(job.staticJ)) {
+            const harmonic = note.harmonicType && note.harmonicType !== 0 && staticJ >= 0 && staticJ < m;
+            unit.push({
+                pitch: tab[i] + o.fret + orig.capo,
+                staticJ,
+                srcFretted: o.fret > 0,
                 // Harmonic nodes are fret positions, so keep the position relative to the capo
-                summary.harmonics++;
-                place(job, job.staticJ, Math.max(0, job.orig.fret) + capo, false);
-                continue;
-            }
-            if (job.tied) {
-                const { j, fret } = job.link._adaptNew;
-                if (!used.has(j)) place(job, j, fret, false);
-            }
+                fixed: harmonic ? { j: staticJ, fret: Math.max(0, o.fret) } : undefined,
+                id: note,
+                linkId: link || undefined
+            });
+            ref.push({ note, staticJ, harmonic });
         }
-        for (const job of jobs) {
-            if (job.done || job.preferJ === undefined) continue;
-            const fret = fretFor(job, job.preferJ);
-            if (valid(job.preferJ, fret)) place(job, job.preferJ, fret, job.preferJ !== job.staticJ);
-        }
-        for (const job of jobs) {
-            if (job.done) continue;
-            const fret = fretFor(job, job.staticJ);
-            if (valid(job.staticJ, fret)) place(job, job.staticJ, fret, false);
-        }
-        for (const job of jobs) {
-            if (job.done) continue;
-            let choice = null;
-            for (let j = 0; j < m; j++) {
-                const fret = fretFor(job, j);
-                if (!valid(j, fret)) continue;
-                const cost = Math.abs(fret - lastFret) * 100 + Math.abs(j - job.staticJ);
-                if (!choice || cost < choice.cost) choice = { j, fret, cost };
-            }
-            if (choice) {
-                place(job, choice.j, choice.fret, true);
-                continue;
-            }
-            // Out of range on every string: fold by octaves so the note stays visible, and flag it
-            for (const shift of [12, -12, 24, -24]) {
-                for (let j = 0; j < m && !job.done; j++) {
-                    const fret = fretFor(job, j) + shift;
-                    if (valid(j, fret)) place(job, j, fret, false);
-                }
-                if (job.done) break;
-            }
-            if (!job.done) {
-                const j = [...Array(m).keys()].find(x => !used.has(x)) ?? 0;
-                place(job, j, Math.min(MAX_FRET, Math.max(capo, fretFor(job, j))), false);
-            }
-            summary.unplayable++;
-        }
+        if (unit.length) { units.push({ notes: unit }); refs.push(ref); }
+    });
+    const plan = planFingering({ units, player, capo, maxFret: MAX_FRET });
+    plan.units.forEach((placed, ui) => {
+        placed.forEach((p, q) => {
+            const { note, staticJ, harmonic } = refs[ui][q];
+            note.string = m - p.j;
+            // AlphaTab stores frets relative to the capo
+            note.fret = p.fret;
+            note._adaptNew = { j: p.j, fret: p.fret + capo };
+            summary.notes++;
+            if (harmonic) summary.harmonics++;
+            else if (p.j !== staticJ) summary.remapped++;
+            if (p.shift !== 0 || p.parked) summary.unplayable++;
+        });
     });
 
     staff.stringTuning.tunings = [...player];
