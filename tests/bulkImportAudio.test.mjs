@@ -14,7 +14,9 @@ console.log('Testing Bulk import audio mode...');
 assert.deepEqual(cleanAudioTitle('Pull Me Under (Official Audio)'), { title: 'Pull Me Under', backing: false });
 assert.deepEqual(cleanAudioTitle('Pull Me Under [HQ]'), { title: 'Pull Me Under', backing: false });
 assert.deepEqual(cleanAudioTitle('Pull Me Under (Backing Track)'), { title: 'Pull Me Under', backing: true });
-assert.deepEqual(cleanAudioTitle('Pull Me Under - Karaoke'), { title: 'Pull Me Under', backing: true });
+// Karaoke is not a backing track: the tag stays in the title and the file is not sent to the Backing slot
+assert.deepEqual(cleanAudioTitle('Pull Me Under - Karaoke'), { title: 'Pull Me Under - Karaoke', backing: false });
+assert.deepEqual(cleanAudioTitle('Pull Me Under (Karaoke)'), { title: 'Pull Me Under', backing: false });
 assert.deepEqual(cleanAudioTitle('7 Rings'), { title: '7 Rings', backing: false });
 
 // Matching

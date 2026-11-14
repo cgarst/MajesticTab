@@ -110,7 +110,11 @@ test('getSyncedVideos returns only own synced videos and does not mix in sibling
         { barIndex: 0, timeMs: 1000 }
     ]);
 
-    // Simulate Tab B
+    // Simulate Tab B, which already has its own synced video (a tab with none adopts its sibling's on open)
+    saveRecord('Carulli - Duo No 2 - Guitar 2', { kind: 'youtube', videoId: 'vidB1', label: 'Guitar 2 Video' }, [
+        { barIndex: 0, timeMs: 1200 },
+        { barIndex: 1, timeMs: 2400 }
+    ]);
     updateSongForYouTube({
         filename: 'Duo No 2 (Guitar 2).gp5',
         scoreTitle: 'Duo No 2 - Guitar 2',
@@ -120,10 +124,6 @@ test('getSyncedVideos returns only own synced videos and does not mix in sibling
         sourceWebsite: 'other.com'
     });
     const keyB = getSongKey();
-    saveRecord(keyB, { kind: 'youtube', videoId: 'vidB1', label: 'Guitar 2 Video' }, [
-        { barIndex: 0, timeMs: 1200 },
-        { barIndex: 1, timeMs: 2400 }
-    ]);
 
     // Tab B's own synced videos should ONLY contain vidB1, not vidA1!
     const ownVideos = getSyncedVideos();
@@ -159,7 +159,10 @@ test('copySyncedVideoFromSibling copies video and sync points with origin metada
         { barIndex: 2, timeMs: 3000 }
     ]);
 
-    // Switch to active tab B
+    // Switch to active tab B, which already has its own video (a tab with none adopts its sibling's on open)
+    saveRecord('Artist - Song B', { kind: 'youtube', videoId: 'vid_own', label: 'Own Video' }, [
+        { barIndex: 0, timeMs: 500 }
+    ]);
     updateSongForYouTube({
         filename: 'TabB.gp5',
         scoreTitle: 'Song B',
@@ -177,12 +180,12 @@ test('copySyncedVideoFromSibling copies video and sync points with origin metada
 
     // Verify it is now in active tab's own synced videos with origin
     const ownVideos = getSyncedVideos();
-    assert.equal(ownVideos.length, 1);
-    assert.equal(ownVideos[0].videoId, 'vid_sibling');
-    assert.deepEqual(ownVideos[0].origin.fromTabName, 'Tab A Version');
-    assert.deepEqual(ownVideos[0].origin.fromSongKey, keyA);
-    assert.deepEqual(ownVideos[0].origin.fromSourceWebsite, 'tabs.example');
-    assert.ok(typeof ownVideos[0].origin.copiedAt === 'number');
+    assert.equal(ownVideos.length, 2);
+    const copiedVideo = ownVideos.find(v => v.videoId === 'vid_sibling');
+    assert.deepEqual(copiedVideo.origin.fromTabName, 'Tab A Version');
+    assert.deepEqual(copiedVideo.origin.fromSongKey, keyA);
+    assert.deepEqual(copiedVideo.origin.fromSourceWebsite, 'tabs.example');
+    assert.ok(typeof copiedVideo.origin.copiedAt === 'number');
 
     // And now getSiblingSyncedVideos should not offer it again since active tab already has it
     const updatedSiblings = await getSiblingSyncedVideos();
