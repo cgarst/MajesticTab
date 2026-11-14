@@ -81,8 +81,9 @@ jobs:
         run: |
           versionCode=$(node -p "require('./build/tauri/src-tauri/tauri.android.conf.json').bundle.android.versionCode")
           changelog="fastlane/metadata/android/en-US/changelogs/${versionCode}.txt"
+          notes=$(node build/release-notes.mjs --platform android)
           rm -f "$changelog"
-          node build/release-notes.mjs --platform android > "$changelog"
+          printf '%s\n' "$notes" > "$changelog"
           bundle exec fastlane android release aab:'store-play/*.aab' symbols:'store-play/*-symbols.zip' release_name:"$GITHUB_REF_NAME"
 
   publish-msstore:
@@ -247,13 +248,7 @@ jobs:
           fi
 
           askpass="$RUNNER_TEMP/gitlab-askpass.sh"
-          cat <<'EOF' > "$askpass"
-          #!/bin/sh
-          case "$1" in
-            *Username*) echo "oauth2" ;;
-            *) printf '%s\n' "$FDROID_GITLAB_PAT" ;;
-          esac
-          EOF
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '  *Username*) echo "oauth2" ;;' '  *) printf "%s\n" "$FDROID_GITLAB_PAT" ;;' 'esac' > "$askpass"
           chmod 700 "$askpass"
           export GIT_ASKPASS="$askpass"
           export GIT_TERMINAL_PROMPT=0
