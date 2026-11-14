@@ -39,8 +39,9 @@ function currentSpeedLabel() {
         const a = document.querySelector('#realAudioRates button.active');
         return a ? a.textContent.trim() : '100%';
     }
-    const m = ($('synthSpeedBadge')?.textContent || '').match(/\d+(\.\d+)?%/);
-    return m ? m[0] : '100%';
+    const badgeText = ($('synthSpeedBadge')?.textContent || '').trim();
+    if (badgeText) return badgeText;
+    return '100%';
 }
 
 export function initPracticeMenu() {

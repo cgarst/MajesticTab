@@ -8,6 +8,7 @@ import { gamepadManager, READING_MODE_KEY } from './gamepadManager.js';
 import { PHONE_READER_QUERY } from './viewModeUtils.js';
 import { isTabletop } from '../foldState.js';
 import { showPanel, hidePanel, isShown, placePanel, outsideTapCloses } from './readerPanels.js';
+import { textState, setTextLayoutMode, setTextVersion, renderTextPage } from '../textProcessor/textHandler.js';
 const $ = (id) => document.getElementById(id);
 
 export function initReaderViewMenu() {
@@ -146,25 +147,60 @@ function arrangeViewOptions(root) {
         scaleRow?.remove();
     }
 
-    // Layout proxies the Page / Scroll radios in the top bar
+    // Layout proxies the Page / Scroll radios in the top bar (and Horizontal ribbon for staff text tabs)
     const layout = document.createElement('div');
     layout.innerHTML = '<label class="form-label d-block mb-1 small text-white-50">Layout</label>'
         + '<div class="hud-pill-group w-100" role="group" aria-label="Layout">'
-        + '<button type="button" class="btn btn-sm w-50" data-layout="page">Page</button>'
-        + '<button type="button" class="btn btn-sm w-50" data-layout="scroll">Scroll</button></div>';
+        + '<button type="button" class="btn btn-sm flex-fill" data-layout="page">Page</button>'
+        + '<button type="button" class="btn btn-sm flex-fill" data-layout="scroll">Scroll</button>'
+        + '<button type="button" class="btn btn-sm flex-fill" data-layout="horizontal" hidden>Horizontal</button></div>';
     const pageRadio = $('pageModeRadio');
     const scrollRadio = $('continuousModeRadio');
+    const pageBtn = layout.querySelector('[data-layout="page"]');
+    const scrollBtn = layout.querySelector('[data-layout="scroll"]');
+    const horizBtn = layout.querySelector('[data-layout="horizontal"]');
     const syncLayout = () => {
-        layout.querySelector('[data-layout="page"]').classList.toggle('active', Boolean(pageRadio?.checked));
-        layout.querySelector('[data-layout="scroll"]').classList.toggle('active', Boolean(scrollRadio?.checked));
+        const hasBars = document.body.classList.contains('txt-has-bars');
+        const isPage = Boolean(pageRadio?.checked);
+        const isHoriz = !isPage && hasBars && textState.layoutMode === 'horizontal';
+        const isScroll = !isPage && !isHoriz && Boolean(scrollRadio?.checked);
+        if (scrollBtn) scrollBtn.textContent = hasBars ? 'Vertical' : 'Scroll';
+        if (horizBtn) horizBtn.hidden = !hasBars;
+        pageBtn?.classList.toggle('active', isPage);
+        scrollBtn?.classList.toggle('active', isScroll);
+        horizBtn?.classList.toggle('active', isHoriz);
     };
     layout.addEventListener('click', (e) => {
         const b = e.target.closest('[data-layout]');
         if (!b) return;
-        (b.dataset.layout === 'page' ? pageRadio : scrollRadio)?.click();
-        setTimeout(syncLayout, 0);
+        const mode = b.dataset.layout;
+        if (mode === 'page') {
+            setTextLayoutMode('page');
+            pageRadio?.click();
+        } else if (mode === 'horizontal') {
+            setTextLayoutMode('horizontal');
+            if (scrollRadio?.checked) {
+                const out = $('output');
+                if (out) renderTextPage(out, false);
+            } else {
+                scrollRadio?.click();
+            }
+        } else {
+            setTextLayoutMode('vertical');
+            if (scrollRadio?.checked) {
+                const out = $('output');
+                if (out) renderTextPage(out, false);
+            } else {
+                scrollRadio?.click();
+            }
+        }
+        setTimeout(() => {
+            syncLayout();
+            window.refreshSlidingPills?.(layout, true);
+        }, 0);
     });
     [pageRadio, scrollRadio].forEach((r) => r?.addEventListener('change', syncLayout));
+    new MutationObserver(syncLayout).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     document.addEventListener('click', () => setTimeout(syncLayout, 0), true);
     syncLayout();
 
@@ -375,7 +411,52 @@ function arrangeSongPanel() {
         }
     };
     document.addEventListener('scoreoptions:open', updateSrcBtn);
-    const altGroup = group('scoreOptionsAltTabGroup', 'Tabs', altBtn, srcBtn);
+
+    // Tab version selector (shown when a text tab has multiple versions in the file)
+    const verRow = document.createElement('div');
+    verRow.id = 'songTabVersionRow';
+    verRow.className = 'mb-2';
+    verRow.hidden = true;
+    const verLabel = document.createElement('label');
+    verLabel.className = 'form-label small mb-1 fw-semibold text-muted';
+    verLabel.textContent = 'Version';
+    const verGroup = document.createElement('div');
+    verGroup.id = 'songTabVersionGroup';
+    verGroup.className = 'hud-pill-group w-100 txt-version-pills';
+    verGroup.setAttribute('role', 'group');
+    verGroup.setAttribute('aria-label', 'Tab version');
+    verRow.append(verLabel, verGroup);
+
+    const syncTabVersionRow = () => {
+        const versions = textState.hasSystems && Array.isArray(textState.versions) ? textState.versions : [];
+        if (versions.length <= 1) {
+            verRow.hidden = true;
+            verGroup.replaceChildren();
+            return;
+        }
+        verRow.hidden = false;
+        verGroup.replaceChildren();
+        versions.forEach((v) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `btn btn-sm${v === textState.activeVersion ? ' active' : ''}`;
+            btn.style.flex = '1';
+            btn.dataset.tabVersion = String(v);
+            btn.textContent = `Version ${v}`;
+            btn.addEventListener('click', () => {
+                setTextVersion(v);
+                syncTabVersionRow();
+                window.refreshSlidingPills?.(verGroup, false);
+            });
+            verGroup.appendChild(btn);
+        });
+        window.refreshSlidingPills?.(verGroup, true);
+    };
+    document.addEventListener('scoreoptions:open', syncTabVersionRow);
+    window.addEventListener('majestictab:file-loaded', syncTabVersionRow);
+    window.addEventListener('majestictab:txt-version-changed', syncTabVersionRow);
+
+    const altGroup = group('scoreOptionsAltTabGroup', 'Tabs', verRow, altBtn, srcBtn);
 
     const pdf = $('scoreOptionsPdfSection');
     const save = $('scoreOptionsSaveGroup');

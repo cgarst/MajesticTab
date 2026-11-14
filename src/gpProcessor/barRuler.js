@@ -60,7 +60,7 @@ export function initBarRuler() {
 
     function buildModel() {
         const { score } = getPlayerContext();
-        const masterBars = score?.masterBars;
+        const masterBars = score?.isVirtual ? null : score?.masterBars;
         if (!masterBars?.length) { model = null; return; }
         const { parts, marks } = deriveSections(masterBars, { minBars: readMinBars() });
         model = { total: masterBars.length, parts, marks, segments: [], timeline: null, score };

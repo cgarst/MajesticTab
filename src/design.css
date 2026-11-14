@@ -5251,8 +5251,13 @@ body.score-cursor-hidden .gp-page-cursor-beat {
 /* A text or PDF tab with no MIDI linked: the Synth panel offers only the link action */
 body.midi-synth-none #synthDropdownPanel .synth-panel-body > :not(#synthMidiSection) { display: none !important; }
 body.midi-synth-none #synthMidiRemoveBtn { display: none !important; }
-body.midi-synth-source #dockLoopBtn,
-body.midi-synth-source .mb-3:has(#synthLoopSwitch) { display: none !important; }
+body.midi-synth-source #barRuler,
+body.midi-synth-source .dock-time { display: none !important; }
+body.midi-synth-source:not(.txt-has-bars) #dockLoopBtn,
+body.midi-synth-source:not(.txt-has-bars) .mb-3:has(#synthLoopSwitch) { display: none !important; }
+body.txt-horizontal-mode #pageStrip,
+body.rec-strip-on.txt-has-bars:has(#output.continuous-mode) #pageStrip { display: none !important; }
+body.rec-strip-on:not(.page-strip-on) .mobile-playback-dock-inner { grid-template-columns: auto 1fr auto auto; }
 
 /* PDF pages: the page box is exactly the page. It was 100% of its share of the row, so a page narrower than its
    share (two portrait pages side by side on a landscape phone) sat in a wide box with extra margin each side. */
@@ -5965,3 +5970,208 @@ body.library-view-active .yt-sheet { display: none !important; }
 .cm-switch { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: var(--s2); border-radius: var(--r-control, 8px); }
 .cm-switch .form-check-label { flex: 1; min-width: 0; font-size: 14px; color: var(--ink); cursor: pointer; }
 .cm-switch .cm-hint { margin-top: 2px; }
+
+/* ---------- Classical / Staff Text Tabs: Intra-System Bar Cursor & Horizontal Ribbon ---------- */
+.text-content {
+  width: fit-content;
+  max-width: min(1200px, calc(100% - 24px));
+  box-sizing: border-box;
+}
+.tab-section-container {
+  position: relative;
+  width: max-content;
+  max-width: 100%;
+}
+.ts-bar-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--hue);
+  pointer-events: none;
+  z-index: 4;
+}
+.ts-bar-cursor[hidden] {
+  display: none !important;
+}
+
+#output.txt-ribbon-output {
+  padding: 16px;
+}
+.txt-ribbon-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  user-select: none;
+}
+.txt-ribbon-header {
+  padding: 14px 18px;
+  background: var(--s1);
+  color: var(--ink);
+  border-radius: var(--r-card, 8px);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace, var(--tab-cjk-fonts);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.txt-ribbon-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.txt-ribbon-header-summary {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.txt-ribbon-header-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.txt-ribbon-header-line:first-child {
+  font-weight: 600;
+}
+.txt-ribbon-header-more {
+  margin-top: 8px;
+}
+.txt-ribbon-header-more > summary {
+  cursor: pointer;
+  color: var(--ink2);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 12px;
+}
+.txt-ribbon-notes-pre {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  background: var(--s2);
+  color: var(--ink);
+  border-radius: var(--r-control, 6px);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.txt-ribbon-stage {
+  position: relative;
+  container-type: inline-size;
+  background-color: var(--sheet-bg, #ffffff);
+  color: var(--sheet-text, #1a1a1a);
+  border-radius: var(--r-card, 8px);
+  overflow: hidden;
+}
+body.sheet-mode-dark:not(.theme-sheet-active) .txt-ribbon-stage,
+body.sheet-mode-dark:not(.theme-sheet-active) .txt-ribbon-gutter {
+  background-color: #1c1d1f !important;
+  color: #cacaca !important;
+}
+body.theme-sheet-active .txt-ribbon-stage,
+body.theme-sheet-active .txt-ribbon-gutter {
+  background-color: var(--bg-card-solid, var(--s1)) !important;
+  color: var(--text-primary, var(--ink)) !important;
+}
+
+.txt-ribbon-playhead {
+  position: absolute;
+  left: 25%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--hue);
+  pointer-events: none;
+  z-index: 5;
+}
+.txt-ribbon-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 20px 0;
+  scrollbar-width: thin;
+}
+.txt-ribbon-scroll:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+.txt-ribbon-track {
+  display: inline-flex;
+  align-items: flex-start;
+  min-width: 100%;
+  padding-right: 75%;
+}
+.txt-ribbon-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  padding: 8px 4px 8px 16px;
+  background-color: var(--sheet-bg, #ffffff);
+  color: var(--sheet-text, #1a1a1a);
+  font-weight: 600;
+}
+.txt-ribbon-lead-pad {
+  flex: 0 0 max(24px, calc(25cqw - 4.5ch));
+}
+.txt-ribbon-system {
+  display: inline-flex;
+  align-items: flex-start;
+}
+.ts-bar {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color var(--dur-fast, 120ms);
+}
+@media (hover: hover) {
+  .ts-bar:hover {
+    background: color-mix(in srgb, currentColor 6%, transparent);
+  }
+}
+.ts-bar.is-active-bar {
+  background: color-mix(in srgb, var(--hue) 12%, transparent);
+}
+.txt-ribbon-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace, var(--tab-cjk-fonts);
+  font-size: calc(15px * var(--text-scale, 1));
+  line-height: 1.45;
+  white-space: pre;
+  min-height: 1.45em;
+}
+.txt-anno-line {
+  opacity: 0.78;
+}
+
+.txt-ribbon-legend {
+  padding: 12px 16px;
+  background: var(--s1);
+  color: var(--ink);
+  border-radius: var(--r-card, 8px);
+  font-size: 13px;
+}
+.txt-ribbon-legend > summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--ink2);
+}
+.txt-ribbon-legend-body {
+  margin-top: 10px;
+  padding-top: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace, var(--tab-cjk-fonts);
+  font-size: 12.5px;
+  line-height: 1.45;
+  overflow-x: auto;
+}
+@media (max-width: 640px) {
+  #output.txt-ribbon-output {
+    padding: 8px;
+  }
+  .txt-ribbon-header {
+    padding: 10px 12px;
+  }
+  .txt-ribbon-gutter {
+    padding-left: 10px;
+  }
+}

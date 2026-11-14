@@ -9,6 +9,7 @@ export function getScrubState(config) {
     if (!config.currentFile) return null;
     const output = config.output;
     if (!isPageMode(config)) {
+        if (config.textState?.layoutMode === 'horizontal') return null;
         const range = output.scrollHeight - output.clientHeight;
         if (range <= 0) return null;
         return {

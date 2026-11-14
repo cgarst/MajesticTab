@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { groupBlocks, paginate, isStaffLine, isRulerLine, createChordLyricSegments } from '../src/textProcessor/textBlocks.js';
+import { groupBlocks, paginate, isStaffLine, isRulerLine, createChordLyricSegments, sliceAnnotationCols } from '../src/textProcessor/textBlocks.js';
 
 // Synthetic, in the shape of a classtab file: heading, ruler, six strings, marks below, blank line, marks above the next ruler.
 const sample = [
@@ -109,3 +109,81 @@ test('lyric before the first chord and past the last chord is kept', () => {
         { chord: 'G', lyric: '' }
     ]);
 });
+
+test('expanded staff patterns: unnamed bar staves, dash-first pickup staves, letter-dash staves, barless 6-line staves', () => {
+    for (const l of [
+        '|-12-10-8-7-|',
+        '||o-6-5-3---|',
+        'E----2---0---|',
+        'e-||---0---2---|',
+        '---7---||--3---|',
+        '   -----0-----0-|',
+        'E+--7---------+',
+        'E  --------]----0---]'
+    ]) {
+        assert.ok(isStaffLine(l), `Expected staff line: ${l}`);
+    }
+    // Barless 6-line staff system (e.g. lute / Andrew York tabs)
+    const barless = [
+        'Bagatelle',
+        '',
+        '-0-----0-2-0---------0-------0-',
+        '-0-2-4-0-----3-2-0-------------',
+        '-2-3---------------3-2-3-2-0-2-',
+        '-2-4---2-----------------------',
+        '-------------------------------',
+        '-------0-------------0-------0-'
+    ];
+    const blocks = groupBlocks(barless);
+    const systems = blocks.filter(b => b.kind === 'system');
+    assert.equal(systems.length, 1);
+    assert.equal(systems[0].strings.length, 6);
+    assert.ok(systems[0].bars.length >= 1);
+});
+
+test('decomposeSystem extracts above, strings, below, trimCols, and bars with repeat flags and noteOnsets', () => {
+    const blocks = groupBlocks(sample);
+    const sys0 = blocks.find(b => b.kind === 'system');
+    assert.deepEqual(sys0.above, ['    Andantino', '0   .    |   .   |   .']);
+    assert.equal(sys0.strings.length, 6);
+    assert.deepEqual(sys0.below, ['    mf        2', '              3']);
+    assert.equal(sys0.trimCols, 1);
+    assert.equal(sys0.bars.length, 2);
+    assert.equal(sys0.bars[0].barNumber, 0);
+    assert.equal(sys0.bars[1].barNumber, 1);
+    assert.equal(sys0.bars[0].repeatStart, true);
+    assert.equal(sys0.bars[1].repeatStart, false);
+    assert.ok(sys0.bars[1].noteOnsets.length >= 3);
+    assert.equal(sliceAnnotationCols('5  |   .   |', 2), '5|   .   |');
+});
+
+test('duet systems merge two 6-string staves separated by a part label, and legend examples stay out of playable systems', () => {
+    const duetAndLegend = [
+        'Gtr I',
+        'e|-0---2---|-3---|',
+        'B|-1---3---|-0---|',
+        'G|-2---2---|-0---|',
+        'D|---------|-----|',
+        'A|-0-------|-----|',
+        'E|---------|-3---|',
+        'Gtr II',
+        'e|---------|-----|',
+        'B|---------|-----|',
+        'G|-2---0---|-0---|',
+        'D|-2---0---|-0---|',
+        'A|-0---2---|-2---|',
+        'E|---------|-3---|',
+        '',
+        'Tablature Explanation:',
+        'e|--5h7--|  hammer-on',
+        'B|-------|'
+    ];
+    const blocks = groupBlocks(duetAndLegend);
+    const systems = blocks.filter(b => b.kind === 'system');
+    assert.equal(systems.length, 1);
+    assert.equal(systems[0].staves.length, 2);
+    assert.equal(systems[0].strings.length, 12);
+    const legendBlocks = blocks.filter(b => b.inLegend);
+    assert.ok(legendBlocks.length >= 2);
+});
+

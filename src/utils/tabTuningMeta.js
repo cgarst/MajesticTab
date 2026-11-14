@@ -1,11 +1,11 @@
 // tabTuningMeta.js
-// Where a PDF or text tab's tuning comes from, and which source wins. Guitar Pro tabs carry their tuning in the file,
-// so this is only for tabs that do not.
+// Where a PDF or text tab's tuning and capo come from, and which source wins. Guitar Pro tabs carry their tuning in
+// the file, so this is only for tabs that do not.
 //
 // Sources, strongest first:
 //   user      the player set it in the Song menu; nothing replaces it
 //   classtab  the classical archive's own flag for the piece (drop D, lute tuning, other tuning)
-//   header    the tab's own header text ("tuning: D A D G B E", "6th string to D", "drop D")
+//   header    the tab's own header text ("tuning: D A D G B E", "6th string to D", "drop D") or first-system string labels
 //   filename  a tuning named in the file name
 // A tab with no source is "Not set". We never guess a tuning the data does not give.
 
@@ -39,7 +39,35 @@ function cleanNote(n) {
     return s[0].toUpperCase() + s.slice(1);
 }
 
-/** A tuning named in the first lines of a text tab, or null. Only explicit statements count. */
+const STAFF_NOTE_PREFIX = /^\s*([A-Ga-g](?:#|b)?)\s*(?:(?:\|[|*\d\s:o]*|:)-|[-*:+|\]]+\s*[-|+*\d:o()[\]<>]|[\s:|*+]+[-_]{2,}|[\s:|*+]+\d+[-_]{2,})/;
+
+/**
+ * Extracts the 6 vertical string tuning prefixes from the first 6-string system in a text tab,
+ * returning notes ordered low-to-high (6th string to 1st string), or null if not found.
+ */
+export function tuningFromFirstSystem(text, maxLines = 120) {
+    if (!text || typeof text !== 'string') return null;
+    const lines = text.split(/\r?\n/).slice(0, maxLines);
+    let run = [];
+    for (let i = 0; i < lines.length; i++) {
+        const m = STAFF_NOTE_PREFIX.exec(lines[i]);
+        if (m) {
+            run.push(cleanNote(m[1]));
+            if (run.length === 6) {
+                const nextMatch = i + 1 < lines.length && STAFF_NOTE_PREFIX.test(lines[i + 1]);
+                if (!nextMatch) {
+                    // Vertical staff lines run 1st string (high) at top to 6th string (low) at bottom
+                    return run.slice().reverse().join(' ');
+                }
+            }
+        } else {
+            run = [];
+        }
+    }
+    return null;
+}
+
+/** A tuning named in the first lines of a text tab (or its first staff system's vertical string labels), or null. */
 export function tuningFromHeaderText(text, maxLines = 30) {
     if (!text || typeof text !== 'string') return null;
     const head = text.split(/\r?\n/).slice(0, maxLines).join('\n');
@@ -52,16 +80,24 @@ export function tuningFromHeaderText(text, maxLines = 30) {
         if (notes && notes.length >= 6) return notes.map(cleanNote).join(' ');
     }
 
-    // "6th string to D", "sixth string in D", "(6=D)" and "(3 = F#)": changes to the standard strings, 6 is the lowest
+    // "6th string to D", "sixth string in D", "6th = D, 5th = G", "Tune 6th to D", "(6=D)", "6=D"
     const changes = new Map();
     const words = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6 };
-    const wordRe = new RegExp(`\\b(first|second|third|fourth|fifth|sixth|[1-6](?:st|nd|rd|th)?)\\s+string\\s+(?:is\\s+)?(?:tuned\\s+)?(?:down\\s+)?(?:to|in|=)\\s+${NOTE}`, 'gi');
-    const eqRe = new RegExp(`\\(\\s*([1-6])\\s*=\\s*${NOTE}\\s*\\)`, 'g');
+    const wordRe = new RegExp(`\\b(first|second|third|fourth|fifth|sixth|[1-6](?:st|nd|rd|th)?)\\s+string\\s+(?:is\\s+)?(?:tuned\\s+)?(?:down\\s+|up\\s+)?(?:to|in|=)\\s+${NOTE}`, 'gi');
+    const shortOrdRe = new RegExp(`\\b(?:tune\\s+(?:the\\s+)?)?([1-6])(?:st|nd|rd|th)\\s*(?:string\\s*)?(?:to|in|=)\\s*${NOTE}\\b`, 'gi');
+    const eqRe = new RegExp(`(?:^|[\\s,(])([1-6])\\s*=\\s*${NOTE}(?=$|[\\s,)])`, 'gm');
     for (const m of head.matchAll(wordRe)) {
         const n = words[m[1].toLowerCase()] || parseInt(m[1], 10);
         if (n >= 1 && n <= 6) changes.set(n, cleanNote(m[2]));
     }
-    for (const m of head.matchAll(eqRe)) changes.set(parseInt(m[1], 10), cleanNote(m[2]));
+    for (const m of head.matchAll(shortOrdRe)) {
+        const n = parseInt(m[1], 10);
+        if (n >= 1 && n <= 6) changes.set(n, cleanNote(m[2]));
+    }
+    for (const m of head.matchAll(eqRe)) {
+        const n = parseInt(m[1], 10);
+        if (n >= 1 && n <= 6) changes.set(n, cleanNote(m[2]));
+    }
     if (changes.size > 0) {
         // string 6 is index 0 (lowest)
         const notes = STANDARD_LOW_TO_HIGH.map((std, i) => changes.get(6 - i) || std);
@@ -69,8 +105,43 @@ export function tuningFromHeaderText(text, maxLines = 30) {
     }
 
     if (/\blute tuning\b/i.test(head)) return LUTE_TUNING;
-    if (/\bdrop\s*d\b/i.test(head) || /\bdadgbe\b/i.test(head)) return 'Drop D';
+    if (/\bdrop(?:ped)?\s*d\b/i.test(head) || /\bdadgbe\b/i.test(head)) return 'Drop D';
     if (/\bdadgad\b/i.test(head)) return 'DADGAD';
+
+    // Check first-system vertical string labels if present within the inspected text
+    const fromSys = tuningFromFirstSystem(head, maxLines);
+    if (fromSys) return fromSys;
+
+    return null;
+}
+
+const ROMAN_TO_INT = {
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12
+};
+
+/**
+ * Extracts a capo fret number (1..12) from the header lines of a text tab, or null if none is stated.
+ */
+export function capoFromHeaderText(text, maxLines = 40) {
+    if (!text || typeof text !== 'string') return null;
+    const head = text.split(/\r?\n/).slice(0, maxLines).join('\n');
+    if (/\b(?:no|without)\s+capo\b/i.test(head)) return null;
+
+    // "capo 2", "capo: 3", "capo on 3rd fret", "capo at the 2nd fret", "capo II", "capo: IV"
+    const m1 = /\bcapo\s*(?:[:=-]|\bon\b|\bat\b)?\s*(?:the\s+)?(?:fret\s+)?([1-9]|1[0-2]|XII|XI|IX|X|VIII|VII|VI|IV|V|III|II|I)(?:st|nd|rd|th)?\b/i.exec(head);
+    if (m1) {
+        const raw = m1[1].toUpperCase();
+        const val = ROMAN_TO_INT[raw] || parseInt(raw, 10);
+        if (val >= 1 && val <= 12) return val;
+    }
+
+    // "3rd fret capo"
+    const m2 = /\b([1-9]|1[0-2])(?:st|nd|rd|th)\s+fret\s+capo\b/i.exec(head);
+    if (m2) {
+        const val = parseInt(m2[1], 10);
+        if (val >= 1 && val <= 12) return val;
+    }
     return null;
 }
 
@@ -82,7 +153,7 @@ export function tuningFromHeaderText(text, maxLines = 30) {
 export function resolveTabTuning({ classtabFlag, headerText, fileName } = {}) {
     const fromFlag = tuningFromClassicalFlag(classtabFlag);
     if (fromFlag) return { tuning: fromFlag, source: 'classtab' };
-    const fromHeader = tuningFromHeaderText(headerText);
+    const fromHeader = tuningFromHeaderText(headerText) || tuningFromFirstSystem(headerText);
     if (fromHeader) return { tuning: fromHeader, source: 'header' };
     const fromName = inferTuningFromTextOrName(fileName || '');
     if (fromName) return { tuning: fromName, source: 'filename' };

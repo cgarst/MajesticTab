@@ -2,7 +2,8 @@
 // The tuning bridge for PDF and text tabs (source order, the classical archive's flags, header text) and the
 // per-song hidden tunings filter.
 import assert from 'node:assert/strict';
-import { resolveTabTuning, tuningFromHeaderText, tuningFromClassicalFlag, canReplaceTuning, LUTE_TUNING } from '../src/utils/tabTuningMeta.js';
+import { resolveTabTuning, tuningFromHeaderText, tuningFromFirstSystem, capoFromHeaderText, tuningFromClassicalFlag, canReplaceTuning, LUTE_TUNING } from '../src/utils/tabTuningMeta.js';
+import { resolveTabTempoAndMeter, bpmFromHeaderText, tempoWordFromHeaderText, timeSigFromHeaderText } from '../src/classtab/tabTempoMeta.js';
 import { getTuningInfo, tuningKeyOf, visibleTuningsForSong, isTuningHiddenForSong, allSongTunings, visibleTuningLabel } from '../src/utils/tuningUtils.js';
 import { parseCustomTuning } from '../src/utils/songTuningMenu.js';
 
@@ -76,6 +77,52 @@ t('hand-typed tunings', () => {
     assert.equal(parseCustomTuning('D A D X B E'), null);
     assert.equal(parseCustomTuning('D A'), null);
     assert.equal(parseCustomTuning(''), null);
+});
+
+t('first-system vertical string labels, shorthand equations, and capo detection', () => {
+    assert.equal(tuningFromHeaderText('6th = D, 5th = G'), 'D G D G B E');
+    assert.equal(tuningFromHeaderText('Tune 6th to D'), 'D A D G B E');
+    assert.equal(tuningFromHeaderText('Key Signature: Dm\n6=D\n'), 'D A D G B E');
+    const dropDSys = [
+        'Title',
+        'E-|---7---|',
+        'B-|---7---|',
+        'G-|---4---|',
+        'D-|---0---|',
+        'A-|---0---|',
+        'D-|---0---|'
+    ].join('\n');
+    assert.equal(tuningFromFirstSystem(dropDSys), 'D A D G B E');
+    assert.equal(resolveTabTuning({ headerText: dropDSys }).tuning, 'D A D G B E');
+    assert.equal(capoFromHeaderText('Capo 2'), 2);
+    assert.equal(capoFromHeaderText('capo on 3rd fret'), 3);
+    assert.equal(capoFromHeaderText('Capo: IV'), 4);
+    assert.equal(capoFromHeaderText('3rd fret capo'), 3);
+    assert.equal(capoFromHeaderText('no capo'), null);
+});
+
+t('tempo and time signature resolution from text header, MIDI, and ruler', () => {
+    assert.equal(bpmFromHeaderText('tuning: E A D G B E   time: 4/4   tempo: 96 bpm')?.bpm, 96);
+    assert.equal(bpmFromHeaderText('Tempo: Allegro (fairly fast) - 184 (quarter notes) bpm')?.bpm, 184);
+    assert.equal(bpmFromHeaderText('q. = 60')?.beatUnit, 'dotted-quarter');
+    assert.deepEqual(tempoWordFromHeaderText('Tempo: Allegretto\nTime Signature: 2/4'), { bpm: 112, word: 'Allegretto' });
+    assert.deepEqual(timeSigFromHeaderText('Time Signature: 6/8'), { num: 6, den: 8 });
+    assert.deepEqual(timeSigFromHeaderText('2/4 time'), { num: 2, den: 4 });
+    // Priority: header numeric BPM > MIDI > header Italian word > 100
+    assert.equal(resolveTabTempoAndMeter({
+        headerText: 'Allegro\ntempo: 108 bpm',
+        midiMeta: { primaryBpm: 120 }
+    }).baseBpm, 108);
+    assert.equal(resolveTabTempoAndMeter({
+        headerText: 'Allegro',
+        midiMeta: { primaryBpm: 120 }
+    }).baseBpm, 120);
+    assert.equal(resolveTabTempoAndMeter({
+        headerText: 'Andante\nTime Signature: 3/4'
+    }).baseBpm, 76);
+    assert.deepEqual(resolveTabTempoAndMeter({
+        headerText: 'Andante\nTime Signature: 3/4'
+    }).timeSig, { num: 3, den: 4 });
 });
 
 console.log(`${n} passed`);

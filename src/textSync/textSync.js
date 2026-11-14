@@ -23,7 +23,8 @@ import { loadRecord, saveRecord } from '../audioSync/syncStore.js';
 import { getScrubState, applyScrubValue } from '../utils/pageScrubber.js';
 import { makeId, formatTime } from '../audioSync/syncEdit.js';
 import { showToast } from '../utils/toast.js';
-import { positionAt, backJumps, followTarget, glide } from './readingLine.js';
+import { positionAt, barProgressAt, backJumps, followTarget, glide } from './readingLine.js';
+import { textState } from '../textProcessor/textHandler.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -126,11 +127,27 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     const latency = () => getAudioLatencyMs() || 0;
 
     function readPoints() {
-        points = rec ? (loadRecord(textKey(), rec.media)?.points || []) : [];
+        if (!rec) { points = []; return; }
+        const saved = loadRecord(textKey(), rec.media)?.points || [];
+        if (saved.length > 0 && !saved.every((p) => p.source === 'auto')) {
+            points = saved;
+        } else if (rec.source === midiSource && isText(getCurrentFile()) && textState.alignment?.points?.length) {
+            points = [...textState.alignment.points];
+        } else {
+            points = saved;
+        }
     }
     function writePoints(next) {
         points = [...next].sort((a, b) => a.timeMs - b.timeMs);
         saveRecord(textKey(), rec.media, points);
+    }
+    function resetAutoPoints() {
+        if (!rec) return;
+        saveRecord(textKey(), rec.media, []);
+        readPoints();
+        history = [];
+        lastTapText = 'Reset to automatic alignment';
+        drawn(true);
     }
 
     // -- Going to a unit
@@ -202,6 +219,24 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     // -- Tap to sync
 
     function onTap(e) {
+        if (!tapping && rec && isText(getCurrentFile())) {
+            const barEl = e.target.closest?.('.ts-bar');
+            if (barEl) {
+                const vIdx = Number(barEl.dataset.visualBar);
+                const bIdx = Number(barEl.dataset.block);
+                const bOff = Number(barEl.dataset.barOffset || 0);
+                const matchPt = points.find((p) => p.barIndex === bIdx && (p.barOffset || 0) === bOff)
+                    || points.find((p) => p.visualBarIndex === vIdx);
+                const vb = textState.alignment?.visualBars?.[vIdx];
+                const targetMs = matchPt ? matchPt.timeMs : vb?.startMs;
+                if (typeof targetMs === 'number') {
+                    holdUntil = 0;
+                    rec.source.seek(Math.max(0, targetMs + 1 + latency()));
+                    ensureFrame();
+                }
+            }
+            return;
+        }
         if (!tapping || !rec) return;
         // Controls inside the output (links, buttons) keep working; everything else is a tap
         const unit = unitAtTap(e);
@@ -276,6 +311,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         else if (act === 'done') stopTapping();
         else if (act === 'undo') undo();
         else if (act === 'clear') clearAll();
+        else if (act === 'reset-auto') resetAutoPoints();
         else if (act === 'points') { listOpen = !listOpen; drawn(true); }
     });
     pointsEl.addEventListener('click', (e) => {
@@ -322,7 +358,9 @@ export function initTextSync({ getConfig, getCurrentFile }) {
 
     /** Rebuilds the status text, actions and tick marks. `force` redraws even when nothing seems to have changed. */
     function drawn(force = false) {
-        const key = `${clearArmed}|${rec?.label}|${points.length}|${tapping}|${listOpen}|${lastTapText}|${durationOf(rec || { source: {} })}`;
+        const isAuto = points.length > 0 && points.every((p) => p.source === 'auto');
+        const canResetAuto = rec?.source === midiSource && isText(getCurrentFile()) && Boolean(textState.alignment?.points?.length) && !isAuto;
+        const key = `${clearArmed}|${rec?.label}|${points.length}|${isAuto}|${canResetAuto}|${tapping}|${listOpen}|${lastTapText}|${durationOf(rec || { source: {} })}`;
         if (!force && key === drawnKey) return;
         drawnKey = key;
         strip.classList.toggle('is-synced', points.length > 0);
@@ -333,12 +371,19 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         if (tapping) {
             statusEl.textContent = lastTapText || (points.length ? `Tap the ${word} you hear` : `Tap the ${word} where the song starts`);
             actionsEl.innerHTML = `<button type="button" class="ct-text" data-act="points" aria-expanded="${listOpen}" ${points.length ? '' : 'disabled'}>Points</button>`
+                + (canResetAuto ? '<button type="button" class="ct-text" data-act="reset-auto">Reset to auto</button>' : '')
                 + `<button type="button" class="ct-text" data-act="undo" ${history.length ? '' : 'disabled'}>Undo</button>`
                 + `<button type="button" class="ct-text" data-act="clear" ${points.length ? '' : 'disabled'}>${clearArmed ? 'Press again to clear' : 'Clear'}</button>`
                 + '<button type="button" class="ct-text rec-done" data-act="done">Done</button>';
         } else if (points.length) {
-            statusEl.textContent = `Synced · ${points.length} ${points.length === 1 ? 'point' : 'points'}`
-                + (backs.size ? ` · ${backs.size} ${backs.size === 1 ? 'repeat' : 'repeats'}` : '');
+            if (isAuto) {
+                const barTotal = textState.alignment?.visualBars?.length || points.length;
+                statusEl.textContent = `Auto-synced · ${barTotal} ${barTotal === 1 ? 'bar' : 'bars'}`
+                    + (backs.size ? ` · ${backs.size} ${backs.size === 1 ? 'repeat' : 'repeats'}` : '');
+            } else {
+                statusEl.textContent = `Synced · ${points.length} ${points.length === 1 ? 'point' : 'points'}`
+                    + (backs.size ? ` · ${backs.size} ${backs.size === 1 ? 'repeat' : 'repeats'}` : '');
+            }
             actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Edit</button>';
         } else {
             statusEl.textContent = 'Not synced';
@@ -429,9 +474,47 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     const hold = () => { holdUntil = performance.now() + 3500; };
     output.addEventListener('wheel', hold, { passive: true });
     output.addEventListener('touchmove', hold, { passive: true });
-    output.addEventListener('pointerdown', hold, true);
+    output.addEventListener('pointerdown', (e) => {
+        if (!e.target.closest?.('.ts-bar')) hold();
+    }, true);
     pageStrip.addEventListener('pointerdown', hold, true);
     document.addEventListener('keydown', (e) => {
+        const tag = e.target?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return;
+        const isHoriz = isText(getCurrentFile()) && textState.hasSystems && textState.layoutMode === 'horizontal';
+        if (isHoriz && rec && points.length && !tapping && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+            e.preventDefault();
+            const dir = e.key === 'ArrowRight' ? 1 : -1;
+            const sorted = [...points].sort((a, b) => a.timeMs - b.timeMs);
+            const curMs = Math.max(0, (rec.source.getTimeMs() || 0) - latency());
+            let curIdx = 0;
+            for (let i = 0; i < sorted.length; i++) {
+                if (sorted[i].timeMs <= curMs + 40) curIdx = i;
+                else break;
+            }
+            let targetIdx = curIdx;
+            if (e.shiftKey) {
+                const vBars = textState.alignment?.visualBars || [];
+                let found = -1;
+                for (let i = curIdx + dir; i >= 0 && i < sorted.length; i += dir) {
+                    const vb = vBars[sorted[i].visualBarIndex];
+                    if (vb && (vb.doubleBar || vb.repeatStart || vb.repeatEnd)) {
+                        found = i;
+                        break;
+                    }
+                }
+                targetIdx = found >= 0 ? found : Math.max(0, Math.min(sorted.length - 1, curIdx + dir * 4));
+            } else {
+                targetIdx = Math.max(0, Math.min(sorted.length - 1, curIdx + dir));
+            }
+            const targetPt = sorted[targetIdx];
+            if (targetPt) {
+                holdUntil = 0;
+                rec.source.seek(Math.max(0, targetPt.timeMs + 1 + latency()));
+                ensureFrame();
+            }
+            return;
+        }
         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) hold();
     }, true);
 
@@ -448,7 +531,16 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         if (unitCache.key !== key) {
             const roots = pages?.length ? pages : [output];
             const ids = [];
-            for (const r of roots) r.querySelectorAll('[data-block]').forEach((b) => ids.push(Number(b.dataset.block)));
+            const seen = new Set();
+            for (const r of roots) {
+                r.querySelectorAll('[data-block]').forEach((b) => {
+                    const num = Number(b.dataset.block);
+                    if (!seen.has(num)) {
+                        seen.add(num);
+                        ids.push(num);
+                    }
+                });
+            }
             unitCache = { key, ids };
         }
         return unitCache.ids;
@@ -469,6 +561,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         if (!line.hidden && !line._hiding) {
             line._hiding = setTimeout(() => { line.hidden = true; line._hiding = 0; }, 160);
         }
+        output.querySelectorAll('.ts-bar-cursor:not([hidden])').forEach((c) => { c.hidden = true; });
     }
 
     function ensureFrame() {
@@ -488,7 +581,47 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         const t = playing ? clockT + Math.min(1000, now - clockAt) : raw;
 
         const ids = unitIds();
-        const pos = positionAt(points, ids, t - latency(), durationOf(rec));
+        const dur = durationOf(rec);
+        const effTime = t - latency();
+
+        // Horizontal Ribbon mode: pan `.txt-ribbon-scroll` so the active bar glides past the stationary 25% playhead
+        if (isText(getCurrentFile()) && textState.hasSystems && textState.layoutMode === 'horizontal') {
+            hideLine();
+            const prog = barProgressAt(points, ids, effTime, dur);
+            const scrollEl = output.querySelector('.txt-ribbon-scroll');
+            if (!prog || !scrollEl) {
+                if (playing) ensureFrame();
+                return;
+            }
+            const barEl = scrollEl.querySelector(`.ts-bar[data-block="${prog.unitId}"][data-bar-offset="${prog.barOffset}"]`)
+                || (prog.visualBarIndex != null ? scrollEl.querySelector(`.ts-bar[data-visual-bar="${prog.visualBarIndex}"]`) : null)
+                || scrollEl.querySelector(`.ts-bar[data-block="${prog.unitId}"]`);
+            if (!barEl) {
+                if (playing) ensureFrame();
+                return;
+            }
+            scrollEl.querySelectorAll('.ts-bar.is-active-bar').forEach((b) => {
+                if (b !== barEl) b.classList.remove('is-active-bar');
+            });
+            barEl.classList.add('is-active-bar');
+
+            let settling = false;
+            if (now > holdUntil) {
+                const scrollR = scrollEl.getBoundingClientRect();
+                const barR = barEl.getBoundingClientRect();
+                const barLeftInTrack = (barR.left - scrollR.left) + scrollEl.scrollLeft;
+                const playheadX = scrollEl.clientWidth * 0.25;
+                const targetLeft = Math.max(0, barLeftInTrack + barR.width * prog.barFrac - playheadX);
+                const before = scrollEl.scrollLeft;
+                const isJump = !playing || reduceMotion.matches || Math.abs(targetLeft - before) > scrollEl.clientWidth * 0.65;
+                scrollEl.scrollLeft = isJump ? targetLeft : glide(before, targetLeft, dt, 0.12);
+                settling = Math.abs(targetLeft - scrollEl.scrollLeft) > 0.5;
+            }
+            if (playing || settling) ensureFrame();
+            return;
+        }
+
+        const pos = positionAt(points, ids, effTime, dur);
         if (pos == null) { hideLine(); return; }
         const k = Math.min(ids.length - 1, Math.floor(pos));
         const f = Math.min(1, pos - k);
@@ -503,6 +636,21 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             el = unitEl(ids[k]);
         }
         if (!el) { hideLine(); if (playing) ensureFrame(); return; }
+
+        // Intra-system bar cursor for vertical and page modes
+        if (isText(getCurrentFile()) && textState.hasSystems) {
+            const prog = barProgressAt(points, ids, effTime, dur);
+            const activeCursor = el.querySelector?.('.ts-bar-cursor');
+            output.querySelectorAll('.ts-bar-cursor:not([hidden])').forEach((c) => {
+                if (c !== activeCursor) c.hidden = true;
+            });
+            if (activeCursor && prog) {
+                const sysBlock = textState.blocks?.[prog.unitId];
+                const trimCols = sysBlock?.trimCols ?? 2;
+                activeCursor.hidden = false;
+                activeCursor.style.left = `calc(${trimCols}ch + (100% - ${trimCols}ch) * ${prog.colFrac.toFixed(4)})`;
+            }
+        }
 
         const r = el.getBoundingClientRect();
         const nextEl = unitEl(ids[k + 1]);
@@ -587,5 +735,16 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     }
     setInterval(tick, 150);
     window.addEventListener('audiosync:changed', () => { readPoints(); drawn(true); });
+    window.addEventListener('majestictab:txt-aligned', () => {
+        unitCache = { key: null, ids: [] };
+        readPoints();
+        drawn(true);
+        if (points.length && !tapping) ensureFrame();
+    });
+    window.addEventListener('majestictab:txt-version-changed', () => {
+        unitCache = { key: null, ids: [] };
+        drawn(true);
+        if (points.length && !tapping) ensureFrame();
+    });
     tick();
 }

@@ -101,7 +101,15 @@ let transportInterceptor = null;
 let lastPositionSongMs = 0;
 let lastPositionEventAt = 0;
 let jamMuted = false; // Jam host muted guests: synth stays silent regardless of the volume slider
-const effectiveVolume = () => (jamMuted ? 0 : synthPlayerState.masterVolume);
+let silentSynth = false; // Silent (scroll only) mode on text tabs: synth notes muted while clickContext plays metronome/count-in
+const effectiveVolume = () => (jamMuted || silentSynth ? 0 : synthPlayerState.masterVolume);
+
+export function setSilentSynthMode(silent) {
+    silentSynth = Boolean(silent);
+    if (currentApi) {
+        try { currentApi.masterVolume = effectiveVolume(); } catch (_) {}
+    }
+}
 let jamAudioTracks = null; // Jam host assigned this device track indices: only those are audible
 let jamMuteTracks = null; // Jam host: tracks assigned to others, silenced on this unassigned device
 let jamViewTracks = null; // Jam host assigned this device track indices: only those are shown
@@ -434,6 +442,10 @@ function isWithinLoopRange() {
     const firstBar = currentScore.masterBars[synthPlayerState.loopStartMeasure - 1];
     const lastBar = currentScore.masterBars[synthPlayerState.loopEndMeasure - 1];
     if (!firstBar || !lastBar) return false;
+    if (typeof firstBar.startMs === 'number' && typeof lastBar.endMs === 'number') {
+        const currentSongMs = toSongMs(currentApi.timePosition ?? synthPlayerState.currentTime ?? 0);
+        return currentSongMs >= firstBar.startMs && currentSongMs < lastBar.endMs;
+    }
     const startTick = firstBar.start;
     const endTick = lastBar.start + lastBar.calculateDuration();
     const currentTick = currentApi.tickPosition ?? 0;
@@ -443,7 +455,13 @@ function isWithinLoopRange() {
 function seekToLoopStart() {
     const firstBar = currentScore?.masterBars?.[synthPlayerState.loopStartMeasure - 1];
     if (currentApi && firstBar) {
-        currentApi.tickPosition = firstBar.start;
+        if (typeof firstBar.startMs === 'number') {
+            const targetMs = firstBar.startMs / currentSpeedFactor();
+            currentApi.timePosition = targetMs;
+            synthPlayerState.currentTime = targetMs;
+        } else {
+            currentApi.tickPosition = firstBar.start;
+        }
     }
 }
 
@@ -460,6 +478,11 @@ export function applyLoopSettings() {
         const firstBar = currentScore.masterBars[synthPlayerState.loopStartMeasure - 1];
         const lastBar = currentScore.masterBars[synthPlayerState.loopEndMeasure - 1];
         if (firstBar && lastBar) {
+            if (typeof firstBar.startMs === 'number' && typeof lastBar.endMs === 'number') {
+                currentApi.isLooping = false;
+                currentApi.playbackRange = null;
+                return;
+            }
             const startTick = firstBar.start;
             const endTick = lastBar.start + lastBar.calculateDuration();
             currentApi.playbackRange = { startTick, endTick };
@@ -1490,9 +1513,10 @@ export function attachAlphaTabApi(api, opts = {}) {
     cancelPendingClicks();
     cancelCountIn();
     fileClicks = opts.clicks || null;
+    silentSynth = Boolean(opts.silent);
     clickCache = null;
     currentApi = api;
-    currentScore = api.score;
+    currentScore = opts.virtualScore || api.virtualScore || api.score;
     clearTimeout(panReloadTimer);
     mixerState = new Map();
     if (jamHostMixer) localMixerBackup = new Map();
@@ -1601,6 +1625,7 @@ export function attachAlphaTabApi(api, opts = {}) {
         synthPlayerState.isReady = true;
         // Apply existing preferences
         api.playbackSpeed = synthPlayerState.playbackSpeed;
+        try { api.masterVolume = effectiveVolume(); } catch (_) {}
         // The clicks are ours (see clickTick), so AlphaTab's own metronome and count-in stay silent
         api.metronomeVolume = 0;
         api.countInVolume = 0;
@@ -1684,9 +1709,20 @@ export function attachAlphaTabApi(api, opts = {}) {
         if (synthPlayerState.loopEnabled && synthPlayerState.isPlaying && currentScore?.masterBars?.length) {
             const firstBar = currentScore.masterBars[synthPlayerState.loopStartMeasure - 1];
             const lastBar = currentScore.masterBars[synthPlayerState.loopEndMeasure - 1];
-            const loopEndTick = lastBar.start + lastBar.calculateDuration();
-            if (firstBar && args.currentTick >= loopEndTick) {
-                currentApi.tickPosition = firstBar.start;
+            if (firstBar && lastBar) {
+                if (typeof firstBar.startMs === 'number' && typeof lastBar.endMs === 'number') {
+                    const curSongMs = toSongMs(args.currentTime);
+                    if (curSongMs >= lastBar.endMs - 20) {
+                        const targetMs = firstBar.startMs / currentSpeedFactor();
+                        currentApi.timePosition = targetMs;
+                        synthPlayerState.currentTime = targetMs;
+                    }
+                } else {
+                    const loopEndTick = lastBar.start + lastBar.calculateDuration();
+                    if (args.currentTick >= loopEndTick) {
+                        currentApi.tickPosition = firstBar.start;
+                    }
+                }
             }
         }
 
@@ -1765,6 +1801,7 @@ export function detachAlphaTabApi() {
     cancelCountIn();
     stopClickTimer();
     fileClicks = null;
+    silentSynth = false;
     clickCache = null;
     warmingUp = false;
     warmUpPaused = false;
@@ -2100,7 +2137,7 @@ export function rewindSynth10Seconds() {
  */
 export function seekSynthPercent(percent) {
     if (!currentApi || synthPlayerState.endTime <= 0) return;
-    const targetMs = Math.floor(percent * synthPlayerState.endTime);
+    const targetMs = Math.round(percent * synthPlayerState.endTime);
     cancelCountIn();
     if (interceptTransport('seekMs', { timeMs: toSongMs(targetMs) })) return;
     try {
@@ -2246,9 +2283,15 @@ function clickTick() {
     }
     clickLastNow = nowMs;
     let loopEndMs = Infinity;
-    if (synthPlayerState.loopEnabled && timeline && currentScore?.masterBars?.length) {
+    if (synthPlayerState.loopEnabled && currentScore?.masterBars?.length) {
         const lastBar = currentScore.masterBars[synthPlayerState.loopEndMeasure - 1];
-        if (lastBar) loopEndMs = tickToScoreMs(timeline, lastBar.start + lastBar.calculateDuration());
+        if (lastBar) {
+            if (typeof lastBar.endMs === 'number') {
+                loopEndMs = lastBar.endMs;
+            } else if (timeline) {
+                loopEndMs = tickToScoreMs(timeline, lastBar.start + lastBar.calculateDuration());
+            }
+        }
     }
     while (clickNext < clicks.length) {
         const click = clicks[clickNext];
@@ -2755,7 +2798,7 @@ export function initSynthPlayer() {
         synthPlayerState.masterVolume = vol;
         if (currentApi) {
             try {
-                currentApi.masterVolume = jamMuted ? 0 : vol;
+                currentApi.masterVolume = effectiveVolume();
             } catch (_) {}
         }
         if (volumeBadge) {

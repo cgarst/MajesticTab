@@ -1,7 +1,9 @@
 // textProcessor.js
 import { setTextPagesPerView, getLandscapePageLayout } from '../utils/viewModeUtils.js';
 import { decodeText } from '../utils/decodeText.js';
-import { groupBlocks, paginate, createChordLyricSegments } from './textBlocks.js';
+import { groupBlocks, paginate, createChordLyricSegments, sliceAnnotationCols } from './textBlocks.js';
+import { resolveTabTuning, capoFromHeaderText } from '../utils/tabTuningMeta.js';
+import { resolveTabTempoAndMeter } from '../classtab/tabTempoMeta.js';
 
 const PAGE_PADDING = 20;
 let scrollFit = 1, scrollBase = 1;
@@ -11,10 +13,12 @@ let textMaxScrollPercent = null; // scroll mode
 /** Largest zoom % at which the open text tab still fits its page (null: no limit below the slider's own). */
 export function getTextMaxScalePercent(pageMode = true) { return pageMode ? textMaxScalePercent : textMaxScrollPercent; }
 
+const HEADER_SKIP_LINE = /^\s*(?:[#*=~_-]{10,}|#[-]+PLEASE NOTE[-]+#|#.*represents (?:his|their) interpretation.*#|#.*private study, scholarship.*#)\s*$/i;
+
 /**
- * Process text content into either continuous mode or pages
+ * Process text content into continuous vertical mode, paginated pages, and (when staff systems exist) a horizontal ribbon.
  */
-export async function processText(file) {
+export async function processText(file, options = {}) {
     try {
         // Not file.text(): that always reads UTF-8 and turns GBK, Big5, Shift-JIS and Latin-1 tabs into U+FFFD
         const text = decodeText(await file.arrayBuffer());
@@ -22,39 +26,89 @@ export async function processText(file) {
 
         // A page may only break between blocks: a staff system (ruler, strings, marks) is one block, never split.
         const blocks = groupBlocks(lines);
-        const allProcessedLines = blocks.map(block => buildBlockElement(lines, block));
+        const systemBlocks = blocks.filter(b => b.kind === 'system');
+        const hasSystems = systemBlocks.length > 0;
+        const versions = hasSystems
+            ? [...new Set(systemBlocks.map(b => b.version || 1))]
+            : [1];
+        const activeVersion = options.version && versions.includes(options.version) ? options.version : versions[0];
 
-        // Each block (a line, a staff system, a chord-and-lyric line) is numbered so sync points can name it.
-        // Gaps carry no id: nothing to sync to.
-        allProcessedLines.forEach((el, i) => { if (blocks[i].kind !== 'blank') el.dataset.block = String(i); });
-
-        // Create the full content element for continuous mode
-        const fullContent = document.createElement('div');
-        fullContent.className = 'text-content';
-        fullContent.tabIndex = 0; // Make focusable for keyboard navigation
-        allProcessedLines.forEach(line => fullContent.appendChild(line.cloneNode(true)));
-
-        // Set up focus handling and make sure it's keyboard-navigable
-        fullContent.setAttribute('role', 'document');
-
-        // Focus after content is added and rendered
-        requestAnimationFrame(() => {
-            fullContent.focus();
+        const tuningInfo = resolveTabTuning({
+            classtabFlag: file.classtabTuning,
+            headerText: text,
+            fileName: file.name
         });
+        const capoFret = capoFromHeaderText(text) || 0;
+        const tempoMeta = resolveTabTempoAndMeter({ headerText: text, blocks });
 
-        // Create pages for page mode
-        const pages = createPaginatedPages(allProcessedLines, blocks);
-        // Scroll mode: shrink to the width (24px padding and a 1px border a side, at most 1200px wide) so nothing is cut off
-        if (scrollFit < 1) fullContent.style.setProperty('--text-scale', String(+(scrollBase * scrollFit).toFixed(4)));
+        // Build vertical content, paginated pages, and horizontal ribbon for the active version
+        const { fullContent, pages, ribbonContent } = buildVersionedTextViews(lines, blocks, {
+            version: activeVersion,
+            versions,
+            hasSystems
+        });
 
         return {
             fullContent,
-            pages
+            pages,
+            ribbonContent,
+            blocks,
+            lines,
+            rawText: text,
+            hasSystems,
+            versions,
+            activeVersion,
+            tuning: tuningInfo.tuning,
+            tuningSource: tuningInfo.source,
+            capoFret,
+            tempoMeta
         };
     } catch (error) {
         console.error('Error processing text:', error);
         throw error;
     }
+}
+
+/**
+ * Builds `fullContent` (Vertical mode), `pages` (Page mode), and `ribbonContent` (Horizontal mode)
+ * filtered to the selected `version` when a text file contains multiple versions (`versions.length > 1`).
+ */
+export function buildVersionedTextViews(lines, blocks, { version = 1, versions = [1], hasSystems = false } = {}) {
+    const multiVersion = hasSystems && versions.length > 1;
+    const firstSysIdx = blocks.findIndex(b => b.kind === 'system');
+    const filteredBlocks = [];
+    const filteredElements = [];
+
+    for (let i = 0; i < blocks.length; i++) {
+        const blk = blocks[i];
+        const bVer = blk.version || 1;
+        // Keep shared preamble before the first system, or blocks belonging to the selected version
+        if (multiVersion && i >= firstSysIdx && firstSysIdx !== -1 && bVer !== version) {
+            continue;
+        }
+        const el = buildBlockElement(lines, blk);
+        if (blk.kind !== 'blank') el.dataset.block = String(i);
+        filteredBlocks.push(blk);
+        filteredElements.push(el);
+    }
+
+    const fullContent = document.createElement('div');
+    fullContent.className = 'text-content';
+    fullContent.tabIndex = 0;
+    filteredElements.forEach(line => fullContent.appendChild(line.cloneNode(true)));
+    fullContent.setAttribute('role', 'document');
+    requestAnimationFrame(() => {
+        fullContent.focus();
+    });
+
+    const pages = createPaginatedPages(filteredElements, filteredBlocks);
+    if (scrollFit < 1) fullContent.style.setProperty('--text-scale', String(+(scrollBase * scrollFit).toFixed(4)));
+
+    const ribbonContent = hasSystems
+        ? buildHorizontalRibbon(lines, blocks, { version })
+        : null;
+
+    return { fullContent, pages, ribbonContent };
 }
 
 function textLine(line, extraClass) {
@@ -69,7 +123,15 @@ function buildBlockElement(lines, block) {
     if (block.kind === 'system') {
         const container = document.createElement('div');
         container.className = 'tab-section-container';
+        container.dataset.trimCols = String(block.trimCols || 0);
+        const maxCols = block.bars?.length ? block.bars[block.bars.length - 1].colEnd : 0;
+        container.dataset.maxCols = String(maxCols);
         for (let i = block.start; i <= block.end; i++) container.appendChild(textLine(lines[i]));
+        const cursor = document.createElement('div');
+        cursor.className = 'ts-bar-cursor';
+        cursor.setAttribute('aria-hidden', 'true');
+        cursor.hidden = true;
+        container.appendChild(cursor);
         return container;
     }
     if (block.kind === 'chord') {
@@ -90,6 +152,256 @@ function buildBlockElement(lines, block) {
         return wrapper;
     }
     return textLine(lines[block.start]);
+}
+
+/**
+ * Builds the lossless 3-track Horizontal Ribbon DOM (`above`, `strings`, `below`) with a sticky string-tuning gutter,
+ * compact header above, stationary 25% playhead, clickable `.ts-bar` segments, and collapsible footer legend disclosure.
+ */
+export function buildHorizontalRibbon(lines, blocks, { version = 1 } = {}) {
+    const root = document.createElement('div');
+    root.className = 'txt-ribbon-view';
+
+    const sysEntries = [];
+    blocks.forEach((b, idx) => {
+        if (b.kind === 'system' && (b.version || 1) === version) {
+            sysEntries.push({ block: b, blockIdx: idx });
+        }
+    });
+
+    if (!sysEntries.length) return root;
+
+    const firstSysStart = sysEntries[0].block.start;
+    const headerLines = [];
+    for (let i = 0; i < firstSysStart; i++) {
+        const l = lines[i];
+        if (!l || !l.trim() || HEADER_SKIP_LINE.test(l)) continue;
+        headerLines.push(l.trimEnd());
+    }
+
+    // 1. Compact Header
+    if (headerLines.length > 0) {
+        const headerEl = document.createElement('div');
+        headerEl.className = 'txt-ribbon-header';
+
+        const topRow = document.createElement('div');
+        topRow.className = 'txt-ribbon-header-top';
+
+        const summaryBox = document.createElement('div');
+        summaryBox.className = 'txt-ribbon-header-summary';
+        const primaryLines = headerLines.slice(0, 3);
+        primaryLines.forEach((hl) => {
+            const d = document.createElement('div');
+            d.className = 'txt-ribbon-header-line';
+            d.textContent = hl;
+            summaryBox.appendChild(d);
+        });
+        topRow.appendChild(summaryBox);
+        headerEl.appendChild(topRow);
+
+        if (headerLines.length > 3) {
+            const more = document.createElement('details');
+            more.className = 'txt-ribbon-header-more';
+            const sum = document.createElement('summary');
+            sum.textContent = `Header notes (${headerLines.length - 3} more lines)`;
+            const pre = document.createElement('pre');
+            pre.className = 'txt-ribbon-notes-pre';
+            pre.textContent = headerLines.slice(3).join('\n');
+            more.append(sum, pre);
+            headerEl.appendChild(more);
+        }
+
+        root.appendChild(headerEl);
+    }
+
+    // 2. Compute uniform row heights across all systems for 3-track baseline locking
+    const maxAboveRows = Math.max(1, ...sysEntries.map(e => (e.block.above || []).length));
+    const maxBelowRows = Math.max(0, ...sysEntries.map(e => (e.block.below || []).length));
+    const firstSys = sysEntries[0].block;
+    const stringCount = firstSys.strings?.length || 6;
+    const defaultLabels = ['e', 'B', 'G', 'D', 'A', 'E'];
+    const gutterLabels = Array.from({ length: stringCount }, (_, r) => {
+        const raw = firstSys.stringLabels?.[r] || defaultLabels[r % 6];
+        return `${raw}|`;
+    });
+
+    // 3. Ribbon Stage (stationary playhead + horizontal scroll container)
+    const stage = document.createElement('div');
+    stage.className = 'txt-ribbon-stage';
+    stage.style.setProperty('--above-rows', String(maxAboveRows));
+    stage.style.setProperty('--string-rows', String(stringCount));
+    stage.style.setProperty('--below-rows', String(maxBelowRows));
+
+    const playhead = document.createElement('div');
+    playhead.className = 'txt-ribbon-playhead';
+    playhead.setAttribute('aria-hidden', 'true');
+    stage.appendChild(playhead);
+
+    const scrollEl = document.createElement('div');
+    scrollEl.className = 'txt-ribbon-scroll';
+    scrollEl.tabIndex = 0;
+    scrollEl.setAttribute('role', 'document');
+    scrollEl.setAttribute('aria-label', 'Horizontal tab ribbon');
+
+    const track = document.createElement('div');
+    track.className = 'txt-ribbon-track';
+
+    // Sticky Left String Gutter
+    const gutter = document.createElement('div');
+    gutter.className = 'txt-ribbon-gutter';
+    gutter.setAttribute('aria-hidden', 'true');
+
+    const gutterAbove = document.createElement('div');
+    gutterAbove.className = 'txt-ribbon-above';
+    for (let i = 0; i < maxAboveRows; i++) {
+        gutterAbove.appendChild(textLine(' ', 'txt-ribbon-line'));
+    }
+
+    const gutterStrings = document.createElement('div');
+    gutterStrings.className = 'txt-ribbon-strings';
+    gutterLabels.forEach((lbl) => {
+        gutterStrings.appendChild(textLine(lbl, 'txt-ribbon-line txt-gutter-label'));
+    });
+
+    const gutterBelow = document.createElement('div');
+    gutterBelow.className = 'txt-ribbon-below';
+    for (let i = 0; i < maxBelowRows; i++) {
+        gutterBelow.appendChild(textLine(' ', 'txt-ribbon-line'));
+    }
+
+    gutter.append(gutterAbove, gutterStrings, gutterBelow);
+    track.appendChild(gutter);
+
+    // Lead spacer so Bar 1 starts right at the 25% playhead
+    const leadPad = document.createElement('div');
+    leadPad.className = 'txt-ribbon-lead-pad';
+    leadPad.setAttribute('aria-hidden', 'true');
+    track.appendChild(leadPad);
+
+    // System segments and their clickable `.ts-bar` children
+    let visualBarIdx = 0;
+    for (let sIdx = 0; sIdx < sysEntries.length; sIdx++) {
+        const { block, blockIdx } = sysEntries[sIdx];
+        const sysEl = document.createElement('div');
+        sysEl.className = 'txt-ribbon-system';
+        sysEl.dataset.block = String(blockIdx);
+
+        const bars = block.bars || [];
+        const above = block.above || [];
+        const strings = block.strings || [];
+        const below = block.below || [];
+
+        for (let k = 0; k < bars.length; k++) {
+            const bar = bars[k];
+            let sliceStart = bar.colStart;
+            const sliceEnd = bar.colEnd;
+
+            // Strip redundant single opening barline when joining after the gutter or previous bar's closing barline
+            if (k === 0 && !bar.repeatStart && !bar.doubleBar && sliceEnd - sliceStart > 2) {
+                const firstChars = strings.map(s => s[sliceStart] || '');
+                const allSinglePipe = firstChars.filter(ch => ch === '|' || ch === ']' || ch === '+').length >= Math.ceil(strings.length * 0.5);
+                const nextChars = strings.map(s => s[sliceStart + 1] || '');
+                const nextHasPipe = nextChars.some(ch => ch === '|' || ch === '*' || ch === 'o' || ch === ':');
+                if (allSinglePipe && !nextHasPipe) {
+                    sliceStart += 1;
+                }
+            }
+
+            const barWidth = Math.max(1, sliceEnd - sliceStart);
+            const barEl = document.createElement('div');
+            barEl.className = 'ts-bar';
+            if (bar.repeatStart) barEl.classList.add('is-repeat-start');
+            if (bar.repeatEnd) barEl.classList.add('is-repeat-end');
+            if (bar.doubleBar) barEl.classList.add('is-double-bar');
+            barEl.dataset.block = String(blockIdx);
+            barEl.dataset.barOffset = String(k);
+            barEl.dataset.visualBar = String(visualBarIdx);
+            barEl.dataset.barNumber = String(bar.barNumber ?? (visualBarIdx + 1));
+
+            // Top track: `above` lines padded at top to `maxAboveRows`
+            const aboveBox = document.createElement('div');
+            aboveBox.className = 'txt-ribbon-above';
+            const padTopCount = Math.max(0, maxAboveRows - above.length);
+            for (let p = 0; p < padTopCount; p++) {
+                aboveBox.appendChild(textLine(' '.repeat(barWidth), 'txt-ribbon-line txt-anno-line'));
+            }
+            for (let a = 0; a < above.length; a++) {
+                const rawLine = above[a] || '';
+                const seg = (k === 0 && sliceStart > 0)
+                    ? sliceAnnotationCols(rawLine, sliceStart).slice(0, barWidth).padEnd(barWidth, ' ')
+                    : rawLine.slice(sliceStart, sliceEnd).padEnd(barWidth, ' ');
+                aboveBox.appendChild(textLine(seg, 'txt-ribbon-line txt-anno-line'));
+            }
+
+            // Middle track: `strings` lines
+            const stringsBox = document.createElement('div');
+            stringsBox.className = 'txt-ribbon-strings';
+            for (let r = 0; r < stringCount; r++) {
+                const sLine = strings[r] || '';
+                const seg = sLine.slice(sliceStart, sliceEnd).padEnd(barWidth, '-');
+                stringsBox.appendChild(textLine(seg, 'txt-ribbon-line txt-string-line'));
+            }
+
+            // Bottom track: `below` lines padded at bottom to `maxBelowRows`
+            const belowBox = document.createElement('div');
+            belowBox.className = 'txt-ribbon-below';
+            for (let b = 0; b < below.length; b++) {
+                const rawLine = below[b] || '';
+                const seg = (k === 0 && sliceStart > 0)
+                    ? sliceAnnotationCols(rawLine, sliceStart).slice(0, barWidth).padEnd(barWidth, ' ')
+                    : rawLine.slice(sliceStart, sliceEnd).padEnd(barWidth, ' ');
+                belowBox.appendChild(textLine(seg, 'txt-ribbon-line txt-anno-line'));
+            }
+            const padBotCount = Math.max(0, maxBelowRows - below.length);
+            for (let p = 0; p < padBotCount; p++) {
+                belowBox.appendChild(textLine(' '.repeat(barWidth), 'txt-ribbon-line txt-anno-line'));
+            }
+
+            barEl.append(aboveBox, stringsBox, belowBox);
+            sysEl.appendChild(barEl);
+            visualBarIdx++;
+        }
+
+        track.appendChild(sysEl);
+    }
+
+    // Trail spacer so the final bar can glide across the 25% playhead
+    const trailPad = document.createElement('div');
+    trailPad.className = 'txt-ribbon-trail-pad';
+    trailPad.setAttribute('aria-hidden', 'true');
+    track.appendChild(trailPad);
+
+    scrollEl.appendChild(track);
+    stage.appendChild(scrollEl);
+    root.appendChild(stage);
+
+    // 4. Collapsible Footer Legend Disclosure
+    const lastSysEnd = sysEntries[sysEntries.length - 1].block.end;
+    const legendLines = [];
+    for (const blk of blocks) {
+        if ((blk.version || 1) !== version) continue;
+        if (blk.inLegend || blk.start > lastSysEnd) {
+            for (let i = blk.start; i <= blk.end; i++) {
+                if (!HEADER_SKIP_LINE.test(lines[i] || '')) legendLines.push(lines[i]);
+            }
+        }
+    }
+    while (legendLines.length && !legendLines[0].trim()) legendLines.shift();
+    while (legendLines.length && !legendLines[legendLines.length - 1].trim()) legendLines.pop();
+
+    if (legendLines.length > 0) {
+        const details = document.createElement('details');
+        details.className = 'txt-ribbon-legend';
+        const summary = document.createElement('summary');
+        summary.textContent = 'Notes and legend';
+        const pre = document.createElement('pre');
+        pre.className = 'txt-ribbon-notes-pre';
+        pre.textContent = legendLines.join('\n');
+        details.append(summary, pre);
+        root.appendChild(details);
+    }
+
+    return root;
 }
 
 function createPaginatedPages(processedLines, blocks) {

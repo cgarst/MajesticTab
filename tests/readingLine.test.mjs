@@ -1,7 +1,7 @@
 // Run with: node --test tests/readingLine.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { positionAt, backJumps, followTarget, glide } from '../src/textSync/readingLine.js';
+import { positionAt, barProgressAt, backJumps, followTarget, glide } from '../src/textSync/readingLine.js';
 
 const units = [0, 1, 2, 4, 5]; // 3 is a separator with no id
 const pts = [
@@ -74,3 +74,19 @@ test('the glide is frame-rate independent and lands exactly', () => {
     assert.ok(Math.abs(once - twice) < 1e-9);
     assert.equal(glide(99.8, 100, 0.016), 100);
 });
+
+test('barProgressAt interpolates intra-system bar offsets and colFrac across bars', () => {
+    const barPts = [
+        { id: 'b0', barIndex: '1', barOffset: 0, barCount: 2, colStartFrac: 0, colEndFrac: 0.5, timeMs: 0, endTimeMs: 2000 },
+        { id: 'b1', barIndex: '1', barOffset: 1, barCount: 2, colStartFrac: 0.5, colEndFrac: 1.0, timeMs: 2000, endTimeMs: 4000 }
+    ];
+    const pMidFirst = barProgressAt(barPts, [0, 1], 1000, 4000);
+    assert.equal(pMidFirst.unitIndex, 1);
+    assert.equal(pMidFirst.barOffset, 0);
+    assert.ok(Math.abs(pMidFirst.colFrac - 0.25) < 1e-6);
+
+    const pMidSecond = barProgressAt(barPts, [0, 1], 3000, 4000);
+    assert.equal(pMidSecond.barOffset, 1);
+    assert.ok(Math.abs(pMidSecond.colFrac - 0.75) < 1e-6);
+});
+

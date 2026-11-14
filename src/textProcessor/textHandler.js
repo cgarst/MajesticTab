@@ -1,5 +1,5 @@
 // textHandler.js
-import { processText } from './textProcessor.js';
+import { processText, buildHorizontalRibbon, buildVersionedTextViews } from './textProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { showLoadingCard, setLoadingProgress, hideLoadingCard } from '../utils/loadingCard.js';
 import { clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
@@ -10,23 +10,77 @@ import { enableContinuousScrollTracking } from '../utils/scrollUtils.js';
 export const textState = {
     currentPageIndex: 0,
     pages: [], // For page mode
-    fullContent: null, // For continuous mode
+    fullContent: null, // For vertical continuous mode
+    ribbonContent: null, // For horizontal ribbon mode
+    blocks: [],
+    lines: [],
+    rawText: '',
+    hasSystems: false,
+    versions: [1],
+    activeVersion: 1,
+    tuning: null,
+    tuningSource: null,
+    capoFret: 0,
+    tempoMeta: null,
+    alignment: null,
+    layoutMode: 'vertical', // 'page' | 'vertical' | 'horizontal'
     reset() {
         this.pages.length = 0;
         this.currentPageIndex = 0;
         this.fullContent = null;
+        this.ribbonContent = null;
+        this.blocks = [];
+        this.lines = [];
+        this.rawText = '';
+        this.hasSystems = false;
+        this.versions = [1];
+        this.activeVersion = 1;
+        this.tuning = null;
+        this.tuningSource = null;
+        this.capoFret = 0;
+        this.tempoMeta = null;
+        this.alignment = null;
+        document.body.classList.remove('txt-has-bars', 'txt-horizontal-mode');
     }
 };
 
+export function setTextLayoutMode(mode) {
+    if (mode === 'page' || mode === 'vertical' || mode === 'horizontal') {
+        textState.layoutMode = mode;
+    }
+}
+
+export function setTextVersion(version) {
+    if (!textState.hasSystems || !textState.versions.includes(version) || textState.activeVersion === version) return;
+    textState.activeVersion = version;
+    textState.currentPageIndex = 0;
+    const views = buildVersionedTextViews(textState.lines, textState.blocks, {
+        version,
+        versions: textState.versions,
+        hasSystems: textState.hasSystems
+    });
+    textState.fullContent = views.fullContent;
+    textState.pages = views.pages;
+    textState.ribbonContent = views.ribbonContent;
+
+    const output = document.getElementById('output');
+    const pageModeRadio = document.getElementById('pageModeRadio');
+    if (output) renderTextPage(output, Boolean(pageModeRadio?.checked));
+    window.dispatchEvent(new CustomEvent('majestictab:txt-version-changed', { detail: { version } }));
+}
+
 /**
- * Render text pages based on view mode
+ * Render text pages based on view mode ('page', 'vertical', or 'horizontal')
  */
 export function renderTextPage(output, pageModeChecked) {
     clearOutput(output);
     
     const pageIndicator = document.getElementById('pageIndicator');
+    const isHorizontal = !pageModeChecked && textState.hasSystems && textState.layoutMode === 'horizontal' && textState.ribbonContent;
+    document.body.classList.toggle('txt-horizontal-mode', Boolean(isHorizontal));
     
     if (pageModeChecked) {
+        textState.layoutMode = 'page';
         output.style.overflowY = 'hidden';
         const pagesPerView = getPagesPerView('txt');
         
@@ -60,9 +114,29 @@ export function renderTextPage(output, pageModeChecked) {
             textState.pages.length,
             pagesPerView
         );
+    } else if (isHorizontal) {
+        // Horizontal ribbon mode
+        output.className = 'continuous-mode txt-ribbon-output';
+        output.style.overflowY = 'auto';
+        const ribbon = buildHorizontalRibbon(textState.lines, textState.blocks, {
+            version: textState.activeVersion
+        });
+        output.appendChild(ribbon);
+        const scrollEl = ribbon.querySelector('.txt-ribbon-scroll');
+        if (scrollEl && pageIndicator) {
+            const updatePct = () => {
+                const maxScroll = Math.max(1, scrollEl.scrollWidth - scrollEl.clientWidth);
+                const pct = Math.min(100, Math.max(0, Math.round((scrollEl.scrollLeft / maxScroll) * 100)));
+                pageIndicator.textContent = `${pct}%`;
+            };
+            scrollEl.addEventListener('scroll', updatePct, { passive: true });
+            updatePct();
+        }
     } else {
-        // Continuous mode 
+        // Continuous vertical mode
+        if (textState.layoutMode === 'page') textState.layoutMode = 'vertical';
         output.className = 'continuous-mode';
+        output.style.overflowY = '';
 
         if (textState.fullContent) {
             // Create a wrapper just like PDF does
@@ -76,7 +150,7 @@ export function renderTextPage(output, pageModeChecked) {
             enableContinuousScrollTracking(output, [content], (newPage) => {
                 textState.currentPageIndex = newPage;
                 const scrollPercent = (output.scrollTop / (output.scrollHeight - output.clientHeight) * 100) || 0;
-                pageIndicator.textContent = `${Math.round(scrollPercent)}%`;
+                if (pageIndicator) pageIndicator.textContent = `${Math.round(scrollPercent)}%`;
             });
         }
     }
@@ -86,7 +160,7 @@ export function renderTextPage(output, pageModeChecked) {
  * Load a text tab file into the app.
  */
 export async function loadText(file, output, pageModeRadio, continuousModeRadio) {
-    // Reset state and clear output
+    const prevLayout = textState.layoutMode;
     textState.reset();
     clearOutput(output);
 
@@ -97,22 +171,42 @@ export async function loadText(file, output, pageModeRadio, continuousModeRadio)
         stage: 'Reading file…'
     });
     try {
-        // Process text content for both modes up front
         setLoadingProgress(loadingToken, 30, 'Laying out pages…');
-        const { fullContent, pages } = await processText(file);
+        const processed = await processText(file);
         setLoadingProgress(loadingToken, 80, 'Rendering…');
         
-        // Store both representations
-        textState.fullContent = fullContent;
-        textState.pages = pages;
-        
-        // Render based on current mode
+        textState.fullContent = processed.fullContent;
+        textState.pages = processed.pages;
+        textState.ribbonContent = processed.ribbonContent;
+        textState.blocks = processed.blocks;
+        textState.lines = processed.lines;
+        textState.rawText = processed.rawText;
+        textState.hasSystems = processed.hasSystems;
+        textState.versions = processed.versions;
+        textState.activeVersion = processed.activeVersion;
+        textState.tuning = processed.tuning;
+        textState.tuningSource = processed.tuningSource;
+        textState.capoFret = processed.capoFret;
+        textState.tempoMeta = processed.tempoMeta;
+        if (processed.capoFret > 0) {
+            file.detectedCapo = processed.capoFret;
+        }
+
+        document.body.classList.toggle('txt-has-bars', Boolean(processed.hasSystems));
+
         const pageModeChecked = pageModeRadio.checked;
+        if (pageModeChecked) {
+            textState.layoutMode = 'page';
+        } else if (prevLayout === 'horizontal' && processed.hasSystems) {
+            textState.layoutMode = 'horizontal';
+        } else {
+            textState.layoutMode = 'vertical';
+        }
         renderTextPage(output, pageModeChecked);
         
         // Initialize page indicator
         const pageIndicator = document.getElementById('pageIndicator');
-        if (!pageModeChecked) {
+        if (!pageModeChecked && pageIndicator) {
             pageIndicator.textContent = '0%';
         }
     } catch (err) {
