@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Settings - MajesticTab guide</title>
+  <meta name="description" content="Set the theme, defaults, updates and data options.">
+  <meta name="theme-color" content="#1e2636">
+  <link rel="canonical" href="https://majestictab.zathu.net/guide/settings.html">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MajesticTab">
+  <meta property="og:title" content="Settings - MajesticTab guide">
+  <meta property="og:description" content="Set the theme, defaults, updates and data options.">
+  <meta property="og:url" content="https://majestictab.zathu.net/guide/settings.html">
+  <meta property="og:image" content="https://majestictab.zathu.net/img/app/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32x32.png">
+  <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+  <link rel="preload" href="../fonts/barlow-condensed-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../site.css">
+  <link rel="stylesheet" href="../guide.css">
+  <script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap gwrap">
+    <a class="brand" href="../" aria-label="MajesticTab home"><span class="tile"><img src="../icons/mark.svg" width="24" height="25" alt=""></span><span>Majestic<b>Tab</b></span></a>
+    <nav class="nav" aria-label="Site">
+      <button class="gmenu" type="button" aria-expanded="false" aria-controls="gside">Contents</button>
+      <a href="../">Home</a>
+      <a href="./" aria-current="true">Guide</a>
+      <a href="../#download" class="btn">Download</a>
+    </nav>
+  </div>
+</header>
+<div class="wrap gwrap glayout">
+    <aside class="gside" id="gside" aria-label="Guide contents">
+      <form class="gsearch" role="search" onsubmit="return false">
+        <label class="sr" for="gq">Search the guide</label>
+        <input id="gq" type="search" placeholder="Search the guide" autocomplete="off" spellcheck="false" aria-controls="gresults">
+      </form>
+      <div class="gresults" id="gresults" role="region" aria-label="Search results" aria-live="polite" hidden></div>
+      <nav class="gnav" id="gnav" aria-label="Guide">
+        <div class="gsec">
+          <h2 class="gsec-title">Start</h2>
+          <ul>
+            <li><a href="install.html">Install MajesticTab</a></li>
+            <li><a href="first-song.html">Open your first tab</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">Library</h2>
+          <ul>
+            <li><a href="library.html">Your library</a></li>
+            <li><a href="setlists.html">Setlists and tunings</a></li>
+            <li><a href="getting-tabs.html">Getting tabs in</a></li>
+            <li><a href="backup-sync.html">Backup and sync</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">The reader</h2>
+          <ul>
+            <li><a href="reader.html">The reader</a></li>
+            <li><a href="view.html">View</a></li>
+            <li><a href="practice.html">Practice</a></li>
+            <li><a href="sound.html">Sound</a></li>
+            <li><a href="original-audio.html">Original recording</a></li>
+            <li><a href="guitar.html">Fit a tab to your guitar</a></li>
+            <li><a href="tools.html">Fretboard and the Tools menu</a></li>
+            <li><a href="pdf-text.html">PDF and text tabs</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">Together</h2>
+          <ul>
+            <li><a href="jam.html">Jam sessions</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">Library tools</h2>
+          <ul>
+            <li><a href="library-tools.html">The Tools view</a></li>
+            <li><a href="chord-library.html">Chord library</a></li>
+            <li><a href="scales.html">Scales</a></li>
+            <li><a href="circle-of-fifths.html">Circle of fifths</a></li>
+            <li><a href="tuner.html">Tuner</a></li>
+            <li><a href="metronome.html">Metronome</a></li>
+            <li><a href="make-backing-tracks.html">Make backing tracks</a></li>
+            <li><a href="open-file.html">Open file</a></li>
+            <li><a href="classical-tabs.html">Classical tab browser</a></li>
+            <li><a href="missing-tabs.html">Fill in missing tabs</a></li>
+            <li><a href="bulk-import.html">Bulk import</a></li>
+            <li><a href="bulk-export.html">Bulk export</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">Controls</h2>
+          <ul>
+            <li><a href="shortcuts.html">Keyboard shortcuts</a></li>
+            <li><a href="pedals-gamepad.html">Foot pedals and game controllers</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">Reference</h2>
+          <ul>
+            <li><a href="settings.html" aria-current="page">Settings</a></li>
+            <li><a href="formats.html">Supported files</a></li>
+            <li><a href="troubleshooting.html">Troubleshooting and questions</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <main class="gmain" id="main">
+      <article class="gdoc">
+        <h1>Settings</h1>
+        <p class="lead">Settings contains the defaults that MajesticTab starts from, plus your library and backup tools. Some options only appear in the apps.</p>
+
+<h2 id="open-settings">Open Settings</h2>
+<p>Select <strong>Settings</strong> in the library navigation. Settings has these sections: <strong>Library and backup</strong>, <strong>Player</strong>, <strong>Appearance</strong>, <strong>Reading</strong>, <strong>Controls</strong>, <strong>Sound</strong>, <strong>Classical tab</strong>, <strong>Updates</strong> and <strong>About</strong>. The apps also have <strong>Web search</strong>.</p>
+<p>In the reader, <strong>View</strong> and <strong>Guitar</strong> override some of these defaults for the song that is open.</p>
+
+<h2 id="library-and-backup">Library and backup</h2>
+<dl class="defs">
+  <dt>Hide songs without tabs</dt>
+  <dd>Shows only songs that have at least one tab.</dd>
+  <dt>Sync</dt>
+  <dd>Keeps this device and your backup location matching. See <a href="backup-sync.html">Backup and sync</a>.</dd>
+  <dt>Create a backup</dt>
+  <dd>Saves everything to a file, a folder or your cloud. Select <strong>Create</strong>.</dd>
+  <dt>Restore from a backup</dt>
+  <dd>Brings a backup or snapshot back. Select <strong>Restore</strong>.</dd>
+  <dt>Reload library metadata</dt>
+  <dd>Refreshes covers, durations and album details. Select <strong>Reload</strong>.</dd>
+  <dt>Orphaned files</dt>
+  <dd>Finds stored tabs that no library song uses. Select <strong>Review</strong>.</dd>
+  <dt>Clear cached data</dt>
+  <dd>Clears covers and downloads that MajesticTab keeps only to load faster. Select <strong>Clear</strong>.</dd>
+  <dt>Delete all data</dt>
+  <dd>Removes your library, setlists and settings from this device. Select <strong>Delete</strong>. Make a backup first.</dd>
+</dl>
+
+<h2 id="player">Player</h2>
+<dl class="defs">
+  <dt>Preferred instrument</dt>
+  <dd>Choose <strong>Guitar</strong> or <strong>Bass</strong>. This sets the instrument that MajesticTab assumes.</dd>
+  <dt>Left-handed guitar</dt>
+  <dd>Flips the fretboard and the chord diagrams for a left-handed guitar.</dd>
+  <dt>Stringing</dt>
+  <dd><strong>Standard</strong> puts the high string on top, as in tab. <strong>Upside down</strong> puts the low string on top.</dd>
+  <dt>Default strings</dt>
+  <dd>For guitar, choose <strong>From file</strong>, <strong>7</strong> or <strong>8</strong>. For bass, choose <strong>From file</strong>, <strong>5</strong> or <strong>6</strong>. <strong>From file</strong> keeps the string count that the tab was saved with.</dd>
+</dl>
+
+<h2 id="appearance">Appearance</h2>
+<p>Under <strong>App theme</strong>, choose one of nine themes: Slate Blue, Mystic Dream, Blue Pearl, Cerulean Paradise, Dark Side, Ember Glow, Purple Nebula, Red Nebula or Snow White.</p>
+
+<h2 id="reading">Reading</h2>
+<dl class="defs">
+  <dt>A new tab opens as</dt>
+  <dd>Choose <strong>Page</strong> or <strong>Scroll</strong> separately for Guitar Pro, PDF and text files.</dd>
+  <dt>Notation</dt>
+  <dd>Choose <strong>Tab only</strong> or <strong>Tab and standard</strong> for a new tab. To change it for one song, use <strong>View</strong>.</dd>
+  <dt>Reset these defaults</dt>
+  <dd>Select <strong>Reset</strong> to return to Scroll for Guitar Pro and text files, Page for PDFs, and string counts from the file.</dd>
+  <dt>Minimum section size</dt>
+  <dd>Choose <strong>1 bar</strong>, <strong>2 bars</strong>, <strong>4 bars</strong> or <strong>8 bars</strong>. MajesticTab joins shorter labeled sections with adjacent parts.</dd>
+</dl>
+<p>Size, paper and the pages shown are in the reader's <strong>View</strong> menu, not in Settings.</p>
+
+<h2 id="controls">Controls</h2>
+<p>Shows what each key, foot pedal or controller button does. See <a href="shortcuts.html">Keyboard shortcuts</a> and <a href="pedals-gamepad.html">Foot pedals and game controllers</a>.</p>
+
+<h2 id="web-search">Web search</h2>
+<p>In the apps, <strong>Block ads and trackers</strong> turns on ad blocking for the in-app browser. When you turn it on, MajesticTab downloads community rules. Select <strong>Refresh list</strong> to download them again.</p>
+
+<h2 id="sound">Sound</h2>
+<dl class="defs">
+  <dt>SoundFonts</dt>
+  <dd>Select <strong>Add</strong> to add a SoundFont and <strong>Edit</strong> to change the list. Enabled SoundFonts layer from top to bottom, and lower ones override higher ones.</dd>
+  <dt>Strict instrument matching</dt>
+  <dd>Tracks that the enabled SoundFonts lack stay silent, instead of playing the closest instrument.</dd>
+  <dt>Force one preset</dt>
+  <dd>Plays every instrument except drums with a single preset from one SoundFont. The default is <strong>Off (use each track's instrument)</strong>.</dd>
+</dl>
+
+<h2 id="classical-tab">Classical tab</h2>
+<p>Manages the Classtab archive for the <a href="classical-tabs.html">classical tab browser</a>. After you download the archive, this section shows its size and how many pieces and composers it holds. Select <strong>Update archive</strong> to download it again, or <strong>Remove</strong> to delete it. Songs that you added to your library stay. The archive isn't part of your backup, so you can download it again at any time.</p>
+
+<h2 id="updates">Updates</h2>
+<p>This section appears in versions that update themselves. Under <strong>Update channel</strong>, choose <strong>None</strong>, <strong>Canary</strong> or <strong>Stable</strong>. <strong>None</strong> turns automatic checks off. <strong>Canary</strong> gets early builds. Select <strong>Check</strong> next to <strong>Check for updates</strong> to look for a newer version now.</p>
+
+<h2 id="about">About</h2>
+<p>The <strong>About</strong> section has these rows:</p>
+<ul>
+  <li><strong>User guide</strong> opens this guide.</li>
+  <li><strong>Privacy policy</strong> opens the <a href="../privacy.html">privacy policy</a>.</li>
+  <li><strong>Support</strong> opens the issue tracker, where you can report a problem or ask for a feature.</li>
+  <li><strong>Quit</strong> closes MajesticTab in versions that can quit.</li>
+</ul>
+
+      </article>
+      <nav class="gpager" aria-label="Previous and next page">
+        <a class="prev" href="pedals-gamepad.html"><span class="muted">Previous</span><strong>Foot pedals and game controllers</strong></a>
+        <a class="next" href="formats.html"><span class="muted">Next</span><strong>Supported files</strong></a>
+      </nav>
+      <p class="gedit small muted">If something on this page is wrong or out of date, <a href="https://github.com/cgarst/MajesticTab/edit/main/support/guide/pages/settings.html">edit this page on GitHub</a> or <a href="https://github.com/cgarst/MajesticTab/issues">report an issue</a>.</p>
+    </main>
+    <nav class="gtoc" aria-label="On this page"><h2 class="gtoc-title">On this page</h2><ul><li><a href="#open-settings">Open Settings</a></li><li><a href="#library-and-backup">Library and backup</a></li><li><a href="#player">Player</a></li><li><a href="#appearance">Appearance</a></li><li><a href="#reading">Reading</a></li><li><a href="#controls">Controls</a></li><li><a href="#web-search">Web search</a></li><li><a href="#sound">Sound</a></li><li><a href="#classical-tab">Classical tab</a></li><li><a href="#updates">Updates</a></li><li><a href="#about">About</a></li></ul></nav>
+</div>
+<footer class="foot">
+  <div class="wrap gwrap">
+    <a class="brand" href="../" aria-label="MajesticTab home"><span class="tile"><img src="../icons/mark.svg" width="24" height="25" alt=""></span><span>Majestic<b>Tab</b></span></a>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="../">Home</a>
+      <a href="https://github.com/cgarst/MajesticTab">Source code</a>
+      <a href="https://github.com/cgarst/MajesticTab/releases/latest">Latest release</a>
+      <a href="https://github.com/cgarst/MajesticTab/issues">Report an issue</a>
+      <a href="../privacy.html">Privacy</a>
+    </nav>
+    <p class="legal">© MajesticTab<span class="dot">·</span>Guitar tab reader and practice app</p>
+  </div>
+</footer>
+<script src="../guide.js" defer></script>
+</body>
+</html>

@@ -1,5 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://majestictab.zathu.net/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/install.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/first-song.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/library.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/setlists.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/getting-tabs.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/backup-sync.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/reader.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/view.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/practice.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/sound.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/original-audio.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/guitar.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/tools.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/pdf-text.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/jam.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/library-tools.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/chord-library.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/scales.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/circle-of-fifths.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/tuner.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/metronome.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/make-backing-tracks.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/open-file.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/classical-tabs.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/missing-tabs.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/bulk-import.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/bulk-export.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/shortcuts.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/pedals-gamepad.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/settings.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/formats.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://majestictab.zathu.net/guide/troubleshooting.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://majestictab.zathu.net/privacy.html</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>
 </urlset>

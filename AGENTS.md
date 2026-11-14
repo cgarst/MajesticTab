@@ -18,7 +18,7 @@ This file holds only what applies to every task. Domain guides hold the rest: **
 | Build scripts, toolchain pins, Cargo, lockfiles, Flatpak, F-Droid | `build/AGENTS.md` |
 | Cutting a release, release notes, the F-Droid recipe | `build/RELEASING.md` |
 | Native Tauri shell, iOS simulator | `build/tauri/AGENTS.md` |
-| `docs/` website, store listing, screenshots, branding | `support/AGENTS.md` |
+| `docs/` website, the user guide in `docs/guide/`, store listing, screenshots, branding | `support/AGENTS.md` |
 | Running the app, CDP, fixtures, debugging | `tests/AGENTS.md` |
 
 ## Always true

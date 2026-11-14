@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>The reader - MajesticTab guide</title>
+  <meta name="description" content="Learn the five reader controls, the song menu, the playback dock and Reading mode.">
+  <meta name="theme-color" content="#1e2636">
+  <link rel="canonical" href="https://majestictab.zathu.net/guide/reader.html">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MajesticTab">
+  <meta property="og:title" content="The reader - MajesticTab guide">
+  <meta property="og:description" content="Learn the five reader controls, the song menu, the playback dock and Reading mode.">
+  <meta property="og:url" content="https://majestictab.zathu.net/guide/reader.html">
+  <meta property="og:image" content="https://majestictab.zathu.net/img/app/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32x32.png">
+  <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+  <link rel="preload" href="../fonts/barlow-condensed-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../site.css">
+  <link rel="stylesheet" href="../guide.css">
+  <script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap gwrap">
+    <a class="brand" href="../" aria-label="MajesticTab home"><span class="tile"><img src="../icons/mark.svg" width="24" height="25" alt=""></span><span>Majestic<b>Tab</b></span></a>
+    <nav class="nav" aria-label="Site">
+      <button class="gmenu" type="button" aria-expanded="false" aria-controls="gside">Contents</button>
+      <a href="../">Home</a>
+      <a href="./" aria-current="true">Guide</a>
+      <a href="../#download" class="btn">Download</a>
+    </nav>
+  </div>
+</header>
+<div class="wrap gwrap glayout">
+    <aside class="gside" id="gside" aria-label="Guide contents">
+      <form class="gsearch" role="search" onsubmit="return false">
+        <label class="sr" for="gq">Search the guide</label>
+        <input id="gq" type="search" placeholder="Search the guide" autocomplete="off" spellcheck="false" aria-controls="gresults">
+      </form>
+      <div class="gresults" id="gresults" role="region" aria-label="Search results" aria-live="polite" hidden></div>
+      <nav class="gnav" id="gnav" aria-label="Guide">
+        <div class="gsec">
+          <h2 class="gsec-title">Start</h2>
+          <ul>
+            <li><a href="install.html">Install MajesticTab</a></li>
+            <li><a href="first-song.html">Open your first tab</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">Library</h2>
+          <ul>
+            <li><a href="library.html">Your library</a></li>
+            <li><a href="setlists.html">Setlists and tunings</a></li>
+            <li><a href="getting-tabs.html">Getting tabs in</a></li>
+            <li><a href="backup-sync.html">Backup and sync</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">The reader</h2>
+          <ul>
+            <li><a href="reader.html" aria-current="page">The reader</a></li>
+            <li><a href="view.html">View</a></li>
+            <li><a href="practice.html">Practice</a></li>
+            <li><a href="sound.html">Sound</a></li>
+            <li><a href="original-audio.html">Original recording</a></li>
+            <li><a href="guitar.html">Fit a tab to your guitar</a></li>
+            <li><a href="tools.html">Fretboard and the Tools menu</a></li>
+            <li><a href="pdf-text.html">PDF and text tabs</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">Together</h2>
+          <ul>
+            <li><a href="jam.html">Jam sessions</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">Library tools</h2>
+          <ul>
+            <li><a href="library-tools.html">The Tools view</a></li>
+            <li><a href="chord-library.html">Chord library</a></li>
+            <li><a href="scales.html">Scales</a></li>
+            <li><a href="circle-of-fifths.html">Circle of fifths</a></li>
+            <li><a href="tuner.html">Tuner</a></li>
+            <li><a href="metronome.html">Metronome</a></li>
+            <li><a href="make-backing-tracks.html">Make backing tracks</a></li>
+            <li><a href="open-file.html">Open file</a></li>
+            <li><a href="classical-tabs.html">Classical tab browser</a></li>
+            <li><a href="missing-tabs.html">Fill in missing tabs</a></li>
+            <li><a href="bulk-import.html">Bulk import</a></li>
+            <li><a href="bulk-export.html">Bulk export</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">Controls</h2>
+          <ul>
+            <li><a href="shortcuts.html">Keyboard shortcuts</a></li>
+            <li><a href="pedals-gamepad.html">Foot pedals and game controllers</a></li>
+          </ul>
+        </div>
+        <div class="gsec">
+          <h2 class="gsec-title">Reference</h2>
+          <ul>
+            <li><a href="settings.html">Settings</a></li>
+            <li><a href="formats.html">Supported files</a></li>
+            <li><a href="troubleshooting.html">Troubleshooting and questions</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <main class="gmain" id="main">
+      <article class="gdoc">
+        <h1>The reader</h1>
+        <p class="lead">The reader has five controls and one playback dock. The controls use the same names on every platform.</p>
+<p>In this guide, <em>select</em> means click with a mouse or tap on a touch screen. Where an action also works from a keyboard or a game controller, the guide gives those ways too.</p>
+
+<figure class="shot"><img src="../img/app/practice.webp" alt="The reader with the Practice panel open next to a Guitar Pro score and the playback dock" width="2880" height="1800" loading="lazy" decoding="async"><figcaption>The reader with the Practice panel open.</figcaption></figure>
+
+<h2 id="use-the-five-controls">Use the five controls</h2>
+<dl class="defs">
+  <dt><a href="view.html">View</a></dt>
+  <dd>Layout, notation, size, paper, the pages shown, and which tracks are drawn.</dd>
+  <dt><a href="practice.html">Practice</a></dt>
+  <dd>Speed, parts, the loop range, the metronome and the count-in.</dd>
+  <dt><a href="sound.html">Sound</a></dt>
+  <dd>The settings for the sound you selected in the dock, either the synth or the original recording.</dd>
+  <dt><a href="guitar.html">Guitar</a></dt>
+  <dd>Strings, tuning and capo for your guitar.</dd>
+  <dt><a href="tools.html">Tools</a></dt>
+  <dd>Chord library, scales, circle of fifths, tuner, metronome and Jam.</dd>
+</dl>
+
+<h2 id="open-the-song-menu">Open the song menu</h2>
+<p>Select the song name in the top bar to open the song menu. It contains these items:</p>
+<ul>
+  <li><strong>Pin</strong>, <strong>Save to library</strong> and <strong>Add to setlist</strong></li>
+  <li>For PDFs, <strong>Condense PDF</strong> and <strong>Bookmarks</strong></li>
+  <li><strong>Export source tab</strong>, <strong>Export song file (.mtab)</strong>, <strong>Share original file</strong>, <strong>Share as song file (.mtab)</strong> and <strong>Export as PDF</strong></li>
+</ul>
+
+<h2 id="use-the-dock">Use the dock</h2>
+<p>The dock contains the playback controls, the <strong>Synth</strong> and <strong>Original</strong> switch, the volume control and a button for the <a href="tools.html">fretboard</a>. The switch only chooses which sound you hear. If you select <strong>Original</strong> before you add a recording, its settings open so you can add one.</p>
+
+<h3>Move through a song with the bar ruler</h3>
+<p>On a Guitar Pro tab, the bar ruler shows the whole song as one strip. It divides the song into sections, such as verse, chorus and solo, and shows a name on each section that has room for one. To move the playhead, select a point on the ruler or drag along it. When the ruler has focus, you can also use the arrow keys. While you move the playhead, a readout shows the section and bar. PDF and text tabs have a page strip instead.</p>
+
+<h2 id="turn-pages-and-move-the-cursor">Turn pages and move the cursor</h2>
+<ul>
+  <li>In page mode, select the right half of the score for the next page and the left half for the previous page, or select <strong>Next page</strong> or <strong>Previous page</strong> in the top bar. On a touch screen, you can also swipe left for the next page and right for the previous page. On a keyboard, press the arrow keys, <kbd>Page Up</kbd> or <kbd>Page Down</kbd>. On a game controller, press <strong>RB</strong> or <strong>LB</strong>. A foot pedal that sends arrow keys also works.</li>
+  <li>In scroll mode, the score scrolls. Use the mouse wheel, a swipe, the arrow keys or the left stick on a game controller. Select a beat to move the cursor to it.</li>
+  <li>On a phone, tapping the score never moves the cursor. Use the bar ruler instead.</li>
+  <li>To zoom between 50% and 150%, pinch on a touch screen or trackpad, hold <kbd>Ctrl</kbd> and use the mouse wheel, or push the right stick on a game controller.</li>
+</ul>
+
+<h2 id="hide-the-controls-with-reading-mode">Hide the controls with Reading mode</h2>
+<p>To hide the top bar and the controls, select <strong>Reading mode</strong> in the dock, press <kbd>R</kbd>, or press <strong>Y</strong> on a game controller. On desktop, <strong>Reading mode</strong> is also under <strong>Screen</strong> in the <strong>View</strong> panel. Only play and pause, the progress track and the Reading mode button remain. Nothing hides on its own. Scrolling, timers, taps and playback leave the controls where they are. To show everything again, use the same control again.</p>
+
+<h2 id="use-the-reader-on-a-phone">Use the reader on a phone</h2>
+<p>In portrait, the top bar is one slim row with the back button, the song name and the page buttons. The five controls are at the bottom, above the playback strip. In landscape, the five controls move to a rail.</p>
+
+      </article>
+      <nav class="gpager" aria-label="Previous and next page">
+        <a class="prev" href="backup-sync.html"><span class="muted">Previous</span><strong>Backup and sync</strong></a>
+        <a class="next" href="view.html"><span class="muted">Next</span><strong>View</strong></a>
+      </nav>
+      <p class="gedit small muted">If something on this page is wrong or out of date, <a href="https://github.com/cgarst/MajesticTab/edit/main/support/guide/pages/reader.html">edit this page on GitHub</a> or <a href="https://github.com/cgarst/MajesticTab/issues">report an issue</a>.</p>
+    </main>
+    <nav class="gtoc" aria-label="On this page"><h2 class="gtoc-title">On this page</h2><ul><li><a href="#use-the-five-controls">Use the five controls</a></li><li><a href="#open-the-song-menu">Open the song menu</a></li><li><a href="#use-the-dock">Use the dock</a></li><li><a href="#turn-pages-and-move-the-cursor">Turn pages and move the cursor</a></li><li><a href="#hide-the-controls-with-reading-mode">Hide the controls with Reading mode</a></li><li><a href="#use-the-reader-on-a-phone">Use the reader on a phone</a></li></ul></nav>
+</div>
+<footer class="foot">
+  <div class="wrap gwrap">
+    <a class="brand" href="../" aria-label="MajesticTab home"><span class="tile"><img src="../icons/mark.svg" width="24" height="25" alt=""></span><span>Majestic<b>Tab</b></span></a>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="../">Home</a>
+      <a href="https://github.com/cgarst/MajesticTab">Source code</a>
+      <a href="https://github.com/cgarst/MajesticTab/releases/latest">Latest release</a>
+      <a href="https://github.com/cgarst/MajesticTab/issues">Report an issue</a>
+      <a href="../privacy.html">Privacy</a>
+    </nav>
+    <p class="legal">© MajesticTab<span class="dot">·</span>Guitar tab reader and practice app</p>
+  </div>
+</footer>
+<script src="../guide.js" defer></script>
+</body>
+</html>

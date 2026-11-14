@@ -8,4 +8,14 @@ Website, store listing, and branding material live in `docs/` and `support/`:
 - `support/branding/`: source icon SVGs and `generate_icons.py`, which writes the web PNG/ICO icons to both `src/icons/` and `docs/icons/`.
 - `support/tools/`: generators (`store_screenshots.py` for the browser-made Android, Windows and website shots, `simulator_screenshots.py` and `apple_marketing_art.py` for Apple, `store_logos.py`, `generate-steam-artwork.mjs`, `generate-msstore-artwork.mjs`, `flathub_screenshots.mjs`) and `landing/capture.mjs`, which captures the website's pictures from the real app (`docs/img/app/*.webp` and the hero loop `hero.webm`/`hero.mp4`, Slate Blue, `Duo No 2` fixture only; see its header for how to run it, and re-run it before each release so the site matches the app). The website is hand-written (`docs/index.html`, `docs/site.css`), flat and built on the look rules in `agents/ui-principles.md` (sentence case, no eyebrows, see `agents/ui-copy.md`); there is no CSS build step. `chord-voicings/` holds the chord library's note and playability rules plus its check and repair scripts (see `chord-voicings/AGENTS.md`).
 
+## User guide (`docs/guide/`)
+
+The guide at `majestictab.zathu.net/guide/` is generated, so edit the sources and never the output:
+
+- `support/guide/site.json` sets the sections, page order, titles and descriptions. `support/guide/pages/<slug>.html` holds each page body: plain HTML plus `<fig src="reader" alt="...">caption</fig>` (a screenshot from `docs/img/app/`), `<key>` and `<note>`. `h2` headings become the "On this page" list.
+- Run `node support/tools/guide/build.mjs` after every change and commit `docs/guide/`, `docs/sitemap.xml` and the sources together. The script fails on a missing page file or a link to an unknown page. It has no dependencies.
+- The look is `docs/site.css` plus `docs/guide.css`; search, the phone contents sheet and the "On this page" marker are `docs/guide.js`.
+- **Write to the `nbj-write-clearly` rules, and match the app.** Bold every UI label and copy its capitalization from the app (`src/index.html`, `src/libraryModal.js`), even where the app is not in sentence case. Do not describe behavior you have not read in the code or seen in the app. Headings are sentence case: a verb for a task, a noun phrase for a concept. Never name a tab site.
+- Re-run `support/tools/landing/capture.mjs` before a release; the guide reuses its screenshots.
+
 Runtime app icons are in `src/icons/` (referenced as `icons/...` from `src/`).

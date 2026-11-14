@@ -1,0 +1,200 @@
+{
+  "base": "https://majestictab.zathu.net",
+  "sections": [
+    {
+      "title": "Start",
+      "pages": [
+        {
+          "slug": "install",
+          "title": "Install MajesticTab",
+          "desc": "Install MajesticTab on iPhone, iPad, Mac, Windows, Android, Linux or Steam Deck."
+        },
+        {
+          "slug": "first-song",
+          "title": "Open your first tab",
+          "desc": "Play a tab, and then add it to your library."
+        }
+      ]
+    },
+    {
+      "title": "Library",
+      "pages": [
+        {
+          "slug": "library",
+          "title": "Your library",
+          "desc": "Organize tabs by artist, album and song. Pin songs and reopen recent tabs."
+        },
+        {
+          "slug": "setlists",
+          "title": "Setlists and tunings",
+          "desc": "Create setlists and browse your library by tuning."
+        },
+        {
+          "slug": "getting-tabs",
+          "title": "Getting tabs in",
+          "desc": "Open files from your device or cloud storage, search the web for tabs, import a folder or browse classical tabs."
+        },
+        {
+          "slug": "backup-sync",
+          "title": "Backup and sync",
+          "desc": "Back up your library to one .mtbackup file, or sync it through Google Drive, S3, WebDAV or iCloud."
+        }
+      ]
+    },
+    {
+      "title": "The reader",
+      "pages": [
+        {
+          "slug": "reader",
+          "title": "The reader",
+          "desc": "Learn the five reader controls, the song menu, the playback dock and Reading mode."
+        },
+        {
+          "slug": "view",
+          "title": "View",
+          "desc": "Choose the layout, notation, size, paper and tracks of a score."
+        },
+        {
+          "slug": "practice",
+          "title": "Practice",
+          "desc": "Change the speed, loop bars, use the metronome and count-in, and choose which parts play."
+        },
+        {
+          "slug": "sound",
+          "title": "Sound",
+          "desc": "Use the built-in synth, the mixer and SoundFonts, and compensate for audio latency."
+        },
+        {
+          "slug": "original-audio",
+          "title": "Original recording",
+          "desc": "Sync a tab to a YouTube video or an audio file by tapping along."
+        },
+        {
+          "slug": "guitar",
+          "title": "Fit a tab to your guitar",
+          "desc": "Show a tab on 6, 7 or 8 strings, and match your tuning, capo or transposition."
+        },
+        {
+          "slug": "tools",
+          "title": "Fretboard and the Tools menu",
+          "desc": "Show the fretboard and open the reference and practice tools from the reader."
+        },
+        {
+          "slug": "pdf-text",
+          "title": "PDF and text tabs",
+          "desc": "Condense PDFs, bookmark pages, split a book into songs and read text tabs."
+        }
+      ]
+    },
+    {
+      "title": "Together",
+      "pages": [
+        {
+          "slug": "jam",
+          "title": "Jam sessions",
+          "desc": "Host or join a Jam on your local network so every player is on the same bar."
+        }
+      ]
+    },
+    {
+      "title": "Library tools",
+      "pages": [
+        {
+          "slug": "library-tools",
+          "title": "The Tools view",
+          "desc": "Find the reference, practice, tab and library tools in one list."
+        },
+        {
+          "slug": "chord-library",
+          "title": "Chord library",
+          "desc": "Look up chord voicings that match your strings, tuning and capo."
+        },
+        {
+          "slug": "scales",
+          "title": "Scales",
+          "desc": "Show a scale or mode on the fretboard."
+        },
+        {
+          "slug": "circle-of-fifths",
+          "title": "Circle of fifths",
+          "desc": "Look up a key, its signature, its relative minor and its chords."
+        },
+        {
+          "slug": "tuner",
+          "title": "Tuner",
+          "desc": "Tune your guitar with the microphone."
+        },
+        {
+          "slug": "metronome",
+          "title": "Metronome",
+          "desc": "Keep time with tap tempo, time signatures and a visual click."
+        },
+        {
+          "slug": "make-backing-tracks",
+          "title": "Make backing tracks",
+          "desc": "Remove the guitar from your audio files with StemDeck and save the result as a backing track."
+        },
+        {
+          "slug": "open-file",
+          "title": "Open file",
+          "desc": "Play a tab without adding it to your library."
+        },
+        {
+          "slug": "classical-tabs",
+          "title": "Classical tab browser",
+          "desc": "Search and open classical guitar tabs and MIDI files."
+        },
+        {
+          "slug": "missing-tabs",
+          "title": "Fill in missing tabs",
+          "desc": "Search the web for a tab of each song that has none."
+        },
+        {
+          "slug": "bulk-import",
+          "title": "Bulk import",
+          "desc": "Import a folder of tabs or audio files and pair each file with a song."
+        },
+        {
+          "slug": "bulk-export",
+          "title": "Bulk export",
+          "desc": "Export your library as a spreadsheet, sync data, tab files or PDFs."
+        }
+      ]
+    },
+    {
+      "title": "Controls",
+      "pages": [
+        {
+          "slug": "shortcuts",
+          "title": "Keyboard shortcuts",
+          "desc": "Look up the keyboard and mouse shortcuts for the reader and the library."
+        },
+        {
+          "slug": "pedals-gamepad",
+          "title": "Foot pedals and game controllers",
+          "desc": "Turn pages and control playback with a Bluetooth foot pedal or a game controller."
+        }
+      ]
+    },
+    {
+      "title": "Reference",
+      "pages": [
+        {
+          "slug": "settings",
+          "title": "Settings",
+          "desc": "Set the theme, defaults, updates and data options."
+        },
+        {
+          "slug": "formats",
+          "title": "Supported files",
+          "desc": "See which file types MajesticTab opens and creates."
+        },
+        {
+          "slug": "troubleshooting",
+          "title": "Troubleshooting and questions",
+          "desc": "Find answers to common questions and fixes for common problems."
+        }
+      ]
+    }
+  ]
+}
