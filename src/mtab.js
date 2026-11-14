@@ -1,27 +1,36 @@
 // mtab.js
-// The .mtab song bundle: one file that carries a song to another player with everything they need to practise it.
-// It holds the original tab file, the recordings attached to it (a YouTube video, or an audio file, for the Original
-// and Backing slots), the sync points that align the score to each recording, and what the player entered by hand
-// (the tuning of a PDF or text tab).
-//
-// Layout: the bytes "MTAB", a 4 byte big-endian length N, N bytes of JSON (the header), then the binary parts one
-// after the other. Binary parts are raw bytes, never base64, so a bundle has no size limit of its own and is never
-// held as one string: it is written and read as Blob slices.
-//
-// header: { format: 'majestictab-song', version: 1, createdAt,
-//   song: { artist, title, album?, year?, trackNumber?, mediumNumber?, length?,
-//           recordingMbid?, artistMbid?, albumMbid?, musicbrainz?: { recordingMbid?, artistMbid?, albumMbid? } },
-//   tab: { name, type, size },                      part 0
-//   tuning: string | null,
-//   recordings: { original|backing: { source: 'youtube', videoId }
-//                 | { source: 'local', audio: { id, name, type, durationMs, fingerprint, size } } },  parts 1.. in order
-//   sync: [record], shareSyncFromOriginal: boolean }
+// The .mtab song bundle (Multi-Track Tab v1 specification): a ZIP container with stored `mimetype`
+// (`application/vnd.mtab+zip`), `manifest.json`, `tab/<name>` (or `tab.externalPath` for shared PDFs),
+// `audio/<name>` (stored), and `sync/<id>.json`.
 
-export const MTAB_FORMAT = 'majestictab-song';
+import {
+    MIMETYPE,
+    ANCHOR,
+    MtabError,
+    sha256,
+    isMtabBytes as coreIsMtabBytes,
+    openMtab as coreOpenMtab,
+    buildMtab as coreBuildMtab,
+} from './mtab/core/index.js';
+
+export const MTAB_FORMAT = 'mtab';
 export const MTAB_VERSION = 1;
 export const MTAB_EXTENSION = 'mtab';
-const MAGIC = 'MTAB';
+
 const SLOTS = ['original', 'backing'];
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const YT_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+const PITCH_RE = /^[A-G][#b]?(-?[0-9])?$/;
+
+const MIME_BY_FORMAT = {
+    gp3: 'application/octet-stream',
+    gp4: 'application/octet-stream',
+    gp5: 'application/octet-stream',
+    gp: 'application/octet-stream',
+    gpx: 'application/octet-stream',
+    pdf: 'application/pdf',
+    txt: 'text/plain;charset=utf-8',
+};
 
 const enc = (s) => encodeURIComponent(String(s).toLowerCase());
 
@@ -31,30 +40,36 @@ export function isMtabBytes(bytes) {
     if (!bytes) return false;
     const u8 = bytes instanceof Uint8Array
         ? bytes
-        : (bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : (ArrayBuffer.isView(bytes) ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) : null));
-    if (!u8 || u8.length < 8) return false;
-    return u8[0] === 0x4d && u8[1] === 0x54 && u8[2] === 0x41 && u8[3] === 0x42;
+        : (bytes instanceof ArrayBuffer
+            ? new Uint8Array(bytes)
+            : (ArrayBuffer.isView(bytes) ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) : null));
+    return coreIsMtabBytes(u8);
 }
 
-/** Normalize `header.song` (including MusicBrainz IDs in direct fields or nested `musicbrainz` object). */
+/** Normalize `song` metadata (including MusicBrainz IDs in direct fields or v1 `ids.musicbrainz` / legacy `musicbrainz`). */
 export function normalizeMtabSong(rawSong = {}, rawHeader = {}) {
     const s = (rawSong && typeof rawSong === 'object') ? rawSong : {};
-    const mb = (s.musicbrainz && typeof s.musicbrainz === 'object')
-        ? s.musicbrainz
-        : ((rawHeader?.musicbrainz && typeof rawHeader.musicbrainz === 'object') ? rawHeader.musicbrainz : {});
+    const mb = (s.ids?.musicbrainz && typeof s.ids.musicbrainz === 'object')
+        ? s.ids.musicbrainz
+        : ((s.musicbrainz && typeof s.musicbrainz === 'object')
+            ? s.musicbrainz
+            : ((rawHeader?.musicbrainz && typeof rawHeader.musicbrainz === 'object') ? rawHeader.musicbrainz : {}));
 
     const recordingMbid = String(s.recordingMbid || mb.recordingMbid || mb.recordingId || mb.recording || '').trim() || null;
     const artistMbid = String(s.artistMbid || mb.artistMbid || mb.artistId || mb.artist || '').trim() || null;
+    const releaseMbid = String(s.releaseMbid || mb.release || mb.releaseId || '').trim() || null;
     const albumMbid = String(
-        s.albumMbid || s.releaseGroupMbid || s.releaseGroupId || s.releaseId ||
-        mb.albumMbid || mb.releaseGroupMbid || mb.releaseGroupId || mb.albumId || mb.releaseId || ''
+        s.albumMbid || s.releaseGroupMbid || s.releaseGroupId ||
+        mb.albumMbid || mb.releaseGroupMbid || mb.releaseGroupId || mb.releaseGroup ||
+        mb.albumId || s.releaseId || mb.releaseId || mb.release || ''
     ).trim() || null;
 
     const normalized = {
         artist: String(s.artist || '').trim(),
-        title: String(s.title || '').trim()
+        title: String(s.title || '').trim(),
     };
 
+    if (s.composer && String(s.composer).trim()) normalized.composer = String(s.composer).trim();
     if (s.album && String(s.album).trim()) normalized.album = String(s.album).trim();
     if (s.year !== undefined && s.year !== null && s.year !== '') normalized.year = s.year;
     if (s.trackNumber !== undefined && s.trackNumber !== null && s.trackNumber !== '') {
@@ -74,11 +89,13 @@ export function normalizeMtabSong(rawSong = {}, rawHeader = {}) {
     if (recordingMbid) normalized.recordingMbid = recordingMbid;
     if (artistMbid) normalized.artistMbid = artistMbid;
     if (albumMbid) normalized.albumMbid = albumMbid;
-    if (recordingMbid || artistMbid || albumMbid) {
+    if (releaseMbid) normalized.releaseMbid = releaseMbid;
+    if (recordingMbid || artistMbid || albumMbid || releaseMbid) {
         normalized.musicbrainz = {
             ...(recordingMbid ? { recordingMbid } : {}),
             ...(artistMbid ? { artistMbid } : {}),
-            ...(albumMbid ? { albumMbid } : {})
+            ...(albumMbid ? { albumMbid } : {}),
+            ...(releaseMbid ? { releaseMbid } : {}),
         };
     }
 
@@ -96,6 +113,77 @@ async function manualTuning(file) {
     } catch { return null; }
 }
 
+function toManifestTuning(raw) {
+    if (!raw) return null;
+    const items = Array.isArray(raw) ? raw : String(raw).trim().split(/[\s,]+/);
+    const clean = items.map((s) => String(s).trim()).filter(Boolean);
+    if (!clean.length || !clean.every((s) => PITCH_RE.test(s))) return null;
+    return clean;
+}
+
+function sanitizeSegment(name, fallback) {
+    const base = String(name || '').split(/[\\/]/).pop() || '';
+    const cleaned = base.replace(/[\u0000-\u001f\\]/g, '_').replace(/^\.+$/, '');
+    return cleaned && cleaned !== '.' && cleaned !== '..' ? cleaned : fallback;
+}
+
+function inferTabFormat(file) {
+    const ext = String(file?.name || '').split('.').pop().toLowerCase();
+    if (ext && ext in ANCHOR) return ext;
+    if (file?.type === 'application/pdf') return 'pdf';
+    if (String(file?.type || '').startsWith('text/')) return 'txt';
+    return 'gp5';
+}
+
+function buildManifestSong(norm) {
+    const song = {};
+    if (norm.title) song.title = norm.title;
+    if (norm.artist) song.artist = norm.artist;
+    if (norm.composer) song.composer = norm.composer;
+    if (norm.album) song.album = norm.album;
+    if (Number.isInteger(norm.year)) song.year = norm.year;
+    if (Number.isInteger(norm.trackNumber) && norm.trackNumber >= 0) song.trackNumber = norm.trackNumber;
+    if (Number.isInteger(norm.mediumNumber) && norm.mediumNumber >= 0) song.mediumNumber = norm.mediumNumber;
+    if (Number.isInteger(norm.length) && norm.length >= 0) song.length = norm.length;
+
+    const mb = {};
+    if (norm.recordingMbid && UUID_RE.test(norm.recordingMbid)) mb.recording = norm.recordingMbid;
+    if (norm.artistMbid && UUID_RE.test(norm.artistMbid)) mb.artist = norm.artistMbid;
+    if (norm.albumMbid && UUID_RE.test(norm.albumMbid)) mb.releaseGroup = norm.albumMbid;
+    if (norm.releaseMbid && UUID_RE.test(norm.releaseMbid)) mb.release = norm.releaseMbid;
+    if (Object.keys(mb).length) song.ids = { musicbrainz: mb };
+
+    return Object.keys(song).length ? song : null;
+}
+
+function toV1SyncFile(rec, recordingId, anchorType) {
+    const seenTimes = new Set();
+    const points = [];
+    const sorted = [...(rec.points || [])].sort((a, b) => a.timeMs - b.timeMs);
+    for (const p of sorted) {
+        if (!Number.isFinite(p.timeMs) || p.timeMs < 0) continue;
+        let t = p.timeMs;
+        while (seenTimes.has(t)) t += 1;
+        seenTimes.add(t);
+        const pt = {
+            timeMs: t,
+            bar: p.barIndex,
+            occurrence: Number.isInteger(p.occurrence) && p.occurrence >= 0 ? p.occurrence : 0,
+            pos: Number.isFinite(p.pos) ? Math.max(0, Math.min(1, p.pos)) : 0,
+            source: (p.source === 'tap' || p.source === 'manual' || p.source === 'auto') ? p.source : 'manual',
+        };
+        if (typeof p.id === 'string' && p.id) pt.id = p.id;
+        points.push(pt);
+    }
+    return {
+        version: 1,
+        recording: recordingId,
+        anchorType,
+        updatedAt: new Date(Number.isFinite(rec.updatedAt) && rec.updatedAt > 0 ? rec.updatedAt : Date.now()).toISOString(),
+        points,
+    };
+}
+
 function rememberLibrarySongKey(librarySongId, key, meta = {}) {
     if (!librarySongId || !key) return;
     try {
@@ -107,7 +195,7 @@ function rememberLibrarySongKey(librarySongId, key, meta = {}) {
             filename: meta.filename || '',
             tabName: meta.tabName || '',
             sourceWebsite: meta.sourceWebsite || null,
-            sourceUrl: meta.sourceUrl || null
+            sourceUrl: meta.sourceUrl || null,
         };
         const existingIdx = list.findIndex(e => e.key && e.key.toLowerCase() === key.toLowerCase());
         if (existingIdx >= 0) {
@@ -119,7 +207,7 @@ function rememberLibrarySongKey(librarySongId, key, meta = {}) {
     } catch { /* optional */ }
 }
 
-/** Builds the bundle for the open song. Returns `{ blob, filename }`. Audio of any size goes in. */
+/** Builds a v1 .mtab bundle for the open song. Returns `{ blob, filename }`. */
 export async function buildMtab(file, options = {}) {
     const { getAudioFile } = await import('./audioSync/audioFileStore.js');
     const { listRecords, isSyncSharedFromOriginal, mediaKey } = await import('./audioSync/syncStore.js');
@@ -167,73 +255,126 @@ export async function buildMtab(file, options = {}) {
         recordingMbid: options.song?.recordingMbid || libSong?.recordingMbid || priorMtabSong.recordingMbid || file?.recordingMbid || null,
         artistMbid: options.song?.artistMbid || libSong?.artistMbid || priorMtabSong.artistMbid || file?.artistMbid || null,
         albumMbid: options.song?.albumMbid || libSong?.albumMbid || priorMtabSong.albumMbid || file?.albumMbid || null,
-        musicbrainz: options.song?.musicbrainz || priorMtabSong.musicbrainz || null
+        releaseMbid: options.song?.releaseMbid || priorMtabSong.releaseMbid || null,
+        musicbrainz: options.song?.musicbrainz || priorMtabSong.musicbrainz || null,
     };
 
-    const name = file.name || 'tab';
-    const parts = [file];
-    const header = {
+    const normSong = normalizeMtabSong(rawSongMeta);
+    const tabFormat = inferTabFormat(file);
+    const name = file.name || `tab.${tabFormat}`;
+    const safeTabName = sanitizeSegment(name, `tab.${tabFormat}`);
+    const tabPath = `tab/${safeTabName}`;
+    const tabBytes = new Uint8Array(await file.arrayBuffer());
+    const tabSha256 = await sha256(tabBytes);
+
+    const files = new Map([[tabPath, tabBytes]]);
+    const tab = {
+        path: tabPath,
+        format: tabFormat,
+        sha256: tabSha256,
+        name,
+    };
+    const tuningArr = toManifestTuning(await manualTuning(file));
+    if (tuningArr) tab.tuning = tuningArr;
+    if (tabFormat === 'pdf') {
+        const startPage = options.startPage ?? file.mtabPageRange?.startPage;
+        const endPage = options.endPage ?? file.mtabPageRange?.endPage;
+        const pages = options.pages ?? file.mtabPageRange?.pages;
+        if (Number.isInteger(pages) && pages >= 1) tab.pages = pages;
+        if (Number.isInteger(startPage) && startPage >= 1) tab.startPage = startPage;
+        if (Number.isInteger(endPage) && endPage >= 1) tab.endPage = endPage;
+    }
+
+    const manifest = {
         format: MTAB_FORMAT,
         version: MTAB_VERSION,
-        createdAt: Date.now(),
-        song: normalizeMtabSong(rawSongMeta),
-        tab: { name, type: file.type || 'application/octet-stream', size: file.size },
-        tuning: await manualTuning(file),
-        recordings: {},
-        sync: [],
-        shareSyncFromOriginal: false
+        createdAt: new Date().toISOString(),
+        generator: { name: 'MajesticTab' },
+        ...(buildManifestSong(normSong) ? { song: buildManifestSong(normSong) } : {}),
+        tab,
+        recordings: [],
     };
-    const usedMedia = new Set();
 
+    const recordsByMedia = new Map();
+    for (const rec of listRecords(songKey)) {
+        const k = mediaKey(rec.media);
+        if (k && rec.points?.length) recordsByMedia.set(k, rec);
+    }
+
+    const usedNames = new Set();
     for (const slot of SLOTS) {
         const source = getSlotSourceFn(slot);
+        const sources = [];
+        let syncRec = null;
         try {
             if (source === 'local') {
                 let id = localStorage.getItem(`audio_file_${enc(songKey)}_${slot}`);
                 if (!id && slot === 'original') id = localStorage.getItem(`audio_file_last_${enc(songKey)}`);
                 const rec = id ? await getAudioFile(id) : null;
                 if (rec?.data) {
-                    header.recordings[slot] = {
-                        source: 'local',
-                        audio: {
-                            id, name: rec.name, type: rec.type || 'audio/mpeg', durationMs: rec.durationMs ?? null,
-                            fingerprint: rec.fingerprint || '', size: rec.data.byteLength
-                        }
+                    const audioBytes = new Uint8Array(rec.data);
+                    let audioName = sanitizeSegment(rec.name, `${slot}.audio`);
+                    if (usedNames.has(audioName.toLowerCase())) audioName = `${slot}-${audioName}`;
+                    usedNames.add(audioName.toLowerCase());
+                    const audioPath = `audio/${audioName}`;
+                    files.set(audioPath, audioBytes);
+                    const fileSrc = {
+                        type: 'file',
+                        path: audioPath,
+                        mime: rec.type || 'audio/mpeg',
+                        sha256: await sha256(audioBytes),
                     };
-                    parts.push(rec.data);
-                    usedMedia.add(mediaKey({ kind: 'local', audioId: id }));
+                    if (Number.isFinite(rec.durationMs) && rec.durationMs >= 0) fileSrc.durationMs = rec.durationMs;
+                    sources.push(fileSrc);
+                    syncRec = recordsByMedia.get(mediaKey({ kind: 'local', audioId: id })) || null;
                 }
-            } else if (source === 'embedded') {
-                header.recordings[slot] = { source: 'embedded' };
-            } else {
-                const videoId = localStorage.getItem(`yt_track_${enc(songKey)}_${slot}`);
-                if (videoId) {
-                    header.recordings[slot] = { source: 'youtube', videoId };
-                    usedMedia.add(mediaKey({ kind: 'youtube', videoId }));
-                }
+            } else if (source === 'embedded' && tabFormat === 'gp') {
+                sources.push({ type: 'embedded' });
+            }
+
+            const videoId = localStorage.getItem(`yt_track_${enc(songKey)}_${slot}`);
+            if (videoId && YT_ID_RE.test(videoId)) {
+                sources.push({ type: 'youtube', videoId });
+                if (!syncRec) syncRec = recordsByMedia.get(mediaKey({ kind: 'youtube', videoId })) || null;
             }
         } catch (e) {
             console.warn('[mtab] could not read the', slot, 'recording:', e);
         }
+
+        if (!sources.length) continue;
+
+        const recording = {
+            id: slot,
+            role: slot,
+            sources,
+        };
+        if (syncRec && ANCHOR[tabFormat] === 'bar') {
+            const syncPath = `sync/${slot}.json`;
+            const syncDoc = toV1SyncFile(syncRec, slot, 'bar');
+            if (syncDoc.points.length) {
+                files.set(syncPath, new TextEncoder().encode(JSON.stringify(syncDoc, null, 2) + '\n'));
+                recording.sync = syncPath;
+            }
+        }
+        manifest.recordings.push(recording);
     }
 
-    // Sync points only for recordings the bundle carries
-    for (const rec of listRecords(songKey)) {
-        if (rec.points.length && usedMedia.has(mediaKey(rec.media))) header.sync.push(rec);
+    if (manifest.recordings.some((r) => r.id === 'original')) {
+        manifest.defaultRecording = 'original';
+        const backing = manifest.recordings.find((r) => r.id === 'backing');
+        if (backing && !backing.sync && isSyncSharedFromOriginal(songKey)) {
+            backing.syncFrom = 'original';
+        }
     }
-    header.shareSyncFromOriginal = isSyncSharedFromOriginal(songKey);
 
-    const headerBytes = new TextEncoder().encode(JSON.stringify(header));
-    const length = new Uint8Array(4);
-    new DataView(length.buffer).setUint32(0, headerBytes.length);
-    // "Artist - Song", never the original file's name; characters a file system rejects are dropped
+    const { parts } = await coreBuildMtab(manifest, files);
     const clean = (s) => String(s || '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim();
-    const artist = clean(header.song.artist);
-    const title = clean(header.song.title);
+    const artist = clean(normSong.artist);
+    const title = clean(normSong.title);
     const base = (artist && title ? `${artist} - ${title}` : title || artist) || name.replace(/\.[^.]+$/, '') || 'song';
     return {
-        blob: new Blob([MAGIC, length, headerBytes, ...parts], { type: 'application/x-majestictab-song' }),
-        filename: `${base}.${MTAB_EXTENSION}`
+        blob: new Blob(parts, { type: MIMETYPE }),
+        filename: `${base}.${MTAB_EXTENSION}`,
     };
 }
 
@@ -247,51 +388,81 @@ export function nativeMtabSource({ name, path, size }) {
         read: async (start, end, type = '') => {
             const bytes = await window.__TAURI__.core.invoke('read_opened_file_range', { path, start, len: end - start });
             return new Blob([bytes], { type });
-        }
+        },
     };
 }
 
-// A File, Blob, Uint8Array, ArrayBuffer, or a source with `read`, as one shape: `{ name, size, read(start, end, type) -> Promise<Blob> }`
-function asSource(f) {
-    if (!f) return { name: '', size: 0, read: async () => new Blob([]) };
-    if (typeof f.read === 'function') return f;
-    if (f instanceof Uint8Array || f instanceof ArrayBuffer || ArrayBuffer.isView(f)) {
-        const blob = new Blob([f]);
-        return { name: f.name || '', size: blob.size, read: async (a, b, type = '') => blob.slice(a, b, type) };
-    }
-    return { name: f.name || '', size: f.size ?? 0, read: async (a, b, type = '') => f.slice(a, b, type) };
+async function toUint8(chunk) {
+    if (chunk instanceof Uint8Array) return chunk;
+    if (chunk instanceof ArrayBuffer) return new Uint8Array(chunk);
+    if (ArrayBuffer.isView(chunk)) return new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+    if (chunk && typeof chunk.arrayBuffer === 'function') return new Uint8Array(await chunk.arrayBuffer());
+    return new Uint8Array(0);
 }
 
-/** Parses a bundle: `{ header, part(i) }`, where `part(i)` is the i-th binary part as a Promise of a Blob. Throws a readable error. */
-export async function readMtab(input) {
-    const file = asSource(input);
-    const notBundle = () => new Error('This is not a MajesticTab song file');
-    if (file.size < 8 || (await (await file.read(0, 4)).text()) !== MAGIC) throw notBundle();
-    const headerLength = new DataView(await (await file.read(4, 8)).arrayBuffer()).getUint32(0);
-    if (8 + headerLength > file.size) throw notBundle();
-    let header;
-    try { header = JSON.parse(await (await file.read(8, 8 + headerLength)).text()); } catch { throw notBundle(); }
-    if (header?.format !== MTAB_FORMAT || !header.tab?.name) throw notBundle();
-    if (!Number.isInteger(header.version) || header.version > MTAB_VERSION) throw new Error('This song file is from a newer MajesticTab. Update the app to open it.');
+// Converts a File, Blob, Uint8Array, ArrayBuffer, or `{ name, size, read(start, end) }` into a spec ByteSource.
+function asByteSource(input) {
+    if (!input) return { name: '', size: 0, read: async () => new Uint8Array(0) };
+    if (typeof input.read === 'function') {
+        return {
+            name: input.name || '',
+            size: input.size ?? 0,
+            read: async (start, end) => toUint8(await input.read(start, end)),
+        };
+    }
+    if (input instanceof Uint8Array || input instanceof ArrayBuffer || ArrayBuffer.isView(input)) {
+        const u8 = input instanceof Uint8Array
+            ? input
+            : (input instanceof ArrayBuffer ? new Uint8Array(input) : new Uint8Array(input.buffer, input.byteOffset, input.byteLength));
+        return {
+            name: input.name || '',
+            size: u8.byteLength,
+            read: async (start, end) => u8.subarray(start, Math.min(end, u8.byteLength)),
+        };
+    }
+    return {
+        name: input.name || '',
+        size: input.size ?? 0,
+        read: async (start, end) => new Uint8Array(await input.slice(start, end).arrayBuffer()),
+    };
+}
 
-    header.song = normalizeMtabSong(header.song, header);
-
-    const sizes = [header.tab.size, ...SLOTS.map((s) => header.recordings?.[s]?.audio?.size).filter((n) => n !== undefined)];
-    let offset = 8 + headerLength;
-    const spans = sizes.map((n) => { const span = [offset, offset + n]; offset += n; return span; });
-    if (offset > file.size || sizes.some((n) => !Number.isInteger(n) || n < 0)) throw new Error('This song file is incomplete');
-    return { header, part: (i, type = '') => file.read(spans[i][0], spans[i][1], type) };
+/** Parses a v1 .mtab bundle: `{ header, opened, part }`. Throws MtabError for invalid bundles. */
+export async function readMtab(input, options = {}) {
+    const opened = await coreOpenMtab(asByteSource(input), options);
+    const header = {
+        ...opened.manifest,
+        song: normalizeMtabSong(opened.manifest.song, opened.manifest),
+    };
+    return { header, opened, part: opened };
 }
 
 /**
- * Unpacks an .mtab bundle into `{ header, part, tabFile }`, attaching normalized `header.song`
+ * Unpacks an .mtab bundle into `{ header, opened, part, tabFile }`, attaching normalized `header.song`
  * (including any MusicBrainz IDs) as `tabFile.mtabSong`.
  */
-export async function unpackMtab(input) {
-    const { header, part } = await readMtab(input);
-    const tabBlob = await part(0, header.tab.type || '');
-    const tabFile = new File([tabBlob], header.tab.name, { type: header.tab.type || '' });
-    if (header.tuning) tabFile.tabTuning = { tuning: header.tuning, source: 'user' };
+export async function unpackMtab(input, options = {}) {
+    const { header, opened } = await readMtab(input, options);
+    if (!opened.tab) {
+        const extPath = header.tab?.externalPath || 'external PDF';
+        throw new MtabError(`This .mtab file references an external tab (${extPath}) that was not provided.`);
+    }
+    const tabName = header.tab.name || (header.tab.path || header.tab.externalPath || `tab.${header.tab.format}`).split('/').pop();
+    const mime = MIME_BY_FORMAT[header.tab.format] || 'application/octet-stream';
+    const tabFile = new File([opened.tab], tabName, { type: mime });
+    if (Array.isArray(header.tab?.tuning) && header.tab.tuning.length) {
+        tabFile.tabTuning = {
+            tuning: header.tab.tuning.map((n) => n.replace(/-?[0-9]$/, '')).join(' '),
+            source: 'user',
+        };
+    }
+    if (header.tab?.startPage != null || header.tab?.endPage != null) {
+        tabFile.mtabPageRange = {
+            startPage: header.tab.startPage ?? 1,
+            endPage: header.tab.endPage ?? header.tab.pages ?? null,
+            pages: header.tab.pages ?? null,
+        };
+    }
     tabFile.mtabSong = header.song;
     if (header.song?.title && !tabFile.songTitle) tabFile.songTitle = header.song.title;
     if (header.song?.artist && !tabFile.artist) tabFile.artist = header.song.artist;
@@ -302,7 +473,7 @@ export async function unpackMtab(input) {
     if (input?.sourceUrl && !tabFile.sourceUrl) tabFile.sourceUrl = input.sourceUrl;
     if (input?.sourceWebsite && !tabFile.sourceWebsite) tabFile.sourceWebsite = input.sourceWebsite;
     if (input?.providerId && !tabFile.providerId) tabFile.providerId = input.providerId;
-    return { header, part, tabFile };
+    return { header, opened, part: opened, tabFile };
 }
 
 const PENDING_BROWSER_TARGET_KEY = 'majestictab_pending_browser_target';
@@ -344,9 +515,12 @@ function takeMatchingPendingBrowserTarget(songInfo = {}) {
  * Opens a bundle: loads its tab, then attaches the recordings, sync points and tuning to the song as the open tab
  * knows it (its song key is only settled once the tab is loaded).
  */
-export async function openMtab(file) {
-    const unpacked = await unpackMtab(file);
-    const { header, part, tabFile } = unpacked;
+export async function openMtab(file, options = {}) {
+    const unpacked = await unpackMtab(file, options);
+    const { header, opened, tabFile } = unpacked;
+    if (opened.warnings?.length) {
+        console.warn('[mtab] warnings while opening bundle:', opened.warnings);
+    }
 
     try {
         const songInfo = header.song || {};
@@ -380,18 +554,37 @@ export async function openMtab(file) {
 
     const { loadFile } = await import('./main.js');
     await loadFile(tabFile);
-    await applyMtabExtras(header, part);
+    await applyMtabExtras(header, opened);
+}
+
+function mapRecordingsToSlots(manifest) {
+    const recs = manifest?.recordings || [];
+    const bySlot = { original: null, backing: null };
+    const defaultRec = manifest?.defaultRecording
+        ? recs.find((r) => r.id === manifest.defaultRecording)
+        : null;
+    if (defaultRec && (defaultRec.role === 'original' || defaultRec.id === 'original')) {
+        bySlot.original = defaultRec;
+    }
+    for (const r of recs) {
+        if (!bySlot.original && (r.role === 'original' || r.id === 'original')) {
+            bySlot.original = r;
+        } else if (!bySlot.backing && (r.role === 'backing' || r.id === 'backing')) {
+            bySlot.backing = r;
+        }
+    }
+    return bySlot;
 }
 
 /**
- * Attaches an .mtab bundle's recordings (original/backing audio or YouTube) and sync points to
+ * Attaches an .mtab bundle's recordings (original/backing audio, embedded, or YouTube) and sync points to
  * the given `songKey` and `aliasKeys` (or the currently active reader's songKey when omitted).
  */
-export async function applyMtabExtras(data, part, options = {}) {
+export async function applyMtabExtras(data, opened, options = {}) {
     const { saveAudioFile, linkAudioFile, setAudioPeaks } = await import('./audioSync/audioFileStore.js');
     const { decodePeaks } = await import('./audioSync/peaks.js');
     const { attachLibraryAudio } = await import('./audioSync/libraryAudio.js');
-    const { saveRecord, setSyncSharedFromOriginal, mediaKey, SYNC_CHANGED_EVENT } = await import('./audioSync/syncStore.js');
+    const { saveRecord, setSyncSharedFromOriginal, SYNC_CHANGED_EVENT } = await import('./audioSync/syncStore.js');
 
     let activeReaderKey = null;
     if (!options.songKey || options.applyToActiveReader === undefined) {
@@ -431,76 +624,107 @@ export async function applyMtabExtras(data, part, options = {}) {
         } catch { /* optional */ }
     }
 
-    // Bundle media identity -> the media on this device (a local audio file may get another id here)
-    const remap = new Map();
-    let partIndex = 1;
+    const slots = mapRecordingsToSlots(data);
+    const resolvedMedia = new Map();
+
     for (const slot of SLOTS) {
-        const r = data.recordings?.[slot];
-        if (!r) continue;
+        const rec = slots[slot];
+        if (!rec) continue;
         try {
-            if (r.source === 'youtube' && r.videoId) {
-                const hasSync = data.sync?.some((rec) => rec?.points?.length && rec.media?.kind === 'youtube' && rec.media?.videoId === r.videoId);
-                const preferEmbedded = slot === 'original' && !hasSync && applyToActiveReader && hasEmbeddedAudio();
-                const chosenSource = preferEmbedded ? 'embedded' : 'youtube';
+            const syncDoc = typeof opened?.sync === 'function' ? opened.sync(rec.id) : null;
+            const hasSync = Boolean(syncDoc?.points?.length);
+
+            // Cache any YouTube fallback videoId on the recording
+            const ytSrc = (rec.sources || []).find((s) => s.type === 'youtube' && s.videoId);
+            if (ytSrc) {
                 for (const k of allKeys) {
-                    localStorage.setItem(`yt_track_${enc(k)}_${slot}`, String(r.videoId));
-                    localStorage.setItem(`real_audio_source_${enc(k)}_${slot}`, chosenSource);
+                    localStorage.setItem(`yt_track_${enc(k)}_${slot}`, String(ytSrc.videoId));
                 }
-                if (applyToActiveReader) {
-                    setSlotSource(chosenSource, slot);
-                }
-                remap.set(mediaKey({ kind: 'youtube', videoId: r.videoId }), { kind: 'youtube', videoId: r.videoId });
-            } else if (r.source === 'embedded') {
-                for (const k of allKeys) {
-                    localStorage.setItem(`real_audio_source_${enc(k)}_${slot}`, 'embedded');
-                }
-                if (applyToActiveReader) {
-                    setSlotSource('embedded', slot);
-                }
-            } else if (r.source === 'local' && r.audio) {
-                const audioPart = await part(partIndex++, r.audio.type || '');
-                const audioBytes = await audioPart.arrayBuffer();
-                const meta = await saveAudioFile({
-                    name: r.audio.name,
-                    type: r.audio.type,
-                    data: audioBytes,
-                    songKey: primaryKey,
-                    durationMs: r.audio.durationMs ?? null
-                });
-                for (const k of allKeys) {
-                    if (k !== primaryKey) {
-                        await linkAudioFile(meta.id, k).catch(() => {});
+            }
+
+            // Pick the first playable source (SPEC section 7)
+            let handled = false;
+            for (const src of rec.sources || []) {
+                if (src.type === 'file' && src.path && opened?.entries?.includes(src.path)) {
+                    const audioU8 = await opened.file(src.path);
+                    const audioBuf = audioU8.buffer.slice(audioU8.byteOffset, audioU8.byteOffset + audioU8.byteLength);
+                    const meta = await saveAudioFile({
+                        name: src.path.split('/').pop() || `${slot}.audio`,
+                        type: src.mime || 'audio/mpeg',
+                        data: audioBuf,
+                        songKey: primaryKey,
+                        durationMs: src.durationMs ?? null,
+                    });
+                    for (const k of allKeys) {
+                        if (k !== primaryKey) {
+                            await linkAudioFile(meta.id, k).catch(() => {});
+                        }
+                        localStorage.setItem(`audio_file_${enc(k)}_${slot}`, meta.id);
+                        if (slot === 'original') localStorage.setItem(`audio_file_last_${enc(k)}`, meta.id);
+                        localStorage.setItem(`real_audio_source_${enc(k)}_${slot}`, 'local');
                     }
-                    localStorage.setItem(`audio_file_${enc(k)}_${slot}`, meta.id);
-                    if (slot === 'original') localStorage.setItem(`audio_file_last_${enc(k)}`, meta.id);
-                    localStorage.setItem(`real_audio_source_${enc(k)}_${slot}`, 'local');
+                    if (targetSong) {
+                        try { attachLibraryAudio(targetSong, meta.id, slot); } catch { /* optional */ }
+                    }
+                    if (applyToActiveReader) {
+                        setSlotSource('local', slot);
+                    }
+                    decodePeaks(audioBuf.slice(0))
+                        .then(({ peaks, durationMs }) => setAudioPeaks(meta.id, peaks, durationMs))
+                        .catch(() => {});
+                    resolvedMedia.set(rec.id, {
+                        kind: 'local', audioId: meta.id, name: meta.name, durationMs: meta.durationMs ?? null, fingerprint: meta.fingerprint,
+                    });
+                    handled = true;
+                    break;
                 }
-                if (targetSong) {
-                    try { attachLibraryAudio(targetSong, meta.id, slot); } catch { /* optional */ }
+                if (src.type === 'embedded' && data.tab?.format === 'gp') {
+                    for (const k of allKeys) {
+                        localStorage.setItem(`real_audio_source_${enc(k)}_${slot}`, 'embedded');
+                    }
+                    if (applyToActiveReader) {
+                        setSlotSource('embedded', slot);
+                    }
+                    handled = true;
+                    break;
                 }
-                if (applyToActiveReader) {
-                    setSlotSource('local', slot);
+                if (src.type === 'youtube' && src.videoId) {
+                    const preferEmbedded = slot === 'original' && !hasSync && applyToActiveReader && hasEmbeddedAudio();
+                    const chosenSource = preferEmbedded ? 'embedded' : 'youtube';
+                    for (const k of allKeys) {
+                        localStorage.setItem(`real_audio_source_${enc(k)}_${slot}`, chosenSource);
+                    }
+                    if (applyToActiveReader) {
+                        setSlotSource(chosenSource, slot);
+                    }
+                    resolvedMedia.set(rec.id, { kind: 'youtube', videoId: src.videoId });
+                    handled = true;
+                    break;
                 }
-                decodePeaks(audioBytes.slice(0))
-                    .then(({ peaks, durationMs }) => setAudioPeaks(meta.id, peaks, durationMs))
-                    .catch(() => {});
-                if (r.audio.id) remap.set(mediaKey({ kind: 'local', audioId: r.audio.id }), {
-                    kind: 'local', audioId: meta.id, name: meta.name, durationMs: meta.durationMs ?? null, fingerprint: meta.fingerprint
-                });
+            }
+
+            if (handled && syncDoc?.points?.length && syncDoc.anchorType === 'bar') {
+                const media = resolvedMedia.get(rec.id);
+                if (media) {
+                    const mjPoints = syncDoc.points.map((p) => ({
+                        ...(p.id ? { id: p.id } : {}),
+                        barIndex: p.bar,
+                        occurrence: p.occurrence ?? 0,
+                        pos: p.pos ?? 0,
+                        timeMs: p.timeMs,
+                        source: p.source || 'manual',
+                    }));
+                    for (const k of allKeys) {
+                        saveRecord(k, media, mjPoints);
+                    }
+                }
             }
         } catch (e) {
             console.warn('[mtab] could not attach the', slot, 'recording:', e);
         }
     }
-    for (const rec of data.sync || []) {
-        const media = remap.get(mediaKey(rec?.media)) || rec?.media;
-        if (media && Array.isArray(rec.points)) {
-            for (const k of allKeys) {
-                saveRecord(k, media, rec.points);
-            }
-        }
-    }
-    if (data.shareSyncFromOriginal) {
+
+    if (slots.backing && !slots.backing.sync && slots.backing.syncFrom && slots.backing.syncFrom === slots.original?.id && !slots.backing.syncOffsetMs) {
         for (const k of allKeys) {
             setSyncSharedFromOriginal(k, true);
         }
@@ -532,7 +756,7 @@ export async function saveMtabToLibrary(input, options = {}) {
         providerId = 'local',
         relativePath = '',
         queryMusicBrainz = true,
-        allowTextFallback = false
+        allowTextFallback = false,
     } = options;
 
     const unpacked = (input && input.header && input.part && input.tabFile)
@@ -554,7 +778,7 @@ export async function saveMtabToLibrary(input, options = {}) {
     if (!song) {
         const resolved = await resolveAndSaveOrMergeSong(header.song || {}, collectionId, {
             queryMusicBrainz,
-            allowTextFallback
+            allowTextFallback,
         });
         song = resolved.song;
         merged = resolved.merged;
@@ -588,7 +812,7 @@ export async function saveMtabToLibrary(input, options = {}) {
         filename: tabFile.name,
         tabName: tabOption?.name || tabFile.name,
         sourceUrl: tabFile.sourceUrl || null,
-        sourceWebsite: tabFile.sourceWebsite || null
+        sourceWebsite: tabFile.sourceWebsite || null,
     };
     rememberLibrarySongKey(song.id, mainKey, keyMeta);
     for (const ak of aliasKeys) {
@@ -599,7 +823,7 @@ export async function saveMtabToLibrary(input, options = {}) {
         songKey: mainKey,
         aliasKeys,
         song,
-        applyToActiveReader: false
+        applyToActiveReader: false,
     });
 
     return {
@@ -608,6 +832,6 @@ export async function saveMtabToLibrary(input, options = {}) {
         stored: mapped.stored,
         merged,
         created,
-        header
+        header,
     };
 }

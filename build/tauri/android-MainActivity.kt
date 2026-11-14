@@ -114,9 +114,11 @@ class MainActivity : TauriActivity() {
             dest.outputStream().use { output -> input.copyTo(output) }
           } ?: return@Thread
           if (!dest.isFile || dest.length() < 8) return@Thread
-          val head = ByteArray(4)
-          dest.inputStream().use { it.read(head) }
-          val isMtab = String(head, Charsets.ISO_8859_1) == "MTAB" || rawName.endsWith(".mtab", ignoreCase = true)
+          val head = ByteArray(64)
+          val n = dest.inputStream().use { it.read(head) }
+          val headStr = String(head, 0, maxOf(0, n), Charsets.ISO_8859_1)
+          val isV1Mtab = n >= 58 && headStr.startsWith("PK\u0003\u0004") && headStr.substring(30, 58) == "mimetypeapplication/vnd.mtab"
+          val isMtab = isV1Mtab || rawName.endsWith(".mtab", ignoreCase = true)
           if (!isMtab) return@Thread
           val displayName = if (rawName.endsWith(".mtab", ignoreCase = true)) rawName else "$rawName.mtab"
           pendingOpenMtabFile = dest
@@ -572,9 +574,9 @@ class MainActivity : TauriActivity() {
   private fun withTabExtension(name: String, bytes: ByteArray): String {
     if (Regex("\\.(gp\\d?|gpx|gp7|mtab)$", RegexOption.IGNORE_CASE).containsMatchIn(name)) return name
     val base = name.substringBeforeLast('.', name)
-    val head = String(bytes, 0, minOf(bytes.size, 32), Charsets.ISO_8859_1)
+    val head = String(bytes, 0, minOf(bytes.size, 64), Charsets.ISO_8859_1)
     return when {
-      head.startsWith("MTAB") -> "$base.mtab"
+      head.startsWith("PK\u0003\u0004") && bytes.size >= 58 && head.substring(30, 58) == "mimetypeapplication/vnd.mtab" -> "$base.mtab"
       head.startsWith("PK") -> "$base.gp"
       head.startsWith("BCFZ") || head.startsWith("BCFS") -> "$base.gpx"
       head.contains("FICHIER GUITAR PRO v3") -> "$base.gp3"

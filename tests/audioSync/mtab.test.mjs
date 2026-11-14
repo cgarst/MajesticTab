@@ -264,6 +264,12 @@ const {
     saveMtabToLibrary
 } = await import('../../src/mtab.js');
 
+const {
+    MIMETYPE,
+    sha256,
+    buildMtab: coreBuildMtab,
+} = await import('../../src/mtab/core/index.js');
+
 const { saveAudioFile, getAudioFile } = await import('../../src/audioSync/audioFileStore.js');
 const { saveRecord, loadRecord, listRecords } = await import('../../src/audioSync/syncStore.js');
 const { songHasLocalSlot, libraryAudioKey, readLibraryAudio } = await import('../../src/audioSync/libraryAudio.js');
@@ -271,86 +277,76 @@ const { getSongsByCollection, getSongById, clearAllLibraryData } = await import(
 
 const enc = (s) => encodeURIComponent(String(s).toLowerCase());
 
-function createManualMtabBlob({ song, tabName = 'song.gp', tabBytes, origBytes, backBytes, origPoints = [], backPoints = [] }) {
-    const header = {
+async function createManualMtabBlob({ song, tabName = 'song.gp', tabBytes, origBytes, backBytes, origPoints = [], backPoints = [] }) {
+    const ext = tabName.split('.').pop().toLowerCase();
+    const tabPath = `tab/${tabName}`;
+    const files = new Map([[tabPath, tabBytes]]);
+    const mb = {};
+    if (song?.recordingMbid) mb.recording = song.recordingMbid;
+    if (song?.artistMbid) mb.artist = song.artistMbid;
+    if (song?.albumMbid) mb.releaseGroup = song.albumMbid;
+    const manifest = {
         format: MTAB_FORMAT,
         version: MTAB_VERSION,
-        createdAt: 1794520000000,
-        song,
-        tab: {
-            name: tabName,
-            type: 'application/octet-stream',
-            size: tabBytes.byteLength
+        createdAt: '2026-11-14T12:00:00Z',
+        song: {
+            ...(song?.artist ? { artist: song.artist } : {}),
+            ...(song?.title ? { title: song.title } : {}),
+            ...(song?.album ? { album: song.album } : {}),
+            ...(Object.keys(mb).length ? { ids: { musicbrainz: mb } } : {}),
         },
-        tuning: null,
-        recordings: {},
-        sync: [],
-        shareSyncFromOriginal: false
+        tab: {
+            path: tabPath,
+            format: ext,
+            sha256: await sha256(tabBytes),
+            name: tabName,
+        },
+        recordings: [],
     };
 
-    const parts = [tabBytes];
-    if (origBytes) {
-        header.recordings.original = {
-            source: 'local',
-            audio: {
-                id: 'orig-bundle-id',
-                name: 'Original.mp3',
-                type: 'audio/mpeg',
+    const addSlot = async (id, bytes, name, points) => {
+        if (!bytes) return;
+        const audioPath = `audio/${name}`;
+        files.set(audioPath, bytes);
+        const rec = {
+            id,
+            role: id,
+            sources: [{
+                type: 'file',
+                path: audioPath,
+                mime: 'audio/mpeg',
+                sha256: await sha256(bytes),
                 durationMs: 240000,
-                fingerprint: 'fp-orig',
-                size: origBytes.byteLength
-            }
+            }],
         };
-        parts.push(origBytes);
-        if (origPoints.length) {
-            header.sync.push({
+        if (points.length) {
+            const syncPath = `sync/${id}.json`;
+            const syncDoc = {
                 version: 1,
-                media: {
-                    kind: 'local',
-                    audioId: 'orig-bundle-id',
-                    name: 'Original.mp3',
-                    durationMs: 240000,
-                    fingerprint: 'fp-orig'
-                },
-                points: origPoints,
-                updatedAt: 1794520000000
-            });
+                recording: id,
+                anchorType: 'bar',
+                updatedAt: '2026-11-14T12:00:00Z',
+                points: points.map((p) => ({
+                    id: p.id,
+                    timeMs: p.timeMs,
+                    bar: p.barIndex,
+                    occurrence: p.occurrence ?? 0,
+                    pos: p.pos ?? 0,
+                    source: p.source || 'manual',
+                })),
+            };
+            files.set(syncPath, new TextEncoder().encode(JSON.stringify(syncDoc)));
+            rec.sync = syncPath;
         }
-    }
+        manifest.recordings.push(rec);
+    };
 
-    if (backBytes) {
-        header.recordings.backing = {
-            source: 'local',
-            audio: {
-                id: 'back-bundle-id',
-                name: 'Backing.mp3',
-                type: 'audio/mpeg',
-                durationMs: 240000,
-                fingerprint: 'fp-back',
-                size: backBytes.byteLength
-            }
-        };
-        parts.push(backBytes);
-        if (backPoints.length) {
-            header.sync.push({
-                version: 1,
-                media: {
-                    kind: 'local',
-                    audioId: 'back-bundle-id',
-                    name: 'Backing.mp3',
-                    durationMs: 240000,
-                    fingerprint: 'fp-back'
-                },
-                points: backPoints,
-                updatedAt: 1794520000000
-            });
-        }
-    }
+    await addSlot('original', origBytes, 'Original.mp3', origPoints);
+    await addSlot('backing', backBytes, 'Backing.mp3', backPoints);
+    if (manifest.recordings.some((r) => r.id === 'original')) manifest.defaultRecording = 'original';
 
-    const headerBytes = new TextEncoder().encode(JSON.stringify(header));
-    const lenBuf = new Uint8Array(4);
-    new DataView(lenBuf.buffer).setUint32(0, headerBytes.byteLength);
-    return new Blob(['MTAB', lenBuf, headerBytes, ...parts], { type: 'application/x-majestictab-song' });
+    const { parts } = await coreBuildMtab(manifest, files);
+    return new Blob(parts, { type: MIMETYPE });
 }
 
 test('normalizeMtabSong normalizes direct and nested MusicBrainz IDs', () => {
@@ -447,7 +443,7 @@ test('unpackMtab and applyMtabExtras populate both original and backing local au
         { id: 'p1', barIndex: 1, occurrence: 0, pos: 0, timeMs: 4300, source: 'auto' }
     ];
 
-    const mtabBlob = createManualMtabBlob({
+    const mtabBlob = await createManualMtabBlob({
         song: { artist: 'Metallica', title: 'The Four Horsemen' },
         tabName: 'Metallica - The Four Horsemen.gp',
         tabBytes,
@@ -553,7 +549,7 @@ test('saveMtabToLibrary queries MusicBrainz by IDs to add a new song in proper a
         const tab1Bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 1, 1]);
         const orig1Bytes = new Uint8Array(48).fill(0x33);
         const back1Bytes = new Uint8Array(48).fill(0x44);
-        const mtab1 = createManualMtabBlob({
+        const mtab1 = await createManualMtabBlob({
             song: {
                 artist: 'Metallica',
                 title: 'The Four Horsemen',
@@ -593,7 +589,7 @@ test('saveMtabToLibrary queries MusicBrainz by IDs to add a new song in proper a
 
         // 2. MERGE CASE: Save second .mtab for the same song (matching by recordingMbid)
         const tab2Bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 2, 2, 2]);
-        const mtab2 = createManualMtabBlob({
+        const mtab2 = await createManualMtabBlob({
             song: {
                 artist: 'Metallica',
                 title: 'The Four Horsemen',
@@ -645,7 +641,7 @@ test('handleDownloadedTabFile unpacks .mtab download and attaches inner tab and 
     const tabBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 9, 8, 7]);
     const origBytes = new Uint8Array(64).fill(0x55);
     const backBytes = new Uint8Array(64).fill(0x66);
-    const mtabBlob = createManualMtabBlob({
+    const mtabBlob = await createManualMtabBlob({
         song: { artist: 'Metallica', title: 'Master of Puppets' },
         tabName: 'Metallica - Master of Puppets.gp',
         tabBytes,
@@ -722,4 +718,62 @@ test('system-browser openTabDownloader records pending target and missingTabsToo
         { id: 'companion', isSeed: false, urlTemplate: 'http://127.0.0.1:8765/search?q=$s' }
     ]);
     assert.equal(origin, 'http://127.0.0.1:8765');
+});
+
+test('buildMtab roundtrips local audio, youtube fallback, tuning, and sync points in v1 format, and unpackMtab handles externalPath + page range', async () => {
+    lsMap.clear();
+    const songKey = 'Opeth - Windowpane';
+    const audioBytes = new Uint8Array(64).fill(0x55).buffer;
+    const savedAudio = await saveAudioFile({
+        name: 'windowpane.mp3',
+        type: 'audio/mpeg',
+        data: audioBytes,
+        songKey,
+        durationMs: 465000,
+    });
+    localStorage.setItem(`audio_file_${enc(songKey)}_original`, savedAudio.id);
+    localStorage.setItem(`real_audio_source_${enc(songKey)}_original`, 'local');
+    localStorage.setItem(`yt_track_${enc(songKey)}_original`, 'dQw4w9WgXcQ');
+    saveRecord(songKey, { kind: 'local', audioId: savedAudio.id }, [
+        { id: 'p0', barIndex: 0, occurrence: 0, pos: 0, timeMs: 1500, source: 'tap' },
+        { id: 'p1', barIndex: 1, occurrence: 0, pos: 0, timeMs: 3500, source: 'manual' },
+    ]);
+
+    const tabFile = new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04, 7, 8, 9])], 'Windowpane.gp5', { type: 'application/octet-stream' });
+    tabFile.tabTuning = { tuning: 'E A D G B E', source: 'user' };
+    const { blob } = await buildMtab(tabFile, {
+        songKey,
+        song: { artist: 'Opeth', title: 'Windowpane' },
+    });
+
+    const { header, opened, tabFile: unpacked } = await unpackMtab(blob);
+    assert.equal(header.format, 'mtab');
+    assert.equal(header.version, 1);
+    assert.deepEqual(header.tab.tuning, ['E', 'A', 'D', 'G', 'B', 'E']);
+    assert.equal(unpacked.tabTuning.tuning, 'E A D G B E');
+    assert.equal(header.recordings.length, 1);
+    assert.equal(header.recordings[0].sources[0].type, 'file');
+    assert.equal(header.recordings[0].sources[1].type, 'youtube');
+    assert.equal(opened.sync('original')?.points?.length, 2);
+
+    // externalPath + startPage / endPage
+    const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34]);
+    const extManifest = {
+        format: 'mtab',
+        version: 1,
+        song: { title: 'Book Song', artist: 'Book Artist' },
+        tab: {
+            externalPath: 'books/realbook.pdf',
+            format: 'pdf',
+            sha256: await sha256(pdfBytes),
+            pages: 100,
+            startPage: 12,
+            endPage: 14,
+        },
+    };
+    const { parts } = await coreBuildMtab(extManifest, {});
+    const extBlob = new Blob(parts, { type: MIMETYPE });
+    const extUnpacked = await unpackMtab(extBlob, { externalTab: pdfBytes });
+    assert.equal(extUnpacked.tabFile.name, 'realbook.pdf');
+    assert.deepEqual(extUnpacked.tabFile.mtabPageRange, { startPage: 12, endPage: 14, pages: 100 });
 });
