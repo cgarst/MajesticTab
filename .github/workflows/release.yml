@@ -178,7 +178,7 @@ jobs:
           bundle exec fastlane mac beta pkg:"$(ls store-appstore-mac/*.pkg)"
 
   publish:
-    needs: build
+    needs: [build, store]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -226,3 +226,50 @@ jobs:
           EOF
           } > notes.md
           gh release create "$GITHUB_REF_NAME" artifacts/* --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md
+
+  # Update the F-Droid recipe after the GitHub release has uploaded the three signed no-gms APKs.
+  publish-fdroid:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Update F-Droid recipe
+        env:
+          FDROID_GITLAB_PAT: ${{ secrets.FDROID_GITLAB_PAT }}
+        run: |
+          if [ -z "$FDROID_GITLAB_PAT" ]; then
+            echo "::warning::FDROID_GITLAB_PAT secret is not set; skipping F-Droid recipe update"
+            exit 0
+          fi
+
+          askpass="$RUNNER_TEMP/gitlab-askpass.sh"
+          cat <<'EOF' > "$askpass"
+          #!/bin/sh
+          case "$1" in
+            *Username*) echo "oauth2" ;;
+            *) printf '%s\n' "$FDROID_GITLAB_PAT" ;;
+          esac
+          EOF
+          chmod 700 "$askpass"
+          export GIT_ASKPASS="$askpass"
+          export GIT_TERMINAL_PROMPT=0
+
+          git clone --depth 1 --branch net.zathu.majestictab \
+            https://gitlab.com/corey.garst/fdroiddata.git "$RUNNER_TEMP/fdroiddata"
+
+          commit=$(git rev-parse "${GITHUB_REF_NAME}^{commit}")
+          version="${GITHUB_REF_NAME#v}"
+          python3 build/update-fdroid-recipe.py \
+            --recipe "$RUNNER_TEMP/fdroiddata/metadata/net.zathu.majestictab.yml" \
+            --commit "$commit"
+          python3 -c "import yaml; yaml.safe_load(open('$RUNNER_TEMP/fdroiddata/metadata/net.zathu.majestictab.yml'))"
+
+          if git -C "$RUNNER_TEMP/fdroiddata" diff --quiet metadata/net.zathu.majestictab.yml; then
+            echo "F-Droid recipe is already up to date for $version"
+            exit 0
+          fi
+
+          git -C "$RUNNER_TEMP/fdroiddata" config user.name "github-actions[bot]"
+          git -C "$RUNNER_TEMP/fdroiddata" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$RUNNER_TEMP/fdroiddata" commit -am "net.zathu.majestictab: update to $version"
+          git -C "$RUNNER_TEMP/fdroiddata" push origin net.zathu.majestictab
