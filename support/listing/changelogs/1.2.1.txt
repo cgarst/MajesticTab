@@ -1,0 +1,3 @@
+- Support .mtab downloads from web search, bulk import, and deep-link return into the app
+- Match and merge MusicBrainz IDs when adding .mtab files and batch-sync missing tabs
+- Fix iCloud Drive sync in sandboxed macOS builds
