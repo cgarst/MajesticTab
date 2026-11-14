@@ -491,6 +491,7 @@ if (target === 'android') {
                 <data android:scheme="content" />
                 <data android:scheme="file" />
                 <data android:mimeType="application/x-majestictab-song" />
+                <data android:mimeType="application/vnd.mtab+zip" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

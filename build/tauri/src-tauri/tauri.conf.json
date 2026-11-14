@@ -59,7 +59,7 @@
         "name": "MajesticTab Song",
         "description": "MajesticTab song file: a tab with its recordings, sync points and tuning",
         "role": "Viewer",
-        "mimeType": "application/x-majestictab-song"
+        "mimeType": "application/vnd.mtab+zip"
       },
       {
         "ext": ["pdf"],

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/vnd.mtab+zip">
+    <comment>MajesticTab song</comment>
+    <sub-class-of type="application/zip"/>
+    <alias type="application/x-majestictab-song"/>
+    <glob pattern="*.mtab"/>
+  </mime-type>
+</mime-info>

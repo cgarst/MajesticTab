@@ -46,6 +46,7 @@ modules:
       - install -Dm755 build/tauri/target/release/majestictab /app/bin/majestictab
       - node build/tauri/flatpak/render-metainfo.mjs build/tauri/flatpak/net.zathu.majestictab.metainfo.xml
       - install -Dm644 build/tauri/flatpak/net.zathu.majestictab.desktop /app/share/applications/net.zathu.majestictab.desktop
+      - install -Dm644 build/tauri/flatpak/net.zathu.majestictab.mime.xml /app/share/mime/packages/net.zathu.majestictab.xml
       - install -Dm644 build/tauri/flatpak/net.zathu.majestictab.metainfo.xml /app/share/metainfo/net.zathu.majestictab.metainfo.xml
       - |
         for size in 16 24 32 48 64 128 256 512; do
