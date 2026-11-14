@@ -41,7 +41,7 @@ Direct installers and packages are published on [GitHub Releases](https://github
 | **Linux and Steam Deck** | Flatpak bundles | [Flatpak `x86_64`](https://github.com/cgarst/MajesticTab/releases/latest) · [Flatpak `ARM64`](https://github.com/cgarst/MajesticTab/releases/latest) · [Steam Deck art (`.zip`)](docs/img/steam/steam_deck_artwork.zip) |
 
 > [!NOTE]
-> MajesticTab is free and open source on the Microsoft Store, Google Play, Linux, and direct desktop and Android downloads. On the Apple App Store, a single one-time purchase unlocks the app across iPhone, iPad, and Mac to help cover App Store distribution costs and support ongoing development.
+> MajesticTab is open source, and free on the Microsoft Store, Google Play, Linux, and direct downloads. On the Apple App Store, a single one-time purchase unlocks the app across iPhone, iPad, and Mac to help cover App Store distribution costs and support ongoing development.
 
 ---
 
