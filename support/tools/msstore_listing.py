@@ -15,9 +15,14 @@ LISTING = Path(__file__).resolve().parents[1] / "listing"
 
 
 def release_notes():
-    """Current version's notes, from the same script the other channels use (fails on a placeholder)."""
+    """Current version's notes, filtered for Windows/Microsoft Store (fails on a placeholder)."""
     script = Path(__file__).resolve().parents[2] / "build" / "release-notes.mjs"
-    return subprocess.run(["node", str(script)], check=True, capture_output=True, text=True).stdout.strip()
+    return subprocess.run(
+        ["node", str(script), "--platform", "windows"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def read_sections(directory):

@@ -6,7 +6,7 @@
 // Play (fastlane) and F-Droid read fastlane/metadata/android/en-US/changelogs/<versionCode>.txt straight
 // from the repo, so that path is a symlink to the canonical file. Without a flag the script also fails if
 // the symlink is missing or wrong; `--link` creates it (run it when bumping the version).
-// Usage: node build/release-notes.mjs [--link] [version]   (default: tauri.conf.json version)
+// Usage: node build/release-notes.mjs [--link] [--platform <platform>] [version]   (default: tauri.conf.json version)
 import { readFileSync, existsSync, lstatSync, readlinkSync, symlinkSync, unlinkSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,11 +14,64 @@ import { fileURLToPath } from 'node:url';
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const link = args.includes('--link');
-const version = args.find((arg) => !arg.startsWith('--'))
-  || JSON.parse(readFileSync(path.join(rootDir, 'build/tauri/src-tauri/tauri.conf.json'), 'utf8')).version;
+
+let platform = null;
+let version = null;
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i];
+  if (arg === '--link') continue;
+  if (arg === '--platform') {
+    platform = args[++i] || null;
+  } else if (arg.startsWith('--platform=')) {
+    platform = arg.slice('--platform='.length) || null;
+  } else if (!arg.startsWith('--')) {
+    version = arg;
+  }
+}
+
+version ||= JSON.parse(readFileSync(path.join(rootDir, 'build/tauri/src-tauri/tauri.conf.json'), 'utf8')).version;
 const [major, minor, patch] = version.split('.').map(Number);
 const rel = (file) => path.relative(rootDir, file);
 const fail = (message) => { console.error(message); process.exit(1); };
+
+const PLATFORM_ALIASES = {
+  play: 'android',
+  android: 'android',
+  msstore: 'windows',
+  windows: 'windows',
+  'appstore-ios': 'ios',
+  ios: 'ios',
+  'appstore-mac': 'macos',
+  mac: 'macos',
+  macos: 'macos',
+  flatpak: 'linux',
+  linux: 'linux',
+};
+
+const PLATFORM_TERMS = {
+  ios: /\b(?:iOS|iPad|iPadOS|iPhone|SideStore|AltStore|LiveContainer)\b/i,
+  macos: /\b(?:macOS|Mac|Gatekeeper)\b/i,
+  android: /\b(?:Android|Google Play|F-Droid|Chromebook|ChromeOS|APK|AAB)\b/i,
+  windows: /\b(?:Windows|Microsoft Store|MSIX|winget)\b/i,
+  linux: /\b(?:Linux|Flatpak|Flathub|AppImage|Wayland|X11)\b/i,
+};
+const APPLE_TERMS = /\b(?:iCloud|App Store|TestFlight)\b/i;
+
+function filterForPlatform(text, targetPlatform) {
+  const target = PLATFORM_ALIASES[targetPlatform.toLowerCase()];
+  if (!target) fail(`Unknown platform '${targetPlatform}'; expected one of: ${Object.keys(PLATFORM_ALIASES).join(', ')}`);
+
+  const lines = text.split('\n').filter((line) => {
+    const matched = Object.entries(PLATFORM_TERMS)
+      .filter(([, re]) => re.test(line))
+      .map(([name]) => name);
+    if (matched.length > 0) return matched.includes(target);
+    if (APPLE_TERMS.test(line)) return target === 'ios' || target === 'macos';
+    return true;
+  });
+
+  return lines.length > 0 ? lines.join('\n') : '- Bug fixes and stability improvements';
+}
 
 const file = path.join(rootDir, 'support/listing/changelogs', `${version}.txt`);
 const fastlaneDir = path.join(rootDir, 'fastlane/metadata/android/en-US/changelogs');
@@ -37,4 +90,4 @@ if (link && !linked()) {
   symlinkSync(target, fastlaneFile);
 }
 if (!linked()) fail(`${rel(fastlaneFile)} must be a symlink to ${target}; run: node build/release-notes.mjs --link`);
-console.log(notes);
+console.log(platform ? filterForPlatform(notes, platform) : notes);

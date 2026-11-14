@@ -9,8 +9,10 @@ import { fileURLToPath } from 'node:url';
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const file = process.argv[2];
 const version = JSON.parse(readFileSync(path.join(rootDir, 'build/tauri/src-tauri/tauri.conf.json'), 'utf8')).version;
-const changelog = path.join(rootDir, 'support/listing/changelogs', `${version}.txt`);
-const notes = readFileSync(changelog, 'utf8').trim();
+const notes = execFileSync('node', [path.join(rootDir, 'build/release-notes.mjs'), '--platform', 'linux'], {
+  cwd: rootDir,
+  encoding: 'utf8',
+}).trim();
 let date;
 try {
   date = execFileSync('git', ['log', '-1', '--format=%cs'], { cwd: rootDir, encoding: 'utf8' }).trim();

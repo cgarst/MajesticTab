@@ -79,6 +79,10 @@ jobs:
           PLAY_PROMOTE_TO: ${{ vars.PLAY_PROMOTE_TO || 'alpha' }}
           PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
         run: |
+          versionCode=$(node -p "require('./build/tauri/src-tauri/tauri.android.conf.json').bundle.android.versionCode")
+          changelog="fastlane/metadata/android/en-US/changelogs/${versionCode}.txt"
+          rm -f "$changelog"
+          node build/release-notes.mjs --platform android > "$changelog"
           bundle exec fastlane android release aab:'store-play/*.aab' symbols:'store-play/*-symbols.zip' release_name:"$GITHUB_REF_NAME"
 
   publish-msstore:
@@ -203,7 +207,7 @@ jobs:
         run: |
           node build/make-sidestore-source.mjs "${GITHUB_REF_NAME#v}" "artifacts/MajesticTab-${GITHUB_REF_NAME#v}-ios.ipa" \
             artifacts/source.json "https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF_NAME}" \
-            "$(node build/release-notes.mjs)"
+            "$(node build/release-notes.mjs --platform ios)"
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}

@@ -103,24 +103,28 @@ def newest_build(pattern, what)
   Dir[File.join(root, pattern)].max_by { |f| File.mtime(f) } or UI.user_error!("No #{what} found at #{pattern}; build it first (see the top of the Apple lanes)")
 end
 
-def release_notes_for_current_version
+def release_notes_for_current_version(platform = nil)
   root = File.expand_path("..", FastlaneCore::FastlaneFolder.path)
-  version = JSON.parse(File.read(File.join(root, "build/tauri/src-tauri/tauri.conf.json")))["version"]
-  { "en-US" => File.read(File.join(root, "support/listing/changelogs/#{version}.txt")).strip }
+  script = File.join(root, "build/release-notes.mjs")
+  cmd = ["node", script]
+  cmd.push("--platform", platform) if platform
+  notes = IO.popen(cmd, &:read).strip
+  UI.user_error!("Failed to read release notes") unless $?.success?
+  { "en-US" => notes }
 end
 
 # TestFlight options shared by both beta lanes. TESTFLIGHT_GROUPS (comma-separated external group names, exactly as in App Store
 # Connect) turns on external distribution: the lane then waits for processing, adds the build to those groups with the release
 # notes as "What to test" and submits it to Beta App Review. Without it the lane only uploads. Export compliance is answered by
 # ITSAppUsesNonExemptEncryption in Info.plist, so builds are not held for it.
-def testflight_distribution_options
+def testflight_distribution_options(platform = nil)
   groups = (ENV["TESTFLIGHT_GROUPS"] || "").split(",").map(&:strip).reject(&:empty?)
   return { skip_waiting_for_build_processing: true } if groups.empty?
   {
     skip_waiting_for_build_processing: false,
     distribute_external: true,
     groups: groups,
-    changelog: release_notes_for_current_version["en-US"][0, 4000],
+    changelog: release_notes_for_current_version(platform)["en-US"][0, 4000],
     reject_build_waiting_for_review: false
   }
 end
@@ -131,7 +135,7 @@ platform :ios do
     upload_to_testflight(
       api_key: asc_api_key,
       ipa: options[:ipa] ? File.expand_path(options[:ipa], File.expand_path("..", FastlaneCore::FastlaneFolder.path)) : newest_build("dist/*.ipa", "iOS .ipa"),
-      **testflight_distribution_options
+      **testflight_distribution_options("ios")
     )
   end
 
@@ -142,7 +146,7 @@ platform :ios do
       platform: "ios",
       metadata_path: APP_STORE_METADATA,
       screenshots_path: stage_screenshots("appstore-ios", "appstore-ipad"),
-      release_notes: release_notes_for_current_version,
+      release_notes: release_notes_for_current_version("ios"),
       skip_binary_upload: true,
       overwrite_screenshots: true,
       submit_for_review: false,
@@ -158,7 +162,7 @@ platform :mac do
       api_key: asc_api_key,
       pkg: options[:pkg] ? File.expand_path(options[:pkg], File.expand_path("..", FastlaneCore::FastlaneFolder.path)) : newest_build("dist/*.pkg", "Mac .pkg"),
       app_platform: "osx",
-      **testflight_distribution_options
+      **testflight_distribution_options("macos")
     )
   end
 
@@ -169,7 +173,7 @@ platform :mac do
       platform: "osx",
       metadata_path: APP_STORE_METADATA,
       screenshots_path: stage_screenshots("appstore-mac"),
-      release_notes: release_notes_for_current_version,
+      release_notes: release_notes_for_current_version("macos"),
       skip_binary_upload: true,
       overwrite_screenshots: true,
       submit_for_review: false,
