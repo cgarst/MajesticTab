@@ -18,6 +18,7 @@ import { playerState } from '../youtubePlayer.js';
 import { getSongById } from '../libraryStore.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { showToast } from '../utils/toast.js';
+import { beginSynthContextCapture } from '../utils/iosAudioUnlock.js';
 
 let hostEl = null;
 let ownApi = null;
@@ -83,6 +84,8 @@ export async function attachMidiSynth(bytes, options = {}) {
     hostEl.setAttribute('aria-hidden', 'true');
     hostEl.style.cssText = 'position:fixed;left:-9999px;top:0;width:320px;height:160px;overflow:hidden;pointer-events:none';
     document.body.appendChild(hostEl);
+    // Tag the AudioContext AlphaTab opens for this synth, so a closed or interrupted one is noticed (see gpPlayer.js)
+    beginSynthContextCapture();
     const api = new at.AlphaTabApi(hostEl, {
         core: { tex: true },
         player: { enablePlayer: true, playerMode: at.PlayerMode.EnabledSynthesizer, enableCursor: false, enableElementHighlighting: false, scrollMode: at.ScrollMode.Off }
@@ -427,6 +430,15 @@ export function initMidiSynthUi(getCurrent) {
         if (isStaffTxt(file)) {
             await setupStaffTxtSynth(file, currentMidiBytes);
         }
+    });
+
+    // iOS closed the synth's AudioContext: a closed context never runs again, so build a new player for this tab.
+    // (main.js reopens Guitar Pro files; a text or PDF tab's player is ours to replace.)
+    window.addEventListener('majestictab:synth-dead', () => {
+        const file = getCurrent();
+        if (!file || !midiSynthIsFor(file)) return;
+        removeMidiSynth();
+        attachSynthMidiForFile(file, getCurrent);
     });
 
     window.addEventListener('majestictab:file-loaded', (e) => {
