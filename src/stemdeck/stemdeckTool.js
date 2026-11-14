@@ -1,5 +1,5 @@
 // stemdeck/stemdeckTool.js
-// The Backing tracks page in Tools (native apps only): pick songs that have a local audio file, send each file to
+// The Make backing tracks page in Tools (native apps only): pick songs that have a local audio file, send each file to
 // the StemDeck app (a desktop app finds the one on your computer by itself, whatever port it took; a phone is given
 // its address on the network), and save the mix without guitar as the song's Backing track (the same slot the Sound panel's
 // Recording | Backing switch reads). One file is sent at a time. The batch belongs to the app, not to

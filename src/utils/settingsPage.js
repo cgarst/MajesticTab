@@ -498,6 +498,11 @@ export function initSettingsPage() {
         dlBtn.rel = 'noopener noreferrer';
         abt.push(row('Desktop & mobile apps', 'Permanent offline storage, local Jam hosting, and built-in tab search with ad-blocking.', dlBtn));
     }
+    const guide = el('a', 'btn btn-sm btn-theme-outline', 'Read');
+    guide.href = 'https://majestictab.zathu.net/guide/';
+    guide.target = '_blank';
+    guide.rel = 'noopener noreferrer';
+    abt.push(row('User guide', 'How to use MajesticTab, step by step.', guide));
     if (privacy) { privacy.className = 'btn btn-sm btn-theme-outline'; privacy.textContent = 'Read'; abt.push(row('Privacy policy', 'What stays on your device.', privacy)); }
     if (support) { support.className = 'btn btn-sm btn-theme-outline'; support.textContent = 'Report'; abt.push(row('Support', 'Report a problem or ask for a feature.', support)); }
     if (quitBtn && canQuitApp()) {

@@ -2267,6 +2267,8 @@ body.fretboard-open {
 
 .empty-action-row {
   display: flex;
+  color: inherit;
+  text-decoration: none;
   align-items: center;
   min-height: 56px;
   padding: 10px 14px;
@@ -5069,7 +5071,7 @@ body > #controllerHelpModal { display: none; }
 .ct-row-title { font-weight: 600; font-size: 14.5px; line-height: 1.25; }
 .ct-row-meta { font-size: 12px; line-height: 1.2; }
 
-/* Backing tracks (Tools): the StemDeck address, one option, then the songs as flat rows with their outcome at the right */
+/* Make backing tracks (Tools): the StemDeck address, one option, then the songs as flat rows with their outcome at the right */
 .sd-root { display: flex; flex-direction: column; gap: 12px; max-width: 760px; padding-bottom: 24px; }
 .sd-conn { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-height: 44px; }
 .sd-addr { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 14px; color: var(--ink2); }

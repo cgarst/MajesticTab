@@ -2379,6 +2379,17 @@ export function libraryEmptyWelcomeHtml({ title, subtitle }) {
             <i class="bi-chevron-right empty-action-chevron flex-shrink-0" aria-hidden="true"></i>
           </div>
 
+          <a class="empty-action-row" href="https://majestictab.zathu.net/guide/" target="_blank" rel="noopener noreferrer" aria-label="Read the user guide: Learn how to add tabs, read and practice them, and play with other people">
+            <div class="empty-action-icon flex-shrink-0" aria-hidden="true">
+              <i class="bi-book"></i>
+            </div>
+            <div class="empty-action-content">
+              <div class="empty-action-title">Read the user guide</div>
+              <div class="empty-action-desc">Learn how to add tabs, read and practice them, and play with other people</div>
+            </div>
+            <i class="bi-box-arrow-up-right empty-action-chevron flex-shrink-0" aria-hidden="true"></i>
+          </a>
+
         </div>
       </div>
     </div>
@@ -4981,7 +4992,7 @@ function renderToolsView(container) {
         { id: 'metronome', group: 'practice', title: 'Metronome', readout: () => `${metronome.bpm} bpm`, watch: ['metroBpm'] }
     ];
     // Sends local audio to the StemDeck app on your computer or network; the web build cannot reach it
-    if (hasStemDeckSupport()) tools.push({ id: 'stemdeck', group: 'practice', title: 'Backing tracks', readout: stemdeckReadout });
+    if (hasStemDeckSupport()) tools.push({ id: 'stemdeck', group: 'practice', title: 'Make backing tracks', readout: stemdeckReadout });
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', group: 'practice', title: 'Jam', readout: jamReadout, watch: ['jamStatusLabel'] });
     tools.push(
         { id: 'openfile', group: 'gettabs', title: 'Open file' },
