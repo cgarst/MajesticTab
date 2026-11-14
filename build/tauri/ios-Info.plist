@@ -67,6 +67,10 @@
 			<array>
 				<string>mtab</string>
 			</array>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>net.zathu.majestictab.mtab</string>
+			</array>
 			<key>CFBundleTypeName</key>
 			<string>MajesticTab Song</string>
 			<key>CFBundleTypeRole</key>
@@ -105,6 +109,31 @@
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
 			<string>Default</string>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>net.zathu.majestictab.mtab</string>
+			<key>UTTypeDescription</key>
+			<string>MajesticTab Song</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.zip-archive</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mtab</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/vnd.mtab+zip</string>
+				</array>
+			</dict>
 		</dict>
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
