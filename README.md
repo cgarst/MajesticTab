@@ -10,6 +10,7 @@ Bring all your guitar tabs into one library, fitted to your guitar and synced to
 
 [![License: MPL 2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/cgarst/MajesticTab?label=release)](https://github.com/cgarst/MajesticTab/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/cgarst/MajesticTab/total)](https://github.com/cgarst/MajesticTab/releases)
 [![Platforms](https://img.shields.io/badge/platform-iOS%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20Linux-informational)](#download)
 
 [**Website**](https://majestictab.zathu.net/) · [**Download**](#download) · [**Features**](#features) · [**Keyboard shortcuts**](#keyboard-shortcuts) · [**Contributing**](CONTRIBUTING.md) · [**Report an issue**](https://github.com/cgarst/MajesticTab/issues)
@@ -27,7 +28,7 @@ There are **no subscriptions, no ads, no accounts, and no locked features**.
 ## Download
 
 <p align="center">
-  <a href="https://apps.apple.com/us/app/majestictab/id6833538312"><img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="44" valign="middle"></a>&nbsp;&nbsp;<a href="https://apps.apple.com/us/app/majestictab/id6833538312"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-mac-app-store/black/en-us" alt="Download on the Mac App Store" height="44" valign="middle"></a>&nbsp;&nbsp;<a href="https://play.google.com/store/apps/details?id=net.zathu.majestictab"><img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" height="44" valign="middle"></a>&nbsp;&nbsp;<a href="https://apps.microsoft.com/detail/9p7mb2c84cfv?referrer=appbadge"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get it from Microsoft Store" height="44" valign="middle"></a>
+  <a href="https://apps.apple.com/us/app/majestictab/id6833538312"><img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="44" valign="middle"></a>&nbsp;&nbsp;<a href="https://apps.microsoft.com/detail/9p7mb2c84cfv?referrer=appbadge"><img src="docs/img/ms-store-badge.svg" alt="Get it from Microsoft Store" height="44" valign="middle"></a>&nbsp;&nbsp;<a href="https://play.google.com/store/apps/details?id=net.zathu.majestictab"><img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" height="44" valign="middle"></a>
 </p>
 
 Direct installers and packages are published on [GitHub Releases](https://github.com/cgarst/MajesticTab/releases/latest):
