@@ -56,6 +56,9 @@
             </uap:SupportedFileTypes>
           </uap:FileTypeAssociation>
         </uap:Extension>
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="majestictab" />
+        </uap:Extension>
       </Extensions>
     </Application>
   </Applications>

@@ -12,5 +12,18 @@
 	<array>
 		<string>_majestictab-jam._tcp</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>net.zathu.majestictab</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>majestictab</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

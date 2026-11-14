@@ -5,6 +5,7 @@
 export const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 export const SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
 export const DUCKDUCKGO_FIRST_KEY = 'majestictab_tab_sources_duckduckgo_first';
+export const PENDING_BROWSER_TARGET_KEY = 'majestictab_pending_browser_target';
 
 export function isNative() {
     return typeof window !== 'undefined' && (Boolean(window.__TAURI__) || Boolean(window.MajesticDownloaderNative));
@@ -210,6 +211,18 @@ export function stampSourceChanges(edited) {
 }
 
 export async function openTabDownloader(options = {}) {
+    const songId = options.songId || options.targetSong?.id || null;
+    if (songId && typeof localStorage !== 'undefined') {
+        try {
+            localStorage.setItem(PENDING_BROWSER_TARGET_KEY, JSON.stringify({
+                songId,
+                artist: options.artist || options.targetSong?.artist || '',
+                title: options.songName || options.targetSong?.title || '',
+                collectionId: options.collectionId || options.targetSong?.collectionId || null,
+                timestamp: Date.now()
+            }));
+        } catch {}
+    }
     const sources = getSources();
     const activeSource = (options.targetSourceId && sources.find(s => s.id === options.targetSourceId))
         || sources[0]

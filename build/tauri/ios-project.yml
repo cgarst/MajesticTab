@@ -70,6 +70,10 @@ targets:
             CFBundleURLName: google-oauth
             CFBundleURLSchemes:
               - com.googleusercontent.apps.1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: net.zathu.majestictab
+            CFBundleURLSchemes:
+              - majestictab
     entitlements:
       path: majestictab_iOS/majestictab_iOS.entitlements
       properties:

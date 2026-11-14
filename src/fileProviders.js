@@ -466,7 +466,7 @@ function looksLikeTabFileUrl(url) {
     try { return /\.(gp[345x]?|pdf|txt|mtab)$/i.test(new URL(url).pathname); } catch { return false; }
 }
 
-async function openTabFromUrl(text, options = {}) {
+export async function openTabFromUrl(text, options = {}) {
     try {
         // A link to a score page opens the downloader with a banner; the user sends the address on.
         const pageUrl = unwrapRedirectUrl((text || '').trim());

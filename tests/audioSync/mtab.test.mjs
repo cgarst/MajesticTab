@@ -671,3 +671,55 @@ test('handleDownloadedTabFile unpacks .mtab download and attaches inner tab and 
     assert.equal(loadRecord(songKey, { kind: 'local', audioId: origId })?.points?.[0]?.timeMs, 800);
     assert.equal(loadRecord(songKey, { kind: 'local', audioId: backId })?.points?.[0]?.timeMs, 1500);
 });
+
+test('system-browser openTabDownloader records pending target and missingTabsTool serializes batch payloads', async () => {
+    lsMap.clear();
+    let openedUrl = null;
+    globalThis.window.__TAURI__ = {
+        core: { invoke: async () => false },
+        event: { listen: async () => () => {} },
+        opener: { openUrl: async (url) => { openedUrl = url; } }
+    };
+    localStorage.setItem('majestictab_web_search_browser', 'system');
+
+    const { openTabDownloader } = await import('../../src/tabDownloader.js');
+    await openTabDownloader({
+        artist: 'Metallica',
+        songName: 'Orion',
+        songId: 'song_orion_1',
+        collectionId: 'default'
+    });
+
+    assert.ok(openedUrl, 'Expected system browser opener to be called');
+    const pending = JSON.parse(localStorage.getItem('majestictab_pending_browser_target') || 'null');
+    assert.equal(pending?.songId, 'song_orion_1');
+    assert.equal(pending?.artist, 'Metallica');
+    assert.equal(pending?.title, 'Orion');
+
+    const { serializeMissingSongs, encodeBatchPayload, findCompanionOrigin } = await import('../../src/bulkFill/missingTabsTool.js');
+    const serialized = serializeMissingSongs([{
+        id: 'song_orion_1',
+        title: 'Orion',
+        artist: 'Metallica',
+        album: 'Master of Puppets',
+        year: '1986',
+        trackNumber: 7,
+        recordingMbid: 'rec-1',
+        artistMbid: 'art-1',
+        albumMbid: 'alb-1'
+    }]);
+    assert.equal(serialized[0].songId, 'song_orion_1');
+    assert.equal(serialized[0].recordingMbid, 'rec-1');
+
+    const encoded = encodeBatchPayload([{ id: 'song_orion_1', title: 'Orion', artist: 'Metallica' }]);
+    const decodedJson = Buffer.from(encoded.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    const decoded = JSON.parse(decodedJson);
+    assert.equal(decoded[0].songId, 'song_orion_1');
+    assert.equal(decoded[0].title, 'Orion');
+
+    const origin = findCompanionOrigin([
+        { id: 'duckduckgo', isSeed: true, urlTemplate: 'https://duckduckgo.com/?q=$s' },
+        { id: 'companion', isSeed: false, urlTemplate: 'http://127.0.0.1:8765/search?q=$s' }
+    ]);
+    assert.equal(origin, 'http://127.0.0.1:8765');
+});

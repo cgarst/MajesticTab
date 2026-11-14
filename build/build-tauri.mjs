@@ -476,6 +476,35 @@ if (target === 'android') {
     `;
     manifest = manifest.replace('</application>', `${provider}</application>`);
   }
+  if (!manifest.includes('android:scheme="majestictab"')) {
+    const viewFilters = `
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="majestictab" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/x-majestictab-song" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.mtab" />
+            </intent-filter>
+        `;
+    manifest = manifest.replace('</activity>', `${viewFilters}</activity>`);
+  }
   await writeFile(manifestPath, manifest);
   // `tauri android build` rewrites these from the plugins compiled in, so ones left by an earlier build (possibly with
   // google-auth) are dropped here and the finished project is verified again after the build.

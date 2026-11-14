@@ -43,6 +43,16 @@ pub struct OpenedFilePayload {
 static OPENED_PATHS: Mutex<Vec<std::path::PathBuf>> = Mutex::new(Vec::new());
 
 pub struct OpenedFilesState(pub Mutex<Vec<OpenedFilePayload>>);
+pub struct OpenedUrlsState(pub Mutex<Vec<String>>);
+
+fn extract_deep_link_url(target: &str) -> Option<String> {
+    let url = tauri::Url::parse(target).ok()?;
+    if url.scheme() == "majestictab" {
+        Some(url.to_string())
+    } else {
+        None
+    }
+}
 
 fn load_file_from_path_or_url(target: &str) -> Option<OpenedFilePayload> {
     let path = if let Ok(url) = tauri::Url::parse(target) {
@@ -79,6 +89,11 @@ fn load_file_from_path_or_url(target: &str) -> Option<OpenedFilePayload> {
 
 #[tauri::command]
 fn get_opened_file(state: tauri::State<'_, OpenedFilesState>) -> Option<OpenedFilePayload> {
+    state.0.lock().ok()?.pop()
+}
+
+#[tauri::command]
+fn get_opened_url(state: tauri::State<'_, OpenedUrlsState>) -> Option<String> {
     state.0.lock().ok()?.pop()
 }
 
@@ -521,9 +536,14 @@ pub fn run() {
         .skip(1)
         .filter_map(|arg| load_file_from_path_or_url(&arg))
         .collect();
+    let initial_urls: Vec<String> = std::env::args()
+        .skip(1)
+        .filter_map(|arg| extract_deep_link_url(&arg))
+        .collect();
 
     let builder = tauri::Builder::default()
         .manage(OpenedFilesState(Mutex::new(initial_files)))
+        .manage(OpenedUrlsState(Mutex::new(initial_urls)))
         .manage(tab_downloader_native::TabDownloaderState::default())
         .manage(jam::JamState::default())
         .plugin(tauri_plugin_fs::init())
@@ -673,6 +693,7 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         google_picker_desktop::desktop_pick_drive_file,
         get_opened_file,
+        get_opened_url,
         read_opened_file_range,
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         icloud::icloud_drive_root,
@@ -729,6 +750,7 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         google_picker_desktop::desktop_pick_drive_file,
         get_opened_file,
+        get_opened_url,
         read_opened_file_range,
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         icloud::icloud_drive_root,
@@ -774,7 +796,15 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         if let RunEvent::Opened { urls } = _event {
             for url in urls {
-                if let Some(payload) = load_file_from_path_or_url(url.as_str()) {
+                if url.scheme() == "majestictab" {
+                    let s = url.as_str().to_string();
+                    if let Some(state) = _app_handle.try_state::<OpenedUrlsState>() {
+                        if let Ok(mut lock) = state.0.lock() {
+                            lock.push(s.clone());
+                        }
+                    }
+                    let _ = _app_handle.emit("app-open-url", s);
+                } else if let Some(payload) = load_file_from_path_or_url(url.as_str()) {
                     if let Some(state) = _app_handle.try_state::<OpenedFilesState>() {
                         if let Ok(mut lock) = state.0.lock() {
                             lock.push(payload.clone());

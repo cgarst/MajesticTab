@@ -10,7 +10,7 @@ test('cleanTrackTitleForMatching cleans instrumental and non-word characters', (
 });
 
 test('SUPPORTED_TAB_EXTENSIONS contains all expected tab formats', () => {
-    assert.deepEqual(SUPPORTED_TAB_EXTENSIONS, ['gp', 'gp3', 'gp4', 'gp5', 'gpx', 'pdf', 'txt']);
+    assert.deepEqual(SUPPORTED_TAB_EXTENSIONS, ['gp', 'gp3', 'gp4', 'gp5', 'gpx', 'pdf', 'txt', 'mtab']);
 });
 
 test('searchMusicBrainz respects AbortController signal', async () => {

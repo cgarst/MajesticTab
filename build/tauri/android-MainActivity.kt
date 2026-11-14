@@ -34,6 +34,9 @@ class MainActivity : TauriActivity() {
   private var webViewsConfigured = 0
   private var multicastLock: WifiManager.MulticastLock? = null
   private val blockedHosts = java.util.Collections.synchronizedSet(HashSet<String>())
+  private var pendingOpenUrl: String? = null
+  private var pendingOpenMtabFile: java.io.File? = null
+  private var pendingOpenMtabName: String? = null
 
   private fun isHostBlocked(host: String): Boolean {
     if (blockedHosts.isEmpty()) return false
@@ -61,6 +64,77 @@ class MainActivity : TauriActivity() {
       )
       v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
       WindowInsetsCompat.CONSUMED
+    }
+    handleIncomingIntent(intent)
+  }
+
+  override fun onNewIntent(intent: android.content.Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    handleIncomingIntent(intent)
+  }
+
+  private fun queryUriDisplayName(uri: android.net.Uri): String {
+    if (uri.scheme == "content") {
+      try {
+        contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+          if (c.moveToFirst()) {
+            val idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if (idx >= 0) {
+              val n = c.getString(idx)
+              if (!n.isNullOrBlank()) return n
+            }
+          }
+        }
+      } catch (_: Exception) {}
+    }
+    return uri.lastPathSegment?.substringAfterLast('/') ?: "song.mtab"
+  }
+
+  private fun handleIncomingIntent(intent: android.content.Intent?) {
+    if (intent?.action != android.content.Intent.ACTION_VIEW) return
+    val uri = intent.data ?: return
+    if (uri.scheme == "majestictab") {
+      val urlStr = uri.toString()
+      pendingOpenUrl = urlStr
+      runOnUiThread {
+        mainWebView?.evaluateJavascript(
+          "window.__onAppOpenUrl && window.__onAppOpenUrl(" + org.json.JSONObject.quote(urlStr) + ");",
+          null
+        )
+      }
+      return
+    }
+    if (uri.scheme == "content" || uri.scheme == "file") {
+      Thread {
+        try {
+          val rawName = queryUriDisplayName(uri)
+          val dest = java.io.File(cacheDir, "opened-intent.mtab")
+          contentResolver.openInputStream(uri)?.use { input ->
+            dest.outputStream().use { output -> input.copyTo(output) }
+          } ?: return@Thread
+          if (!dest.isFile || dest.length() < 8) return@Thread
+          val head = ByteArray(4)
+          dest.inputStream().use { it.read(head) }
+          val isMtab = String(head, Charsets.ISO_8859_1) == "MTAB" || rawName.endsWith(".mtab", ignoreCase = true)
+          if (!isMtab) return@Thread
+          val displayName = if (rawName.endsWith(".mtab", ignoreCase = true)) rawName else "$rawName.mtab"
+          pendingOpenMtabFile = dest
+          pendingOpenMtabName = displayName
+          val meta = org.json.JSONObject()
+            .put("name", displayName)
+            .put("size", dest.length())
+            .toString()
+          runOnUiThread {
+            mainWebView?.evaluateJavascript(
+              "window.__onAndroidOpenMtab && window.__onAndroidOpenMtab(" + meta + ");",
+              null
+            )
+          }
+        } catch (e: Exception) {
+          android.util.Log.w("MajesticTab", "Failed to read incoming file intent", e)
+        }
+      }.start()
     }
   }
 
@@ -214,6 +288,46 @@ class MainActivity : TauriActivity() {
         }
       }
     }, "AndroidImmersive")
+
+    webView.addJavascriptInterface(object {
+      @JavascriptInterface
+      fun takePendingUrl(): String? {
+        val url = pendingOpenUrl
+        pendingOpenUrl = null
+        return url
+      }
+
+      @JavascriptInterface
+      fun takePendingMtab(): String? {
+        val file = pendingOpenMtabFile ?: return null
+        val name = pendingOpenMtabName ?: return null
+        pendingOpenMtabName = null
+        if (!file.isFile) return null
+        return org.json.JSONObject()
+          .put("name", name)
+          .put("size", file.length())
+          .toString()
+      }
+
+      @JavascriptInterface
+      fun readOpenedMtabRange(offset: Long, length: Int): String? {
+        val file = pendingOpenMtabFile ?: return null
+        if (!file.isFile || offset < 0 || length <= 0) return null
+        return try {
+          java.io.RandomAccessFile(file, "r").use { raf ->
+            raf.seek(offset)
+            val remaining = (file.length() - offset).coerceAtLeast(0L)
+            val toRead = minOf(length.toLong(), remaining).toInt()
+            if (toRead <= 0) return ""
+            val buf = ByteArray(toRead)
+            raf.readFully(buf)
+            Base64.encodeToString(buf, Base64.NO_WRAP)
+          }
+        } catch (_: Exception) {
+          null
+        }
+      }
+    }, "AndroidOpen")
 
     // @selfUpdate:begin
     // In-app updates: download the release APK, then hand it to the system package installer.

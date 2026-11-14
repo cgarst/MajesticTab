@@ -1982,6 +1982,18 @@ export async function openTabDownloader(options = {}) {
 
     const preferSystemBrowser = typeof localStorage !== 'undefined' && localStorage.getItem('majestictab_web_search_browser') === 'system';
     if (preferSystemBrowser) {
+        const songId = options.songId || activeTargetSong?.id || null;
+        if (songId && typeof localStorage !== 'undefined') {
+            try {
+                localStorage.setItem('majestictab_pending_browser_target', JSON.stringify({
+                    songId,
+                    artist: activeArtistName || activeTargetSong?.artist || '',
+                    title: activeSongName || activeTargetSong?.title || '',
+                    collectionId: options.collectionId || activeTargetSong?.collectionId || null,
+                    timestamp: Date.now()
+                }));
+            } catch {}
+        }
         const startUrl = /^https?:\/\//i.test(options.startUrl || '') ? options.startUrl : '';
         const targetUrl = startUrl || buildSearchUrl(activeSource, currentSearchQuery);
         const opener = window.__TAURI__?.opener;

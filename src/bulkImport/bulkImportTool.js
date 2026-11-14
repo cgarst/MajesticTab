@@ -13,7 +13,9 @@
 //   Audio files: a second mode on the same page (audioImport.js) matches a folder of audio files to songs already in the library.
 // The page's state lives in this module, so leaving Tools while the lookups run does not lose them.
 
-import { getAllSongs, saveSongToLibrary, getSongById, mapOpenFileToSong, getAlbumTabOptions, addTabOptionToAlbum, DEFAULT_COLLECTION_ID } from '../libraryStore.js';
+import { getAllSongs, saveSongToLibrary, getSongById, mapOpenFileToSong, findMatchingSongInLibrary, getAlbumTabOptions, addTabOptionToAlbum, DEFAULT_COLLECTION_ID } from '../libraryStore.js';
+import { readMtab, saveMtabToLibrary } from '../mtab.js';
+import { lookupMusicBrainzByIds } from '../musicbrainz.js';
 import { saveStoredFile } from '../fileStore.js';
 import { detectFileMetadata } from '../utils/tuningUtils.js';
 import { showToast } from '../utils/toast.js';
@@ -142,8 +144,68 @@ async function resolveRow(row, signal) {
     row.stage = 'working';
     notify(row.id);
     try {
-        const meta = state.strategy === 'artist-song' || state.strategy === 'folders' ? null : await embeddedMeta(row.entry);
-        row.parsed = pairFile(row.entry, state.strategy, meta);
+        if (row.entry.ext === 'mtab') {
+            const file = await row.entry.getFile();
+            const { header } = await readMtab(file);
+            const mtabSong = header?.song || {};
+            row.parsed = pairFile(row.entry, state.strategy, (mtabSong.title || mtabSong.artist) ? mtabSong : null)
+                || (mtabSong.title ? {
+                    artist: mtabSong.artist || '',
+                    album: mtabSong.album || '',
+                    title: mtabSong.title,
+                    trackNumber: mtabSong.trackNumber || null,
+                    via: 'metadata'
+                } : null);
+            row.kind = 'song';
+            const libMatch = await findMatchingSongInLibrary(mtabSong).catch(() => null);
+            if (libMatch && !row.manual) {
+                row.status = 'match';
+                row.pick = {
+                    source: 'library',
+                    song: libMatch,
+                    title: libMatch.title,
+                    artist: libMatch.artist,
+                    album: libMatch.album || '',
+                    year: libMatch.year || '',
+                    trackNumber: libMatch.trackNumber || null,
+                    recordingMbid: libMatch.recordingMbid || mtabSong.recordingMbid || '',
+                    artistMbid: libMatch.artistMbid || mtabSong.artistMbid || '',
+                    albumMbid: libMatch.albumMbid || mtabSong.albumMbid || ''
+                };
+                row.candidates = [row.pick];
+                takeFallback(row);
+                markHad(row);
+                row.stage = 'done';
+                return;
+            }
+            if ((mtabSong.recordingMbid || mtabSong.albumMbid) && !row.manual) {
+                const mb = await lookupMusicBrainzByIds(mtabSong).catch(() => null);
+                if (mb && mb.title) {
+                    row.status = 'match';
+                    row.pick = {
+                        source: 'musicbrainz',
+                        title: mb.title,
+                        artist: mb.artist || mtabSong.artist || '',
+                        album: mb.album || mtabSong.album || '',
+                        year: mb.year || mtabSong.year || '',
+                        trackNumber: mb.trackNumber ?? mtabSong.trackNumber ?? null,
+                        length: mb.length ?? mtabSong.length ?? null,
+                        recordingMbid: mb.recordingMbid || mtabSong.recordingMbid || '',
+                        artistMbid: mb.artistMbid || mtabSong.artistMbid || '',
+                        albumMbid: mb.albumMbid || mtabSong.albumMbid || '',
+                        coverUrl: mb.coverUrl || ''
+                    };
+                    row.candidates = [row.pick];
+                    takeFallback(row);
+                    markHad(row);
+                    row.stage = 'done';
+                    return;
+                }
+            }
+            if (!row.parsed) { row.stage = 'done'; row.status = 'none'; row.pick = null; row.candidates = []; return; }
+        }
+        const meta = row.entry.ext === 'mtab' ? null : (state.strategy === 'artist-song' || state.strategy === 'folders' ? null : await embeddedMeta(row.entry));
+        if (!row.parsed) row.parsed = pairFile(row.entry, state.strategy, meta);
         if (!row.parsed) { row.stage = 'done'; row.status = 'none'; row.pick = null; row.candidates = []; return; }
         // A whole album's tab book is paired with an album. A file named only for its album is also how a title track is named,
         // so that one is a song when the library has such a song, and otherwise stays a guess for the person to settle.
@@ -353,8 +415,18 @@ async function runImport() {
                 continue;
             }
             const song = await songFor(row.pick);
-            // The same file name on the same song is the same tab
-            if ((song.tabOptions || []).some((t) => t.name === file.name)) {
+            if (row.entry.ext === 'mtab') {
+                const saved = await saveMtabToLibrary(file, {
+                    targetSongId: song.id,
+                    relativePath: row.entry.path,
+                    queryMusicBrainz: false
+                });
+                const updated = saved?.song || song;
+                const i = state.songs.findIndex((s) => s.id === song.id);
+                if (i >= 0) state.songs[i] = (await getSongById(song.id)) || updated; else state.songs.push(updated);
+                row.imported = 'done';
+                added++;
+            } else if ((song.tabOptions || []).some((t) => t.name === file.name)) {
                 row.imported = 'skipped';
                 row.note = 'Already added';
                 skipped++;

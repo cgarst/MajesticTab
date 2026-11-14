@@ -869,15 +869,149 @@ function setupSettings() {
     }
 }
 
+async function fetchUrlResponse(url) {
+    if (window.__TAURI__?.http?.fetch) {
+        return window.__TAURI__.http.fetch(url);
+    }
+    return fetch(url);
+}
+
+async function handleAppOpenUrl(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== 'string') return false;
+    let parsed;
+    try {
+        parsed = new URL(rawUrl.trim());
+    } catch {
+        return false;
+    }
+    if (parsed.protocol !== 'majestictab:') return false;
+
+    const singleUrl = parsed.searchParams.get('url');
+    if (singleUrl) {
+        const { openTabFromUrl } = await import('./fileProviders.js');
+        await openTabFromUrl(singleUrl);
+        return true;
+    }
+
+    const batchManifestUrl = parsed.searchParams.get('batch');
+    if (batchManifestUrl) {
+        const { showToast } = await import('./utils/toast.js');
+        const { saveMtabToLibrary } = await import('./mtab.js');
+        try {
+            showToast('Fetching batch manifest…', 'info', 2500);
+            const res = await fetchUrlResponse(batchManifestUrl);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+            if (!items.length) {
+                showToast('No tabs ready in that batch.', 'info');
+                return true;
+            }
+            let added = 0;
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (!item?.mtabUrl) continue;
+                showToast(`Syncing ${i + 1} of ${items.length} tabs…`, 'info', 2000);
+                try {
+                    const mtabRes = await fetchUrlResponse(item.mtabUrl);
+                    if (!mtabRes.ok) continue;
+                    const buf = await mtabRes.arrayBuffer();
+                    const name = item.fileName || `${item.artist || 'Song'} - ${item.title || i + 1}.mtab`;
+                    const file = new File([buf], name, { type: 'application/x-majestictab-song' });
+                    await saveMtabToLibrary(file, {
+                        targetSongId: item.songId || null,
+                        queryMusicBrainz: true
+                    });
+                    added++;
+                } catch (e) {
+                    console.warn('[App Open URL] Batch item failed:', item.mtabUrl, e);
+                }
+            }
+            if (added > 0) {
+                window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                showToast(`Synced ${added} ${added === 1 ? 'tab' : 'tabs'} to your library`, 'success');
+            } else {
+                showToast('Could not sync any tabs from that batch.', 'warning');
+            }
+        } catch (err) {
+            showToast(err?.message || 'Could not sync batch.', 'error');
+        }
+        return true;
+    }
+    return false;
+}
+
+function androidMtabSource(meta) {
+    return {
+        name: meta.name,
+        size: meta.size,
+        slice(start = 0, end = meta.size) {
+            const len = Math.max(0, Math.min(end, meta.size) - start);
+            return {
+                async arrayBuffer() {
+                    if (!len) return new ArrayBuffer(0);
+                    const b64 = window.AndroidOpen?.readOpenedMtabRange?.(start, len);
+                    if (!b64) throw new Error('Could not read the song file');
+                    const bin = atob(b64);
+                    const bytes = new Uint8Array(bin.length);
+                    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                    return bytes.buffer;
+                }
+            };
+        }
+    };
+}
+
+async function openAndroidMtabMeta(metaJson) {
+    if (!metaJson) return false;
+    try {
+        const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
+        if (!meta?.name || !meta?.size) return false;
+        const { openMtab } = await import('./mtab.js');
+        await openMtab(androidMtabSource(meta));
+        return true;
+    } catch (err) {
+        const { showToast } = await import('./utils/toast.js');
+        showToast(err?.message || 'Could not open that song file', 'error');
+        return false;
+    }
+}
+
 async function checkNativeOpenedFiles() {
+    if (typeof window !== 'undefined') {
+        window.__onAppOpenUrl = (url) => { handleAppOpenUrl(url); };
+        window.__onAndroidOpenMtab = (meta) => { openAndroidMtabMeta(meta); };
+    }
+
+    if (window.AndroidOpen) {
+        try {
+            const pendingUrl = window.AndroidOpen.takePendingUrl?.();
+            if (pendingUrl && await handleAppOpenUrl(pendingUrl)) return true;
+            const pendingMtab = window.AndroidOpen.takePendingMtab?.();
+            if (pendingMtab && await openAndroidMtabMeta(pendingMtab)) return true;
+        } catch (e) {
+            console.warn('[Native Open] Android pending intent check failed:', e);
+        }
+    }
+
     if (!window.__TAURI__?.core?.invoke) return false;
 
-    // Listen for runtime file open events
+    // Listen for runtime file and URL open events
     if (window.__TAURI__?.event?.listen) {
         window.__TAURI__.event.listen('app-open-file', async (event) => {
             const opened = event.payload;
             await openNativePayload(opened);
         });
+        window.__TAURI__.event.listen('app-open-url', async (event) => {
+            await handleAppOpenUrl(event.payload);
+        });
+    }
+
+    try {
+        const openedUrl = await window.__TAURI__.core.invoke('get_opened_url');
+        if (openedUrl && await handleAppOpenUrl(openedUrl)) return true;
+    } catch (e) {
+        console.warn('[Native Open] Failed to get opened URL:', e);
     }
 
     try {

@@ -141,6 +141,16 @@
 				<string>com.googleusercontent.apps.1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>net.zathu.majestictab</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>majestictab</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

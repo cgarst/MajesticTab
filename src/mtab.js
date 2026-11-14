@@ -305,12 +305,78 @@ export async function unpackMtab(input) {
     return { header, part, tabFile };
 }
 
+const PENDING_BROWSER_TARGET_KEY = 'majestictab_pending_browser_target';
+const PENDING_BROWSER_TARGET_TTL_MS = 30 * 60 * 1000;
+
+function normMatchText(s) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function takeMatchingPendingBrowserTarget(songInfo = {}) {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+        const raw = localStorage.getItem(PENDING_BROWSER_TARGET_KEY);
+        if (!raw) return null;
+        const pending = JSON.parse(raw);
+        if (!pending?.songId || !pending?.timestamp || (Date.now() - pending.timestamp) > PENDING_BROWSER_TARGET_TTL_MS) {
+            localStorage.removeItem(PENDING_BROWSER_TARGET_KEY);
+            return null;
+        }
+        const incomingTitle = normMatchText(songInfo.title);
+        const pendingTitle = normMatchText(pending.title);
+        const incomingArtist = normMatchText(songInfo.artist);
+        const pendingArtist = normMatchText(pending.artist);
+        const explicitIdMatch = songInfo.id && songInfo.id === pending.songId;
+        if (!explicitIdMatch && incomingTitle && pendingTitle && incomingTitle !== pendingTitle) {
+            return null;
+        }
+        if (!explicitIdMatch && incomingArtist && pendingArtist && incomingArtist !== pendingArtist) {
+            return null;
+        }
+        localStorage.removeItem(PENDING_BROWSER_TARGET_KEY);
+        return pending;
+    } catch {
+        return null;
+    }
+}
+
 /**
  * Opens a bundle: loads its tab, then attaches the recordings, sync points and tuning to the song as the open tab
  * knows it (its song key is only settled once the tab is loaded).
  */
 export async function openMtab(file) {
-    const { header, part, tabFile } = await unpackMtab(file);
+    const unpacked = await unpackMtab(file);
+    const { header, part, tabFile } = unpacked;
+
+    try {
+        const songInfo = header.song || {};
+        const pending = takeMatchingPendingBrowserTarget(songInfo);
+        let targetSongId = pending?.songId || null;
+        const collectionId = pending?.collectionId || undefined;
+
+        if (!targetSongId) {
+            const { findMatchingSongInLibrary } = await import('./libraryStore.js');
+            const matched = await findMatchingSongInLibrary(songInfo, collectionId);
+            if (matched) targetSongId = matched.id;
+        }
+
+        const hasMbids = Boolean(songInfo.recordingMbid || songInfo.albumMbid);
+        if (targetSongId || hasMbids) {
+            const saved = await saveMtabToLibrary(unpacked, {
+                targetSongId,
+                collectionId,
+                queryMusicBrainz: true,
+            });
+            if (saved?.song?.id) {
+                tabFile.librarySongId = saved.song.id;
+                if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+                    window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[mtab] auto-merge on openMtab failed:', e);
+    }
 
     const { loadFile } = await import('./main.js');
     await loadFile(tabFile);

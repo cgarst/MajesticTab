@@ -17,7 +17,7 @@ export function isFileType(file, extensions) {
 /**
  * Standard tab file extensions natively supported by MajesticTab
  */
-export const SUPPORTED_TAB_EXTENSIONS = ['gp', 'gp3', 'gp4', 'gp5', 'gpx', 'pdf', 'txt'];
+export const SUPPORTED_TAB_EXTENSIONS = ['gp', 'gp3', 'gp4', 'gp5', 'gpx', 'pdf', 'txt', 'mtab'];
 
 /**
  * Check if a file is a supported tab format
