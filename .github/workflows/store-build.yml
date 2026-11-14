@@ -163,7 +163,7 @@ jobs:
       - name: App Store build number
         if: inputs.channel == 'appstore-ios' || inputs.channel == 'appstore-mac'
         shell: bash
-        run: echo "APPSTORE_BUILD_NUMBER=${{ inputs.build_number || '$(date -u +%y%m%d%H%M)' }}" >> "$GITHUB_ENV"
+        run: echo "APPSTORE_BUILD_NUMBER=${{ inputs.build_number || '$(date -u +%y%j%H%M)' }}" >> "$GITHUB_ENV"
 
       - name: Build
         shell: bash
