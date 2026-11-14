@@ -1,0 +1,127 @@
+name: TestFlight beta
+
+# Internal TestFlight builds of main for iOS and macOS, between canary and a stable release. They go to App Store Connect only:
+# no GitHub release, no latest.json, so no other platform and no auto-updater ever sees them.
+#
+# Runs nightly and on demand. A run is skipped when main has not moved since the last beta (the testflight-latest tag), unless forced.
+# TESTFLIGHT_GROUPS is deliberately not passed, so nothing reaches external testers or Beta App Review. Turn on "Automatic
+# distribution" on the internal group in App Store Connect and every uploaded build lands in it. The "What to test" text is the
+# commit list since the previous beta.
+#
+# Builds use the version in tauri.conf.json, which main keeps one patch ahead of the last release (release.yml's bump-next job).
+
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if main has not changed since the last beta
+        type: boolean
+        default: false
+
+concurrency:
+  group: testflight-beta
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+      build_id: ${{ steps.diff.outputs.build_id }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          echo "build_id=beta-$(date -u +%Y%m%d)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
+          latest=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+          if [ -n "$latest" ] && [ "$(printf '%s\n%s\n' "${latest#v}" "$version" | sort -V | tail -n1)" != "$version" -o "${latest#v}" = "$version" ]; then
+            echo "::error::Version $version is not ahead of the last release $latest; App Store Connect would refuse the build. Run node build/bump-version.mjs on main."
+            exit 1
+          fi
+          last=$(git rev-parse -q --verify "refs/tags/testflight-latest^{commit}" || true)
+          if [ "${{ inputs.force }}" = "true" ] || [ "$last" != "$GITHUB_SHA" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "main has not changed since the last beta ($last)"
+          fi
+
+  store:
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [appstore-ios, appstore-mac]
+    uses: ./.github/workflows/store-build.yml
+    secrets: inherit
+    with:
+      channel: ${{ matrix.channel }}
+      build_id: ${{ needs.check.outputs.build_id }}
+
+  upload:
+    needs: [check, store]
+    runs-on: xcode-27
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: ios
+            channel: appstore-ios
+            arg: ipa
+            ext: ipa
+          - lane: mac
+            channel: appstore-mac
+            arg: pkg
+            ext: pkg
+    steps:
+      # Checkout first: it cleans untracked files, which would delete the downloaded artifact.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: store-${{ matrix.channel }}
+          path: store-${{ matrix.channel }}
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Upload to TestFlight (internal)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_CONTENT" ]; then
+            echo "::error::ASC_* secrets are not set"
+            exit 1
+          fi
+          last=$(git rev-parse -q --verify "refs/tags/testflight-latest^{commit}" || true)
+          range="${last:+$last..}$GITHUB_SHA"
+          {
+            echo "${{ needs.check.outputs.build_id }}"
+            git log --no-merges --format='- %s' "$range" | head -n 40
+          } > "$RUNNER_TEMP/whats-new.txt"
+          export TESTFLIGHT_CHANGELOG="$(cat "$RUNNER_TEMP/whats-new.txt")"
+          bundle exec fastlane ${{ matrix.lane }} beta ${{ matrix.arg }}:"$(ls store-${{ matrix.channel }}/*.${{ matrix.ext }})"
+
+  # Remember which commit the last complete beta (both platforms) was built from.
+  mark:
+    needs: [check, upload]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          git tag -f testflight-latest "$GITHUB_SHA"
+          git push -f origin refs/tags/testflight-latest

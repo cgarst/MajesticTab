@@ -44,6 +44,14 @@ Upload the AAB, debug symbols and changelog, and sync the listing
 
 Upload dist/MajesticTab-ios.ipa to TestFlight (App Store Connect processes it, then it can be submitted)
 
+### ios release
+
+```sh
+[bundle exec] fastlane ios release
+```
+
+Upload dist/MajesticTab-ios.ipa to TestFlight, create or update the App Store version, attach the build and submit for review
+
 ### ios listing
 
 ```sh
@@ -64,6 +72,14 @@ Sync the iOS and iPad listing: text, promotional text and screenshots (no build,
 ```
 
 Upload dist/MajesticTab-appstore.pkg to TestFlight for macOS
+
+### mac release
+
+```sh
+[bundle exec] fastlane mac release
+```
+
+Upload dist/MajesticTab-appstore.pkg to TestFlight, create or update the Mac App Store version, attach the build and submit for review
 
 ### mac listing
 

@@ -19,7 +19,7 @@ on:
         type: string
         default: ''
       build_number:
-        description: App Store build number (defaults to the run number)
+        description: App Store build number (defaults to a UTC timestamp, yymmddHHMM)
         required: false
         type: string
         default: ''
@@ -36,7 +36,7 @@ on:
           - appstore-mac
           - msstore
       build_number:
-        description: App Store build number (appstore channels; for a dry run use 1000 or more, above any real run number)
+        description: App Store build number (appstore channels; empty uses a UTC timestamp, yymmddHHMM)
         required: false
         type: string
         default: ''
@@ -158,12 +158,17 @@ jobs:
             echo "IOS_MOBILE_PROVISION=$IOS_PROVISIONING_PROFILE_B64" >> "$GITHUB_ENV"
           fi
 
+      # App Store Connect wants a higher build number for every upload of one version, across releases and TestFlight betas, which
+      # run in different workflows (so the run number cannot order them). Default to a UTC timestamp, which only rises.
+      - name: App Store build number
+        if: inputs.channel == 'appstore-ios' || inputs.channel == 'appstore-mac'
+        shell: bash
+        run: echo "APPSTORE_BUILD_NUMBER=${{ inputs.build_number || '$(date -u +%y%m%d%H%M)' }}" >> "$GITHUB_ENV"
+
       - name: Build
         shell: bash
         run: node build/build-tauri.mjs "$TARGET" --channel=${{ inputs.channel }} ${{ inputs.channel == 'fdroid' && '--abi=arm64-v8a' || '' }}
         env:
-          # App Store Connect wants a higher build number for every upload of one version; the run number only rises.
-          APPSTORE_BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
           IOS_EXPORT_METHOD: ${{ inputs.channel == 'appstore-ios' && 'app-store-connect' || '' }}

@@ -39,7 +39,7 @@ jobs:
       fail-fast: false
       matrix:
         # fdroid is built (signed) by build.yml's android-no-gms job for the release; F-Droid builds its own unsigned
-        # copy from source. The appstore channels use the run number as the build number.
+        # copy from source. The appstore channels get a timestamp build number that stays above the TestFlight betas of the same version.
         channel: [play, msstore, appstore-ios, appstore-mac]
     uses: ./.github/workflows/store-build.yml
     secrets: inherit
@@ -127,8 +127,9 @@ jobs:
           MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
           MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
 
-  # Upload to TestFlight only; submitting for App Store review stays manual in App Store Connect. External distribution happens
-  # in the lane when the TESTFLIGHT_GROUPS repo variable names the external group(s). Skipped when the ASC_* secrets are missing.
+  # Upload to TestFlight, create or update the App Store version, attach the build and submit for App Store review.
+  # External TestFlight distribution also happens in the lane when the TESTFLIGHT_GROUPS repo variable names the
+  # external group(s). Skipped when the ASC_* secrets are missing.
   publish-appstore-ios:
     needs: [build, store]
     runs-on: xcode-27
@@ -143,7 +144,7 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Upload to TestFlight
+      - name: Upload and submit to App Store
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -151,10 +152,10 @@ jobs:
           TESTFLIGHT_GROUPS: ${{ vars.TESTFLIGHT_GROUPS }}
         run: |
           if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_CONTENT" ]; then
-            echo "::warning::ASC_* secrets are not set; skipping the TestFlight upload"
+            echo "::warning::ASC_* secrets are not set; skipping the App Store upload"
             exit 0
           fi
-          bundle exec fastlane ios beta ipa:"$(ls store-appstore-ios/*.ipa)"
+          bundle exec fastlane ios release ipa:"$(ls store-appstore-ios/*.ipa)"
 
   publish-appstore-mac:
     needs: [build, store]
@@ -169,7 +170,7 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Upload to TestFlight
+      - name: Upload and submit to App Store
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -177,10 +178,10 @@ jobs:
           TESTFLIGHT_GROUPS: ${{ vars.TESTFLIGHT_GROUPS }}
         run: |
           if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_CONTENT" ]; then
-            echo "::warning::ASC_* secrets are not set; skipping the TestFlight upload"
+            echo "::warning::ASC_* secrets are not set; skipping the App Store upload"
             exit 0
           fi
-          bundle exec fastlane mac beta pkg:"$(ls store-appstore-mac/*.pkg)"
+          bundle exec fastlane mac release pkg:"$(ls store-appstore-mac/*.pkg)"
 
   publish:
     needs: [build, store]
@@ -265,3 +266,34 @@ jobs:
           git -C "$RUNNER_TEMP/fdroiddata" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -C "$RUNNER_TEMP/fdroiddata" commit -am "net.zathu.majestictab: update to $version"
           git -C "$RUNNER_TEMP/fdroiddata" push origin net.zathu.majestictab
+
+  # Open the next version on main once every channel above has finished, so day-to-day work and the TestFlight betas
+  # (testflight-beta.yml) are never on a version that is already released. A bump commit pushed with the workflow token does
+  # not start other workflows, so it does not trigger a canary build. Skipped when main has already moved past this version.
+  bump-next:
+    needs: [build, store, publish-play, publish-msstore, publish-appstore-ios, publish-appstore-mac, publish, publish-fdroid]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - name: Bump main to the next patch version
+        run: |
+          released="${GITHUB_REF_NAME#v}"
+          current=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
+          if [ "$current" != "$released" ]; then
+            echo "main is at $current, not $released; nothing to bump"
+            exit 0
+          fi
+          node build/bump-version.mjs
+          next=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Bump to $next"
+          for attempt in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull --rebase origin main
+          done
+          echo "::error::Could not push the bump to main"
+          exit 1

@@ -62,17 +62,30 @@ end
 #
 #   iOS:  IOS_EXPORT_METHOD=app-store-connect APPLE_DEVELOPMENT_TEAM=<team id> IOS_BUILD_NUMBER=<n> \
 #           node build/build-tauri.mjs ios --channel=appstore-ios      # writes dist/MajesticTab-ios.ipa
-#         bundle exec fastlane ios beta
+#         bundle exec fastlane ios release                             # (or `ios beta` for TestFlight only)
 #   Mac:  APPLE_SIGNING_IDENTITY="Apple Distribution: <name> (<team id>)" APPLE_TEAM_ID=<team id> \
 #         MACOS_PROVISIONING_PROFILE=<the Mac App Store .provisionprofile> \
 #         MACOS_INSTALLER_IDENTITY="3rd Party Mac Developer Installer: <name> (<team id>)" \
 #           node build/build-tauri.mjs macos --channel=appstore-mac --appstore   # writes dist/MajesticTab-appstore.pkg
-#         bundle exec fastlane mac beta
-#   Set TESTFLIGHT_GROUPS="Group name" on either beta lane to also send the build to those external groups.
+#         bundle exec fastlane mac release                             # (or `mac beta` for TestFlight only)
+#   Set TESTFLIGHT_CHANGELOG="text" on beta for an internal-only build with that "What to test" text (no external distribution).
+#   Set TESTFLIGHT_GROUPS="Group name" on beta/release to also send the build to those external TestFlight groups.
 #   Listing (text, promotional text and screenshots): bundle exec fastlane ios listing, and mac listing.
 #   Text lives in support/listing (symlinked into fastlane/metadata/ios/en-US); screenshots come from support/store/appstore-*/.
 
+require "json"
+
 APP_STORE_METADATA = "fastlane/metadata/ios".freeze
+APP_IDENTIFIER = "net.zathu.majestictab".freeze
+
+def repo_root
+  File.expand_path("..", FastlaneCore::FastlaneFolder.path)
+end
+
+def current_app_version
+  conf = File.join(repo_root, "build/tauri/src-tauri/tauri.conf.json")
+  JSON.parse(File.read(conf)).fetch("version")
+end
 
 def asc_api_key
   UI.user_error!("Set ASC_KEY_ID and ASC_ISSUER_ID, and ASC_KEY_PATH or ASC_KEY_CONTENT (see the top of the Apple lanes)") unless ENV["ASC_KEY_ID"] && ENV["ASC_ISSUER_ID"] && (ENV["ASC_KEY_PATH"] || ENV["ASC_KEY_CONTENT"])
@@ -88,7 +101,7 @@ end
 # Copy the listed folders' framed screenshots (not raw/) into one folder per locale, which is the layout deliver reads. It picks the
 # device slot from each picture's size: 1320x2868 iPhone 6.9", 2064x2752 iPad 13", 2880x1800 Mac. The iPhone Duo set has no slot of its own.
 def stage_screenshots(*folders)
-  root = File.expand_path("..", FastlaneCore::FastlaneFolder.path)
+  root = repo_root
   dir = File.join(Dir.mktmpdir("appstore-screenshots"), "en-US")
   FileUtils.mkdir_p(dir)
   folders.each do |folder|
@@ -99,13 +112,11 @@ def stage_screenshots(*folders)
 end
 
 def newest_build(pattern, what)
-  root = File.expand_path("..", FastlaneCore::FastlaneFolder.path)
-  Dir[File.join(root, pattern)].max_by { |f| File.mtime(f) } or UI.user_error!("No #{what} found at #{pattern}; build it first (see the top of the Apple lanes)")
+  Dir[File.join(repo_root, pattern)].max_by { |f| File.mtime(f) } or UI.user_error!("No #{what} found at #{pattern}; build it first (see the top of the Apple lanes)")
 end
 
 def release_notes_for_current_version(platform = nil)
-  root = File.expand_path("..", FastlaneCore::FastlaneFolder.path)
-  script = File.join(root, "build/release-notes.mjs")
+  script = File.join(repo_root, "build/release-notes.mjs")
   cmd = ["node", script]
   cmd.push("--platform", platform) if platform
   notes = IO.popen(cmd, &:read).strip
@@ -119,7 +130,13 @@ end
 # ITSAppUsesNonExemptEncryption in Info.plist, so builds are not held for it.
 def testflight_distribution_options(platform = nil)
   groups = (ENV["TESTFLIGHT_GROUPS"] || "").split(",").map(&:strip).reject(&:empty?)
-  return { skip_waiting_for_build_processing: true } if groups.empty?
+  if groups.empty?
+    # Internal-only beta (testflight-beta.yml): TESTFLIGHT_CHANGELOG is the "What to test" text. The lane waits for processing so the
+    # text can be attached, but never distributes externally; internal groups with automatic distribution receive the build by themselves.
+    changelog = (ENV["TESTFLIGHT_CHANGELOG"] || "").strip
+    return { skip_waiting_for_build_processing: true } if changelog.empty?
+    return { skip_waiting_for_build_processing: false, distribute_external: false, changelog: changelog[0, 4000] }
+  end
   {
     skip_waiting_for_build_processing: false,
     distribute_external: true,
@@ -129,14 +146,93 @@ def testflight_distribution_options(platform = nil)
   }
 end
 
+# Prepare the App Store version on `deliver_platform` ("ios" or "osx"), update its version-level metadata (description,
+# promotional text, release notes, automatic release after approval) without touching the shared AppInfo record (which locks
+# whenever either iOS or macOS is waiting for review), attach the processed TestFlight build for `version`, and submit for review.
+def submit_app_store_release(deliver_platform:, notes_platform:, options: {})
+  require "spaceship"
+
+  key = asc_api_key
+  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: key)
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER) or UI.user_error!("App #{APP_IDENTIFIER} not found in App Store Connect")
+  asc_platform = Spaceship::ConnectAPI::Platform.map(deliver_platform)
+  version = options[:version] || current_app_version
+
+  # Cancel any in-progress review submission before ensure_version! so an earlier unapproved version can be renamed to `version`.
+  if (in_progress = app.get_in_progress_review_submission(platform: asc_platform))
+    UI.message("Cancelling in-progress review submission (#{in_progress.id}) on #{asc_platform}...")
+    in_progress.cancel_submission
+    loop do
+      break if app.get_in_progress_review_submission(platform: asc_platform).nil?
+      UI.message("Waiting for review submission cancellation to complete...")
+      sleep(15)
+    end
+  end
+
+  # Clear any leftover items on an open READY_FOR_REVIEW submission so deliver can attach the current version cleanly.
+  if (ready = app.get_ready_review_submission(platform: asc_platform, includes: "items")) && ready.items && !ready.items.empty?
+    ready.items.each do |item|
+      Spaceship::ConnectAPI.tunes_request_client.delete("v1/reviewSubmissionItems/#{item.id}")
+    end
+  end
+
+  app.ensure_version!(version, platform: asc_platform)
+  edit_version = app.get_edit_app_store_version(platform: asc_platform) or UI.user_error!("No editable App Store version found for #{asc_platform} #{version}")
+  edit_version.update(attributes: {
+    "releaseType" => Spaceship::ConnectAPI::AppStoreVersion::ReleaseType::AFTER_APPROVAL
+  })
+
+  is_first_version = Spaceship::ConnectAPI.get_app_store_versions(
+    app_id: app.id,
+    filter: { platform: asc_platform },
+    limit: 2
+  ).count == 1
+
+  meta_dir = File.join(repo_root, APP_STORE_METADATA, "en-US")
+  loc_attrs = {
+    "description" => File.read(File.join(meta_dir, "description.txt")).strip,
+    "promotionalText" => File.read(File.join(meta_dir, "promotional_text.txt")).strip
+  }
+  loc_attrs["whatsNew"] = release_notes_for_current_version(notes_platform)["en-US"] unless is_first_version
+
+  if (en_loc = edit_version.get_app_store_version_localizations.find { |l| l.locale == "en-US" })
+    en_loc.update(attributes: loc_attrs)
+  end
+
+  deliver(
+    api_key: key,
+    app_identifier: APP_IDENTIFIER,
+    platform: deliver_platform,
+    app_version: version,
+    skip_app_version_update: true,
+    skip_binary_upload: true,
+    skip_metadata: true,
+    skip_screenshots: true,
+    run_precheck_before_submit: false,
+    automatic_release: true,
+    submit_for_review: true,
+    submission_information: {
+      add_id_info_uses_idfa: false,
+      export_compliance_uses_encryption: false
+    },
+    force: true
+  )
+end
+
 platform :ios do
   desc "Upload dist/MajesticTab-ios.ipa to TestFlight (App Store Connect processes it, then it can be submitted)"
   lane :beta do |options|
     upload_to_testflight(
       api_key: asc_api_key,
-      ipa: options[:ipa] ? File.expand_path(options[:ipa], File.expand_path("..", FastlaneCore::FastlaneFolder.path)) : newest_build("dist/*.ipa", "iOS .ipa"),
+      ipa: options[:ipa] ? File.expand_path(options[:ipa], repo_root) : newest_build("dist/*.ipa", "iOS .ipa"),
       **testflight_distribution_options("ios")
     )
+  end
+
+  desc "Upload dist/MajesticTab-ios.ipa to TestFlight, create or update the App Store version, attach the build and submit for review"
+  lane :release do |options|
+    beta(options) unless options[:skip_upload]
+    submit_app_store_release(deliver_platform: "ios", notes_platform: "ios", options: options)
   end
 
   desc "Sync the iOS and iPad listing: text, promotional text and screenshots (no build, no submission)"
@@ -160,10 +256,16 @@ platform :mac do
   lane :beta do |options|
     upload_to_testflight(
       api_key: asc_api_key,
-      pkg: options[:pkg] ? File.expand_path(options[:pkg], File.expand_path("..", FastlaneCore::FastlaneFolder.path)) : newest_build("dist/*.pkg", "Mac .pkg"),
+      pkg: options[:pkg] ? File.expand_path(options[:pkg], repo_root) : newest_build("dist/*.pkg", "Mac .pkg"),
       app_platform: "osx",
       **testflight_distribution_options("macos")
     )
+  end
+
+  desc "Upload dist/MajesticTab-appstore.pkg to TestFlight, create or update the Mac App Store version, attach the build and submit for review"
+  lane :release do |options|
+    beta(options) unless options[:skip_upload]
+    submit_app_store_release(deliver_platform: "osx", notes_platform: "macos", options: options)
   end
 
   desc "Sync the Mac listing: text, promotional text and screenshots (no build, no submission)"
