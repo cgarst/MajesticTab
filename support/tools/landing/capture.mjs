@@ -149,6 +149,10 @@ if (want('original')) {
 if (want('hero') && !process.argv.includes('--no-video')) {
   const W = 820, H = 1100;
   await open({ w: W, h: H, theme: 'Slate Blue', dsf: 1 });
+  // the loop promises a lit fretboard, so open it (the stills above compact it on purpose)
+  if (await ev(`document.querySelector('#fretboardDockBtn')?.getAttribute('aria-pressed') !== 'true'`)) await click('#fretboardDockBtn');
+  await sleep(900);
+  if (!(await ev(`document.querySelector('#fretboardDockBtn')?.getAttribute('aria-pressed') === 'true'`))) throw new Error('fretboard did not open');
   await shot('hero-poster');
   const dir = mkdtempSync(join(tmpdir(), 'mt-hero-'));
   const frames = [];
