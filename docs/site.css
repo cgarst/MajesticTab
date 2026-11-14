@@ -154,6 +154,9 @@ html:not(.js) .pfig:not(.is-on) { display: none; }
 .dl > p, .dl .note { color: var(--ink2); }
 .dl a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--ink) 40%, transparent); padding: 2px 0; transition: text-decoration-color var(--dur-fast) var(--ease-out); }
 .dl a:hover { text-decoration-color: var(--ink); }
+.dl a.badge { text-decoration: none; padding: 0; margin-bottom: 4px; }
+.dl a.badge img { height: 40px; width: auto; }
+.dl a.badge-play img { height: 58px; margin: -9px 0 -9px -9px; }
 .dl .copy { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; font: inherit; color: var(--ink2); background: none; border: 0; padding: 2px 0; cursor: pointer; text-align: left; }
 .dl .copy span { min-width: 0; }
 .dl .copy code { min-width: 0; user-select: none; }
