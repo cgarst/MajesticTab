@@ -518,6 +518,7 @@ function makeProvidersGroup() {
     return container;
 }
 
+// @inAppBrowser:begin
 let updateTestSearchState = null;
 
 function makeTestSearchGroup() {
@@ -546,13 +547,16 @@ function makeTestSearchGroup() {
 
     return group('Test', testRow);
 }
+// @inAppBrowser:end
 
 export function initWebSearchSettings(container) {
     if (!container) return;
     container.innerHTML = '';
     container.appendChild(makeProvidersGroup());
     // @inAppBrowser:begin
-    container.appendChild(makeAdblockGroup());
+    if (hasFeature('inAppBrowser')) {
+        container.appendChild(makeAdblockGroup());
+        container.appendChild(makeTestSearchGroup());
+    }
     // @inAppBrowser:end
-    container.appendChild(makeTestSearchGroup());
 }
