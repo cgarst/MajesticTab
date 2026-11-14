@@ -84,7 +84,7 @@ node build/build-tauri.mjs macos --debug-tools
   rustup target add aarch64-apple-ios
   node build/build-tauri.mjs ios
   ```
-  Outputs `dist/MajesticTab-ios.ipa`.
+  Outputs `dist/MajesticTab-ios.ipa`. This is for installing on your own devices with your own signing. Do not distribute it: the Apple Developer Program License Agreement (section 7.6) only allows App Store, TestFlight and the other Apple channels for iOS apps.
 
 ### Google Drive credentials
 

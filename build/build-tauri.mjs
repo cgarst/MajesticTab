@@ -16,7 +16,7 @@ const target = process.argv[2];
 const channelOption = process.argv.slice(3).find((option) => option.startsWith('--channel='));
 const abiOption = process.argv.slice(3).find((option) => option.startsWith('--abi='));
 const buildOptions = process.argv.slice(3).filter((option) => option !== channelOption && option !== abiOption);
-const channel = channelOption ? channelOption.slice('--channel='.length) : DEFAULT_CHANNEL;
+const channel = channelOption ? channelOption.slice('--channel='.length) : target === 'ios' ? 'ios-source' : DEFAULT_CHANNEL;
 const channelCapabilities = isValidChannel(channel) ? channels[channel].capabilities : {};
 const debugTools = buildOptions.includes('--debug-tools') || buildOptions.includes('--debug');
 const macosX64 = buildOptions.includes('--x86_64');

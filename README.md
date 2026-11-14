@@ -35,7 +35,7 @@ Direct installers and packages are published on [GitHub Releases](https://github
 
 | Platform | Store and packages | Direct downloads |
 | --- | --- | --- |
-| **iPhone and iPad** | [App Store](https://apps.apple.com/us/app/majestictab/id6833538312) (universal purchase with Mac) | [iOS `.ipa`](https://github.com/cgarst/MajesticTab/releases/latest) and [SideStore / AltStore source](https://github.com/cgarst/MajesticTab/releases/latest/download/source.json) |
+| **iPhone and iPad** | [App Store](https://apps.apple.com/us/app/majestictab/id6833538312) (universal purchase with Mac) | [Build it yourself](CONTRIBUTING.md#building-native-packages) or use the [web app](https://majestictab.zathu.net/app) (fewer features) |
 | **macOS** | [Mac App Store](https://apps.apple.com/us/app/majestictab/id6833538312) | [Apple Silicon `.dmg`](https://github.com/cgarst/MajesticTab/releases/latest) · [Intel `.dmg`](https://github.com/cgarst/MajesticTab/releases/latest) |
 | **Windows** | [Microsoft Store](https://apps.microsoft.com/detail/9p7mb2c84cfv) | [Installer `x86_64` (`.exe`)](https://github.com/cgarst/MajesticTab/releases/latest) · [Installer `ARM64` (`.exe`)](https://github.com/cgarst/MajesticTab/releases/latest) |
 | **Android** | [Google Play](https://play.google.com/store/apps/details?id=net.zathu.majestictab) · F-Droid (coming soon) | [Android `.apk`](https://github.com/cgarst/MajesticTab/releases/latest) |

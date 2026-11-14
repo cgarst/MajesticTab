@@ -71,11 +71,10 @@ const {
     libraryEmptyWelcomeHtml
 } = await import('../src/libraryModal.js');
 
-test('webCtaBanner description uses "web tab search with ad blocking" instead of "ad-free tab search"', () => {
+test('webCtaBanner description does not mention tab search', () => {
     setWebCtaCollapsed(false);
     const html = webCtaBannerHtml();
-    assert.match(html, /web tab search with ad blocking/);
-    assert.doesNotMatch(html, /ad-free tab search/);
+    assert.doesNotMatch(html, /tab search/);
 });
 
 test('webCtaBanner handles collapse and expand state persistence', () => {

@@ -212,9 +212,6 @@ jobs:
       - name: Install iOS build tools
         run: |
           brew install xcodegen
+      # Compile check only. The IPA is not uploaded: iOS builds ship through App Store Connect (store-build.yml), and the
+      # Apple Developer Program License Agreement (section 7.6) does not allow handing out an iOS app any other way.
       - run: node build/build-tauri.mjs ios
-      - uses: actions/upload-artifact@v7
-        with:
-          name: ios
-          path: dist/*.ipa
-          if-no-files-found: error

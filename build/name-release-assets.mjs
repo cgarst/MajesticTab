@@ -1,6 +1,6 @@
 // Renames build outputs to the GitHub release naming scheme: MajesticTab-<version>-<platform>[-<arch>].<ext>.
 // Usage: node build/name-release-assets.mjs <artifactsDir> <version>
-// latest.json and source.json keep their fixed names (the updater and SideStore fetch them by URL). Signatures follow
+// latest.json keeps its fixed name (the updater fetches it by URL). Signatures follow
 // their file; a .sig stays valid because only the name changes.
 import { readdir, rename } from 'node:fs/promises';
 import path from 'node:path';
@@ -25,7 +25,6 @@ const rules = [
   // The fdroid channel: no Google Play services, no self-update (build-tauri.mjs names its signed APK this way).
   // One APK per ABI (F-Droid's ABI split); the combined APK is no longer built.
   [/^MajesticTab-android-no-gms-no-update-(armeabi-v7a|arm64-v8a|x86_64)(\.apk)$/, 'android-no-gms-no-update-$1'],
-  [/^MajesticTab-ios(\.ipa)$/, 'ios'],
 ];
 
 for (const name of await readdir(artifactsDir)) {

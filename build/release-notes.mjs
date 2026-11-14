@@ -1,6 +1,6 @@
 // Prints the user-facing release notes for the current app version from support/listing/changelogs/<version>.txt, the
 // single source for every channel: Google Play, F-Droid, Flathub, Microsoft Store, GitHub releases,
-// latest.json and the SideStore source. Exits non-zero if the file is missing, still the placeholder, or
+// and latest.json. Exits non-zero if the file is missing, still the placeholder, or
 // over Play's 500 character limit, so a release cannot go out without real notes.
 //
 // Play (fastlane) and F-Droid read fastlane/metadata/android/en-US/changelogs/<versionCode>.txt straight
@@ -49,7 +49,7 @@ const PLATFORM_ALIASES = {
 };
 
 const PLATFORM_TERMS = {
-  ios: /\b(?:iOS|iPad|iPadOS|iPhone|SideStore|AltStore|LiveContainer)\b/i,
+  ios: /\b(?:iOS|iPad|iPadOS|iPhone)\b/i,
   macos: /\b(?:macOS|Mac|Gatekeeper)\b/i,
   android: /\b(?:Android|Google Play|F-Droid|Chromebook|ChromeOS|APK|AAB)\b/i,
   windows: /\b(?:Windows|Microsoft Store|MSIX|winget)\b/i,

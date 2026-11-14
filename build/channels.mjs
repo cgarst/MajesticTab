@@ -23,7 +23,7 @@ const STORE_DOWNLOADER = {
 
 export const channels = {
   direct: {
-    platforms: ['windows', 'macos', 'linux', 'android', 'ios'],
+    platforms: ['windows', 'macos', 'linux', 'android'],
     capabilities: { ...FULL },
   },
   play: {
@@ -35,6 +35,12 @@ export const channels = {
   fdroid: {
     platforms: ['android'],
     capabilities: { ...FULL, selfUpdate: false, googleDrive: false },
+  },
+  // What `node build/build-tauri.mjs ios` builds by default: an iOS app compiled from source for the builder's own device.
+  // No self-update, because iOS builds are never published as downloads (only the App Store build is).
+  'ios-source': {
+    platforms: ['ios'],
+    capabilities: { ...FULL, selfUpdate: false },
   },
   'appstore-ios': {
     platforms: ['ios'],

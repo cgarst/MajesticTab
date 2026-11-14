@@ -26,6 +26,7 @@ This file holds only what applies to every task. Domain guides hold the rest: **
 ### Repository content
 
 - **Never commit tabs to the repo:** Agents must not add, commit, or push Guitar Pro files (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`) or tab PDFs anywhere in the repository. These are copyrighted. The only exception is the `Duo No 2 In G Major.gp5` fixture in `tests/`. Use local, untracked copies for ad-hoc testing and keep them out of commits.
+- **Never distribute iOS or iPadOS builds outside Apple's channels:** The Apple Developer Program License Agreement (section 7.6) allows only the App Store, Custom App Distribution, Ad Hoc to registered devices and TestFlight. Do not attach an `.ipa` to a GitHub release or workflow artifact, build a SideStore, AltStore or LiveContainer source, or write sideloading instructions. The alternatives we offer are build-it-yourself (`CONTRIBUTING.md`) and the web app at `majestictab.zathu.net/app`. Do not link to TestFlight. macOS `.dmg` downloads are not affected.
 - **Never name tab sites in the code:** Do not identify any tab site or tab service by name anywhere in the repository: not in UI text, defaults, seeds, comments, tests, docs or commit messages. Describe it generically ("tab sites", "search the web"). General search engines (DuckDuckGo, Google) are not tab sites and may be named.
 
 ### Attribution
