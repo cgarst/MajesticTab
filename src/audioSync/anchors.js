@@ -59,7 +59,9 @@ export function pointsToUnits(points, anchorType, { firstPage = 1, blocks = [] }
         if (anchorType === 'pdf') unit = p.page - firstPage;
         else unit = blocks.findIndex((b) => b.kind !== 'blank' && p.line >= b.start && p.line <= b.end);
         if (unit < 0) continue;
-        out.push({ ...(p.id ? { id: p.id } : {}), barIndex: unit, occurrence: 0, pos: 0, timeMs: p.timeMs, source: p.source || 'manual' });
+        // A PDF point can name a place on the page (x, y as fractions, SPEC section 9.2). The reading line uses it to draw a playhead
+        const place = anchorType === 'pdf' && Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: p.x, y: p.y } : {};
+        out.push({ ...(p.id ? { id: p.id } : {}), barIndex: unit, occurrence: 0, pos: 0, ...place, timeMs: p.timeMs, source: p.source || 'manual' });
     }
     return out;
 }

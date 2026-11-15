@@ -23,6 +23,7 @@ import { getRealAudioActiveSource } from '../audioSync/realAudioController.js';
 import { synthPlayerState, isSynthPlaying, playPauseSynth, pauseSynthPlayer, seekSynthPercent, getAudioLatencyMs } from '../gpProcessor/gpPlayer.js';
 import { midiSynthActive } from '../classtab/midiSynth.js';
 import { loadRecord, saveRecord, isSyncSharedFromOriginal, setSyncSharedFromOriginal } from '../audioSync/syncStore.js';
+import { pdfPlayheadAt, hasPositions, rowSpans, playheadBox } from '../audioSync/pdfPosition.js';
 import { unitsToPoints, pointsToUnits, scoreSyncKey, legacyScoreSyncKey, textBlocksOf, claimLegacyRecord } from '../audioSync/anchors.js';
 import { sha256 } from '../mpak/core/index.js';
 import { getScrubState, applyScrubValue } from '../utils/pageScrubber.js';
@@ -503,6 +504,18 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         const lineHost = output.parentElement || document.body;
     lineHost.appendChild(line);
 
+    // A PDF whose sync points name positions on the page also gets a vertical playhead at the place the recording is at
+    const pdfCursor = document.createElement('div');
+    pdfCursor.className = 'pdf-cursor';
+    pdfCursor.hidden = true;
+    pdfCursor.setAttribute('aria-hidden', 'true');
+    lineHost.appendChild(pdfCursor);
+    let spanCache = { points: null, spans: null };
+    const rowSpansOf = () => {
+        if (spanCache.points !== points) spanCache = { points, spans: rowSpans(points) };
+        return spanCache.spans;
+    };
+
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
     let rawLast = -1;
@@ -604,6 +617,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             line._hiding = setTimeout(() => { line.hidden = true; line._hiding = 0; }, 160);
         }
         output.querySelectorAll('.ts-bar-cursor:not([hidden])').forEach((c) => { c.hidden = true; });
+        pdfCursor.hidden = true;
     }
 
     function ensureFrame() {
@@ -665,7 +679,10 @@ export function initTextSync({ getConfig, getCurrentFile }) {
 
         const pos = positionAt(points, ids, effTime, dur);
         if (pos == null) { hideLine(); return; }
-        const k = Math.min(ids.length - 1, Math.floor(pos));
+        // A PDF with positions: the playhead says which page and where on it. Without them the page-level pace below is used.
+        const place = isPdf(getCurrentFile()) && hasPositions(points) ? pdfPlayheadAt(points, effTime) : null;
+        const placed = place && Number.isFinite(place.x) ? place : null;
+        const k = placed ? Math.min(ids.length - 1, Math.max(0, ids.indexOf(placed.unit))) : Math.min(ids.length - 1, Math.floor(pos));
         const f = Math.min(1, pos - k);
         const cfg = getConfig();
         const pageMode = !!(cfg.pageModeChecked || cfg.pageModeRadio?.checked);
@@ -703,6 +720,12 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             ? r.top + (nr.top - r.top) * f
             : r.top + r.height * f;
 
+        let box = null;
+        if (placed && el.height) {
+            box = playheadBox(el, r.height, placed.y, rowSpansOf().get(placed.unit));
+            y = r.top + box.y;
+        }
+
         const outR = output.getBoundingClientRect();
         let settling = false;
         if (!pageMode && now > holdUntil) {
@@ -725,6 +748,14 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         if (line._hiding) { clearTimeout(line._hiding); line._hiding = 0; }
         line.classList.toggle('is-off', !visible);
         line.style.transform = `translate3d(${r.left - hostR.left + lineHost.scrollLeft}px, ${y - hostR.top + lineHost.scrollTop}px, 0)`;
+        if (box) {
+            pdfCursor.hidden = false;
+            pdfCursor.classList.toggle('is-off', !visible);
+            pdfCursor.style.height = `${box.h}px`;
+            pdfCursor.style.transform = `translate3d(${r.left - hostR.left + lineHost.scrollLeft + placed.x * r.width}px, ${y - box.h / 2 - hostR.top + lineHost.scrollTop}px, 0)`;
+        } else {
+            pdfCursor.hidden = true;
+        }
 
         if (playing || settling) ensureFrame();
     }

@@ -88,6 +88,8 @@ async function processSinglePage(pdf, pageNum, config, debugMode, originalMode, 
       CONFIG: config,
       debugMode
     });
+    // Which rows of the page this canvas kept, so a position on the page (a sync point's y) can be found on the canvas
+    finalCanvas.pageMap = { height: canvas.height, sections: trimmedSections };
   } else {
     finalCanvas = canvas;
   }
