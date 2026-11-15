@@ -226,6 +226,7 @@ def submit_app_store_release(deliver_platform:, notes_platform:, options: {})
     skip_binary_upload: true,
     skip_metadata: true,
     skip_screenshots: true,
+    metadata_path: APP_STORE_METADATA,
     run_precheck_before_submit: false,
     automatic_release: true,
     submit_for_review: true,
