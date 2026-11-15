@@ -277,6 +277,26 @@ export const LocalFileProvider = {
     badge: 'Device',
     actionLabel: 'Browse Files',
     open(options = {}) {
+        // Desktop app: the system file dialog through Tauri; the WebView's own <input type=file> picker does not open in the macOS build
+        const tauri = window.__TAURI__;
+        if (tauri?.dialog?.open && tauri?.fs?.readFile && !/Android/i.test(navigator.userAgent) && !isIOSDevice()) {
+            return (async () => {
+                const picked = await tauri.dialog.open({
+                    multiple: false,
+                    title: 'Choose a tab file',
+                    filters: [{ name: 'Tab files', extensions: ['pdf', 'gp', 'gp3', 'gp4', 'gp5', 'gpx', 'txt', 'mpak'] }]
+                });
+                const path = Array.isArray(picked) ? picked[0] : picked;
+                if (!path) return;
+                try {
+                    const bytes = await tauri.fs.readFile(path);
+                    await handlePickedFile(new File([bytes], path.split(/[\\/]/).pop()), options);
+                } catch (err) {
+                    console.warn('Could not read the chosen file:', err);
+                    showToast('Could not read that file', 'error');
+                }
+            })();
+        }
         const input = document.createElement('input');
         input.type = 'file';
         // Android's and iOS's pickers turn accept into MIME types/UTIs; Guitar Pro extensions have none, so they grey those files out.
