@@ -1,1 +1,5 @@
-- Bug fixes and stability improvements
+- New Music Pack (.mpak) files hold several scores with per-score sync points, replacing the .mtab bundle
+- Classical tab auto-sync, a bar-paced clock and a horizontal ribbon view
+- Text tab cursors now match the Guitar Pro cursor, and reader pages are flat
+- Layout is first in the View menu, and Tools is reordered
+- Finds the first full bar of a MIDI with an off-grid pickup
