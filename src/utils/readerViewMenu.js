@@ -456,7 +456,49 @@ function arrangeSongPanel() {
     window.addEventListener('majestictab:file-loaded', syncTabVersionRow);
     window.addEventListener('majestictab:txt-version-changed', syncTabVersionRow);
 
-    const altGroup = group('scoreOptionsAltTabGroup', 'Tabs', verRow, altBtn, srcBtn);
+    // Other tabs of this song in the library: one press opens that tab. Hidden when the open tab has no sibling.
+    const otherTabs = document.createElement('div');
+    otherTabs.id = 'songOtherTabsList';
+    otherTabs.hidden = true;
+    const syncOtherTabs = async () => {
+        try {
+            const { getCurrentFile } = await import('../main.js');
+            const file = getCurrentFile();
+            let others = [];
+            let song = null;
+            if (file?.librarySongId) {
+                const { getSongById } = await import('../libraryStore.js');
+                song = await getSongById(file.librarySongId);
+                others = (song?.tabOptions || []).filter((t) => t.id !== file.tabId);
+            }
+            otherTabs.replaceChildren();
+            otherTabs.hidden = !others.length;
+            if (!others.length) return;
+            const { visibleTuningLabel } = await import('../utils/tuningUtils.js');
+            for (const t of others) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-sm song-row-btn';
+                btn.dataset.tabId = t.id;
+                const pages = (t.startPage && t.endPage) ? `Pages ${t.startPage}\u2013${t.endPage}` : '';
+                const tuning = t.tuning && typeof visibleTuningLabel === 'function' ? visibleTuningLabel(song, t.tuning) : '';
+                const detail = [tuning, pages].filter(Boolean).join(' \u00b7 ');
+                btn.innerHTML = `<span><b>${escapeText(t.name || 'Tab')}</b>${detail ? `<small>${escapeText(detail)}</small>` : ''}</span>`;
+                btn.addEventListener('click', async () => {
+                    $('scoreOptionsPanelCloseBtn')?.click();
+                    const { openLibraryTab } = await import('../libraryModal.js');
+                    openLibraryTab(song.id, t.id);
+                });
+                otherTabs.appendChild(btn);
+            }
+        } catch {
+            otherTabs.hidden = true;
+        }
+    };
+    document.addEventListener('scoreoptions:open', syncOtherTabs);
+    window.addEventListener('majestictab:file-loaded', syncOtherTabs);
+
+    const altGroup = group('scoreOptionsAltTabGroup', 'Tabs', verRow, otherTabs, altBtn, srcBtn);
 
     const pdf = $('scoreOptionsPdfSection');
     const save = $('scoreOptionsSaveGroup');
