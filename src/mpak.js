@@ -409,6 +409,8 @@ export async function buildMpak(file, options = {}) {
     };
 
     const usedNames = new Set();
+    const packedAudio = new Set(); // ids of the audio files already in the pack
+    const packedHashes = new Set(); // and their hashes: the same bytes stored twice go in once
     for (const slot of SLOTS) {
         const source = getSlotSourceFn(slot);
         const sources = [];
@@ -434,6 +436,8 @@ export async function buildMpak(file, options = {}) {
                     };
                     if (Number.isFinite(rec.durationMs) && rec.durationMs >= 0) fileSrc.durationMs = rec.durationMs;
                     sources.push(fileSrc);
+                    packedAudio.add(id);
+                    packedHashes.add(fileSrc.sha256);
                     findRecords({ kind: 'local', audioId: id });
                 }
             } else if (source === 'embedded' && tabFormat === 'gp') {
@@ -469,6 +473,64 @@ export async function buildMpak(file, options = {}) {
             }
         }
         manifest.recordings.push(recording);
+    }
+
+    // Every other audio file of the song goes in too, as a recording of its own: the files of its other tabs, the ones
+    // attached to the library song, and the one in a slot whose source is a video. The player has one file per slot at a
+    // time, so these are the ones it lists beside the slot's file.
+    try {
+        const { listAudioFilesForSong } = await import('./audioSync/audioFileStore.js');
+        const { readLibraryAudio, songAudioKeys } = await import('./audioSync/libraryAudio.js');
+        const keys = [...new Set([songKey, ...(libSong?.id ? songAudioKeys(libSong) : [])].filter(Boolean))];
+        const candidates = new Map(); // audio id -> slot
+        const add = (id, slot) => { if (id && !candidates.has(id) && !packedAudio.has(id)) candidates.set(id, slot); };
+        for (const k of keys) {
+            for (const slot of SLOTS) add(localStorage.getItem(`audio_file_${enc(k)}_${slot}`), slot);
+            add(localStorage.getItem(`audio_file_last_${enc(k)}`), 'original');
+        }
+        if (libSong?.id) for (const e of readLibraryAudio(libSong.id)) add(e.audioId, e.slot);
+        for (const k of keys) for (const meta of await listAudioFilesForSong(k)) add(meta.id, 'original');
+
+        let n = 0;
+        for (const [id, slot] of candidates) {
+            const rec = await getAudioFile(id);
+            if (!rec?.data) continue;
+            const audioBytes = new Uint8Array(rec.data);
+            const hash = await sha256(audioBytes);
+            if (packedHashes.has(hash)) continue;
+            packedHashes.add(hash);
+            let audioName = sanitizeSegment(rec.name, `audio-${n + 1}.audio`);
+            if (usedNames.has(audioName.toLowerCase())) audioName = `${id.slice(0, 8)}-${audioName}`;
+            usedNames.add(audioName.toLowerCase());
+            const audioPath = `audio/${audioName}`;
+            files.set(audioPath, audioBytes);
+            const fileSrc = { type: 'file', path: audioPath, mime: rec.type || 'audio/mpeg', sha256: hash };
+            if (Number.isFinite(rec.durationMs) && rec.durationMs >= 0) fileSrc.durationMs = rec.durationMs;
+            n += 1;
+            const recording = {
+                id: `audio-${n}`,
+                role: slot === 'backing' ? 'backing' : 'alternate',
+                label: String(rec.name || '').replace(/\.[^.]+$/, '') || `Audio ${n}`,
+                sources: [fileSrc],
+            };
+            for (const run of scoreRuns) {
+                const syncRec = run.recordsByMedia.get(mediaKey({ kind: 'local', audioId: id }));
+                if (!syncRec) continue;
+                const syncPath = `sync/${recording.id}-${run.entry.id}.json`;
+                const syncDoc = toV1SyncFile(syncRec, recording.id, run.entry.id, run.anchorType, {
+                    firstPage: run.entry.startPage || 1,
+                    lastPage: run.entry.endPage || run.entry.pages || null,
+                    blocks: run.anchorType === 'text' ? textBlocksOf(run.bytes) : null,
+                });
+                if (syncDoc?.points.length) {
+                    files.set(syncPath, new TextEncoder().encode(JSON.stringify(syncDoc, null, 2) + '\n'));
+                    (recording.sync ||= {})[run.entry.id] = syncPath;
+                }
+            }
+            manifest.recordings.push(recording);
+        }
+    } catch (e) {
+        console.warn('[mpak] could not add the song\'s other audio files:', e);
     }
 
     // The first recording is the default (SPEC section 7), and the slots are visited original first.
@@ -893,6 +955,31 @@ export async function applyMpakExtras(data, opened, options = {}) {
     for (const rec of data?.recordings || []) {
         if (resolvedMedia.has(rec.id)) continue;
         try {
+            // An audio file in a recording the two slots did not take: stored and linked to the song, so the player lists it
+            const fileSrc = (rec.sources || []).find((s) => s.type === 'file' && s.path && opened?.entries?.includes(s.path));
+            if (fileSrc) {
+                const audioU8 = await opened.file(fileSrc.path);
+                const audioBuf = audioU8.buffer.slice(audioU8.byteOffset, audioU8.byteOffset + audioU8.byteLength);
+                const meta = await saveAudioFile({
+                    name: fileSrc.path.split('/').pop() || `${rec.id}.audio`,
+                    type: fileSrc.mime || 'audio/mpeg',
+                    data: audioBuf,
+                    songKey: primaryKey,
+                    durationMs: fileSrc.durationMs ?? null,
+                });
+                for (const k of allKeys) if (k !== primaryKey) await linkAudioFile(meta.id, k).catch(() => {});
+                if (targetSong) {
+                    try { attachLibraryAudioAlternate(targetSong, meta.id, rec.role === 'backing' ? 'backing' : 'original'); } catch { /* optional */ }
+                }
+                decodePeaks(audioBuf.slice(0))
+                    .then(({ peaks, durationMs }) => setAudioPeaks(meta.id, peaks, durationMs))
+                    .catch(() => {});
+                const media = { kind: 'local', audioId: meta.id, name: meta.name, durationMs: meta.durationMs ?? null, fingerprint: meta.fingerprint };
+                resolvedMedia.set(rec.id, media);
+                const docs = syncDocsOf(rec);
+                if (docs.length) saveSyncs(docs, media);
+                continue;
+            }
             const ytSrc = (rec.sources || []).find((s) => s.type === 'youtube' && s.videoId);
             if (!ytSrc) continue;
             const syncDocs = syncDocsOf(rec);

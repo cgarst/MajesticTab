@@ -784,6 +784,33 @@ test('buildMpak roundtrips local audio, youtube fallback, tuning, and sync point
     assert.deepEqual(extUnpacked.tabFile.mpakPageRange, { startPage: 12, endPage: 14, pages: 100 });
 });
 
+test('buildMpak packs every audio file of the song, not only the active slot files, and an import lists them', async () => {
+    lsMap.clear();
+    const songKey = 'Dream Theater - Another Day';
+    const otherKey = 'Another Day';
+    const save = (name, fill, key) => saveAudioFile({ name, type: 'audio/mpeg', data: new Uint8Array(32).fill(fill).buffer, songKey: key });
+    const inSlot = await save('full-mix.mp3', 1, songKey);
+    await save('live.mp3', 2, songKey);
+    const onOtherKey = await save('backing.mp3', 3, otherKey);
+    localStorage.setItem(`audio_file_${enc(songKey)}_original`, inSlot.id);
+    localStorage.setItem(`real_audio_source_${enc(songKey)}_original`, 'youtube'); // the slot plays a video, its file is inactive
+    localStorage.setItem(`yt_track_${enc(songKey)}_original`, 'dQw4w9WgXcQ');
+    localStorage.setItem(`audio_file_${enc(otherKey)}_backing`, onOtherKey.id);
+    localStorage.setItem('yt_song_keys_song-1', JSON.stringify([songKey, otherKey])); // the keys the song's tabs were opened under
+
+    const tabFile = new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04, 7, 8, 9])], 'Another Day.gp5', { type: 'application/octet-stream' });
+    const { blob } = await buildMpak(tabFile, {
+        songKey,
+        song: { id: 'song-1', artist: 'Dream Theater', title: 'Another Day' },
+        scores: [],
+    });
+    const { header } = await unpackMpak(blob);
+    const paths = header.recordings.flatMap((r) => r.sources).filter((x) => x.type === 'file').map((x) => x.path).sort();
+    assert.deepEqual(paths, ['audio/backing.mp3', 'audio/full-mix.mp3', 'audio/live.mp3']);
+    assert.ok(header.recordings.some((r) => r.id === 'original' && r.sources.some((x) => x.type === 'youtube')));
+    assert.equal(header.recordings.find((r) => r.sources[0].path === 'audio/backing.mp3').role, 'backing');
+});
+
 test('applyMpakExtras keeps every synced YouTube recording, not only the original and backing slots', async () => {
     lsMap.clear();
     const point = (bar, timeMs) => ({ timeMs, bar, occurrence: 0, pos: 0 });
