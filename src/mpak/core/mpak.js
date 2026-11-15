@@ -2,7 +2,7 @@
 // Runs wherever Uint8Array, TextDecoder, Compression Streams and Web Crypto exist: Node 22, browsers, webviews.
 // It reads an archive through a ByteSource (see source.js), so a large file is read by range and never held whole.
 import { LIMITS, MpakError, checkEntryName, readDirectory, readEntry, entryRange, entryStream, zipParts } from './zip.js';
-import { validateManifest, validateSync, ANCHOR } from './check.js';
+import { validateManifest, validateSync, validateBeats, ANCHOR } from './check.js';
 
 /** The media type of a .mpak file. It is not written inside the archive. */
 export const MEDIA_TYPE = 'application/vnd.mpak+zip';
@@ -21,6 +21,7 @@ export async function sha256(bytes) {
  * Returns { manifest, entries, warnings, score, scoreBytes(id), sync(recId, scoreId), defaultRecording(), file(path, maxSize), stream(path), range(path) }:
  *   score        the primary score file's bytes (or null when it uses externalPath and no externalScore was provided/resolved)
  *   scoreBytes(id)  the same for any score or alternate by its id
+ *   beats(id)   the recording's beat file (beats and sections), resolved on its own timeline (section 7), or null
  *   sync(id, scoreId)   the recording's sync points for a score (default: the primary), resolved on its own timeline (section 9), or null
  *   file(path) one entry read whole; stream(path) one entry as chunks; range(path) a Stored entry's {start, end} in the archive
  */
@@ -62,6 +63,7 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
   const score = scoreBytes.get(primary.id);
   const scoreOf = (id) => manifest.scores.find((t) => t.id === id);
   const syncs = new Map(); // `${scoreId}\n${recordingId}` -> sync file
+  const beatFiles = new Map(); // recordingId -> beat file
   for (const r of manifest.recordings || []) {
     for (const [sid, sp] of Object.entries(r.sync || {})) {
       const t = scoreOf(sid);
@@ -73,6 +75,18 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
       if (sf.recording !== r.id) { warnings.push(`${sp}: recording id mismatch`); continue; }
       if (sf.score !== sid) { warnings.push(`${sp}: score id mismatch`); continue; }
       syncs.set(`${sid}\n${r.id}`, sf);
+    }
+    if (r.beats) {
+      if (!byName.has(r.beats)) warnings.push(`${r.id}: missing beat file ${r.beats}`);
+      else {
+        try {
+          const bf = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await file(r.beats, limits.maxSync)));
+          const be = validateBeats(bf);
+          if (be.length) warnings.push(`${r.beats}: ${be.join('; ')}`);
+          else if (bf.recording !== r.id) warnings.push(`${r.beats}: recording id mismatch`);
+          else beatFiles.set(r.id, bf);
+        } catch (e) { warnings.push(`${r.beats}: ${e.message}`); }
+      }
     }
     for (const src of r.sources || []) {
       if (src.type === 'embedded') {
@@ -95,8 +109,24 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
     }
     return null;
   };
+  // Beat file of a recording: its own, else syncFrom (plus syncOffsetMs), else stemOf (section 7, "Beat file").
+  const resolveBeats = (id) => {
+    const recs = manifest.recordings || [];
+    let cur = recs.find((r) => r.id === id), offset = 0;
+    for (let n = 0; cur && n <= recs.length; n++) {
+      const own = beatFiles.get(cur.id);
+      if (own) {
+        const move = (x) => ({ ...x, timeMs: x.timeMs + offset });
+        const keep = (x) => x.timeMs >= 0;
+        return { ...own, recording: id, beats: own.beats.map(move).filter(keep), ...(own.sections ? { sections: own.sections.map(move).filter(keep) } : {}) };
+      }
+      if (cur.syncFrom) offset += cur.syncOffsetMs || 0;
+      cur = recs.find((r) => r.id === (cur.syncFrom || cur.stemOf));
+    }
+    return null;
+  };
   const defaultRecording = () => (manifest.recordings || [])[0] || null;
-  return { manifest, entries: entries.map((e) => e.name), warnings, score, scoreBytes: (id) => scoreBytes.get(id) ?? null, sync: resolveSync, defaultRecording, file, stream, range };
+  return { manifest, entries: entries.map((e) => e.name), warnings, score, scoreBytes: (id) => scoreBytes.get(id) ?? null, sync: resolveSync, beats: resolveBeats, defaultRecording, file, stream, range };
 }
 
 /**
@@ -133,8 +163,10 @@ export async function buildMpak(manifest, files, { zip64Threshold } = {}) {
 }
 
 /** A score entry for the manifest: path, format (from the extension) and sha256. */
+const EXT_FORMAT = { atex: 'alphatex', mid: 'midi' };
 export async function scoreEntry(path, bytes) {
-  return { path, format: path.split('.').pop().toLowerCase(), sha256: await sha256(bytes) };
+  const ext = path.split('.').pop().toLowerCase();
+  return { path, format: EXT_FORMAT[ext] ?? ext, sha256: await sha256(bytes) };
 }
 
-export { LIMITS, MpakError, ANCHOR, validateManifest, validateSync };
+export { LIMITS, MpakError, ANCHOR, validateManifest, validateSync, validateBeats };
