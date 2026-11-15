@@ -8,7 +8,7 @@ import { detectFileMetadata } from './utils/tuningUtils.js';
 import { closeLibraryModal, navigateToAlbumInLibrary } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
 import { SUPPORTED_TAB_EXTENSIONS } from './utils/fileHandlingUtils.js';
-import { isMtabFile, isMtabBytes, unpackMtab, applyMtabExtras } from './mtab.js';
+import { isMpakFile, isMpakBytes, unpackMpak, applyMpakExtras } from './mpak.js';
 import {
     isWsaTabUrl,
     getDownloaderUrlFromMatchedUrl,
@@ -651,16 +651,16 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     // A GP7/8 .gp file is itself a ZIP container, so only unpack when the name is not a tab extension.
     const nameExt = (name || '').split('.').pop()?.toLowerCase();
     const looksZip = uint8.length > 4 && uint8[0] === 0x50 && uint8[1] === 0x4B && uint8[2] === 0x03 && uint8[3] === 0x04;
-    // A .mtab bundle is a ZIP too, but it is opened as a bundle below, not unpacked for its tab
-    const bytesAreMtab = looksZip && await isMtabBytes(uint8);
-    const isZip = !bytesAreMtab && (nameExt === 'zip' || (looksZip && !SUPPORTED_TAB_EXTENSIONS.includes(nameExt)));
+    // A .mpak bundle is a ZIP too, but it is opened as a bundle below, not unpacked for its tab
+    const bytesAreMpak = looksZip && await isMpakBytes(uint8);
+    const isZip = !bytesAreMpak && (nameExt === 'zip' || (looksZip && !SUPPORTED_TAB_EXTENSIONS.includes(nameExt)));
     if (isZip && typeof window !== 'undefined' && window.fflate?.unzipSync) {
         try {
             const unzipped = window.fflate.unzipSync(uint8);
             const tabEntries = Object.keys(unzipped).filter(filename => {
                 if (filename.includes('__MACOSX') || filename.endsWith('/')) return false;
                 const ext = filename.split('.').pop()?.toLowerCase();
-                return SUPPORTED_TAB_EXTENSIONS.includes(ext) || ext === 'mtab';
+                return SUPPORTED_TAB_EXTENSIONS.includes(ext) || ext === 'mpak';
             });
             const isGpContainer = Object.keys(unzipped).some(f => /(^|\/)score\.gpif$/i.test(f));
             if (tabEntries.length === 0 && isGpContainer) {
@@ -690,17 +690,17 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         }
     }
 
-    let mtabBundle = null;
+    let mpakBundle = null;
     let file;
-    if (isMtabFile({ name }) || bytesAreMtab) {
+    if (isMpakFile({ name }) || bytesAreMpak) {
         try {
             const rawBlob = new Blob([uint8], { type: 'application/x-majestictab-song' });
-            const rawMtabFile = new File([rawBlob], name || 'downloaded.mtab', { type: rawBlob.type, lastModified: Date.now() });
-            mtabBundle = await unpackMtab(rawMtabFile);
-            file = mtabBundle.tabFile;
-        } catch (mtabErr) {
-            console.warn('[Tab Downloader] Failed to unpack .mtab bundle:', mtabErr);
-            showToast(mtabErr?.message || 'Could not unpack .mtab song bundle.', 'error');
+            const rawMpakFile = new File([rawBlob], name || 'downloaded.mpak', { type: rawBlob.type, lastModified: Date.now() });
+            mpakBundle = await unpackMpak(rawMpakFile);
+            file = mpakBundle.tabFile;
+        } catch (mpakErr) {
+            console.warn('[Tab Downloader] Failed to unpack .mpak bundle:', mpakErr);
+            showToast(mpakErr?.message || 'Could not unpack .mpak song bundle.', 'error');
             return;
         }
     } else {
@@ -714,10 +714,10 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     file.sourceWebsite = sourceWebsite;
     file.providerId = 'tab-downloader';
     file.addedAt = Date.now();
-    if (mtabBundle) file.mtabBundle = mtabBundle;
+    if (mpakBundle) file.mpakBundle = mpakBundle;
 
-    const buildMtabSongKeys = (artist, title, meta, fileName) => {
-        const mSong = mtabBundle?.header?.song;
+    const buildMpakSongKeys = (artist, title, meta, fileName) => {
+        const mSong = mpakBundle?.header?.song;
         const { mainKey, aliasKeys } = deriveSongKeyAndAliases(
             artist || mSong?.artist || '',
             title || mSong?.title || '',
@@ -776,21 +776,21 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             pendingMatchedTabUrl = null;
             pendingMatchedSyncPoints = null;
 
-            if (mtabBundle) {
-                const { mainKey, aliasKeys } = buildMtabSongKeys(
+            if (mpakBundle) {
+                const { mainKey, aliasKeys } = buildMpakSongKeys(
                     currentTrack.artist || activeBatchArtistName,
                     currentTrack.title,
                     meta,
                     file.name
                 );
                 await linkSongKeysToLibrary(currentTrack.songId, [mainKey, ...aliasKeys]);
-                await applyMtabExtras(mtabBundle.header, mtabBundle.part, {
+                await applyMpakExtras(mpakBundle.header, mpakBundle.part, {
                     songKey: mainKey,
                     aliasKeys,
                     songId: currentTrack.songId,
                     applyToActiveReader: false
                 }).catch(err => {
-                    console.warn('[Tab Downloader] Batch .mtab extras attachment failed:', err);
+                    console.warn('[Tab Downloader] Batch .mpak extras attachment failed:', err);
                 });
             } else if (matchedUrl || syncPoints) {
                 const { mainKey, aliasKeys } = deriveSongKeyAndAliases(
@@ -897,16 +897,16 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             const output = document.getElementById('output');
             if (output && output.style.display !== 'none') output.focus();
         } catch {}
-        if (mtabBundle) {
-            const { mainKey, aliasKeys } = buildMtabSongKeys(targetSong.artist, targetSong.title, meta, file.name);
+        if (mpakBundle) {
+            const { mainKey, aliasKeys } = buildMpakSongKeys(targetSong.artist, targetSong.title, meta, file.name);
             await linkSongKeysToLibrary(targetSong.id, [mainKey, ...aliasKeys]);
-            await applyMtabExtras(mtabBundle.header, mtabBundle.part, {
+            await applyMpakExtras(mpakBundle.header, mpakBundle.part, {
                 songKey: mainKey,
                 aliasKeys,
                 songId: targetSong.id,
                 applyToActiveReader: true
             }).catch(err => {
-                console.warn('[Tab Downloader] .mtab extras attachment failed:', err);
+                console.warn('[Tab Downloader] .mpak extras attachment failed:', err);
             });
         } else if (matchedUrl || syncPoints) {
             const { mainKey, aliasKeys } = deriveSongKeyAndAliases(targetSong.artist, targetSong.title, meta, file.name);
@@ -930,7 +930,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             sourceWebsite
         });
         closeLibraryModal(true);
-        onFileSelectedCb({ file, providerId: 'tab-downloader', fileStoreId: stored.id, name: file.name, meta, sourceUrl, sourceWebsite, mtabBundle });
+        onFileSelectedCb({ file, providerId: 'tab-downloader', fileStoreId: stored.id, name: file.name, meta, sourceUrl, sourceWebsite, mpakBundle });
         return;
     }
 
@@ -962,16 +962,16 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         showToast(`Added "${file.name}" to ${targetSong.title || 'song'}`, 'success');
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
 
-        if (mtabBundle) {
-            const { mainKey, aliasKeys } = buildMtabSongKeys(targetSong.artist, targetSong.title, meta, file.name);
+        if (mpakBundle) {
+            const { mainKey, aliasKeys } = buildMpakSongKeys(targetSong.artist, targetSong.title, meta, file.name);
             await linkSongKeysToLibrary(targetSong.id, [mainKey, ...aliasKeys]);
-            await applyMtabExtras(mtabBundle.header, mtabBundle.part, {
+            await applyMpakExtras(mpakBundle.header, mpakBundle.part, {
                 songKey: mainKey,
                 aliasKeys,
                 songId: targetSong.id,
                 applyToActiveReader: false
             }).catch(err => {
-                console.warn('[Tab Downloader] Background .mtab extras attachment failed:', err);
+                console.warn('[Tab Downloader] Background .mpak extras attachment failed:', err);
             });
         } else if (matchedUrl || syncPoints) {
             const { mainKey, aliasKeys } = deriveSongKeyAndAliases(targetSong.artist, targetSong.title, meta, file.name);
@@ -1015,8 +1015,8 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     // Load file directly into player viewer
     closeLibraryModal(true);
     await loadFile(file);
-    if (mtabBundle) {
-        await applyMtabExtras(mtabBundle.header, mtabBundle.part, { applyToActiveReader: true });
+    if (mpakBundle) {
+        await applyMpakExtras(mpakBundle.header, mpakBundle.part, { applyToActiveReader: true });
     }
 
     try {
@@ -1027,7 +1027,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         }
     } catch {}
 
-    if (!mtabBundle && (matchedUrl || syncPoints)) {
+    if (!mpakBundle && (matchedUrl || syncPoints)) {
         const meta = await detectFileMetadata(file, file.name).catch(() => null);
         const { mainKey, aliasKeys } = deriveSongKeyAndAliases('', '', meta, file.name);
         attachSyncForMatchedUrl(matchedUrl || sourceUrl, { showToast, file, songKey: mainKey, aliasKeys, switchToOriginal: true, syncPoints });

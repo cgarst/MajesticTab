@@ -65,11 +65,11 @@
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
-				<string>mtab</string>
+				<string>mpak</string>
 			</array>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>net.zathu.majestictab.mtab</string>
+				<string>net.zathu.majestictab.mpak</string>
 			</array>
 			<key>CFBundleTypeName</key>
 			<string>MajesticTab Song</string>
@@ -115,7 +115,7 @@
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key>
-			<string>net.zathu.majestictab.mtab</string>
+			<string>net.zathu.majestictab.mpak</string>
 			<key>UTTypeDescription</key>
 			<string>MajesticTab Song</string>
 			<key>UTTypeConformsTo</key>
@@ -127,11 +127,11 @@
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
-					<string>mtab</string>
+					<string>mpak</string>
 				</array>
 				<key>public.mime-type</key>
 				<array>
-					<string>application/vnd.mtab+zip</string>
+					<string>application/vnd.mpak+zip</string>
 				</array>
 			</dict>
 		</dict>

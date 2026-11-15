@@ -14,7 +14,7 @@
 // The page's state lives in this module, so leaving Tools while the lookups run does not lose them.
 
 import { getAllSongs, saveSongToLibrary, getSongById, mapOpenFileToSong, findMatchingSongInLibrary, getAlbumTabOptions, addTabOptionToAlbum, DEFAULT_COLLECTION_ID } from '../libraryStore.js';
-import { readMtab, saveMtabToLibrary } from '../mtab.js';
+import { readMpak, saveMpakToLibrary } from '../mpak.js';
 import { lookupMusicBrainzByIds } from '../musicbrainz.js';
 import { saveStoredFile } from '../fileStore.js';
 import { detectFileMetadata } from '../utils/tuningUtils.js';
@@ -144,20 +144,20 @@ async function resolveRow(row, signal) {
     row.stage = 'working';
     notify(row.id);
     try {
-        if (row.entry.ext === 'mtab') {
+        if (row.entry.ext === 'mpak') {
             const file = await row.entry.getFile();
-            const { header } = await readMtab(file);
-            const mtabSong = header?.song || {};
-            row.parsed = pairFile(row.entry, state.strategy, (mtabSong.title || mtabSong.artist) ? mtabSong : null)
-                || (mtabSong.title ? {
-                    artist: mtabSong.artist || '',
-                    album: mtabSong.album || '',
-                    title: mtabSong.title,
-                    trackNumber: mtabSong.trackNumber || null,
+            const { header } = await readMpak(file);
+            const mpakSong = header?.song || {};
+            row.parsed = pairFile(row.entry, state.strategy, (mpakSong.title || mpakSong.artist) ? mpakSong : null)
+                || (mpakSong.title ? {
+                    artist: mpakSong.artist || '',
+                    album: mpakSong.album || '',
+                    title: mpakSong.title,
+                    trackNumber: mpakSong.trackNumber || null,
                     via: 'metadata'
                 } : null);
             row.kind = 'song';
-            const libMatch = await findMatchingSongInLibrary(mtabSong).catch(() => null);
+            const libMatch = await findMatchingSongInLibrary(mpakSong).catch(() => null);
             if (libMatch && !row.manual) {
                 row.status = 'match';
                 row.pick = {
@@ -168,9 +168,9 @@ async function resolveRow(row, signal) {
                     album: libMatch.album || '',
                     year: libMatch.year || '',
                     trackNumber: libMatch.trackNumber || null,
-                    recordingMbid: libMatch.recordingMbid || mtabSong.recordingMbid || '',
-                    artistMbid: libMatch.artistMbid || mtabSong.artistMbid || '',
-                    albumMbid: libMatch.albumMbid || mtabSong.albumMbid || ''
+                    recordingMbid: libMatch.recordingMbid || mpakSong.recordingMbid || '',
+                    artistMbid: libMatch.artistMbid || mpakSong.artistMbid || '',
+                    albumMbid: libMatch.albumMbid || mpakSong.albumMbid || ''
                 };
                 row.candidates = [row.pick];
                 takeFallback(row);
@@ -178,21 +178,21 @@ async function resolveRow(row, signal) {
                 row.stage = 'done';
                 return;
             }
-            if ((mtabSong.recordingMbid || mtabSong.albumMbid) && !row.manual) {
-                const mb = await lookupMusicBrainzByIds(mtabSong).catch(() => null);
+            if ((mpakSong.recordingMbid || mpakSong.albumMbid) && !row.manual) {
+                const mb = await lookupMusicBrainzByIds(mpakSong).catch(() => null);
                 if (mb && mb.title) {
                     row.status = 'match';
                     row.pick = {
                         source: 'musicbrainz',
                         title: mb.title,
-                        artist: mb.artist || mtabSong.artist || '',
-                        album: mb.album || mtabSong.album || '',
-                        year: mb.year || mtabSong.year || '',
-                        trackNumber: mb.trackNumber ?? mtabSong.trackNumber ?? null,
-                        length: mb.length ?? mtabSong.length ?? null,
-                        recordingMbid: mb.recordingMbid || mtabSong.recordingMbid || '',
-                        artistMbid: mb.artistMbid || mtabSong.artistMbid || '',
-                        albumMbid: mb.albumMbid || mtabSong.albumMbid || '',
+                        artist: mb.artist || mpakSong.artist || '',
+                        album: mb.album || mpakSong.album || '',
+                        year: mb.year || mpakSong.year || '',
+                        trackNumber: mb.trackNumber ?? mpakSong.trackNumber ?? null,
+                        length: mb.length ?? mpakSong.length ?? null,
+                        recordingMbid: mb.recordingMbid || mpakSong.recordingMbid || '',
+                        artistMbid: mb.artistMbid || mpakSong.artistMbid || '',
+                        albumMbid: mb.albumMbid || mpakSong.albumMbid || '',
                         coverUrl: mb.coverUrl || ''
                     };
                     row.candidates = [row.pick];
@@ -204,7 +204,7 @@ async function resolveRow(row, signal) {
             }
             if (!row.parsed) { row.stage = 'done'; row.status = 'none'; row.pick = null; row.candidates = []; return; }
         }
-        const meta = row.entry.ext === 'mtab' ? null : (state.strategy === 'artist-song' || state.strategy === 'folders' ? null : await embeddedMeta(row.entry));
+        const meta = row.entry.ext === 'mpak' ? null : (state.strategy === 'artist-song' || state.strategy === 'folders' ? null : await embeddedMeta(row.entry));
         if (!row.parsed) row.parsed = pairFile(row.entry, state.strategy, meta);
         if (!row.parsed) { row.stage = 'done'; row.status = 'none'; row.pick = null; row.candidates = []; return; }
         // A whole album's tab book is paired with an album. A file named only for its album is also how a title track is named,
@@ -415,8 +415,8 @@ async function runImport() {
                 continue;
             }
             const song = await songFor(row.pick);
-            if (row.entry.ext === 'mtab') {
-                const saved = await saveMtabToLibrary(file, {
+            if (row.entry.ext === 'mpak') {
+                const saved = await saveMpakToLibrary(file, {
                     targetSongId: song.id,
                     relativePath: row.entry.path,
                     queryMusicBrainz: false

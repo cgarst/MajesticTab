@@ -299,7 +299,7 @@ window.addEventListener('drop', async (e) => {
     if (!file) return;
 
     const ext = file.name.split('.').pop()?.toLowerCase();
-    if (ext === 'mtab') {
+    if (ext === 'mpak') {
         const { openLocalFile } = await import('./fileProviders.js');
         await openLocalFile(file);
         return;
@@ -896,7 +896,7 @@ async function handleAppOpenUrl(rawUrl) {
     const batchManifestUrl = parsed.searchParams.get('batch');
     if (batchManifestUrl) {
         const { showToast } = await import('./utils/toast.js');
-        const { saveMtabToLibrary } = await import('./mtab.js');
+        const { saveMpakToLibrary } = await import('./mpak.js');
         try {
             showToast('Fetching batch manifest…', 'info', 2500);
             const res = await fetchUrlResponse(batchManifestUrl);
@@ -910,21 +910,21 @@ async function handleAppOpenUrl(rawUrl) {
             let added = 0;
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
-                if (!item?.mtabUrl) continue;
+                if (!item?.mpakUrl) continue;
                 showToast(`Syncing ${i + 1} of ${items.length} tabs…`, 'info', 2000);
                 try {
-                    const mtabRes = await fetchUrlResponse(item.mtabUrl);
-                    if (!mtabRes.ok) continue;
-                    const buf = await mtabRes.arrayBuffer();
-                    const name = item.fileName || `${item.artist || 'Song'} - ${item.title || i + 1}.mtab`;
+                    const mpakRes = await fetchUrlResponse(item.mpakUrl);
+                    if (!mpakRes.ok) continue;
+                    const buf = await mpakRes.arrayBuffer();
+                    const name = item.fileName || `${item.artist || 'Song'} - ${item.title || i + 1}.mpak`;
                     const file = new File([buf], name, { type: 'application/x-majestictab-song' });
-                    await saveMtabToLibrary(file, {
+                    await saveMpakToLibrary(file, {
                         targetSongId: item.songId || null,
                         queryMusicBrainz: true
                     });
                     added++;
                 } catch (e) {
-                    console.warn('[App Open URL] Batch item failed:', item.mtabUrl, e);
+                    console.warn('[App Open URL] Batch item failed:', item.mpakUrl, e);
                 }
             }
             if (added > 0) {
@@ -941,7 +941,7 @@ async function handleAppOpenUrl(rawUrl) {
     return false;
 }
 
-function androidMtabSource(meta) {
+function androidMpakSource(meta) {
     return {
         name: meta.name,
         size: meta.size,
@@ -950,7 +950,7 @@ function androidMtabSource(meta) {
             return {
                 async arrayBuffer() {
                     if (!len) return new ArrayBuffer(0);
-                    const b64 = window.AndroidOpen?.readOpenedMtabRange?.(start, len);
+                    const b64 = window.AndroidOpen?.readOpenedMpakRange?.(start, len);
                     if (!b64) throw new Error('Could not read the song file');
                     const bin = atob(b64);
                     const bytes = new Uint8Array(bin.length);
@@ -962,13 +962,13 @@ function androidMtabSource(meta) {
     };
 }
 
-async function openAndroidMtabMeta(metaJson) {
+async function openAndroidMpakMeta(metaJson) {
     if (!metaJson) return false;
     try {
         const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
         if (!meta?.name || !meta?.size) return false;
-        const { openMtab } = await import('./mtab.js');
-        await openMtab(androidMtabSource(meta));
+        const { openMpak } = await import('./mpak.js');
+        await openMpak(androidMpakSource(meta));
         return true;
     } catch (err) {
         const { showToast } = await import('./utils/toast.js');
@@ -980,15 +980,15 @@ async function openAndroidMtabMeta(metaJson) {
 async function checkNativeOpenedFiles() {
     if (typeof window !== 'undefined') {
         window.__onAppOpenUrl = (url) => { handleAppOpenUrl(url); };
-        window.__onAndroidOpenMtab = (meta) => { openAndroidMtabMeta(meta); };
+        window.__onAndroidOpenMpak = (meta) => { openAndroidMpakMeta(meta); };
     }
 
     if (window.AndroidOpen) {
         try {
             const pendingUrl = window.AndroidOpen.takePendingUrl?.();
             if (pendingUrl && await handleAppOpenUrl(pendingUrl)) return true;
-            const pendingMtab = window.AndroidOpen.takePendingMtab?.();
-            if (pendingMtab && await openAndroidMtabMeta(pendingMtab)) return true;
+            const pendingMpak = window.AndroidOpen.takePendingMpak?.();
+            if (pendingMpak && await openAndroidMpakMeta(pendingMpak)) return true;
         } catch (e) {
             console.warn('[Native Open] Android pending intent check failed:', e);
         }
@@ -1028,10 +1028,10 @@ async function checkNativeOpenedFiles() {
 // Rust hands over a tab's bytes, but only the path and size of a song bundle (see read_opened_file_range)
 async function openNativePayload(opened) {
     if (!opened?.name) return false;
-    if (opened.path && /\.mtab$/i.test(opened.name)) {
+    if (opened.path && /\.mpak$/i.test(opened.name)) {
         try {
-            const { openMtab, nativeMtabSource } = await import('./mtab.js');
-            await openMtab(nativeMtabSource(opened));
+            const { openMpak, nativeMpakSource } = await import('./mpak.js');
+            await openMpak(nativeMpakSource(opened));
         } catch (err) {
             const { showToast } = await import('./utils/toast.js');
             showToast(err?.message || 'Could not open that song file', 'error');

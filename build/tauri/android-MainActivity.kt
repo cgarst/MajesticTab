@@ -35,8 +35,8 @@ class MainActivity : TauriActivity() {
   private var multicastLock: WifiManager.MulticastLock? = null
   private val blockedHosts = java.util.Collections.synchronizedSet(HashSet<String>())
   private var pendingOpenUrl: String? = null
-  private var pendingOpenMtabFile: java.io.File? = null
-  private var pendingOpenMtabName: String? = null
+  private var pendingOpenMpakFile: java.io.File? = null
+  private var pendingOpenMpakName: String? = null
 
   private fun isHostBlocked(host: String): Boolean {
     if (blockedHosts.isEmpty()) return false
@@ -88,7 +88,7 @@ class MainActivity : TauriActivity() {
         }
       } catch (_: Exception) {}
     }
-    return uri.lastPathSegment?.substringAfterLast('/') ?: "song.mtab"
+    return uri.lastPathSegment?.substringAfterLast('/') ?: "song.mpak"
   }
 
   private fun handleIncomingIntent(intent: android.content.Intent?) {
@@ -109,7 +109,7 @@ class MainActivity : TauriActivity() {
       Thread {
         try {
           val rawName = queryUriDisplayName(uri)
-          val dest = java.io.File(cacheDir, "opened-intent.mtab")
+          val dest = java.io.File(cacheDir, "opened-intent.mpak")
           contentResolver.openInputStream(uri)?.use { input ->
             dest.outputStream().use { output -> input.copyTo(output) }
           } ?: return@Thread
@@ -117,18 +117,18 @@ class MainActivity : TauriActivity() {
           val head = ByteArray(64)
           val n = dest.inputStream().use { it.read(head) }
           val headStr = String(head, 0, maxOf(0, n), Charsets.ISO_8859_1)
-          val isMtab = looksLikeMtab(headStr) || intent.type == "application/vnd.mtab+zip" || rawName.endsWith(".mtab", ignoreCase = true)
-          if (!isMtab) return@Thread
-          val displayName = if (rawName.endsWith(".mtab", ignoreCase = true)) rawName else "$rawName.mtab"
-          pendingOpenMtabFile = dest
-          pendingOpenMtabName = displayName
+          val isMpak = looksLikeMpak(headStr) || intent.type == "application/vnd.mpak+zip" || rawName.endsWith(".mpak", ignoreCase = true)
+          if (!isMpak) return@Thread
+          val displayName = if (rawName.endsWith(".mpak", ignoreCase = true)) rawName else "$rawName.mpak"
+          pendingOpenMpakFile = dest
+          pendingOpenMpakName = displayName
           val meta = org.json.JSONObject()
             .put("name", displayName)
             .put("size", dest.length())
             .toString()
           runOnUiThread {
             mainWebView?.evaluateJavascript(
-              "window.__onAndroidOpenMtab && window.__onAndroidOpenMtab(" + meta + ");",
+              "window.__onAndroidOpenMpak && window.__onAndroidOpenMpak(" + meta + ");",
               null
             )
           }
@@ -299,10 +299,10 @@ class MainActivity : TauriActivity() {
       }
 
       @JavascriptInterface
-      fun takePendingMtab(): String? {
-        val file = pendingOpenMtabFile ?: return null
-        val name = pendingOpenMtabName ?: return null
-        pendingOpenMtabName = null
+      fun takePendingMpak(): String? {
+        val file = pendingOpenMpakFile ?: return null
+        val name = pendingOpenMpakName ?: return null
+        pendingOpenMpakName = null
         if (!file.isFile) return null
         return org.json.JSONObject()
           .put("name", name)
@@ -311,8 +311,8 @@ class MainActivity : TauriActivity() {
       }
 
       @JavascriptInterface
-      fun readOpenedMtabRange(offset: Long, length: Int): String? {
-        val file = pendingOpenMtabFile ?: return null
+      fun readOpenedMpakRange(offset: Long, length: Int): String? {
+        val file = pendingOpenMpakFile ?: return null
         if (!file.isFile || offset < 0 || length <= 0) return null
         return try {
           java.io.RandomAccessFile(file, "r").use { raf ->
@@ -569,19 +569,19 @@ class MainActivity : TauriActivity() {
     return Regex("filename\\s*=\\s*\"?([^\";]+)\"?", RegexOption.IGNORE_CASE).find(disposition)?.groupValues?.get(1)?.trim()
   }
 
-  // A .mtab has no magic number. Its first entry is the manifest (`mimetype` in files from an earlier writer), so this
-  // only guesses a name; the app itself decides from the manifest.
-  private fun looksLikeMtab(head: String): Boolean =
+  // A .mpak has no magic number and no rule on entry order, so this only guesses a name from a leading manifest; the app
+  // itself decides from the manifest.
+  private fun looksLikeMpak(head: String): Boolean =
     head.startsWith("PK\u0003\u0004") && head.length >= 43 &&
-      (head.startsWith("manifest.json", 30) || head.startsWith("mimetypeapplication/vnd.mtab", 30))
+      head.startsWith("manifest.json", 30)
 
-  // Gives a file without a tab extension the one its header bytes imply (Guitar Pro 3-5, zip-based .gp, or .mtab).
+  // Gives a file without a tab extension the one its header bytes imply (Guitar Pro 3-5, zip-based .gp, or .mpak).
   private fun withTabExtension(name: String, bytes: ByteArray): String {
-    if (Regex("\\.(gp\\d?|gpx|gp7|mtab)$", RegexOption.IGNORE_CASE).containsMatchIn(name)) return name
+    if (Regex("\\.(gp\\d?|gpx|gp7|mpak)$", RegexOption.IGNORE_CASE).containsMatchIn(name)) return name
     val base = name.substringBeforeLast('.', name)
     val head = String(bytes, 0, minOf(bytes.size, 64), Charsets.ISO_8859_1)
     return when {
-      looksLikeMtab(head) -> "$base.mtab"
+      looksLikeMpak(head) -> "$base.mpak"
       head.startsWith("PK") -> "$base.gp"
       head.startsWith("BCFZ") || head.startsWith("BCFS") -> "$base.gpx"
       head.contains("FICHIER GUITAR PRO v3") -> "$base.gp3"

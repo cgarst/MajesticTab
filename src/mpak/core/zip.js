@@ -1,4 +1,4 @@
-// ZIP reader and writer for .mtab containers (SPEC.md sections 3 and 12). No Node, DOM or Buffer dependency: it runs on
+// ZIP reader and writer for .mpak containers (SPEC.md sections 3 and 12). No Node, DOM or Buffer dependency: it runs on
 // Uint8Array, DataView, TextDecoder and the standard Compression Streams (Node 18+, current browsers, webviews).
 // Stored and Deflate only, no encryption. The reader understands ZIP64 and never loads more than it is asked for.
 import { crc32 } from './crc32.js';
@@ -12,7 +12,7 @@ export const LIMITS = {
   maxDirectory: 16 << 20,
 };
 
-export class MtabError extends Error {}
+export class MpakError extends Error {}
 
 const SIG_LOCAL = 0x04034b50, SIG_CEN = 0x02014b50, SIG_EOCD = 0x06054b50;
 const SIG_Z64_LOC = 0x07064b50, SIG_Z64_EOCD = 0x06064b50;
@@ -21,16 +21,16 @@ const NAME = new TextDecoder('utf-8', { fatal: true });
 const view = (u8) => new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
 const big = (dv, at) => {
   const n = Number(dv.getBigUint64(at, true));
-  if (!Number.isSafeInteger(n)) throw new MtabError('zip64 value out of range');
+  if (!Number.isSafeInteger(n)) throw new MpakError('zip64 value out of range');
   return n;
 };
 
 export function checkEntryName(name) {
   if (name === '' || name.startsWith('/') || name.includes('\\') || /[\u0000-\u001f]/.test(name))
-    throw new MtabError(`bad entry name: ${JSON.stringify(name)}`);
+    throw new MpakError(`bad entry name: ${JSON.stringify(name)}`);
   const parts = name.replace(/\/$/, '').split('/');
   if (parts.some((p) => p === '' || p === '..' || p === '.'))
-    throw new MtabError(`bad entry name: ${JSON.stringify(name)}`);
+    throw new MpakError(`bad entry name: ${JSON.stringify(name)}`);
 }
 
 /**
@@ -39,48 +39,48 @@ export function checkEntryName(name) {
  */
 export async function readDirectory(source, limits = LIMITS) {
   const size = source.size;
-  if (size < 22) throw new MtabError('not a zip archive (too small)');
+  if (size < 22) throw new MpakError('not a zip archive (too small)');
   const tailLen = Math.min(size, 22 + 65535 + 20);
   const tail = await readExact(source, size - tailLen, size);
   const tv = view(tail);
   let eocd = -1;
   for (let i = tail.length - 22; i >= 0; i--) if (tv.getUint32(i, true) === SIG_EOCD) { eocd = i; break; }
-  if (eocd < 0) throw new MtabError('not a zip archive (no end of central directory)');
+  if (eocd < 0) throw new MpakError('not a zip archive (no end of central directory)');
   let count = tv.getUint16(eocd + 10, true);
   let cdSize = tv.getUint32(eocd + 12, true);
   let cdOff = tv.getUint32(eocd + 16, true);
   if (count === 0xffff || cdSize === U32 || cdOff === U32) {
     const loc = eocd - 20;
-    if (loc < 0 || tv.getUint32(loc, true) !== SIG_Z64_LOC) throw new MtabError('missing zip64 locator');
+    if (loc < 0 || tv.getUint32(loc, true) !== SIG_Z64_LOC) throw new MpakError('missing zip64 locator');
     const z = big(tv, loc + 8);
-    if (z + 56 > size) throw new MtabError('bad zip64 end record');
+    if (z + 56 > size) throw new MpakError('bad zip64 end record');
     const zb = await readExact(source, z, z + 56);
     const zv = view(zb);
-    if (zv.getUint32(0, true) !== SIG_Z64_EOCD) throw new MtabError('bad zip64 end record');
+    if (zv.getUint32(0, true) !== SIG_Z64_EOCD) throw new MpakError('bad zip64 end record');
     count = big(zv, 32);
     cdSize = big(zv, 40);
     cdOff = big(zv, 48);
   }
-  if (count > limits.maxEntries) throw new MtabError(`too many entries (${count})`);
-  if (cdSize > limits.maxDirectory) throw new MtabError('central directory too large');
-  if (cdOff + cdSize > size) throw new MtabError('central directory out of range');
+  if (count > limits.maxEntries) throw new MpakError(`too many entries (${count})`);
+  if (cdSize > limits.maxDirectory) throw new MpakError('central directory too large');
+  if (cdOff + cdSize > size) throw new MpakError('central directory out of range');
   const cd = await readExact(source, cdOff, cdOff + cdSize);
   const dv = view(cd);
   const entries = [];
   let p = 0;
   for (let n = 0; n < count; n++) {
-    if (p + 46 > cd.length || dv.getUint32(p, true) !== SIG_CEN) throw new MtabError('bad central directory entry');
+    if (p + 46 > cd.length || dv.getUint32(p, true) !== SIG_CEN) throw new MpakError('bad central directory entry');
     const flags = dv.getUint16(p + 8, true);
     const method = dv.getUint16(p + 10, true);
     const crc = dv.getUint32(p + 16, true);
     let csize = dv.getUint32(p + 20, true), usize = dv.getUint32(p + 24, true);
     const nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
     let offset = dv.getUint32(p + 42, true);
-    if (p + 46 + nlen + xlen + clen > cd.length) throw new MtabError('bad central directory entry');
+    if (p + 46 + nlen + xlen + clen > cd.length) throw new MpakError('bad central directory entry');
     let name;
-    try { name = NAME.decode(cd.subarray(p + 46, p + 46 + nlen)); } catch { throw new MtabError('entry name is not UTF-8'); }
-    if (flags & 1) throw new MtabError(`encrypted entry: ${name}`);
-    if (method !== 0 && method !== 8) throw new MtabError(`unsupported compression method ${method}: ${name}`);
+    try { name = NAME.decode(cd.subarray(p + 46, p + 46 + nlen)); } catch { throw new MpakError('entry name is not UTF-8'); }
+    if (flags & 1) throw new MpakError(`encrypted entry: ${name}`);
+    if (method !== 0 && method !== 8) throw new MpakError(`unsupported compression method ${method}: ${name}`);
     if (usize === U32 || csize === U32 || offset === U32) {
       let x = p + 46 + nlen; const xend = x + xlen;
       while (x + 4 <= xend) {
@@ -95,25 +95,25 @@ export async function readDirectory(source, limits = LIMITS) {
       }
     }
     checkEntryName(name);
-    if (offset + 30 > size) throw new MtabError(`bad local header: ${name}`);
+    if (offset + 30 > size) throw new MpakError(`bad local header: ${name}`);
     const lh = await readExact(source, offset, offset + 30);
     const lv = view(lh);
-    if (lv.getUint32(0, true) !== SIG_LOCAL) throw new MtabError(`bad local header: ${name}`);
+    if (lv.getUint32(0, true) !== SIG_LOCAL) throw new MpakError(`bad local header: ${name}`);
     const localExtra = lv.getUint16(28, true);
     const dataStart = offset + 30 + lv.getUint16(26, true) + localExtra;
-    if (dataStart + csize > size) throw new MtabError(`entry data out of range: ${name}`);
+    if (dataStart + csize > size) throw new MpakError(`entry data out of range: ${name}`);
     entries.push({ name, method, crc, csize, usize, offset, dataStart, localExtra });
     p += 46 + nlen + xlen + clen;
   }
   const seen = new Set();
   for (const e of entries) {
     const k = e.name.toLowerCase();
-    if (seen.has(k)) throw new MtabError(`duplicate entry name: ${e.name}`);
+    if (seen.has(k)) throw new MpakError(`duplicate entry name: ${e.name}`);
     seen.add(k);
   }
   const spans = entries.map((e) => [e.offset, e.dataStart + e.csize, e.name]).sort((a, b) => a[0] - b[0]);
   for (let i = 1; i < spans.length; i++)
-    if (spans[i][0] < spans[i - 1][1]) throw new MtabError(`overlapping entries: ${spans[i - 1][2]}, ${spans[i][2]}`);
+    if (spans[i][0] < spans[i - 1][1]) throw new MpakError(`overlapping entries: ${spans[i - 1][2]}, ${spans[i][2]}`);
   return entries;
 }
 
@@ -137,12 +137,12 @@ async function inflate(raw, cap, name) {
       const { done, value } = await r.read();
       if (done) break;
       total += value.length;
-      if (total > cap) { r.cancel().catch(() => {}); throw new MtabError(`entry exceeds size or ratio limit: ${name}`); }
+      if (total > cap) { r.cancel().catch(() => {}); throw new MpakError(`entry exceeds size or ratio limit: ${name}`); }
       chunks.push(value);
     }
   } catch (err) {
-    if (err instanceof MtabError) throw err;
-    throw new MtabError(`cannot inflate ${name}: ${err.message}`);
+    if (err instanceof MpakError) throw err;
+    throw new MpakError(`cannot inflate ${name}: ${err.message}`);
   }
   const out = new Uint8Array(total);
   let at = 0;
@@ -152,13 +152,13 @@ async function inflate(raw, cap, name) {
 
 /** Reads one entry whole, checks its size and CRC-32. `maxSize` caps the output; deflate output is also capped by the ratio. */
 export async function readEntry(source, e, { maxSize = Infinity, limits = LIMITS } = {}) {
-  if (e.usize > maxSize) throw new MtabError(`entry too large: ${e.name}`);
+  if (e.usize > maxSize) throw new MpakError(`entry too large: ${e.name}`);
   const raw = await readExact(source, e.dataStart, e.dataStart + e.csize);
   let out;
   if (e.method === 0) out = raw.slice();
   else out = await inflate(raw, capOf(e, maxSize, limits), e.name);
-  if (out.length !== e.usize) throw new MtabError(`size mismatch: ${e.name}`);
-  if (crc32(out) !== e.crc) throw new MtabError(`crc mismatch: ${e.name}`);
+  if (out.length !== e.usize) throw new MpakError(`size mismatch: ${e.name}`);
+  if (crc32(out) !== e.crc) throw new MpakError(`crc mismatch: ${e.name}`);
   return out;
 }
 
@@ -183,13 +183,13 @@ export function entryStream(source, e, { limits = LIMITS } = {}) {
   const check = new TransformStream({
     transform(chunk, c) {
       total += chunk.length;
-      if (e.method !== 0 && total > cap) throw new MtabError(`entry exceeds size or ratio limit: ${e.name}`);
+      if (e.method !== 0 && total > cap) throw new MpakError(`entry exceeds size or ratio limit: ${e.name}`);
       crc = crc32(chunk, crc);
       c.enqueue(chunk);
     },
     flush() {
-      if (total !== e.usize) throw new MtabError(`size mismatch: ${e.name}`);
-      if (crc !== e.crc) throw new MtabError(`crc mismatch: ${e.name}`);
+      if (total !== e.usize) throw new MpakError(`size mismatch: ${e.name}`);
+      if (crc !== e.crc) throw new MpakError(`crc mismatch: ${e.name}`);
     },
   });
   return (e.method === 0 ? raw : raw.pipeThrough(new DecompressionStream('deflate-raw'))).pipeThrough(check);

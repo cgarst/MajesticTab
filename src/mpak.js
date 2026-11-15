@@ -1,22 +1,22 @@
-// mtab.js
-// The .mtab song bundle (Multi-Track Tab v1 specification): a ZIP container with `manifest.json`, `tab/<name>` (or `tab.externalPath` for shared PDFs),
+// mpak.js
+// The .mpak song bundle (Music Pack v1 specification): a ZIP container with `manifest.json`, `score/<name>` (or `score.externalPath` for shared PDFs),
 // `audio/<name>` (stored), and `sync/<id>.json`.
 
 import {
     MEDIA_TYPE,
     ANCHOR,
-    MtabError,
+    MpakError,
     sha256,
     bytesSource,
     readDirectory,
     readEntry,
-    openMtab as coreOpenMtab,
-    buildMtab as coreBuildMtab,
-} from './mtab/core/index.js';
+    openMpak as coreOpenMpak,
+    buildMpak as coreBuildMpak,
+} from './mpak/core/index.js';
 
-export const MTAB_FORMAT = 'mtab';
-export const MTAB_VERSION = 1;
-export const MTAB_EXTENSION = 'mtab';
+export const MPAK_FORMAT = 'mpak';
+export const MPAK_VERSION = 1;
+export const MPAK_EXTENSION = 'mpak';
 
 const SLOTS = ['original', 'backing'];
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -29,19 +29,31 @@ const MIME_BY_FORMAT = {
     gp5: 'application/octet-stream',
     gp: 'application/octet-stream',
     gpx: 'application/octet-stream',
+    musicxml: 'application/vnd.recordare.musicxml+xml',
+    mxl: 'application/vnd.recordare.musicxml',
+    mscz: 'application/octet-stream',
+    midi: 'audio/midi',
+    abc: 'text/plain;charset=utf-8',
     pdf: 'application/pdf',
     txt: 'text/plain;charset=utf-8',
 };
 
+// The score formats the reader can display. The others are valid in a .mpak file but are rejected on open.
+const SUPPORTED_SCORE_FORMATS = ['gp3', 'gp4', 'gp5', 'gp', 'gpx', 'pdf', 'txt'];
+const SCORE_FORMAT_NAMES = { musicxml: 'MusicXML', mxl: 'MusicXML', mscz: 'MuseScore', midi: 'MIDI', abc: 'ABC notation' };
+
+// File extensions that name a score format under another spelling.
+const FORMAT_BY_EXTENSION = { mid: 'midi', kar: 'midi', xml: 'musicxml' };
+
 const enc = (s) => encodeURIComponent(String(s).toLowerCase());
 
-export const isMtabFile = (file) => /\.mtab$/i.test(file?.name || '');
+export const isMpakFile = (file) => /\.mpak$/i.test(file?.name || '');
 
 /**
- * True when the bytes are a ZIP whose `manifest.json` says `format: "mtab"`. There is no magic number to read: a file
+ * True when the bytes are a ZIP whose `manifest.json` says `format: "mpak"`. There is no magic number to read: a file
  * is recognised by its extension or, for bytes with no usable name, by this check. Never throws.
  */
-export async function isMtabBytes(bytes) {
+export async function isMpakBytes(bytes) {
     try {
         if (!bytes) return false;
         const u8 = bytes instanceof Uint8Array
@@ -54,14 +66,14 @@ export async function isMtabBytes(bytes) {
         const entry = (await readDirectory(source)).find((e) => e.name === 'manifest.json');
         if (!entry) return false;
         const manifest = JSON.parse(new TextDecoder().decode(await readEntry(source, entry, { maxSize: 1 << 20 })));
-        return manifest?.format === MTAB_FORMAT;
+        return manifest?.format === MPAK_FORMAT;
     } catch {
         return false;
     }
 }
 
 /** Normalize `song` metadata (including MusicBrainz IDs in direct fields or v1 `ids.musicbrainz` / legacy `musicbrainz`). */
-export function normalizeMtabSong(rawSong = {}, rawHeader = {}) {
+export function normalizeMpakSong(rawSong = {}, rawHeader = {}) {
     const s = (rawSong && typeof rawSong === 'object') ? rawSong : {};
     const mb = (s.ids?.musicbrainz && typeof s.ids.musicbrainz === 'object')
         ? s.ids.musicbrainz
@@ -144,6 +156,7 @@ function sanitizeSegment(name, fallback) {
 function inferTabFormat(file) {
     const ext = String(file?.name || '').split('.').pop().toLowerCase();
     if (ext && ext in ANCHOR) return ext;
+    if (FORMAT_BY_EXTENSION[ext]) return FORMAT_BY_EXTENSION[ext];
     if (file?.type === 'application/pdf') return 'pdf';
     if (String(file?.type || '').startsWith('text/')) return 'txt';
     return 'gp5';
@@ -221,8 +234,8 @@ function rememberLibrarySongKey(librarySongId, key, meta = {}) {
     } catch { /* optional */ }
 }
 
-/** Builds a v1 .mtab bundle for the open song. Returns `{ blob, filename }`. */
-export async function buildMtab(file, options = {}) {
+/** Builds a v1 .mpak bundle for the open song. Returns `{ blob, filename }`. */
+export async function buildMpak(file, options = {}) {
     const { getAudioFile } = await import('./audioSync/audioFileStore.js');
     const { listRecords, isSyncSharedFromOriginal, mediaKey } = await import('./audioSync/syncStore.js');
 
@@ -257,55 +270,55 @@ export async function buildMtab(file, options = {}) {
         } catch { /* optional */ }
     }
 
-    const priorMtabSong = (file?.mtabSong && typeof file.mtabSong === 'object') ? file.mtabSong : {};
+    const priorMpakSong = (file?.mpakSong && typeof file.mpakSong === 'object') ? file.mpakSong : {};
     const rawSongMeta = {
-        artist: options.song?.artist || activeArtist || libSong?.artist || priorMtabSong.artist || file?.artist || '',
-        title: options.song?.title || activeTitle || libSong?.title || priorMtabSong.title || file?.songTitle || '',
-        album: options.song?.album || (libSong?.album && libSong.album !== 'Unknown Album' ? libSong.album : '') || priorMtabSong.album || file?.album || '',
-        year: options.song?.year ?? libSong?.year ?? priorMtabSong.year ?? null,
-        trackNumber: options.song?.trackNumber ?? libSong?.trackNumber ?? priorMtabSong.trackNumber ?? null,
-        mediumNumber: options.song?.mediumNumber ?? libSong?.mediumNumber ?? priorMtabSong.mediumNumber ?? null,
-        length: options.song?.length ?? libSong?.length ?? priorMtabSong.length ?? null,
-        recordingMbid: options.song?.recordingMbid || libSong?.recordingMbid || priorMtabSong.recordingMbid || file?.recordingMbid || null,
-        artistMbid: options.song?.artistMbid || libSong?.artistMbid || priorMtabSong.artistMbid || file?.artistMbid || null,
-        albumMbid: options.song?.albumMbid || libSong?.albumMbid || priorMtabSong.albumMbid || file?.albumMbid || null,
-        releaseMbid: options.song?.releaseMbid || priorMtabSong.releaseMbid || null,
-        musicbrainz: options.song?.musicbrainz || priorMtabSong.musicbrainz || null,
+        artist: options.song?.artist || activeArtist || libSong?.artist || priorMpakSong.artist || file?.artist || '',
+        title: options.song?.title || activeTitle || libSong?.title || priorMpakSong.title || file?.songTitle || '',
+        album: options.song?.album || (libSong?.album && libSong.album !== 'Unknown Album' ? libSong.album : '') || priorMpakSong.album || file?.album || '',
+        year: options.song?.year ?? libSong?.year ?? priorMpakSong.year ?? null,
+        trackNumber: options.song?.trackNumber ?? libSong?.trackNumber ?? priorMpakSong.trackNumber ?? null,
+        mediumNumber: options.song?.mediumNumber ?? libSong?.mediumNumber ?? priorMpakSong.mediumNumber ?? null,
+        length: options.song?.length ?? libSong?.length ?? priorMpakSong.length ?? null,
+        recordingMbid: options.song?.recordingMbid || libSong?.recordingMbid || priorMpakSong.recordingMbid || file?.recordingMbid || null,
+        artistMbid: options.song?.artistMbid || libSong?.artistMbid || priorMpakSong.artistMbid || file?.artistMbid || null,
+        albumMbid: options.song?.albumMbid || libSong?.albumMbid || priorMpakSong.albumMbid || file?.albumMbid || null,
+        releaseMbid: options.song?.releaseMbid || priorMpakSong.releaseMbid || null,
+        musicbrainz: options.song?.musicbrainz || priorMpakSong.musicbrainz || null,
     };
 
-    const normSong = normalizeMtabSong(rawSongMeta);
+    const normSong = normalizeMpakSong(rawSongMeta);
     const tabFormat = inferTabFormat(file);
-    const name = file.name || `tab.${tabFormat}`;
-    const safeTabName = sanitizeSegment(name, `tab.${tabFormat}`);
-    const tabPath = `tab/${safeTabName}`;
+    const name = file.name || `score.${tabFormat}`;
+    const safeTabName = sanitizeSegment(name, `score.${tabFormat}`);
+    const tabPath = `score/${safeTabName}`;
     const tabBytes = new Uint8Array(await file.arrayBuffer());
     const tabSha256 = await sha256(tabBytes);
 
     const files = new Map([[tabPath, tabBytes]]);
-    const tab = {
+    const score = {
         path: tabPath,
         format: tabFormat,
         sha256: tabSha256,
         name,
     };
     const tuningArr = toManifestTuning(await manualTuning(file));
-    if (tuningArr) tab.tuning = tuningArr;
+    if (tuningArr) score.instruments = [{ tuning: tuningArr }];
     if (tabFormat === 'pdf') {
-        const startPage = options.startPage ?? file.mtabPageRange?.startPage;
-        const endPage = options.endPage ?? file.mtabPageRange?.endPage;
-        const pages = options.pages ?? file.mtabPageRange?.pages;
-        if (Number.isInteger(pages) && pages >= 1) tab.pages = pages;
-        if (Number.isInteger(startPage) && startPage >= 1) tab.startPage = startPage;
-        if (Number.isInteger(endPage) && endPage >= 1) tab.endPage = endPage;
+        const startPage = options.startPage ?? file.mpakPageRange?.startPage;
+        const endPage = options.endPage ?? file.mpakPageRange?.endPage;
+        const pages = options.pages ?? file.mpakPageRange?.pages;
+        if (Number.isInteger(pages) && pages >= 1) score.pages = pages;
+        if (Number.isInteger(startPage) && startPage >= 1) score.startPage = startPage;
+        if (Number.isInteger(endPage) && endPage >= 1) score.endPage = endPage;
     }
 
     const manifest = {
-        format: MTAB_FORMAT,
-        version: MTAB_VERSION,
+        format: MPAK_FORMAT,
+        version: MPAK_VERSION,
         createdAt: new Date().toISOString(),
         generator: { name: 'MajesticTab' },
         ...(buildManifestSong(normSong) ? { song: buildManifestSong(normSong) } : {}),
-        tab,
+        score,
         recordings: [],
     };
 
@@ -352,7 +365,7 @@ export async function buildMtab(file, options = {}) {
                 if (!syncRec) syncRec = recordsByMedia.get(mediaKey({ kind: 'youtube', videoId })) || null;
             }
         } catch (e) {
-            console.warn('[mtab] could not read the', slot, 'recording:', e);
+            console.warn('[mpak] could not read the', slot, 'recording:', e);
         }
 
         if (!sources.length) continue;
@@ -373,22 +386,22 @@ export async function buildMtab(file, options = {}) {
         manifest.recordings.push(recording);
     }
 
+    // The first recording is the default (SPEC section 7), and the slots are visited original first.
     if (manifest.recordings.some((r) => r.id === 'original')) {
-        manifest.defaultRecording = 'original';
         const backing = manifest.recordings.find((r) => r.id === 'backing');
         if (backing && !backing.sync && isSyncSharedFromOriginal(songKey)) {
             backing.syncFrom = 'original';
         }
     }
 
-    const { parts } = await coreBuildMtab(manifest, files);
+    const { parts } = await coreBuildMpak(manifest, files);
     const clean = (s) => String(s || '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim();
     const artist = clean(normSong.artist);
     const title = clean(normSong.title);
     const base = (artist && title ? `${artist} - ${title}` : title || artist) || name.replace(/\.[^.]+$/, '') || 'song';
     return {
         blob: new Blob(parts, { type: MEDIA_TYPE }),
-        filename: `${base}.${MTAB_EXTENSION}`,
+        filename: `${base}.${MPAK_EXTENSION}`,
     };
 }
 
@@ -396,7 +409,7 @@ export async function buildMtab(file, options = {}) {
  * A bundle the desktop shell was opened with. It stays on disk: Rust hands over only its path and size, and the
  * pieces are read on demand, so a bundle with hours of audio never goes through the page as one array.
  */
-export function nativeMtabSource({ name, path, size }) {
+export function nativeMpakSource({ name, path, size }) {
     return {
         name, size,
         read: async (start, end, type = '') => {
@@ -441,43 +454,49 @@ function asByteSource(input) {
     };
 }
 
-/** Parses a v1 .mtab bundle: `{ header, opened, part }`. Throws MtabError for invalid bundles. */
-export async function readMtab(input, options = {}) {
-    const opened = await coreOpenMtab(asByteSource(input), options);
+/** Parses a v1 .mpak bundle: `{ header, opened, part }`. Throws MpakError for invalid bundles. */
+export async function readMpak(input, options = {}) {
+    const opened = await coreOpenMpak(asByteSource(input), options);
     const header = {
         ...opened.manifest,
-        song: normalizeMtabSong(opened.manifest.song, opened.manifest),
+        song: normalizeMpakSong(opened.manifest.song, opened.manifest),
     };
     return { header, opened, part: opened };
 }
 
 /**
- * Unpacks an .mtab bundle into `{ header, opened, part, tabFile }`, attaching normalized `header.song`
- * (including any MusicBrainz IDs) as `tabFile.mtabSong`.
+ * Unpacks an .mpak bundle into `{ header, opened, part, tabFile }`, attaching normalized `header.song`
+ * (including any MusicBrainz IDs) as `tabFile.mpakSong`.
  */
-export async function unpackMtab(input, options = {}) {
-    const { header, opened } = await readMtab(input, options);
-    if (!opened.tab) {
-        const extPath = header.tab?.externalPath || 'external PDF';
-        throw new MtabError(`This .mtab file references an external tab (${extPath}) that was not provided.`);
+export async function unpackMpak(input, options = {}) {
+    const { header, opened } = await readMpak(input, options);
+    if (!SUPPORTED_SCORE_FORMATS.includes(header.score.format)) {
+        throw new MpakError(`This .mpak file has a ${SCORE_FORMAT_NAMES[header.score.format] || header.score.format} score, which MajesticTab cannot open. It opens Guitar Pro, PDF and text scores.`);
     }
-    const tabName = header.tab.name || (header.tab.path || header.tab.externalPath || `tab.${header.tab.format}`).split('/').pop();
-    const mime = MIME_BY_FORMAT[header.tab.format] || 'application/octet-stream';
-    const tabFile = new File([opened.tab], tabName, { type: mime });
-    if (Array.isArray(header.tab?.tuning) && header.tab.tuning.length) {
+    if (!opened.score) {
+        const extPath = header.score?.externalPath || 'external PDF';
+        throw new MpakError(`This .mpak file references an external score (${extPath}) that was not provided.`);
+    }
+    const tabName = header.score.name || (header.score.path || header.score.externalPath || `score.${header.score.format}`).split('/').pop();
+    const mime = MIME_BY_FORMAT[header.score.format] || 'application/octet-stream';
+    const tabFile = new File([opened.score], tabName, { type: mime });
+    // `instruments` is informational and only for scores that carry no tuning of their own (SPEC section 6): take the
+    // first entry that lists a tuning.
+    const instrumentTuning = (header.score?.instruments || []).find((i) => Array.isArray(i?.tuning) && i.tuning.length)?.tuning;
+    if (instrumentTuning) {
         tabFile.tabTuning = {
-            tuning: header.tab.tuning.map((n) => n.replace(/-?[0-9]$/, '')).join(' '),
+            tuning: instrumentTuning.map((n) => n.replace(/-?[0-9]$/, '')).join(' '),
             source: 'user',
         };
     }
-    if (header.tab?.startPage != null || header.tab?.endPage != null) {
-        tabFile.mtabPageRange = {
-            startPage: header.tab.startPage ?? 1,
-            endPage: header.tab.endPage ?? header.tab.pages ?? null,
-            pages: header.tab.pages ?? null,
+    if (header.score?.startPage != null || header.score?.endPage != null) {
+        tabFile.mpakPageRange = {
+            startPage: header.score.startPage ?? 1,
+            endPage: header.score.endPage ?? header.score.pages ?? null,
+            pages: header.score.pages ?? null,
         };
     }
-    tabFile.mtabSong = header.song;
+    tabFile.mpakSong = header.song;
     if (header.song?.title && !tabFile.songTitle) tabFile.songTitle = header.song.title;
     if (header.song?.artist && !tabFile.artist) tabFile.artist = header.song.artist;
     if (header.song?.album && !tabFile.album) tabFile.album = header.song.album;
@@ -526,14 +545,14 @@ function takeMatchingPendingBrowserTarget(songInfo = {}) {
 }
 
 /**
- * Opens a bundle: loads its tab, then attaches the recordings, sync points and tuning to the song as the open tab
- * knows it (its song key is only settled once the tab is loaded).
+ * Opens a bundle: loads its score, then attaches the recordings, sync points and tuning to the song as the open tab
+ * knows it (its song key is only settled once the score is loaded).
  */
-export async function openMtab(file, options = {}) {
-    const unpacked = await unpackMtab(file, options);
+export async function openMpak(file, options = {}) {
+    const unpacked = await unpackMpak(file, options);
     const { header, opened, tabFile } = unpacked;
     if (opened.warnings?.length) {
-        console.warn('[mtab] warnings while opening bundle:', opened.warnings);
+        console.warn('[mpak] warnings while opening bundle:', opened.warnings);
     }
 
     try {
@@ -550,7 +569,7 @@ export async function openMtab(file, options = {}) {
 
         const hasMbids = Boolean(songInfo.recordingMbid || songInfo.albumMbid);
         if (targetSongId || hasMbids) {
-            const saved = await saveMtabToLibrary(unpacked, {
+            const saved = await saveMpakToLibrary(unpacked, {
                 targetSongId,
                 collectionId,
                 queryMusicBrainz: true,
@@ -563,23 +582,19 @@ export async function openMtab(file, options = {}) {
             }
         }
     } catch (e) {
-        console.warn('[mtab] auto-merge on openMtab failed:', e);
+        console.warn('[mpak] auto-merge on openMpak failed:', e);
     }
 
     const { loadFile } = await import('./main.js');
     await loadFile(tabFile);
-    await applyMtabExtras(header, opened);
+    await applyMpakExtras(header, opened);
 }
 
 function mapRecordingsToSlots(manifest) {
     const recs = manifest?.recordings || [];
     const bySlot = { original: null, backing: null };
-    const defaultRec = manifest?.defaultRecording
-        ? recs.find((r) => r.id === manifest.defaultRecording)
-        : null;
-    if (defaultRec && (defaultRec.role === 'original' || defaultRec.id === 'original')) {
-        bySlot.original = defaultRec;
-    }
+    // The first recording is the default (SPEC section 7): if it is an original, it takes the original slot.
+    if (recs[0] && (recs[0].role === 'original' || recs[0].id === 'original')) bySlot.original = recs[0];
     for (const r of recs) {
         if (!bySlot.original && (r.role === 'original' || r.id === 'original')) {
             bySlot.original = r;
@@ -591,10 +606,10 @@ function mapRecordingsToSlots(manifest) {
 }
 
 /**
- * Attaches an .mtab bundle's recordings (original/backing audio, embedded, or YouTube) and sync points to
+ * Attaches an .mpak bundle's recordings (original/backing audio, embedded, or YouTube) and sync points to
  * the given `songKey` and `aliasKeys` (or the currently active reader's songKey when omitted).
  */
-export async function applyMtabExtras(data, opened, options = {}) {
+export async function applyMpakExtras(data, opened, options = {}) {
     const { saveAudioFile, linkAudioFile, setAudioPeaks } = await import('./audioSync/audioFileStore.js');
     const { decodePeaks } = await import('./audioSync/peaks.js');
     const { attachLibraryAudio } = await import('./audioSync/libraryAudio.js');
@@ -692,7 +707,7 @@ export async function applyMtabExtras(data, opened, options = {}) {
                     handled = true;
                     break;
                 }
-                if (src.type === 'embedded' && data.tab?.format === 'gp') {
+                if (src.type === 'embedded' && data.score?.format === 'gp') {
                     for (const k of allKeys) {
                         localStorage.setItem(`real_audio_source_${enc(k)}_${slot}`, 'embedded');
                     }
@@ -734,7 +749,7 @@ export async function applyMtabExtras(data, opened, options = {}) {
                 }
             }
         } catch (e) {
-            console.warn('[mtab] could not attach the', slot, 'recording:', e);
+            console.warn('[mpak] could not attach the', slot, 'recording:', e);
         }
     }
 
@@ -763,7 +778,7 @@ export async function applyMtabExtras(data, opened, options = {}) {
             }));
             for (const k of allKeys) saveRecord(k, media, points);
         } catch (e) {
-            console.warn('[mtab] could not attach the', rec?.id, 'recording:', e);
+            console.warn('[mpak] could not attach the', rec?.id, 'recording:', e);
         }
     }
 
@@ -785,13 +800,13 @@ export async function applyMtabExtras(data, opened, options = {}) {
 }
 
 /**
- * Saves an .mtab bundle to the library, using its MusicBrainz IDs (`recordingMbid`, `artistMbid`, `albumMbid`)
+ * Saves an .mpak bundle to the library, using its MusicBrainz IDs (`recordingMbid`, `artistMbid`, `albumMbid`)
  * and song metadata to either:
  *   - Add the song in the proper Artist > Album > Song hierarchy (querying MusicBrainz by ID when needed), or
  *   - Merge into an existing library song as another tab option,
  * and attaches the bundle's recordings and sync points to the library song.
  */
-export async function saveMtabToLibrary(input, options = {}) {
+export async function saveMpakToLibrary(input, options = {}) {
     const {
         collectionId = undefined,
         targetSongId = null,
@@ -804,7 +819,7 @@ export async function saveMtabToLibrary(input, options = {}) {
 
     const unpacked = (input && input.header && input.part && input.tabFile)
         ? input
-        : await unpackMtab(input);
+        : await unpackMpak(input);
     const { header, part, tabFile } = unpacked;
 
     const { getSongById, resolveAndSaveOrMergeSong, mapOpenFileToSong } = await import('./libraryStore.js');
@@ -862,7 +877,7 @@ export async function saveMtabToLibrary(input, options = {}) {
         rememberLibrarySongKey(song.id, ak, keyMeta);
     }
 
-    await applyMtabExtras(header, part, {
+    await applyMpakExtras(header, part, {
         songKey: mainKey,
         aliasKeys,
         song,

@@ -5,7 +5,7 @@
 
 import { getAllSongs } from '../libraryStore.js';
 import { getSources, isNative, openTabDownloader } from '../tabDownloader.js';
-import { saveMtabToLibrary } from '../mtab.js';
+import { saveMpakToLibrary } from '../mpak.js';
 import { showToast } from '../utils/toast.js';
 import { hasFeature } from '../channel.js';
 
@@ -24,7 +24,7 @@ const batchState = {
     origin: null,
     batchId: null,
     uiUrl: null,
-    items: new Map(), // songId -> { stage, confidence, error, mtabUrl }
+    items: new Map(), // songId -> { stage, confidence, error, mpakUrl }
     importedIds: new Set(),
     importingIds: new Set(),
     timer: null,
@@ -103,18 +103,18 @@ async function pollBatchOnce() {
             if (stage !== 'done' && stage !== 'error' && stage !== 'missing') {
                 pendingCount++;
             }
-            if (stage === 'done' && item.mtabUrl && !batchState.importedIds.has(item.songId) && !batchState.importingIds.has(item.songId)) {
+            if (stage === 'done' && item.mpakUrl && !batchState.importedIds.has(item.songId) && !batchState.importingIds.has(item.songId)) {
                 batchState.importingIds.add(item.songId);
-                const mtabUrl = /^https?:\/\//i.test(item.mtabUrl)
-                    ? item.mtabUrl
-                    : `${batchState.origin}${item.mtabUrl.startsWith('/') ? '' : '/'}${item.mtabUrl}`;
-                httpFetch(mtabUrl)
+                const mpakUrl = /^https?:\/\//i.test(item.mpakUrl)
+                    ? item.mpakUrl
+                    : `${batchState.origin}${item.mpakUrl.startsWith('/') ? '' : '/'}${item.mpakUrl}`;
+                httpFetch(mpakUrl)
                     .then(async (r) => {
                         if (!r.ok) throw new Error(`HTTP ${r.status}`);
                         const buf = await r.arrayBuffer();
-                        const name = item.fileName || `${item.artist || 'Song'} - ${item.title || item.songId}.mtab`;
+                        const name = item.fileName || `${item.artist || 'Song'} - ${item.title || item.songId}.mpak`;
                         const file = new File([buf], name, { type: 'application/x-majestictab-song' });
-                        await saveMtabToLibrary(file, { targetSongId: item.songId, queryMusicBrainz: false });
+                        await saveMpakToLibrary(file, { targetSongId: item.songId, queryMusicBrainz: false });
                         batchState.importedIds.add(item.songId);
                         batchState.importingIds.delete(item.songId);
                         if (typeof window !== 'undefined') {

@@ -43,7 +43,7 @@
           <uap:FileTypeAssociation Name="majestictabsong">
             <uap:DisplayName>MajesticTab Song</uap:DisplayName>
             <uap:SupportedFileTypes>
-              <uap:FileType>.mtab</uap:FileType>
+              <uap:FileType>.mpak</uap:FileType>
             </uap:SupportedFileTypes>
           </uap:FileTypeAssociation>
         </uap:Extension>

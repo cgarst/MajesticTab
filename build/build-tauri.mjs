@@ -492,7 +492,7 @@ if (target === 'android') {
                 <data android:scheme="content" />
                 <data android:scheme="file" />
                 <data android:mimeType="application/x-majestictab-song" />
-                <data android:mimeType="application/vnd.mtab+zip" />
+                <data android:mimeType="application/vnd.mpak+zip" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -502,7 +502,7 @@ if (target === 'android') {
                 <data android:scheme="file" />
                 <data android:host="*" />
                 <data android:mimeType="*/*" />
-                <data android:pathPattern=".*\\.mtab" />
+                <data android:pathPattern=".*\\.mpak" />
             </intent-filter>
         `;
     manifest = manifest.replace('</activity>', `${viewFilters}</activity>`);

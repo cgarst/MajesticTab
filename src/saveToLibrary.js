@@ -27,12 +27,12 @@ export async function openSaveToLibraryModal(file) {
         detectFileMetadata(file, file.name).catch(() => null)
     ]);
     const isClassical = Boolean(file.classtabTab);
-    const mtabSong = (file.mtabSong && typeof file.mtabSong === 'object') ? file.mtabSong : null;
+    const mpakSong = (file.mpakSong && typeof file.mpakSong === 'object') ? file.mpakSong : null;
     // A classical piece's file name is the archive's lowercase path; its title keeps the catalog's case
     const baseName = isClassical && file.songTitle ? file.songTitle : file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-    const initialTitle = mtabSong?.title || meta?.title || file.songTitle || baseName;
-    const initialArtist = mtabSong?.artist || meta?.artist || file.artist || '';
-    const initialAlbum = mtabSong?.album || meta?.album || file.album || '';
+    const initialTitle = mpakSong?.title || meta?.title || file.songTitle || baseName;
+    const initialArtist = mpakSong?.artist || meta?.artist || file.artist || '';
+    const initialAlbum = mpakSong?.album || meta?.album || file.album || '';
     // The tuning the tab is saved with: the one the player set in the Song menu, else what the data gives
     const chosenTuning = file.tabTuning && typeof file.tabTuning === 'object' ? file.tabTuning : null;
     const savedTunings = chosenTuning ? (chosenTuning.tuning ? [chosenTuning.tuning] : []) : (meta?.tunings || []);
@@ -167,15 +167,15 @@ export async function openSaveToLibraryModal(file) {
         });
     };
 
-    const runSearch = async (useMtabIds = false) => {
+    const runSearch = async (useMpakIds = false) => {
         const q = searchInput.value.trim();
         const seq = ++searchSeq;
-        const hasMtabIds = Boolean(useMtabIds && mtabSong && (mtabSong.recordingMbid || mtabSong.albumMbid || mtabSong.artistMbid));
-        if (!q && !hasMtabIds) { resultsEl.innerHTML = ''; return; }
+        const hasMpakIds = Boolean(useMpakIds && mpakSong && (mpakSong.recordingMbid || mpakSong.albumMbid || mpakSong.artistMbid));
+        if (!q && !hasMpakIds) { resultsEl.innerHTML = ''; return; }
         resultsEl.innerHTML = '<div class="small text-muted text-center py-3">Searching...</div>';
         try {
             const [idMatch, searchList] = await Promise.all([
-                hasMtabIds ? lookupMusicBrainzByIds(mtabSong).catch(() => null) : Promise.resolve(null),
+                hasMpakIds ? lookupMusicBrainzByIds(mpakSong).catch(() => null) : Promise.resolve(null),
                 q ? searchMusicBrainz(q, 'song').catch(() => []) : Promise.resolve([])
             ]);
             if (seq !== searchSeq) return;
@@ -231,15 +231,15 @@ export async function openSaveToLibraryModal(file) {
                 const resolved = await resolveAndSaveOrMergeSong({
                     title,
                     artist: selected.artist,
-                    artistMbid: selected.artistMbid || mtabSong?.artistMbid || null,
-                    album: selected.album || mtabSong?.album || null,
-                    albumMbid: selected.albumMbid || mtabSong?.albumMbid || null,
-                    recordingMbid: selected.recordingMbid || mtabSong?.recordingMbid || null,
-                    year: selected.year ?? mtabSong?.year ?? null,
-                    length: selected.length ?? mtabSong?.length ?? null,
-                    trackNumber: selected.trackNumber ?? mtabSong?.trackNumber ?? null,
-                    mediumNumber: selected.mediumNumber ?? mtabSong?.mediumNumber ?? null,
-                    coverUrl: selected.coverUrl || mtabSong?.coverUrl || null
+                    artistMbid: selected.artistMbid || mpakSong?.artistMbid || null,
+                    album: selected.album || mpakSong?.album || null,
+                    albumMbid: selected.albumMbid || mpakSong?.albumMbid || null,
+                    recordingMbid: selected.recordingMbid || mpakSong?.recordingMbid || null,
+                    year: selected.year ?? mpakSong?.year ?? null,
+                    length: selected.length ?? mpakSong?.length ?? null,
+                    trackNumber: selected.trackNumber ?? mpakSong?.trackNumber ?? null,
+                    mediumNumber: selected.mediumNumber ?? mpakSong?.mediumNumber ?? null,
+                    coverUrl: selected.coverUrl || mpakSong?.coverUrl || null
                 }, collectionId, { queryMusicBrainz: true });
                 song = resolved.song;
                 merged = resolved.merged;

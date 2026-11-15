@@ -106,7 +106,7 @@ When opened with **Condense PDF** enabled, MajesticTab removes empty staves, tri
 
 ## Guidelines for contributors
 
-- **Never commit copyrighted tabs:** Do not add, commit, or push Guitar Pro files (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`), `.mtab` bundles, or tab PDFs anywhere in the repository or pull requests. Use local, untracked files for testing.
+- **Never commit copyrighted tabs:** Do not add, commit, or push Guitar Pro files (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`), `.mpak` bundles, or tab PDFs anywhere in the repository or pull requests. Use local, untracked files for testing.
 - **No third-party tab site names:** Do not name specific tab sites or tab services in UI text, code comments, defaults, documentation, tests, or commit messages. Refer to them generically ("tab sites", "search the web").
 - **External URLs in `src/`:** `build/tauri/prepare-tauri-frontend.mjs` checks every `.html`, `.js`, `.css`, and `.mjs` file under `src/` (including comments) against an explicit allowlist so packaged apps only connect to approved hosts. Run `cd build/tauri && npm run prepare:frontend` to verify before opening a pull request.
 - **UI copy and styling:** Use sentence case for all headings, buttons, labels, and menu items (`Continuous scroll or book-like pages`, not Title Case). Visual theme rules belong in `src/design.css`.

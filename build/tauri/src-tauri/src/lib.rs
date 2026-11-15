@@ -32,7 +32,7 @@ mod youtube_ios;
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct OpenedFilePayload {
     pub name: String,
-    /// The file's bytes. Empty for a song bundle (.mtab), which can hold hours of audio: it is handed over as `path`
+    /// The file's bytes. Empty for a song bundle (.mpak), which can hold hours of audio: it is handed over as `path`
     /// and `size` and the page reads it piece by piece with `read_opened_file_range`.
     pub data: Option<Vec<u8>>,
     pub path: Option<String>,
@@ -70,7 +70,7 @@ fn load_file_from_path_or_url(target: &str) -> Option<OpenedFilePayload> {
         let size = std::fs::metadata(&path).ok()?.len();
         let is_bundle = path
             .extension()
-            .map_or(false, |e| e.eq_ignore_ascii_case("mtab"));
+            .map_or(false, |e| e.eq_ignore_ascii_case("mpak"));
         if is_bundle {
             OPENED_PATHS.lock().ok()?.push(path.clone());
             return Some(OpenedFilePayload {

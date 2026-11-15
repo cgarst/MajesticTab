@@ -17,7 +17,7 @@ import { isWsaTabUrl } from './utils/downloaderIntercept.js';
 import { addTabOptionToSong, addTabOptionToAlbum, getSongById } from './libraryStore.js';
 import { detectFileMetadata } from './utils/tuningUtils.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
-import { isMtabFile, openMtab, unpackMtab, applyMtabExtras } from './mtab.js';
+import { isMpakFile, openMpak, unpackMpak, applyMpakExtras } from './mpak.js';
 import { showToast } from './utils/toast.js';
 
 const providers = new Map();
@@ -125,17 +125,17 @@ export async function saveToProvider(id, fileBlob, filename, options = {}) {
  * @param {File} file
  */
 export async function openLocalFile(file) {
-    if (isMtabFile(file)) return openMtabSafely(file);
+    if (isMpakFile(file)) return openMpakSafely(file);
     if (!(await isSupportedTabFile(file))) {
-        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mtab)`, 'warning');
+        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mpak)`, 'warning');
         return;
     }
     await loadFile(file);
 }
 
-async function openMtabSafely(file) {
+async function openMpakSafely(file) {
     try {
-        await openMtab(file);
+        await openMpak(file);
     } catch (err) {
         showToast(err?.message || 'Could not open that song file', 'error');
     }
@@ -143,12 +143,12 @@ async function openMtabSafely(file) {
 
 /** Attach or open a file the user picked, depending on what the caller asked for (song, album, callback or plain open). */
 async function handlePickedFile(file, options = {}) {
-    if (isMtabFile(file) && !options.onFileSelected && !options.songId && !options.targetSong?.id && !options.isAlbumTab) return openMtabSafely(file);
-    let mtabBundle = null;
-    if (isMtabFile(file)) {
+    if (isMpakFile(file) && !options.onFileSelected && !options.songId && !options.targetSong?.id && !options.isAlbumTab) return openMpakSafely(file);
+    let mpakBundle = null;
+    if (isMpakFile(file)) {
         try {
-            mtabBundle = await unpackMtab(file);
-            file = mtabBundle.tabFile;
+            mpakBundle = await unpackMpak(file);
+            file = mpakBundle.tabFile;
         } catch (err) {
             showToast(err?.message || 'Could not open that song file', 'error');
             return;
@@ -156,7 +156,7 @@ async function handlePickedFile(file, options = {}) {
     }
     if (typeof options.onFileSelected === 'function' || options.songId || options.targetSong?.id || options.isAlbumTab) {
         if (!(await isSupportedTabFile(file))) {
-            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mtab)`, 'warning');
+            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mpak)`, 'warning');
             return;
         }
     }
@@ -176,7 +176,7 @@ async function handlePickedFile(file, options = {}) {
                 meta,
                 sourceUrl: file.sourceUrl || null,
                 sourceWebsite: file.sourceWebsite || null,
-                mtabBundle
+                mpakBundle
             });
         } catch (err) {
             console.warn('Could not persist file to store:', err);
@@ -208,18 +208,18 @@ async function handlePickedFile(file, options = {}) {
                 sourceUrl: file.sourceUrl || null,
                 sourceWebsite: file.sourceWebsite || null
             });
-            if (mtabBundle) {
+            if (mpakBundle) {
                 const song = await getSongById(targetId).catch(() => null);
                 const mainKey = (song?.artist && song?.title) ? `${song.artist} - ${song.title}` : (song?.title || file.name.replace(/\.[^/.]+$/, ''));
                 const aliasKeys = [];
-                if (mtabBundle.header?.song?.artist && mtabBundle.header?.song?.title) {
-                    const hk = `${mtabBundle.header.song.artist} - ${mtabBundle.header.song.title}`;
+                if (mpakBundle.header?.song?.artist && mpakBundle.header?.song?.title) {
+                    const hk = `${mpakBundle.header.song.artist} - ${mpakBundle.header.song.title}`;
                     if (hk.toLowerCase() !== mainKey.toLowerCase()) aliasKeys.push(hk);
                 }
                 const { rememberSongKey } = await import('./youtubePlayer.js');
                 rememberSongKey(targetId, mainKey, { filename: file.name, tabName: addedOption?.name || file.name });
                 for (const ak of aliasKeys) rememberSongKey(targetId, ak, { filename: file.name, tabName: addedOption?.name || file.name });
-                await applyMtabExtras(mtabBundle.header, mtabBundle.part, {
+                await applyMpakExtras(mpakBundle.header, mpakBundle.part, {
                     songKey: mainKey,
                     aliasKeys,
                     song: song || undefined,
@@ -281,7 +281,7 @@ export const LocalFileProvider = {
         input.type = 'file';
         // Android's and iOS's pickers turn accept into MIME types/UTIs; Guitar Pro extensions have none, so they grey those files out.
         // Leave the filter off there: the picked file is checked by its name and content afterwards.
-        if (!/Android/i.test(navigator.userAgent) && !isIOSDevice()) input.accept = '.pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt,.mtab';
+        if (!/Android/i.test(navigator.userAgent) && !isIOSDevice()) input.accept = '.pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt,.mpak';
         input.style.position = 'fixed';
         input.style.top = '-9999px';
         input.style.left = '-9999px';
@@ -463,7 +463,7 @@ export const UrlFileProvider = {
 
 /** True when the address path ends in a tab file extension, so it can be fetched as a file. */
 function looksLikeTabFileUrl(url) {
-    try { return /\.(gp[345x]?|pdf|txt|mtab)$/i.test(new URL(url).pathname); } catch { return false; }
+    try { return /\.(gp[345x]?|pdf|txt|mpak)$/i.test(new URL(url).pathname); } catch { return false; }
 }
 
 export async function openTabFromUrl(text, options = {}) {
@@ -486,7 +486,7 @@ export async function openTabFromUrl(text, options = {}) {
         const { extractSourceWebsite } = await import('./tabDownloader.js');
         file.sourceWebsite = extractSourceWebsite(file.sourceUrl);
         if (!(await isSupportedTabFile(file))) {
-            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mtab)`, 'warning');
+            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mpak)`, 'warning');
             return;
         }
         await handlePickedFile(file, options);

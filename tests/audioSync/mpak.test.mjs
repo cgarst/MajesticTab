@@ -1,4 +1,4 @@
-// Run with: node --test tests/audioSync/mtab.test.mjs
+// Run with: node --test tests/audioSync/mpak.test.mjs
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -252,23 +252,24 @@ globalThis.indexedDB = {
 };
 
 const {
-    MTAB_FORMAT,
-    MTAB_VERSION,
-    isMtabFile,
-    isMtabBytes,
-    normalizeMtabSong,
-    buildMtab,
-    readMtab,
-    unpackMtab,
-    applyMtabExtras,
-    saveMtabToLibrary
-} = await import('../../src/mtab.js');
+    MPAK_FORMAT,
+    MPAK_VERSION,
+    isMpakFile,
+    isMpakBytes,
+    normalizeMpakSong,
+    buildMpak,
+    readMpak,
+    unpackMpak,
+    applyMpakExtras,
+    saveMpakToLibrary
+} = await import('../../src/mpak.js');
 
 const {
-    MIMETYPE,
+    MEDIA_TYPE,
+    MpakError,
     sha256,
-    buildMtab: coreBuildMtab,
-} = await import('../../src/mtab/core/index.js');
+    buildMpak: coreBuildMpak,
+} = await import('../../src/mpak/core/index.js');
 
 const { saveAudioFile, getAudioFile } = await import('../../src/audioSync/audioFileStore.js');
 const { saveRecord, loadRecord, listRecords } = await import('../../src/audioSync/syncStore.js');
@@ -277,17 +278,17 @@ const { getSongsByCollection, getSongById, clearAllLibraryData } = await import(
 
 const enc = (s) => encodeURIComponent(String(s).toLowerCase());
 
-async function createManualMtabBlob({ song, tabName = 'song.gp', tabBytes, origBytes, backBytes, origPoints = [], backPoints = [] }) {
+async function createManualMpakBlob({ song, tabName = 'song.gp', tabBytes, origBytes, backBytes, origPoints = [], backPoints = [] }) {
     const ext = tabName.split('.').pop().toLowerCase();
-    const tabPath = `tab/${tabName}`;
+    const tabPath = `score/${tabName}`;
     const files = new Map([[tabPath, tabBytes]]);
     const mb = {};
     if (song?.recordingMbid) mb.recording = song.recordingMbid;
     if (song?.artistMbid) mb.artist = song.artistMbid;
     if (song?.albumMbid) mb.releaseGroup = song.albumMbid;
     const manifest = {
-        format: MTAB_FORMAT,
-        version: MTAB_VERSION,
+        format: MPAK_FORMAT,
+        version: MPAK_VERSION,
         createdAt: '2026-11-14T12:00:00Z',
         song: {
             ...(song?.artist ? { artist: song.artist } : {}),
@@ -295,7 +296,7 @@ async function createManualMtabBlob({ song, tabName = 'song.gp', tabBytes, origB
             ...(song?.album ? { album: song.album } : {}),
             ...(Object.keys(mb).length ? { ids: { musicbrainz: mb } } : {}),
         },
-        tab: {
+        score: {
             path: tabPath,
             format: ext,
             sha256: await sha256(tabBytes),
@@ -343,14 +344,13 @@ async function createManualMtabBlob({ song, tabName = 'song.gp', tabBytes, origB
 
     await addSlot('original', origBytes, 'Original.mp3', origPoints);
     await addSlot('backing', backBytes, 'Backing.mp3', backPoints);
-    if (manifest.recordings.some((r) => r.id === 'original')) manifest.defaultRecording = 'original';
 
-    const { parts } = await coreBuildMtab(manifest, files);
-    return new Blob(parts, { type: MIMETYPE });
+    const { parts } = await coreBuildMpak(manifest, files);
+    return new Blob(parts, { type: MEDIA_TYPE });
 }
 
-test('normalizeMtabSong normalizes direct and nested MusicBrainz IDs', () => {
-    const direct = normalizeMtabSong({
+test('normalizeMpakSong normalizes direct and nested MusicBrainz IDs', () => {
+    const direct = normalizeMpakSong({
         artist: 'Metallica',
         title: 'The Four Horsemen',
         album: "Kill 'Em All",
@@ -378,7 +378,7 @@ test('normalizeMtabSong normalizes direct and nested MusicBrainz IDs', () => {
         albumMbid: 'alb-mbid-789'
     });
 
-    const nested = normalizeMtabSong({
+    const nested = normalizeMpakSong({
         artist: 'Megadeth',
         title: 'Holy Wars',
         musicbrainz: {
@@ -392,12 +392,12 @@ test('normalizeMtabSong normalizes direct and nested MusicBrainz IDs', () => {
     assert.equal(nested.albumMbid, 'rg-777');
 });
 
-test('buildMtab and readMtab roundtrip MusicBrainz IDs and song metadata', async () => {
+test('buildMpak and readMpak roundtrip MusicBrainz IDs and song metadata', async () => {
     lsMap.clear();
     const tabContent = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4]);
     const tabFile = new File([tabContent], 'Holy Wars.gp', { type: 'application/octet-stream' });
 
-    const { blob, filename } = await buildMtab(tabFile, {
+    const { blob, filename } = await buildMpak(tabFile, {
         songKey: 'Megadeth - Holy Wars',
         song: {
             artist: 'Megadeth',
@@ -413,13 +413,13 @@ test('buildMtab and readMtab roundtrip MusicBrainz IDs and song metadata', async
         }
     });
 
-    assert.equal(filename, 'Megadeth - Holy Wars... The Punishment Due.mtab');
-    assert.ok(isMtabFile({ name: filename }));
-    assert.ok(await isMtabBytes(await blob.arrayBuffer()));
-    assert.ok(!(await isMtabBytes(new Uint8Array([0x50, 0x4b, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))));
-    assert.ok(!(await isMtabBytes(new Uint8Array(8))));
+    assert.equal(filename, 'Megadeth - Holy Wars... The Punishment Due.mpak');
+    assert.ok(isMpakFile({ name: filename }));
+    assert.ok(await isMpakBytes(await blob.arrayBuffer()));
+    assert.ok(!(await isMpakBytes(new Uint8Array([0x50, 0x4b, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))));
+    assert.ok(!(await isMpakBytes(new Uint8Array(8))));
 
-    const { header, tabFile: unpackedTab } = await unpackMtab(blob);
+    const { header, tabFile: unpackedTab } = await unpackMpak(blob);
     assert.equal(header.song.artist, 'Megadeth');
     assert.equal(header.song.title, 'Holy Wars... The Punishment Due');
     assert.equal(header.song.album, 'Rust in Peace');
@@ -428,10 +428,10 @@ test('buildMtab and readMtab roundtrip MusicBrainz IDs and song metadata', async
     assert.equal(header.song.recordingMbid, '11111111-2222-3333-4444-555555555555');
     assert.equal(header.song.artistMbid, 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
     assert.equal(header.song.albumMbid, '99999999-8888-7777-6666-555555555555');
-    assert.equal(unpackedTab.mtabSong.recordingMbid, '11111111-2222-3333-4444-555555555555');
+    assert.equal(unpackedTab.mpakSong.recordingMbid, '11111111-2222-3333-4444-555555555555');
 });
 
-test('unpackMtab and applyMtabExtras populate both original and backing local audio slots and sync points', async () => {
+test('unpackMpak and applyMpakExtras populate both original and backing local audio slots and sync points', async () => {
     lsMap.clear();
     const tabBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 10, 20, 30]);
     const origBytes = new Uint8Array(64).fill(0x11);
@@ -445,7 +445,7 @@ test('unpackMtab and applyMtabExtras populate both original and backing local au
         { id: 'p1', barIndex: 1, occurrence: 0, pos: 0, timeMs: 4300, source: 'auto' }
     ];
 
-    const mtabBlob = await createManualMtabBlob({
+    const mpakBlob = await createManualMpakBlob({
         song: { artist: 'Metallica', title: 'The Four Horsemen' },
         tabName: 'Metallica - The Four Horsemen.gp',
         tabBytes,
@@ -455,13 +455,13 @@ test('unpackMtab and applyMtabExtras populate both original and backing local au
         backPoints
     });
 
-    const { header, part, tabFile } = await unpackMtab(mtabBlob);
+    const { header, part, tabFile } = await unpackMpak(mpakBlob);
     assert.equal(tabFile.name, 'Metallica - The Four Horsemen.gp');
     assert.equal(tabFile.size, tabBytes.byteLength);
 
     const mainKey = 'Metallica - The Four Horsemen';
     const aliasKey = 'Not Metallica - The Four Horsemen';
-    await applyMtabExtras(header, part, {
+    await applyMpakExtras(header, part, {
         songKey: mainKey,
         aliasKeys: [aliasKey],
         applyToActiveReader: false
@@ -492,7 +492,7 @@ test('unpackMtab and applyMtabExtras populate both original and backing local au
     }
 });
 
-test('saveMtabToLibrary queries MusicBrainz by IDs to add a new song in proper album/artist hierarchy, and merges when saving another .mtab for the same song', async () => {
+test('saveMpakToLibrary queries MusicBrainz by IDs to add a new song in proper album/artist hierarchy, and merges when saving another .mpak for the same song', async () => {
     lsMap.clear();
     ssMap.clear();
     await clearAllLibraryData();
@@ -547,11 +547,11 @@ test('saveMtabToLibrary queries MusicBrainz by IDs to add a new song in proper a
     };
 
     try {
-        // 1. ADD CASE: Save first .mtab carrying only recordingMbid (and basic title/artist)
+        // 1. ADD CASE: Save first .mpak carrying only recordingMbid (and basic title/artist)
         const tab1Bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 1, 1]);
         const orig1Bytes = new Uint8Array(48).fill(0x33);
         const back1Bytes = new Uint8Array(48).fill(0x44);
-        const mtab1 = await createManualMtabBlob({
+        const mpak1 = await createManualMpakBlob({
             song: {
                 artist: 'Metallica',
                 title: 'The Four Horsemen',
@@ -567,7 +567,7 @@ test('saveMtabToLibrary queries MusicBrainz by IDs to add a new song in proper a
             backPoints: [{ id: 'p0', barIndex: 0, occurrence: 0, pos: 0, timeMs: 2050, source: 'auto' }]
         });
 
-        const addResult = await saveMtabToLibrary(mtab1);
+        const addResult = await saveMpakToLibrary(mpak1);
         assert.equal(addResult.created, true);
         assert.equal(addResult.merged, false);
         assert.ok(fetchedUrls.some(u => u.includes(`/recording/${REC_MBID}`)), 'Expected MusicBrainz recording lookup by ID');
@@ -589,9 +589,9 @@ test('saveMtabToLibrary queries MusicBrainz by IDs to add a new song in proper a
         assert.ok(songHasLocalSlot(libraryAudioKey(songAfterAdd), 'backing'));
         assert.equal(readLibraryAudio(songAfterAdd.id).length, 2);
 
-        // 2. MERGE CASE: Save second .mtab for the same song (matching by recordingMbid)
+        // 2. MERGE CASE: Save second .mpak for the same song (matching by recordingMbid)
         const tab2Bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 2, 2, 2]);
-        const mtab2 = await createManualMtabBlob({
+        const mpak2 = await createManualMpakBlob({
             song: {
                 artist: 'Metallica',
                 title: 'The Four Horsemen',
@@ -601,7 +601,7 @@ test('saveMtabToLibrary queries MusicBrainz by IDs to add a new song in proper a
             tabBytes: tab2Bytes
         });
 
-        const mergeResult = await saveMtabToLibrary(mtab2);
+        const mergeResult = await saveMpakToLibrary(mpak2);
         assert.equal(mergeResult.merged, true);
         assert.equal(mergeResult.created, false);
         assert.equal(mergeResult.song.id, songAfterAdd.id);
@@ -619,7 +619,7 @@ test('saveMtabToLibrary queries MusicBrainz by IDs to add a new song in proper a
     }
 });
 
-test('handleDownloadedTabFile unpacks .mtab download and attaches inner tab and both audio slots to target song', async () => {
+test('handleDownloadedTabFile unpacks .mpak download and attaches inner tab and both audio slots to target song', async () => {
     lsMap.clear();
     await clearAllLibraryData();
     globalThis.window.__TAURI__ = {
@@ -643,7 +643,7 @@ test('handleDownloadedTabFile unpacks .mtab download and attaches inner tab and 
     const tabBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 9, 8, 7]);
     const origBytes = new Uint8Array(64).fill(0x55);
     const backBytes = new Uint8Array(64).fill(0x66);
-    const mtabBlob = await createManualMtabBlob({
+    const mpakBlob = await createManualMpakBlob({
         song: { artist: 'Metallica', title: 'Master of Puppets' },
         tabName: 'Metallica - Master of Puppets.gp',
         tabBytes,
@@ -652,9 +652,9 @@ test('handleDownloadedTabFile unpacks .mtab download and attaches inner tab and 
         origPoints: [{ id: 'p0', barIndex: 0, occurrence: 0, pos: 0, timeMs: 800, source: 'auto' }],
         backPoints: [{ id: 'p0', barIndex: 0, occurrence: 0, pos: 0, timeMs: 1500, source: 'auto' }]
     });
-    const mtabUint8 = new Uint8Array(await mtabBlob.arrayBuffer());
+    const mpakUint8 = new Uint8Array(await mpakBlob.arrayBuffer());
 
-    await handleDownloadedTabFile('Metallica - Master of Puppets.mtab', mtabUint8);
+    await handleDownloadedTabFile('Metallica - Master of Puppets.mpak', mpakUint8);
 
     const updatedSong = await getSongById(targetSong.id);
     assert.equal(updatedSong.tabOptions.length, 1);
@@ -664,8 +664,8 @@ test('handleDownloadedTabFile unpacks .mtab download and attaches inner tab and 
     const songKey = 'Metallica - Master of Puppets';
     const origId = localStorage.getItem(`audio_file_${enc(songKey)}_original`);
     const backId = localStorage.getItem(`audio_file_${enc(songKey)}_backing`);
-    assert.ok(origId, 'Expected original slot audio ID after .mtab download');
-    assert.ok(backId, 'Expected backing slot audio ID after .mtab download');
+    assert.ok(origId, 'Expected original slot audio ID after .mpak download');
+    assert.ok(backId, 'Expected backing slot audio ID after .mpak download');
     assert.equal(loadRecord(songKey, { kind: 'local', audioId: origId })?.points?.[0]?.timeMs, 800);
     assert.equal(loadRecord(songKey, { kind: 'local', audioId: backId })?.points?.[0]?.timeMs, 1500);
 });
@@ -722,7 +722,7 @@ test('system-browser openTabDownloader records pending target and missingTabsToo
     assert.equal(origin, 'http://127.0.0.1:8765');
 });
 
-test('buildMtab roundtrips local audio, youtube fallback, tuning, and sync points in v1 format, and unpackMtab handles externalPath + page range', async () => {
+test('buildMpak roundtrips local audio, youtube fallback, tuning, and sync points in v1 format, and unpackMpak handles externalPath + page range', async () => {
     lsMap.clear();
     const songKey = 'Opeth - Windowpane';
     const audioBytes = new Uint8Array(64).fill(0x55).buffer;
@@ -743,15 +743,15 @@ test('buildMtab roundtrips local audio, youtube fallback, tuning, and sync point
 
     const tabFile = new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04, 7, 8, 9])], 'Windowpane.gp5', { type: 'application/octet-stream' });
     tabFile.tabTuning = { tuning: 'E A D G B E', source: 'user' };
-    const { blob } = await buildMtab(tabFile, {
+    const { blob } = await buildMpak(tabFile, {
         songKey,
         song: { artist: 'Opeth', title: 'Windowpane' },
     });
 
-    const { header, opened, tabFile: unpacked } = await unpackMtab(blob);
-    assert.equal(header.format, 'mtab');
+    const { header, opened, tabFile: unpacked } = await unpackMpak(blob);
+    assert.equal(header.format, 'mpak');
     assert.equal(header.version, 1);
-    assert.deepEqual(header.tab.tuning, ['E', 'A', 'D', 'G', 'B', 'E']);
+    assert.deepEqual(header.score.instruments[0].tuning, ['E', 'A', 'D', 'G', 'B', 'E']);
     assert.equal(unpacked.tabTuning.tuning, 'E A D G B E');
     assert.equal(header.recordings.length, 1);
     assert.equal(header.recordings[0].sources[0].type, 'file');
@@ -761,10 +761,10 @@ test('buildMtab roundtrips local audio, youtube fallback, tuning, and sync point
     // externalPath + startPage / endPage
     const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34]);
     const extManifest = {
-        format: 'mtab',
+        format: 'mpak',
         version: 1,
         song: { title: 'Book Song', artist: 'Book Artist' },
-        tab: {
+        score: {
             externalPath: 'books/realbook.pdf',
             format: 'pdf',
             sha256: await sha256(pdfBytes),
@@ -773,14 +773,14 @@ test('buildMtab roundtrips local audio, youtube fallback, tuning, and sync point
             endPage: 14,
         },
     };
-    const { parts } = await coreBuildMtab(extManifest, {});
-    const extBlob = new Blob(parts, { type: MIMETYPE });
-    const extUnpacked = await unpackMtab(extBlob, { externalTab: pdfBytes });
+    const { parts } = await coreBuildMpak(extManifest, {});
+    const extBlob = new Blob(parts, { type: MEDIA_TYPE });
+    const extUnpacked = await unpackMpak(extBlob, { externalScore: pdfBytes });
     assert.equal(extUnpacked.tabFile.name, 'realbook.pdf');
-    assert.deepEqual(extUnpacked.tabFile.mtabPageRange, { startPage: 12, endPage: 14, pages: 100 });
+    assert.deepEqual(extUnpacked.tabFile.mpakPageRange, { startPage: 12, endPage: 14, pages: 100 });
 });
 
-test('applyMtabExtras keeps every synced YouTube recording, not only the original and backing slots', async () => {
+test('applyMpakExtras keeps every synced YouTube recording, not only the original and backing slots', async () => {
     lsMap.clear();
     const point = (bar, timeMs) => ({ timeMs, bar, occurrence: 0, pos: 0 });
     const syncs = {
@@ -793,7 +793,7 @@ test('applyMtabExtras keeps every synced YouTube recording, not only the origina
     };
     const youtube = (id, videoId, role, label) => ({ id, role, label, sources: [{ type: 'youtube', videoId }] });
     const data = {
-        tab: { format: 'gp5' },
+        score: { format: 'gp5' },
         recordings: [
             youtube('v1', 'AAAAAAAAAAA', 'original', 'Full mix'),
             youtube('v2', 'BBBBBBBBBBB', 'original', 'Full mix (alternative 1)'),
@@ -802,12 +802,11 @@ test('applyMtabExtras keeps every synced YouTube recording, not only the origina
             youtube('v5', 'BBBBBBBBBBB', 'original', 'Same video again'),
             youtube('v6', 'EEEEEEEEEEE', 'solo', 'Solo'),
             { id: 'v7', role: 'original', label: 'No sync', sources: [{ type: 'youtube', videoId: 'FFFFFFFFFFF' }] }
-        ],
-        defaultRecording: 'v1'
+        ]
     };
     const opened = { entries: [], sync: (id) => syncs[id] || null };
 
-    await applyMtabExtras(data, opened, { songKey: 'Band - Song', applyToActiveReader: false });
+    await applyMpakExtras(data, opened, { songKey: 'Band - Song', applyToActiveReader: false });
 
     const saved = (videoId) => loadRecord('Band - Song', { kind: 'youtube', videoId });
     assert.equal(saved('AAAAAAAAAAA')?.points[0].timeMs, 1000);
@@ -817,4 +816,18 @@ test('applyMtabExtras keeps every synced YouTube recording, not only the origina
     assert.equal(saved('DDDDDDDDDDD')?.media.label, 'Backing track (without Bass)');
     assert.equal(saved('EEEEEEEEEEE')?.points[1].timeMs, 3500);
     assert.equal(saved('FFFFFFFFFFF'), null, 'a recording without sync points is not stored');
+});
+
+test('unpackMpak rejects a score format the app cannot open, with a clear message', async () => {
+    const bytes = new TextEncoder().encode('<score-partwise/>');
+    const manifest = {
+        format: 'mpak',
+        version: 1,
+        score: { path: 'score/song.musicxml', format: 'musicxml', sha256: await sha256(bytes) },
+    };
+    const { parts } = await coreBuildMpak(manifest, { 'score/song.musicxml': bytes });
+    await assert.rejects(
+        unpackMpak(new Blob(parts, { type: MEDIA_TYPE })),
+        (e) => e instanceof MpakError && /MusicXML score, which MajesticTab cannot open/.test(e.message)
+    );
 });

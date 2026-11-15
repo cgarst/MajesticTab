@@ -565,16 +565,16 @@ export async function exportSourceTabFile() {
   return exportFileOut(currentFile, filename);
 }
 
-/** Exports the open song as a .mtab bundle: the tab plus its recordings, sync points and tuning. */
-export async function exportMtabFile() {
+/** Exports the open song as a .mpak bundle: the tab plus its recordings, sync points and tuning. */
+export async function exportMpakFile() {
   const currentFile = getCurrentFile();
   if (!currentFile) {
     showToast('No tab file is currently opened.', 'warning');
     return false;
   }
   try {
-    const { buildMtab } = await import('./mtab.js');
-    const { blob, filename } = await buildMtab(currentFile);
+    const { buildMpak } = await import('./mpak.js');
+    const { blob, filename } = await buildMpak(currentFile);
     return await exportFileOut(blob, filename);
   } catch (err) {
     console.warn('[Export] Could not build the song file:', err);
@@ -663,16 +663,16 @@ export async function shareSourceTabFile() {
   return shareFile(new File([currentFile], filename, { type: currentFile.type || 'application/octet-stream' }), 'Use Export source tab instead.');
 }
 
-/** Shares the open song as a .mtab bundle: the tab plus its recordings, sync points and tuning. */
-export async function shareMtabFile() {
+/** Shares the open song as a .mpak bundle: the tab plus its recordings, sync points and tuning. */
+export async function shareMpakFile() {
   const currentFile = getCurrentFile();
   if (!currentFile) {
     showToast('No tab file is currently opened.', 'warning');
     return false;
   }
   try {
-    const { buildMtab } = await import('./mtab.js');
-    const { blob, filename } = await buildMtab(currentFile);
+    const { buildMpak } = await import('./mpak.js');
+    const { blob, filename } = await buildMpak(currentFile);
     return await shareFile(new File([blob], filename, { type: blob.type }), 'Try again, or share the original file.');
   } catch (err) {
     console.warn('[Share] Could not build the song file:', err);
@@ -692,13 +692,13 @@ export function setupExportPDFButton() {
       exportSourceTabFile();
     });
   }
-  document.getElementById('exportMtabBtn')?.addEventListener('click', () => { exportMtabFile(); });
+  document.getElementById('exportMpakBtn')?.addEventListener('click', () => { exportMpakFile(); });
 
   // Share has its own row where the web view has a share sheet.
   if (canShareFiles()) {
     const shareRow = document.getElementById('songShareRow');
     if (shareRow) shareRow.hidden = false;
-    for (const [id, share] of [['shareSourceTabBtn', shareSourceTabFile], ['shareMtabBtn', shareMtabFile]]) {
+    for (const [id, share] of [['shareSourceTabBtn', shareSourceTabFile], ['shareMpakBtn', shareMpakFile]]) {
       const btn = document.getElementById(id);
       if (btn) btn.addEventListener('click', () => { share(); });
     }
