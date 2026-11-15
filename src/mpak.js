@@ -14,6 +14,7 @@ import {
     buildMpak as coreBuildMpak,
 } from './mpak/core/index.js';
 import { decodeText } from './utils/decodeText.js';
+import { newPackId } from './mpakSession.js';
 import { toSyncPoints, fromSyncPoints } from './audioSync/syncStore.js';
 import { unitsToPoints, scoreSyncKey, legacyScoreSyncKey, textBlocksOf } from './audioSync/anchors.js';
 
@@ -750,7 +751,11 @@ export async function openMpak(file, options = {}) {
     }
 
     // A pack that was not saved to the library keeps its scores in the Song menu, so the other scores open from the pack
-    if (!tabFile.librarySongId) { tabFile.mpakStandalone = true; rememberPackScores(unpacked); }
+    if (!tabFile.librarySongId) {
+        tabFile.mpakStandalone = true;
+        tabFile.mpakPackId = newPackId(); // the pack's audio and sync data are kept under its own key, until it closes
+        rememberPackScores(unpacked);
+    }
 
     const { loadFile } = await import('./main.js');
     await loadFile(tabFile);
@@ -764,7 +769,7 @@ function rememberPackScores(unpacked) {
     const { header, opened, tabFile, score, otherScores } = unpacked;
     if (!otherScores?.length) return;
     const all = [{ score, file: tabFile }, ...otherScores];
-    for (const { file } of all) file.mpakStandalone = true; // matched to no library song by name
+    for (const { file } of all) { file.mpakStandalone = true; file.mpakPackId = tabFile.mpakPackId; } // matched to no library song by name
     const entries = all.map(({ score: sc, file }) => {
         const pages = (sc.startPage && sc.endPage) ? `Pages ${sc.startPage}\u2013${sc.endPage}` : '';
         const kind = sc.format === 'pdf' ? 'PDF' : sc.format === 'txt' ? 'Text' : 'Guitar Pro';

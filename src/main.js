@@ -1081,6 +1081,12 @@ async function initApp() {
     initSynthPlayer();
     initMidiSynthUi(getCurrentFile);
     initClasstabSongMenu(getCurrentFile);
+    // A pack opened from a file keeps its data only while it is open: remove what an earlier session left, and what this one
+    // leaves when the page closes
+    import('./mpakSession.js').then((m) => {
+        m.clearPackStorage();
+        window.addEventListener('pagehide', () => { const id = getCurrentFile()?.mpakPackId; if (id) m.clearPackStorage(id); });
+    }).catch(() => {});
     initSoundFontPanel();
     initMixerPanel();
     initAudioLatencyModal();
@@ -1453,6 +1459,8 @@ export function recordFileToRecents(file) {
 }
 
 export async function loadFile(file, { hideMenu = true, keepMode = false } = {}) {
+    // The pack that was open is closed when another file replaces it: its temporary storage goes
+    const closedPack = currentFile?.mpakPackId && currentFile.mpakPackId !== file.mpakPackId ? currentFile.mpakPackId : null;
     currentFile = file;
     if (!file.addedAt) {
         file.addedAt = file.lastModified || Date.now();
@@ -1474,12 +1482,14 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
         scoreTitle: file.songTitle || '',
         scoreArtist: file.songTitle ? (file.artist || '') : '',
         librarySongId: file.librarySongId,
+        packId: file.mpakPackId || null,
         tabName: file.tabName || file.name,
         sourceWebsite: file.sourceWebsite || null,
         sourceUrl: file.sourceUrl || null
     });
     updateSongForAudioFile();
     updateSongForRealAudio();
+    if (closedPack) import('./mpakSession.js').then((m) => m.clearPackStorage(closedPack)).catch(() => {});
     
     if (!file.jamTransient) {
         recordFileToRecents(file);

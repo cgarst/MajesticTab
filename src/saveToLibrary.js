@@ -253,11 +253,12 @@ export async function openSaveToLibraryModal(file) {
                 const { getSongKey, rememberSongKey } = await import('./youtubePlayer.js');
                 const { linkAudioFile } = await import('./audioSync/audioFileStore.js');
                 const { attachLibraryAudio } = await import('./audioSync/libraryAudio.js');
+                const { isPackKey } = await import('./mpakSession.js');
                 const { listRecords, saveRecord, isSyncSharedFromOriginal, setSyncSharedFromOriginal } = await import('./audioSync/syncStore.js');
                 const openKey = getSongKey();
                 const libKey = (song.artist && song.title) ? `${song.artist} - ${song.title}` : song.title;
                 const enc = (s) => encodeURIComponent(String(s).toLowerCase());
-                if (openKey) rememberSongKey(song.id, openKey, { filename: file.name, tabName: tabOption.name });
+                if (openKey && !isPackKey(openKey)) rememberSongKey(song.id, openKey, { filename: file.name, tabName: tabOption.name });
                 if (libKey) rememberSongKey(song.id, libKey, { filename: file.name, tabName: tabOption.name });
                 if (openKey && libKey) {
                     for (const slot of ['original', 'backing']) {

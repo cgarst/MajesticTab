@@ -176,6 +176,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
                 scoreTitle: api.score.title,
                 scoreArtist: api.score.artist,
                 librarySongId: file.librarySongId,
+                packId: file.mpakPackId || null,
                 tabName: file.tabName || file.name,
                 sourceWebsite: file.sourceWebsite || null,
                 sourceUrl: file.sourceUrl || null

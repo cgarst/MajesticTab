@@ -272,7 +272,7 @@ const {
 } = await import('../../src/mpak/core/index.js');
 
 const { scoreSyncKey, legacyScoreSyncKey } = await import('../../src/audioSync/anchors.js');
-const { saveAudioFile, getAudioFile } = await import('../../src/audioSync/audioFileStore.js');
+const { saveAudioFile, getAudioFile, getAudioMeta, linkAudioFile } = await import('../../src/audioSync/audioFileStore.js');
 const { saveRecord, loadRecord, listRecords } = await import('../../src/audioSync/syncStore.js');
 const { songHasLocalSlot, libraryAudioKey, readLibraryAudio } = await import('../../src/audioSync/libraryAudio.js');
 const { getSongsByCollection, getSongById, clearAllLibraryData } = await import('../../src/libraryStore.js');
@@ -809,6 +809,36 @@ test('buildMpak packs every audio file of the song, not only the active slot fil
     assert.deepEqual(paths, ['audio/backing.mp3', 'audio/full-mix.mp3', 'audio/live.mp3']);
     assert.ok(header.recordings.some((r) => r.id === 'original' && r.sources.some((x) => x.type === 'youtube')));
     assert.equal(header.recordings.find((r) => r.sources[0].path === 'audio/backing.mp3').role, 'backing');
+});
+
+test('a pack\'s temporary storage is removed with the pack, and a library song of the same name keeps its own', async () => {
+    lsMap.clear();
+    const { newPackId, packSongKey, clearPackStorage, plainSongKey } = await import('../../src/mpakSession.js');
+    const base = 'Dream Theater - Another Day';
+    const id = newPackId();
+    const packKey = packSongKey(id, base);
+    assert.equal(plainSongKey(packKey), base);
+    const save = (name, fill, key) => saveAudioFile({ name, type: 'audio/mpeg', data: new Uint8Array(16).fill(fill).buffer, songKey: key });
+    const own = await save('pack-only.mp3', 11, packKey);
+    const shared = await save('shared.mp3', 12, packKey);
+    await linkAudioFile(shared.id, base); // a library song uses this file too
+    const lib = await save('library.mp3', 13, base);
+    localStorage.setItem(`audio_file_${enc(packKey)}_original`, own.id);
+    localStorage.setItem(`yt_track_${enc(packKey)}_original`, 'dQw4w9WgXcQ');
+    localStorage.setItem(`audio_file_${enc(base)}_original`, lib.id);
+    saveRecord(packKey, { kind: 'local', audioId: own.id }, [{ id: 'p0', barIndex: 0, occurrence: 0, pos: 0, timeMs: 1, source: 'tap' }]);
+    saveRecord(base, { kind: 'local', audioId: lib.id }, [{ id: 'p0', barIndex: 0, occurrence: 0, pos: 0, timeMs: 1, source: 'tap' }]);
+
+    await clearPackStorage(id);
+
+    assert.equal(localStorage.getItem(`audio_file_${enc(packKey)}_original`), null);
+    assert.equal(localStorage.getItem(`yt_track_${enc(packKey)}_original`), null);
+    assert.equal(localStorage.getItem(`audio_file_${enc(base)}_original`), lib.id, 'the library song keeps its slot');
+    assert.equal(listRecords(packKey).length, 0);
+    assert.equal(listRecords(base).length, 1, 'and its sync points');
+    assert.equal(await getAudioMeta(own.id), null, 'a file only the pack used is deleted');
+    assert.deepEqual((await getAudioMeta(shared.id)).songKeys, [base], 'a file the library also uses stays, unlinked from the pack');
+    assert.ok(await getAudioMeta(lib.id));
 });
 
 test('applyMpakExtras keeps every synced YouTube recording, not only the original and backing slots', async () => {

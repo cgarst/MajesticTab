@@ -9,6 +9,7 @@ import { slotSourceKey } from './stemdeck/backingCandidates.js';
 import { listHistory, rememberVideo, forgetVideo } from './audioSync/videoHistory.js';
 import { showToast } from './utils/toast.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
+import { packSongKey, plainSongKey } from './mpakSession.js';
 import { showSheet, closeSheet, resetPeek, isVideoShown, visibleVideoRect, onSheetChange, onSheetMove, onSheetTransition, initYtSheet } from './ytSheet.js';
 
 let activeSearchController = null;
@@ -385,7 +386,9 @@ function getStorageKey(mode = playerState.trackMode) {
 
 /** Identity of the loaded song (artist and title, or the file name); also keys the song's audio sync data. */
 export function getSongKey() {
-    return [playerState.artist, playerState.title].filter(Boolean).join(' - ') || playerState.filename;
+    const base = [playerState.artist, playerState.title].filter(Boolean).join(' - ') || playerState.filename;
+    // A pack opened from a file keeps its own audio and sync data, apart from a library song of the same name
+    return playerState.packId ? packSongKey(playerState.packId, base) : base;
 }
 
 /**
@@ -1392,7 +1395,7 @@ function updatePanelTitle() {
     const songLabel = [playerState.artist, playerState.title].filter(Boolean).join(' - ') + ' song';
     const modeLabel = playerState.trackMode === 'backing' ? 'Backing Track' : 'Original';
     const sheetName = document.getElementById('ytSheetName');
-    if (sheetName) sheetName.textContent = `${playerState.trackMode === 'backing' ? 'Backing track' : 'Original recording'} · ${getSongKey() || 'No song'}`;
+    if (sheetName) sheetName.textContent = `${playerState.trackMode === 'backing' ? 'Backing track' : 'Original recording'} · ${plainSongKey(getSongKey()) || 'No song'}`;
     const query = buildQuery();
     const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 
@@ -1492,7 +1495,8 @@ export function updateSongForYouTube({
     librarySongId = null,
     tabName = '',
     sourceWebsite = null,
-    sourceUrl = null
+    sourceUrl = null,
+    packId = null
 } = {}) {
     if (activeSearchController) {
         activeSearchController.abort();
@@ -1504,6 +1508,7 @@ export function updateSongForYouTube({
     playerState.title = title;
     playerState.filename = filename;
     playerState.librarySongId = librarySongId || null;
+    playerState.packId = packId || null;
     playerState.tabName = tabName || filename || '';
     playerState.sourceWebsite = sourceWebsite || null;
     playerState.sourceUrl = sourceUrl || null;
