@@ -593,13 +593,14 @@ function setupSettings() {
     applyPlatformDefaults();
 
     // Load settings from localStorage
-    const savedDebugMode = localStorage.getItem('debugMode') === 'true';
-    
+    // The PDF debug overlay is for debug builds only: off until the build is known to be one
+    import('./utils/debugBuild.js').then((m) => m.applyDebugOverlaySetting());
+
     // Load condense mode settings with different defaults
     const savedCondensePdfMode = localStorage.getItem('condensePdfMode');
 
     // Apply saved settings
-    debugMode.checked = savedDebugMode;
+    debugMode.checked = false;
     // Default: Condense PDFs off by default (false)
     condensePdfMode.checked = savedCondensePdfMode === null ? false : savedCondensePdfMode === 'true';
 

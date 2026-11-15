@@ -1106,7 +1106,7 @@ export function applyRestoredPreferences() {
 
     const debugMode = document.getElementById('debugMode');
     if (debugMode) {
-        debugMode.checked = localStorage.getItem('debugMode') === 'true';
+        import('./utils/debugBuild.js').then((m) => m.applyDebugOverlaySetting());
     }
 
     const condensePdfMode = document.getElementById('condensePdfMode');
