@@ -419,6 +419,10 @@ body:not(.library-view-active) .breadcrumb-divider { display: none; }
 #output .alphaTabContainer {
   margin: 0 auto; border-radius: 3px; overflow: hidden;
 }
+/* The pages are at rest, so they are flat: the paper tone against the ground separates them, with no shadow or outline. */
+.pageWrapper, .gp-page-wrapper, .alphaTabContainer, .text-content {
+  box-shadow: none; border: 0;
+}
 
 
 /* ==========================================================================
