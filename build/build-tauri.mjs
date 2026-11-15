@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { rewriteCargoToml } from './cargo-toml.mjs';
 import { verifyOrExit } from './verify-channel.mjs';
 import { fillManifest } from './flatpak-manifest.mjs';
+import { playVersionCode } from './play-version-code.mjs';
 import { DEFAULT_CHANNEL, cargoFeatures, channels, isValidChannel } from './channels.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -538,8 +539,14 @@ if (target === 'android') {
   // channel builds one ABI per run (--abi), with its own versionCode.
   const abiConfig = abi ? fdroidAbis[abi] : null;
   const androidTargets = abiConfig ? [abiConfig.tauriTarget] : ['aarch64', 'armv7', 'x86_64'];
-  const versionCodeArgs = abiConfig
-    ? ['--config', JSON.stringify({ bundle: { android: { versionCode: expectedVersionCode * 10 + abiConfig.versionDigit } } })]
+  // The play channel has its own versionCode so betas and releases of one version can all be uploaded (build/play-version-code.mjs).
+  const androidVersionCode = abiConfig
+    ? expectedVersionCode * 10 + abiConfig.versionDigit
+    : channel === 'play'
+      ? playVersionCode(expectedVersionCode, process.env.PLAY_BUILD_SLOT)
+      : null;
+  const versionCodeArgs = androidVersionCode
+    ? ['--config', JSON.stringify({ bundle: { android: { versionCode: androidVersionCode } } })]
     : [];
   const buildAab = channel === 'play';
   // Without a keystore the fdroid channel builds an unsigned release (not the debug build used for local runs).

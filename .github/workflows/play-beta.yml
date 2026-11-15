@@ -1,0 +1,117 @@
+name: Play beta
+
+# Internal-testing builds of main for Google Play, between canary and a stable release: the Android counterpart of testflight-beta.yml.
+# They go to the Play internal testing track only (no promotion, no listing sync, no GitHub release, no latest.json), so no other
+# platform and no auto-updater sees them, and nothing reaches Google's review. Add yourself under Testing > Internal testing in
+# Play Console and install from the opt-in link.
+#
+# Runs nightly and on demand. A run is skipped when main has not moved since the last beta (the play-beta-latest tag). There is no
+# force option as in testflight-beta.yml: Play refuses a repeated versionCode, and the slot is the commit count (build/play-version-code.mjs).
+# Builds use the version in tauri.conf.json, which main keeps one patch ahead of the last release (release.yml's bump-next job).
+
+on:
+  schedule:
+    - cron: '30 11 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: play-beta
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+      build_id: ${{ steps.diff.outputs.build_id }}
+      slot: ${{ steps.diff.outputs.slot }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          echo "build_id=beta-$(date -u +%Y%m%d)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
+          latest=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+          if [ -n "$latest" ] && [ "$(printf '%s\n%s\n' "${latest#v}" "$version" | sort -V | tail -n1)" != "$version" -o "${latest#v}" = "$version" ]; then
+            echo "::error::Version $version is not ahead of the last release $latest; its Play release train is closed. Run node build/bump-version.mjs on main."
+            exit 1
+          fi
+          # The slot is the number of commits on main since the last release tag: it rises with every new commit and restarts with each version.
+          slot=$(git rev-list --count "${latest:+$latest..}HEAD")
+          if [ "$slot" -lt 1 ] || [ "$slot" -gt 998 ]; then
+            echo "::error::Beta slot $slot is outside 1 to 998; cut a release or raise the limit in build/play-version-code.mjs."
+            exit 1
+          fi
+          echo "slot=$slot" >> "$GITHUB_OUTPUT"
+          last=$(git rev-parse -q --verify "refs/tags/play-beta-latest^{commit}" || true)
+          if [ "$last" != "$GITHUB_SHA" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "main has not changed since the last beta ($last)"
+          fi
+
+  store:
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    uses: ./.github/workflows/store-build.yml
+    secrets: inherit
+    with:
+      channel: play
+      build_id: ${{ needs.check.outputs.build_id }}
+      play_slot: ${{ needs.check.outputs.slot }}
+
+  upload:
+    needs: [check, store]
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout first: it cleans untracked files, which would delete the downloaded artifact.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: store-play
+          path: store-play
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Decode Play service account
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON_B64: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON_B64 }}
+        run: |
+          test -n "$PLAY_SERVICE_ACCOUNT_JSON_B64" || { echo "::error::Missing PLAY_SERVICE_ACCOUNT_JSON_B64 secret"; exit 1; }
+          echo "$PLAY_SERVICE_ACCOUNT_JSON_B64" | base64 -d > "$RUNNER_TEMP/play-sa.json"
+      - name: Upload to Google Play (internal testing)
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/play-sa.json
+          PLAY_BUILD_SLOT: ${{ needs.check.outputs.slot }}
+        run: |
+          last=$(git rev-parse -q --verify "refs/tags/play-beta-latest^{commit}" || true)
+          range="${last:+$last..}$GITHUB_SHA"
+          # Fastlane reads the "What's new" text from the changelog named after the AAB's versionCode. Play allows 500 characters.
+          changelog="fastlane/metadata/android/en-US/changelogs/$(node build/play-version-code.mjs).txt"
+          rm -f "$changelog"
+          {
+            echo "${{ needs.check.outputs.build_id }}"
+            git log --no-merges --format='- %s' "$range" | head -n 40
+          } | cut -c1-120 | head -c 480 > "$changelog"
+          bundle exec fastlane android beta aab:'store-play/*.aab' symbols:'store-play/*-symbols.zip' release_name:"${{ needs.check.outputs.build_id }}"
+
+  # Remember which commit the last beta was built from.
+  mark:
+    needs: [check, upload]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          git tag -f play-beta-latest "$GITHUB_SHA"
+          git push -f origin refs/tags/play-beta-latest

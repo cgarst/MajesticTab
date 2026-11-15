@@ -74,12 +74,14 @@ jobs:
       - name: Upload to Google Play
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/play-sa.json
-          # The release is uploaded to PLAY_TRACK, then copied to PLAY_PROMOTE_TO (closed testing "alpha" by default). Set the PLAY_PROMOTE_TO repo variable to production once the listing is live.
+          # The release is uploaded to PLAY_TRACK, then copied to PLAY_PROMOTE_TO (production by default, which sends it to Google's
+          # review). Set the PLAY_PROMOTE_TO repo variable to alpha to hold stable releases in closed testing, or to none to stop at internal.
           PLAY_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
-          PLAY_PROMOTE_TO: ${{ vars.PLAY_PROMOTE_TO || 'alpha' }}
+          PLAY_PROMOTE_TO: ${{ vars.PLAY_PROMOTE_TO || 'production' }}
           PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
         run: |
-          versionCode=$(node -p "require('./build/tauri/src-tauri/tauri.android.conf.json').bundle.android.versionCode")
+          # Fastlane reads the changelog named after the AAB's versionCode, which is the Play code (build/play-version-code.mjs).
+          versionCode=$(node build/play-version-code.mjs)
           changelog="fastlane/metadata/android/en-US/changelogs/${versionCode}.txt"
           notes=$(node build/release-notes.mjs --platform android)
           rm -f "$changelog"

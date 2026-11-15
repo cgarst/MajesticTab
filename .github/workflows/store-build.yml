@@ -22,6 +22,11 @@ on:
         description: App Store build number (defaults to a UTC timestamp, yydddHHMM)
         required: false
         type: string
+      play_slot:
+        description: Play beta slot (1 to 998) for the play channel; empty builds the release code (slot 999, see build/play-version-code.mjs)
+        required: false
+        type: string
+        default: ''
         default: ''
   workflow_dispatch:
     inputs:
@@ -172,6 +177,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
           IOS_EXPORT_METHOD: ${{ inputs.channel == 'appstore-ios' && 'app-store-connect' || '' }}
+          PLAY_BUILD_SLOT: ${{ inputs.play_slot }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}

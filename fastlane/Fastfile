@@ -20,6 +20,24 @@ platform :android do
     )
   end
 
+  desc "Upload the AAB and debug symbols to the internal testing track only (play-beta.yml): no listing sync, no promotion"
+  lane :beta do |options|
+    root = File.expand_path("..", FastlaneCore::FastlaneFolder.path)
+    aab = Dir[File.expand_path(options[:aab] || "dist/*.aab", root)].first or UI.user_error!("No AAB found; build the play channel first")
+    symbols = Dir[File.expand_path(options[:symbols] || "dist/*-symbols.zip", root)].first
+    upload_to_play_store(
+      aab: aab,
+      mapping_paths: symbols ? [symbols] : nil,
+      track: "internal",
+      release_status: ENV["PLAY_RELEASE_STATUS"] || "completed",
+      version_name: options[:release_name],
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
   desc "Upload the AAB, debug symbols and changelog, and sync the listing"
   lane :release do |options|
     # Fastlane runs lanes from fastlane/, so resolve globs against the repo root.
@@ -27,8 +45,8 @@ platform :android do
     aab = Dir[File.expand_path(options[:aab] || "dist/*.aab", root)].first or UI.user_error!("No AAB found; build the play channel first")
     symbols = Dir[File.expand_path(options[:symbols] || "dist/*-symbols.zip", root)].first
     status = ENV["PLAY_RELEASE_STATUS"] || "completed"
-    # Upload to internal testing, then copy that release to the closed track ("alpha" is
-    # Closed testing - Alpha). Set PLAY_PROMOTE_TO=production once the listing is live.
+    # Upload to internal testing, then copy that release to PLAY_PROMOTE_TO (production by default; "alpha" is
+    # Closed testing - Alpha). Production releases go to Google's review automatically when the edit is committed.
     upload_to_play_store(
       aab: aab,
       mapping_paths: symbols ? [symbols] : nil,
@@ -37,8 +55,8 @@ platform :android do
       version_name: options[:release_name],
       skip_upload_apk: true
     )
-    promote_to = ENV["PLAY_PROMOTE_TO"] || "alpha"
-    next if promote_to.empty?
+    promote_to = ENV["PLAY_PROMOTE_TO"] || "production"
+    next if promote_to.empty? || promote_to == "none"
     upload_to_play_store(
       track: ENV["PLAY_TRACK"] || "internal",
       track_promote_to: promote_to,
