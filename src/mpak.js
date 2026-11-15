@@ -710,6 +710,13 @@ function mapRecordingsToSlots(manifest) {
     // An alternate is another version of the released recording (SPEC section 7): it only takes the original slot when
     // the pack has no original.
     if (!bySlot.original) bySlot.original = recs.find((r) => r.role === 'alternate') || null;
+    // A pack can have no original at all (a pack of a backing track and its stems has no full mix). The default
+    // recording, the first (SPEC section 7), then takes the original slot, so the player has something to play and the
+    // sync points are found. A stem alone is not a recording to play first. It does not also fill the backing slot.
+    if (!bySlot.original && recs[0] && recs[0].role !== 'stem' && (recs[0].sources || []).length) {
+        bySlot.original = recs[0];
+        if (bySlot.backing === recs[0]) bySlot.backing = recs.find((r) => r !== recs[0] && r.role === 'backing') || null;
+    }
     return bySlot;
 }
 

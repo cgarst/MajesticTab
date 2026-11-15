@@ -822,6 +822,39 @@ test('applyMpakExtras keeps every synced YouTube recording, not only the origina
     assert.equal(saved('FFFFFFFFFFF'), null, 'a recording without sync points is not stored');
 });
 
+test('a pack with no original plays its default recording in the original slot, and finds its sync points there', async () => {
+    lsMap.clear();
+    const point = (page, timeMs) => ({ timeMs, page, x: 0.25, y: 0.5 });
+    const yt = (id, videoId, role, extra = {}) => ({ id, role, label: id, sources: [{ type: 'youtube', videoId }], ...extra });
+    const data = {
+        scores: [{ id: 'tab', format: 'pdf', sha256: 'b'.repeat(64) }],
+        recordings: [
+            yt('band', 'AAAAAAAAAAA', 'backing', { without: ['g1'] }),
+            yt('g1', 'BBBBBBBBBBB', 'stem', { syncFrom: 'band' }),
+            yt('other', 'CCCCCCCCCCC', 'backing'),
+        ]
+    };
+    const opened = { entries: [], sync: (id) => (id === 'band' ? { anchorType: 'pdf', points: [point(1, 1000), point(1, 2000)] } : null) };
+    await applyMpakExtras(data, opened, { songKey: 'Band - Song', applyToActiveReader: false });
+    const enc = (s) => encodeURIComponent(String(s).toLowerCase());
+    const key = enc('Band - Song');
+    assert.equal(localStorage.getItem(`yt_track_${key}_original`), 'AAAAAAAAAAA', 'the default recording is the original slot');
+    assert.equal(localStorage.getItem(`yt_track_${key}_backing`), 'CCCCCCCCCCC', 'the backing slot takes the next backing recording, not the same one');
+    const stored = loadRecord(`score:${'b'.repeat(64)}:Band - Song`, { kind: 'youtube', videoId: 'AAAAAAAAAAA' });
+    assert.equal(stored?.points.length, 2);
+    assert.equal(stored.points[0].x, 0.25, 'the position is kept in the store');
+});
+
+test('a pack whose first recording is a stem leaves the original slot empty', async () => {
+    lsMap.clear();
+    const yt = (id, videoId, role) => ({ id, role, label: id, sources: [{ type: 'youtube', videoId }] });
+    const data = { scores: [{ id: 'tab', format: 'pdf', sha256: 'c'.repeat(64) }], recordings: [yt('g1', 'BBBBBBBBBBB', 'stem'), yt('band', 'AAAAAAAAAAA', 'backing')] };
+    await applyMpakExtras(data, { entries: [], sync: () => null }, { songKey: 'Band - Song2', applyToActiveReader: false });
+    const key = encodeURIComponent('band - song2');
+    assert.equal(localStorage.getItem(`yt_track_${key}_original`), null);
+    assert.equal(localStorage.getItem(`yt_track_${key}_backing`), 'AAAAAAAAAAA');
+});
+
 test('unpackMpak rejects a pack with no score the app can open, and opens the first score it can', async () => {
     const xml = new TextEncoder().encode('<score-partwise/>');
     const gp = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]);
