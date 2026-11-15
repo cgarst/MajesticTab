@@ -707,6 +707,9 @@ function mapRecordingsToSlots(manifest) {
             bySlot.backing = r;
         }
     }
+    // An alternate is another version of the released recording (SPEC section 7): it only takes the original slot when
+    // the pack has no original.
+    if (!bySlot.original) bySlot.original = recs.find((r) => r.role === 'alternate') || null;
     return bySlot;
 }
 

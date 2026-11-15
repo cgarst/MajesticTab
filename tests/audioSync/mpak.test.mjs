@@ -800,8 +800,8 @@ test('applyMpakExtras keeps every synced YouTube recording, not only the origina
         scores: [{ id: 'gp5', format: 'gp5', sha256: 'a'.repeat(64) }],
         recordings: [
             youtube('v1', 'AAAAAAAAAAA', 'original', 'Full mix'),
-            youtube('v2', 'BBBBBBBBBBB', 'original', 'Full mix (alternative 1)'),
-            youtube('v3', 'CCCCCCCCCCC', 'backing', 'Backing track (without Drums)'),
+            youtube('v2', 'BBBBBBBBBBB', 'alternate', 'Full mix (alternative 1)'),
+            { ...youtube('v3', 'CCCCCCCCCCC', 'backing', 'Backing track (without Drums)'), scoreTracks: { gp5: { omits: [1] } } },
             youtube('v4', 'DDDDDDDDDDD', 'backing', 'Backing track (without Bass)'),
             youtube('v5', 'BBBBBBBBBBB', 'original', 'Same video again'),
             youtube('v6', 'EEEEEEEEEEE', 'solo', 'Solo'),
