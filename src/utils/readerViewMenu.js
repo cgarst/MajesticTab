@@ -466,12 +466,31 @@ function arrangeSongPanel() {
             const file = getCurrentFile();
             let others = [];
             let song = null;
-            if (file?.librarySongId) {
+            if (file?.librarySongId && !file.mpakStandalone) {
                 const { getSongById } = await import('../libraryStore.js');
                 song = await getSongById(file.librarySongId);
                 others = (song?.tabOptions || []).filter((t) => t.id !== file.tabId);
             }
             otherTabs.replaceChildren();
+            if (!others.length && file?.mpakStandalone) {
+                // A pack opened from a file: its other scores, not anything from the library
+                const { otherPackScores, openPackScore } = await import('../mpak.js');
+                const scores = otherPackScores(file);
+                otherTabs.hidden = !scores.length;
+                for (const sc of scores) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-sm song-row-btn';
+                    btn.dataset.scoreId = sc.id;
+                    btn.innerHTML = `<span><b>${escapeText(sc.name || 'Score')}</b>${sc.detail ? `<small>${escapeText(sc.detail)}</small>` : ''}</span>`;
+                    btn.addEventListener('click', () => {
+                        $('scoreOptionsPanelCloseBtn')?.click();
+                        openPackScore(file, sc.id);
+                    });
+                    otherTabs.appendChild(btn);
+                }
+                return;
+            }
             otherTabs.hidden = !others.length;
             if (!others.length) return;
             const { visibleTuningLabel } = await import('../utils/tuningUtils.js');

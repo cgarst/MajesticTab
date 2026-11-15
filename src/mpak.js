@@ -749,9 +749,47 @@ export async function openMpak(file, options = {}) {
         console.warn('[mpak] auto-merge on openMpak failed:', e);
     }
 
+    // A pack that was not saved to the library keeps its scores in the Song menu, so the other scores open from the pack
+    if (!tabFile.librarySongId) { tabFile.mpakStandalone = true; rememberPackScores(unpacked); }
+
     const { loadFile } = await import('./main.js');
     await loadFile(tabFile);
     await applyMpakExtras(header, opened);
+}
+
+// The open pack's scores, by the file the reader has open. Only for a pack opened from a file: a library song lists its own tabs.
+const packScores = new WeakMap();
+
+function rememberPackScores(unpacked) {
+    const { header, opened, tabFile, score, otherScores } = unpacked;
+    if (!otherScores?.length) return;
+    const all = [{ score, file: tabFile }, ...otherScores];
+    for (const { file } of all) file.mpakStandalone = true; // matched to no library song by name
+    const entries = all.map(({ score: sc, file }) => {
+        const pages = (sc.startPage && sc.endPage) ? `Pages ${sc.startPage}\u2013${sc.endPage}` : '';
+        const kind = sc.format === 'pdf' ? 'PDF' : sc.format === 'txt' ? 'Text' : 'Guitar Pro';
+        return { id: sc.id, file, name: sc.label || sc.name || file.name, detail: [kind, pages].filter(Boolean).join(' \u00b7 ') };
+    });
+    for (const e of entries) {
+        if (e.file !== tabFile) { e.file.mpakSong = header.song; }
+        packScores.set(e.file, { entries, header, opened });
+    }
+}
+
+/** The other scores of the pack the open file came from, as `[{ id, name, detail }]`; empty when it is not from a pack. */
+export function otherPackScores(file) {
+    const pack = file && packScores.get(file);
+    return pack ? pack.entries.filter((e) => e.file !== file).map(({ id, name, detail }) => ({ id, name, detail })) : [];
+}
+
+/** Opens another score of the pack the open file came from. */
+export async function openPackScore(file, id) {
+    const pack = packScores.get(file);
+    const entry = pack?.entries.find((e) => e.id === id);
+    if (!entry) return;
+    const { loadFile } = await import('./main.js');
+    await loadFile(entry.file);
+    await applyMpakExtras(pack.header, pack.opened);
 }
 
 function mapRecordingsToSlots(manifest) {

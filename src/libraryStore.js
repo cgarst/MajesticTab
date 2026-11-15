@@ -1345,6 +1345,9 @@ export const MAX_RECENTS_LIMIT = 15;
 export async function addRecentOpened(fileInfo) {
     if (!fileInfo || typeof fileInfo !== 'object') return null;
 
+    // A pack opened from a file is a source of its own: it is not matched to a library tab by its file name
+    if (!fileInfo.librarySongId && fileInfo.standalone) return null;
+
     if (!fileInfo.librarySongId) {
         try {
             const songs = await getAllSongs();

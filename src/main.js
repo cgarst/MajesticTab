@@ -1420,6 +1420,7 @@ export function recordFileToRecents(file) {
         fileStoreId: file.fileStoreId || null,
         driveFileId: file.driveFileId || null,
         librarySongId: file.librarySongId || null,
+        standalone: Boolean(file.mpakStandalone),
         providerId: file.providerId || 'local',
         relativePath: file.relativePath || file.name,
         songTitle: file.librarySongTitle || file.songTitle || file.name.replace(/\.[^/.]+$/, ''),
