@@ -831,3 +831,62 @@ test('unpackMpak rejects a score format the app cannot open, with a clear messag
         (e) => e instanceof MpakError && /MusicXML score, which MajesticTab cannot open/.test(e.message)
     );
 });
+
+test('a text tab\'s sync points are written as text anchors (line) and come back as the same blocks', async () => {
+    lsMap.clear();
+    const { groupBlocks } = await import('../../src/textProcessor/textBlocks.js');
+    const staff = (a) => ['e|--0--2--3--|', 'B|--1--3--3--|', 'G|--0--2--0--|', 'D|--2--0--0--|', 'A|--3--------|', 'E|--------' + a + '--|'];
+    const text = ['My Song', '', ...staff('1'), '', ...staff('2'), ''].join('\r\n');
+    const lines = text.split('\r\n');
+    const blocks = groupBlocks(lines);
+    const systems = blocks.map((b, i) => [b, i]).filter(([b]) => b.kind === 'system');
+    assert.equal(systems.length, 2);
+    const songKey = 'Band - Text Song';
+    localStorage.setItem(`yt_track_${enc(songKey)}_original`, 'dQw4w9WgXcQ');
+    saveRecord(`text:${songKey}`, { kind: 'youtube', videoId: 'dQw4w9WgXcQ' }, [
+        { id: 'a', barIndex: systems[0][1], occurrence: 0, pos: 0, timeMs: 1000, source: 'tap' },
+        { id: 'b', barIndex: systems[1][1], occurrence: 0, pos: 0, timeMs: 5000, source: 'tap' },
+        { id: 'gone', barIndex: 999, occurrence: 0, pos: 0, timeMs: 9000, source: 'tap' },
+    ]);
+    const file = new File([text], 'song.txt', { type: 'text/plain' });
+    const { blob } = await buildMpak(file, { songKey, song: { artist: 'Band', title: 'Text Song' } });
+
+    const { header, opened } = await unpackMpak(blob);
+    const doc = opened.sync('original');
+    assert.equal(doc.anchorType, 'text');
+    assert.deepEqual(doc.points.map((p) => p.line), systems.map(([b]) => b.staffStart ?? b.start), 'a block is named by its top string row');
+    assert.equal(doc.points.length, 2, 'a point whose block is gone is not written');
+    assert.deepEqual(opened.warnings, []);
+
+    lsMap.clear();
+    await applyMpakExtras(header, opened, { songKey: 'Other - Key', applyToActiveReader: false });
+    const back = loadRecord('text:Other - Key', { kind: 'youtube', videoId: 'dQw4w9WgXcQ' });
+    assert.deepEqual(back.points.map((p) => p.barIndex), systems.map(([, i]) => i));
+    assert.deepEqual(back.points.map((p) => p.timeMs), [1000, 5000]);
+    assert.equal(loadRecord('Other - Key', { kind: 'youtube', videoId: 'dQw4w9WgXcQ' }), null, 'bar points stay separate');
+});
+
+test('a PDF tab\'s sync points are written as page anchors in the PDF\'s own numbering and come back as page indexes', async () => {
+    lsMap.clear();
+    const songKey = 'Book - Song';
+    localStorage.setItem(`yt_track_${enc(songKey)}_original`, 'dQw4w9WgXcQ');
+    saveRecord(`text:${songKey}`, { kind: 'youtube', videoId: 'dQw4w9WgXcQ' }, [
+        { id: 'a', barIndex: 0, occurrence: 0, pos: 0, timeMs: 0, source: 'tap' },
+        { id: 'b', barIndex: 2, occurrence: 0, pos: 0, timeMs: 4000, source: 'tap' },
+        { id: 'c', barIndex: 0, occurrence: 0, pos: 0, timeMs: 8000, source: 'tap' },
+        { id: 'far', barIndex: 7, occurrence: 0, pos: 0, timeMs: 9000, source: 'tap' },
+    ]);
+    const file = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], 'book.pdf', { type: 'application/pdf' });
+    const { blob } = await buildMpak(file, { songKey, song: { artist: 'Book', title: 'Song' }, startPage: 12, endPage: 14, pages: 100 });
+
+    const { header, opened } = await unpackMpak(blob);
+    const doc = opened.sync('original');
+    assert.equal(doc.anchorType, 'pdf');
+    assert.deepEqual(doc.points.map((p) => p.page), [12, 14, 12], 'pages keep the PDF numbering, and a jump back is a repeat');
+    assert.deepEqual(opened.warnings, []);
+
+    lsMap.clear();
+    await applyMpakExtras(header, opened, { songKey: 'Other - Book', applyToActiveReader: false });
+    const back = loadRecord('text:Other - Book', { kind: 'youtube', videoId: 'dQw4w9WgXcQ' });
+    assert.deepEqual(back.points.map((p) => p.barIndex), [0, 2, 0]);
+});
