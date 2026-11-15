@@ -2901,6 +2901,14 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 #scoreOptionsSaveGroup .btn { display: flex; align-items: center; }
 @media (hover: hover) { #scoreOptionsSaveGroup .btn:hover { background: var(--s3) !important; } }
 #scoreOptionsSaveGroup .btn i { display: none; }
+/* Export and Share: one row each, the label on the left and the formats as text actions on the right */
+#scoreOptionsSaveGroup [hidden] { display: none !important; }
+.song-format-row { display: flex; align-items: center; gap: 8px; min-height: 56px; padding-inline: 12px; }
+.song-format-label { color: var(--ink); flex: 0 0 auto; }
+.song-format-options { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px; margin-inline-start: auto; }
+#scoreOptionsSaveGroup .song-format-options .btn { min-height: 40px; padding-inline: 10px !important; color: var(--ink2) !important; justify-content: center !important; width: auto; }
+@media (hover: hover) { #scoreOptionsSaveGroup .song-format-options .btn:hover { color: var(--ink) !important; background: var(--s3) !important; } }
+@media (pointer: coarse) { #scoreOptionsSaveGroup .song-format-options .btn { min-height: 44px; } }
 .top-bar-song-btn.active { background: transparent !important; }
 
 /* ---------- Song menu: Tuning ---------- */

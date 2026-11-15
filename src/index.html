@@ -467,22 +467,23 @@
       <button class="btn btn-theme-outline w-100" id="addToSetlistBtn" type="button" style="display: none;">
         Add to setlist
       </button>
-      <button class="btn btn-theme-outline w-100" id="exportSourceTabBtn" type="button">
-        Export source tab
-      </button>
-      <button class="btn btn-theme-outline w-100" id="exportMtabBtn" type="button">
-        Export song file (.mtab)
-      </button>
-      <button class="btn btn-theme-outline w-100" id="shareSourceTabBtn" type="button" hidden>
-        Share original file
-      </button>
-      <button class="btn btn-theme-outline w-100" id="shareMtabBtn" type="button" hidden>
-        Share as song file (.mtab)
-      </button>
+      <div class="song-format-row" id="songExportRow">
+        <span class="song-format-label">Export</span>
+        <div class="song-format-options">
+          <button class="btn" id="exportSourceTabBtn" type="button" title="Export the original tab file" aria-label="Export the original tab file">Original</button>
+          <button class="btn" id="exportMtabBtn" type="button" title="Export as a song file (.mtab)" aria-label="Export as a song file (.mtab)">MTAB</button>
+          <button class="btn" id="exportPDFBtn" type="button" title="Export as PDF" aria-label="Export as PDF" style="display: none;">PDF</button>
+        </div>
+      </div>
+      <div class="song-format-row" id="songShareRow" hidden>
+        <span class="song-format-label">Share</span>
+        <div class="song-format-options" id="songShareOptions">
+          <button class="btn" id="shareSourceTabBtn" type="button" title="Share the original tab file" aria-label="Share the original tab file">Original</button>
+          <button class="btn" id="shareMtabBtn" type="button" title="Share as a song file (.mtab)" aria-label="Share as a song file (.mtab)">MTAB</button>
+          <button class="btn" id="sharePDFBtn" type="button" title="Share as PDF" aria-label="Share as PDF" style="display: none;">PDF</button>
+        </div>
+      </div>
       <p class="small text-muted mb-0 text-center" id="songSourceLine" style="display: none;"></p>
-      <button class="btn btn-theme-outline w-100" id="exportPDFBtn" type="button" style="display: none;">
-        Export as PDF
-      </button>
       <div id="exportProgressContainer" style="display:none; margin-top:2px; margin-bottom:2px;">
         <div class="progress settings-progress" style="height: 6px;">
           <div id="exportProgressBar" class="progress-bar settings-progress-bar" role="progressbar" style="width:0%">0%</div>

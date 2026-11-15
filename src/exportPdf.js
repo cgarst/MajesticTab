@@ -474,13 +474,20 @@ async function saveWithNativeDialog(blob, filename) {
 }
 
 function showPdfExported() {
+  if (pdfOutputMode === 'share') return;
   const path = lastSavedPath;
   lastSavedPath = '';
   if (path) showToast(`Exported to ${path}`, 'success', 9000);
   else showToast('PDF exported successfully.', 'success');
 }
 
+// 'export' saves the PDF; 'share' hands it to the share sheet. Set by the PDF buttons for the length of one run.
+let pdfOutputMode = 'export';
+
 async function saveOrSharePdf(pdf, filename) {
+  if (pdfOutputMode === 'share') {
+    return shareFile(new File([pdf.output('blob')], filename, { type: 'application/pdf' }), 'Use Export as PDF instead.');
+  }
   if (isIOSDevice()) {
     const blob = pdf.output('blob');
     const file = new File([blob], filename, { type: 'application/pdf' });
@@ -687,18 +694,54 @@ export function setupExportPDFButton() {
   }
   document.getElementById('exportMtabBtn')?.addEventListener('click', () => { exportMtabFile(); });
 
+  // Share has its own row where the web view has a share sheet.
   if (canShareFiles()) {
+    const shareRow = document.getElementById('songShareRow');
+    if (shareRow) shareRow.hidden = false;
     for (const [id, share] of [['shareSourceTabBtn', shareSourceTabFile], ['shareMtabBtn', shareMtabFile]]) {
       const btn = document.getElementById(id);
-      if (!btn) continue;
-      btn.hidden = false;
-      btn.addEventListener('click', () => { share(); });
+      if (btn) btn.addEventListener('click', () => { share(); });
+    }
+    // Phones and tablets only share: the Export row goes.
+    if (isIOSDevice() || /android/i.test(navigator.userAgent || '')) {
+      const exportRow = document.getElementById('songExportRow');
+      if (exportRow) exportRow.hidden = true;
     }
   }
 
   if (!exportBtn) return;
 
-  exportBtn.addEventListener('click', async () => {
+  const sharePdfBtn = document.getElementById('sharePDFBtn');
+  // The Share row's PDF follows the Export row's (shown for Guitar Pro files and condensed PDFs), and exists only where sharing does
+  // The source's own format names the "Original" options (GP5, PDF, TXT), and a PDF source is not offered a second, generated PDF:
+  // only the condensed one, which is a different file.
+  const syncFormats = () => {
+    const name = getCurrentFile()?.name || '';
+    const ext = /\.([a-z0-9]+)$/i.exec(name)?.[1]?.toUpperCase() || '';
+    const sourceIsPdf = ext === 'PDF';
+    const original = ext || 'Original';
+    for (const [id, verb] of [['exportSourceTabBtn', 'Export'], ['shareSourceTabBtn', 'Share']]) {
+      const btn = document.getElementById(id);
+      if (!btn) continue;
+      btn.textContent = original;
+      const what = ext ? `the original ${ext} file` : 'the original tab file';
+      btn.title = btn.ariaLabel = `${verb} ${what}`;
+    }
+    const pdfLabel = sourceIsPdf ? 'Condensed PDF' : 'PDF';
+    for (const [btn, verb] of [[exportBtn, 'Export'], [sharePdfBtn, 'Share']]) {
+      if (!btn) continue;
+      btn.textContent = pdfLabel;
+      btn.title = btn.ariaLabel = `${verb} as ${pdfLabel}`;
+    }
+    if (sharePdfBtn) sharePdfBtn.style.display = exportBtn.style.display === 'none' || !canShareFiles() ? 'none' : '';
+  };
+  new MutationObserver(syncFormats).observe(exportBtn, { attributes: true, attributeFilter: ['style'] });
+  document.addEventListener('scoreoptions:open', syncFormats);
+  window.addEventListener('majestictab:file-loaded', syncFormats);
+  syncFormats();
+
+  const runPdf = async (mode) => {
+    pdfOutputMode = mode;
     const currentFile = getCurrentFile();
     const hasGP = Boolean(gpState.canvases[0]?.container);
     const isPdf = currentFile?.name?.toLowerCase().endsWith('.pdf');
@@ -707,6 +750,7 @@ export function setupExportPDFButton() {
 
     if (!hasGP && !isCondensedPdf) {
       showToast('A Guitar Pro file or condensed PDF is not currently opened.', 'warning');
+      pdfOutputMode = 'export';
       return;
     }
 
@@ -742,7 +786,10 @@ export function setupExportPDFButton() {
       showToast('An error occurred while generating the PDF.', 'error');
     } finally {
       if (progressContainer) progressContainer.style.display = 'none';
+      pdfOutputMode = 'export';
     }
-  });
+  };
+  exportBtn.addEventListener('click', () => runPdf('export'));
+  sharePdfBtn?.addEventListener('click', () => runPdf('share'));
 }
 
