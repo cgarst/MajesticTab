@@ -491,7 +491,6 @@ export function initPdfBookmarksUI() {
     const closeBtn = document.getElementById('pdfBookmarksPanelCloseBtn');
     const addBtn = document.getElementById('pdfAddBookmarkBtn');
     const nameInput = document.getElementById('pdfBookmarkNameInput');
-    const scoreOptionsBookmarksBtn = document.getElementById('scoreOptionsBookmarksBtn');
 
     toggleBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -523,12 +522,6 @@ export function initPdfBookmarksUI() {
             e.stopPropagation();
             triggerAdd();
         }
-    });
-
-    scoreOptionsBookmarksBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleScoreOptionsPanel(false);
-        togglePdfBookmarksPanel(true);
     });
 
     // Close panel when clicking outside
