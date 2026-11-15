@@ -145,7 +145,7 @@ html:not(.js) .pfig:not(.is-on) { display: none; }
 .faq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 72px; }
 .qa h3 { margin-bottom: 8px; }
 .qa p { color: var(--ink2); }
-.qa p a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.qa p a, .fgroup p a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
 /* Download */
 .dl-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 40px 28px; }
