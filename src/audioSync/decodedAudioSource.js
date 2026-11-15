@@ -54,14 +54,14 @@ export function decodedPlaybackSupported() {
 }
 
 let sharedContext = null;
-function getContext() {
+export function getContext() {
     if (!sharedContext || sharedContext.state === 'closed') sharedContext = new AudioContext();
     return sharedContext;
 }
 
 let soundTouchLoad = null;
 /** Loads SoundTouch and registers its processor once for the shared context. Resolves with the node class. */
-function loadSoundTouch(ctx) {
+export function loadSoundTouch(ctx) {
     soundTouchLoad ||= (async () => {
         const { SoundTouchNode } = await import(SOUNDTOUCH_NODE_URL);
         // Fetched and handed over as a blob so it loads the same way under every address scheme the app is served on
@@ -73,11 +73,11 @@ function loadSoundTouch(ctx) {
     return soundTouchLoad;
 }
 
-const MIN_RATE = 0.25;
-const MAX_RATE = 2;
-const START_LEAD_S = 0.02;
-const TIME_EVENT_MS = 250;
-const MAX_EXTRAPOLATE_MS = 50;
+export const MIN_RATE = 0.25;
+export const MAX_RATE = 2;
+export const START_LEAD_S = 0.02;
+export const TIME_EVENT_MS = 250;
+export const MAX_EXTRAPOLATE_MS = 50;
 
 /**
  * @param {object} file `{ id, name, type, data: ArrayBuffer, durationMs }`
