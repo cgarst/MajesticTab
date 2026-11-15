@@ -558,6 +558,8 @@ export async function readMpak(input, options = {}) {
 function scoreFileOf(entry, bytes) {
     const name = entry.name || (entry.path || entry.externalPath || `score.${entry.format}`).split('/').pop();
     const file = new File([bytes], name, { type: MIME_BY_FORMAT[entry.format] || 'application/octet-stream' });
+    if (entry.sha256) file.contentSha256 = entry.sha256;
+    if (entry.label) file.mpakLabel = entry.label;
     // `instruments` is informational and only for scores that carry no tuning of their own (SPEC section 6): take the
     // first entry that lists a tuning.
     const instrumentTuning = (entry.instruments || []).find((i) => Array.isArray(i?.tuning) && i.tuning.length)?.tuning;
@@ -722,7 +724,7 @@ function mapRecordingsToSlots(manifest) {
 export async function applyMpakExtras(data, opened, options = {}) {
     const { saveAudioFile, linkAudioFile, setAudioPeaks } = await import('./audioSync/audioFileStore.js');
     const { decodePeaks } = await import('./audioSync/peaks.js');
-    const { attachLibraryAudio } = await import('./audioSync/libraryAudio.js');
+    const { attachLibraryAudio, attachLibraryAudioAlternate } = await import('./audioSync/libraryAudio.js');
     const { saveRecord, setSyncSharedFromOriginal, mediaKey, SYNC_CHANGED_EVENT } = await import('./audioSync/syncStore.js');
 
     let activeReaderKey = null;
@@ -785,16 +787,24 @@ export async function applyMpakExtras(data, opened, options = {}) {
         }
     };
 
+    // What the song already has in a slot: the id of its local file, or the id of its video, or null when the slot is free
+    const slotTakenBy = (slot) => {
+        const source = localStorage.getItem(`real_audio_source_${enc(primaryKey)}_${slot}`);
+        if (source === 'youtube') return localStorage.getItem(`yt_track_${enc(primaryKey)}_${slot}`) || null;
+        return localStorage.getItem(`audio_file_${enc(primaryKey)}_${slot}`) || null;
+    };
+
     for (const slot of SLOTS) {
         const rec = slots[slot];
         if (!rec) continue;
         try {
             const syncDocs = syncDocsOf(rec);
             const hasSync = syncDocs.length > 0;
+            const takenId = options.keepExistingSlots ? slotTakenBy(slot) : null;
 
             // Cache any YouTube fallback videoId on the recording
             const ytSrc = (rec.sources || []).find((s) => s.type === 'youtube' && s.videoId);
-            if (ytSrc) {
+            if (ytSrc && !takenId) {
                 for (const k of allKeys) {
                     localStorage.setItem(`yt_track_${enc(k)}_${slot}`, String(ytSrc.videoId));
                 }
@@ -813,18 +823,22 @@ export async function applyMpakExtras(data, opened, options = {}) {
                         songKey: primaryKey,
                         durationMs: src.durationMs ?? null,
                     });
+                    // A song that already has a different recording in this slot keeps it. The new file is stored and linked
+                    // to the song, so the player lists it, and its sync points are saved against it below.
+                    const keep = Boolean(takenId) && takenId !== meta.id;
                     for (const k of allKeys) {
                         if (k !== primaryKey) {
                             await linkAudioFile(meta.id, k).catch(() => {});
                         }
+                        if (keep) continue;
                         localStorage.setItem(`audio_file_${enc(k)}_${slot}`, meta.id);
                         if (slot === 'original') localStorage.setItem(`audio_file_last_${enc(k)}`, meta.id);
                         localStorage.setItem(`real_audio_source_${enc(k)}_${slot}`, 'local');
                     }
                     if (targetSong) {
-                        try { attachLibraryAudio(targetSong, meta.id, slot); } catch { /* optional */ }
+                        try { (keep ? attachLibraryAudioAlternate : attachLibraryAudio)(targetSong, meta.id, slot); } catch { /* optional */ }
                     }
-                    if (applyToActiveReader) {
+                    if (applyToActiveReader && !keep) {
                         setSlotSource('local', slot);
                     }
                     decodePeaks(audioBuf.slice(0))
@@ -836,7 +850,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
                     handled = true;
                     break;
                 }
-                if (src.type === 'embedded' && scores.find((sc) => sc.id === (src.score ?? scores[0]?.id))?.format === 'gp') {
+                if (src.type === 'embedded' && !takenId && scores.find((sc) => sc.id === (src.score ?? scores[0]?.id))?.format === 'gp') {
                     for (const k of allKeys) {
                         localStorage.setItem(`real_audio_source_${enc(k)}_${slot}`, 'embedded');
                     }
@@ -847,6 +861,8 @@ export async function applyMpakExtras(data, opened, options = {}) {
                     break;
                 }
                 if (src.type === 'youtube' && src.videoId) {
+                    // A different video already in the slot stays; this one is kept as a synced video of the song below
+                    if (takenId && takenId !== String(src.videoId)) continue;
                     const preferEmbedded = slot === 'original' && !hasSync && applyToActiveReader && hasEmbeddedAudio();
                     const chosenSource = preferEmbedded ? 'embedded' : 'youtube';
                     for (const k of allKeys) {
@@ -911,6 +927,28 @@ export async function applyMpakExtras(data, opened, options = {}) {
 }
 
 /**
+ * The tab of `song` that holds this score file, or null. Tabs added from a pack record the score's SHA-256; an older tab
+ * has none, so it is matched by file type, name and size.
+ */
+async function findTabOfScore(song, file, entry) {
+    const sha = entry?.sha256 || file?.contentSha256 || null;
+    const ext = (file?.name || '').split('.').pop().toLowerCase();
+    for (const t of song?.tabOptions || []) {
+        if (sha && t.sha256) {
+            if (t.sha256 === sha) return t;
+            continue;
+        }
+        if (!t.fileStoreId || t.fileType !== ext) continue;
+        try {
+            const { getStoredFileRecord } = await import('./fileStore.js');
+            const rec = await getStoredFileRecord(t.fileStoreId);
+            if (rec && rec.size === file.size && rec.name === file.name) return t;
+        } catch { /* compare no further */ }
+    }
+    return null;
+}
+
+/**
  * Saves an .mpak bundle to the library, using its MusicBrainz IDs (`recordingMbid`, `artistMbid`, `albumMbid`)
  * and song metadata to either:
  *   - Add the song in the proper Artist > Album > Song hierarchy (querying MusicBrainz by ID when needed), or
@@ -954,20 +992,22 @@ export async function saveMpakToLibrary(input, options = {}) {
         created = resolved.created;
     }
 
-    const mapped = await mapOpenFileToSong(
-        tabFile,
-        song.id,
-        tabName || tabFile.name,
-        providerId,
-        relativePath || tabFile.name
-    );
+    // A score the song already has (the same file, by its SHA-256) is not added again, so adding the same pack twice, or a
+    // second pack that carries the same score, leaves one tab. A different score becomes another tab, named by its label.
+    const addScore = async (file, entry, name) => {
+        const existing = await findTabOfScore(song, file, entry);
+        if (existing) return { song, tabOption: existing, stored: null, duplicate: true };
+        const label = entry?.label || null;
+        return mapOpenFileToSong(file, song.id, name || label || file.name, providerId, file.name);
+    };
+    const mapped = await addScore(tabFile, unpacked.score, tabName);
     song = mapped.song || song;
     const tabOption = mapped.tabOption;
 
     // The pack's other scores (a PDF beside a Guitar Pro file, say) become more tabs of the song
     for (const other of unpacked.otherScores || []) {
         try {
-            const added = await mapOpenFileToSong(other.file, song.id, other.file.name, providerId, other.file.name);
+            const added = await addScore(other.file, other.score, null);
             song = added.song || song;
         } catch (e) {
             console.warn('[mpak] could not add the', other.score.id, 'score to the song:', e);
@@ -1003,6 +1043,8 @@ export async function saveMpakToLibrary(input, options = {}) {
         aliasKeys,
         song,
         applyToActiveReader: false,
+        // A song that already had audio keeps it: the pack's recording is stored beside it, with its sync points
+        keepExistingSlots: merged,
     });
 
     return {

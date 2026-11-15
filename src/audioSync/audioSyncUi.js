@@ -5,7 +5,10 @@
 
 import { getSongKey, onYouTubeEvent, jamYouTubeControl, toggleYouTubePanel } from '../youtubePlayer.js';
 import { onTransportEvent, isSynthPlaying } from '../gpProcessor/gpPlayer.js';
+import { getAudioMeta } from './audioFileStore.js';
 import { loadRecord } from './syncStore.js';
+import { borrowableRecords, borrowRecord, estimateOffsetMs, isConfident } from './borrowSync.js';
+import { showToast } from '../utils/toast.js';
 import { createYouTubeSource } from './mediaSource.js';
 import { startAudioSync, stopAudioSync, getAudioSyncSession } from './audioSyncController.js';
 import { initAudioSyncEditor, SYNC_CHANGED_EVENT } from './audioSyncEditor.js';
@@ -35,6 +38,7 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
     const row = document.getElementById(`${prefix}SyncRow`);
     const info = document.getElementById(`${prefix}SyncInfo`);
     const editBtn = document.getElementById(`${prefix}SyncEditBtn`);
+    const borrowBtn = document.getElementById(`${prefix}SyncBorrowBtn`);
     if (!row) return { refresh() {} };
     editor ||= initAudioSyncEditor();
 
@@ -54,6 +58,8 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
         const source = getSource();
         const record = media ? recordFor(media) : null;
         const has = Boolean(record?.points.length);
+        // Another recording of this song already has points for this score: offer them, shifted to fit this one
+        if (borrowBtn) borrowBtn.hidden = !media || has || isTvMode() || guestOnVideo(media) || !borrowableRecords(getSongKey(), media).length;
         // A TV, or a guest following the host, only follows existing points, so with none the row has nothing to offer
         row.hidden = !media || ((isTvMode() || guestOnVideo(media)) && !has);
         info.textContent = has
@@ -80,6 +86,32 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
         const media = getMedia();
         const source = getSource();
         if (media && source && !isTvMode() && !guestOnVideo(media)) {
+            toggleYouTubePanel(false);
+            editor.open({ source, media, peaks: getPeaks?.() || null });
+        }
+    });
+    borrowBtn?.addEventListener('click', async () => {
+        const media = getMedia();
+        if (!media || isTvMode() || guestOnVideo(media)) return;
+        const from = borrowableRecords(getSongKey(), media)[0];
+        if (!from) return;
+        // Lined up by the waveforms when both are local files; otherwise (or when they do not match) copied as they are
+        let offsetMs = 0;
+        let lined = false;
+        try {
+            const otherPeaks = from.media.kind === 'local' ? (await getAudioMeta(from.media.audioId))?.peaks : null;
+            const est = estimateOffsetMs(otherPeaks, getPeaks?.() || null);
+            if (isConfident(est)) { offsetMs = est.offsetMs; lined = true; }
+        } catch { /* copy without a shift */ }
+        const saved = borrowRecord(getSongKey(), from, media, offsetMs);
+        if (!saved) { showToast('Could not copy the sync points', 'error'); return; }
+        window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+        showToast(lined
+            ? `Copied ${saved.points.length} sync points, shifted by ${(offsetMs / 1000).toFixed(2)} s. Adjust them with Shift all points.`
+            : `Copied ${saved.points.length} sync points with no shift. The recordings did not line up on their own: play it and use Shift all points.`, lined ? 'success' : 'warning');
+        // The editor plays the recording from any point and shifts every point, so the offset can be set by ear
+        const source = getSource();
+        if (source) {
             toggleYouTubePanel(false);
             editor.open({ source, media, peaks: getPeaks?.() || null });
         }

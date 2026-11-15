@@ -400,6 +400,20 @@ export function initAudioSyncEditor() {
         persist(shiftAfter(points, from, Math.round(delta)));
     });
 
+    // Shifts every point of the recording at once, for a copy that is a little early or late. The quick buttons apply at once;
+    // a typed amount applies with Apply. Each is one undo step.
+    const shiftAll = (delta) => {
+        if (!Number.isFinite(delta) || !delta || !points.length) return;
+        persist(shiftAfter(points, 0, Math.round(delta)));
+    };
+    document.querySelectorAll('#syncShiftAllRow [data-shift-all]').forEach((btn) => {
+        btn.addEventListener('click', () => shiftAll(Number(btn.dataset.shiftAll)));
+    });
+    $('syncShiftAllBtn').addEventListener('click', () => {
+        shiftAll(Number($('syncShiftAllMs').value));
+        $('syncShiftAllMs').value = '0';
+    });
+
     document.querySelectorAll('#syncSelectedPointPanel [data-nudge]').forEach(btn => {
         btn.addEventListener('click', () => {
             if (!selectedId) return;

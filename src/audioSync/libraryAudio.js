@@ -141,11 +141,16 @@ export async function adoptAllUnassignedAudio() {
     return changed;
 }
 
-/** Records a stored file as the song's audio and makes it the slot's file under the library key. */
-export function attachLibraryAudio(song, audioId, slot) {
+/** Records a stored file as the song's audio without touching its slots: the song's keys link it when they open, so the player lists it. */
+export function attachLibraryAudioAlternate(song, audioId, slot) {
     const list = readLibraryAudio(song.id).filter((e) => !(e.audioId === audioId && e.slot === slot));
     list.push({ audioId, slot });
     write(REGISTRY(song.id), JSON.stringify(list.slice(-20)));
+}
+
+/** Records a stored file as the song's audio and makes it the slot's file under the library key. */
+export function attachLibraryAudio(song, audioId, slot) {
+    attachLibraryAudioAlternate(song, audioId, slot);
     const key = libraryAudioKey(song);
     if (key) {
         write(slotFileKey(key, slot), audioId);

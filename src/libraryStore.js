@@ -624,6 +624,7 @@ export async function addTabOptionToSong(songId, tabOption) {
         isDefault: Boolean(tabOption.isDefault),
         sourceUrl: tabOption.sourceUrl || null,
         sourceWebsite: tabOption.sourceWebsite || null,
+        sha256: tabOption.sha256 || null,
         addedAt: tabOption.addedAt || Date.now()
     };
 
@@ -993,7 +994,8 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
         stringCount: meta.stringCount,
         fileType: file.name.split('.').pop().toLowerCase(),
         sourceUrl: file.sourceUrl || null,
-        sourceWebsite: file.sourceWebsite || null
+        sourceWebsite: file.sourceWebsite || null,
+        sha256: file.contentSha256 || null
     };
 
     const addedOption = await addTabOptionToSong(songId, tabOption);
