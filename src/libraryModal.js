@@ -4982,8 +4982,9 @@ function renderToolsView(container) {
         await set();
         if (!classtabUnsub) classtabUnsub = m.onArchiveChange(() => { m.getCatalogRecord().then(set); });
     }).catch(() => {});
-    // Grouped by what the player is doing, musical tools first: theory, then practice aids, then getting tabs in, then
-    // library upkeep. The first tool is the one a wide screen opens, so it must be a musician's tool, not a file picker.
+    // Grouped by what the player is doing, musical tools first: theory, then practice aids, then the Classical tab browser
+    // on its own, then actions on the library (getting files in, filling, processing, getting them out). The first tool is
+    // the one a wide screen opens, so it must be a musician's tool, not a file picker.
     const tools = [
         { id: 'chords', group: 'theory', title: 'Chord library', readout: chordsReadout },
         { id: 'scales', group: 'theory', title: 'Scales' },
@@ -4991,14 +4992,11 @@ function renderToolsView(container) {
         { id: 'tuner', group: 'practice', title: 'Tuner', readout: tunerReadout },
         { id: 'metronome', group: 'practice', title: 'Metronome', readout: () => `${metronome.bpm} bpm`, watch: ['metroBpm'] }
     ];
-    // Sends local audio to the StemDeck app on your computer or network; the web build cannot reach it
-    if (hasStemDeckSupport()) tools.push({ id: 'stemdeck', group: 'practice', title: 'Make backing tracks', readout: stemdeckReadout });
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', group: 'practice', title: 'Jam', readout: jamReadout, watch: ['jamStatusLabel'] });
     tools.push(
-        { id: 'openfile', group: 'gettabs', title: 'Open file' },
         {
             id: 'classtab',
-            group: 'gettabs',
+            group: 'classtab',
             title: 'Classical tab browser',
             readout: classtabReadout,
             attribution: {
@@ -5007,8 +5005,11 @@ function renderToolsView(container) {
                 url: CLASSTAB_HOME
             }
         },
-        ...(isNative() ? [{ id: 'missingtabs', group: 'gettabs', title: 'Fill in missing tabs', readout: missingTabsReadout }] : []),
+        { id: 'openfile', group: 'library', title: 'Open file' },
         { id: 'bulkimport', group: 'library', title: 'Bulk import', readout: bulkImportReadout },
+        ...(isNative() ? [{ id: 'missingtabs', group: 'library', title: 'Fill in missing tabs', readout: missingTabsReadout }] : []),
+        // Sends local audio to the StemDeck app on your computer or network; the web build cannot reach it
+        ...(hasStemDeckSupport() ? [{ id: 'stemdeck', group: 'library', title: 'Make backing tracks', readout: stemdeckReadout }] : []),
         { id: 'bulkexport', group: 'library', title: 'Bulk export', readout: bulkExportReadout }
     );
     if (isNative()) import('./bulkFill/missingTabsTool.js').then((m) => m.refreshMissingTabsCount()).catch(() => {});
