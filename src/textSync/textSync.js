@@ -26,6 +26,7 @@ import { loadRecord, saveRecord, isSyncSharedFromOriginal, setSyncSharedFromOrig
 import { unitsToPoints, pointsToUnits, scoreSyncKey, legacyScoreSyncKey, textBlocksOf, claimLegacyRecord } from '../audioSync/anchors.js';
 import { sha256 } from '../mpak/core/index.js';
 import { getScrubState, applyScrubValue } from '../utils/pageScrubber.js';
+import { attachPillCursor } from '../utils/readerCursorShape.js';
 import { makeId, formatTime } from '../audioSync/syncEdit.js';
 import { showToast } from '../utils/toast.js';
 import { positionAt, barProgressAt, backJumps, followTarget, glide } from './readingLine.js';
@@ -688,6 +689,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             if (activeCursor && prog) {
                 const sysBlock = textState.blocks?.[prog.unitId];
                 const trimCols = sysBlock?.trimCols ?? 2;
+                attachPillCursor(activeCursor); // the page and scroll views hold clones, which lost their drawing
                 activeCursor.hidden = false;
                 activeCursor.style.left = `calc(${trimCols}ch + (100% - ${trimCols}ch) * ${prog.colFrac.toFixed(4)})`;
             }

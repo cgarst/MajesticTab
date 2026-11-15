@@ -11,6 +11,10 @@ export function buildPillVPath(w, h) {
 
 /** Draws the outline inside `el` and redraws it whenever `el` is resized (the element's height sets the pill's height). */
 export function attachPillCursor(el) {
+    // A cloned element keeps the old SVG but not its observer, so a repeat call replaces the drawing
+    if (el._pillCursor) return;
+    el._pillCursor = true;
+    el.querySelectorAll(':scope > .pill-cursor-svg').forEach((n) => n.remove());
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('class', 'pill-cursor-svg');
