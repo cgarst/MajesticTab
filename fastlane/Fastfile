@@ -194,6 +194,17 @@ def submit_app_store_release(deliver_platform:, notes_platform:, options: {})
     end
   end
 
+  # ensure_version! does not count a DEVELOPER_REJECTED version (what cancelling a submission leaves behind) as editable, so it
+  # tries to create `version` and App Store Connect refuses ("cannot create a new version ... in the current state"). Rename the
+  # rejected version to `version` first; it is editable, and ensure_version! then finds it.
+  versions = Spaceship::ConnectAPI.get_app_store_versions(app_id: app.id, filter: { platform: asc_platform }, limit: 10).to_a
+  if versions.none? { |v| v.version_string == version }
+    if (rejected = versions.find { |v| v.app_store_state == "DEVELOPER_REJECTED" })
+      UI.message("Renaming developer-rejected #{asc_platform} version #{rejected.version_string} to #{version}...")
+      rejected.update(attributes: { "versionString" => version })
+    end
+  end
+
   app.ensure_version!(version, platform: asc_platform)
   edit_version = app.get_edit_app_store_version(platform: asc_platform) or UI.user_error!("No editable App Store version found for #{asc_platform} #{version}")
   edit_version.update(attributes: {
