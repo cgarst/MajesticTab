@@ -409,21 +409,29 @@ export function initTextSync({ getConfig, getCurrentFile }) {
                 + `<button type="button" class="ct-text" data-act="clear" ${points.length ? '' : 'disabled'}>${clearArmed ? 'Press again to clear' : 'Clear'}</button>`
                 + '<button type="button" class="ct-text rec-done" data-act="done">Done</button>';
         } else if (points.length) {
+            // The counts are detail: on a phone only the word shows (the track needs the room) and the counts go to the tooltip
+            const repeats = backs.size ? `${backs.size} ${backs.size === 1 ? 'repeat' : 'repeats'}` : '';
+            let word1, detail;
             if (isAuto) {
                 const barTotal = textState.alignment?.visualBars?.length || points.length;
-                statusEl.textContent = `Auto-synced · ${barTotal} ${barTotal === 1 ? 'bar' : 'bars'}`
-                    + (backs.size ? ` · ${backs.size} ${backs.size === 1 ? 'repeat' : 'repeats'}` : '');
+                word1 = 'Auto-synced';
+                detail = [`${barTotal} ${barTotal === 1 ? 'bar' : 'bars'}`, repeats].filter(Boolean).join(' · ');
             } else {
-                statusEl.textContent = `Synced · ${points.length} ${points.length === 1 ? 'point' : 'points'}`
-                    + (backs.size ? ` · ${backs.size} ${backs.size === 1 ? 'repeat' : 'repeats'}` : '');
+                word1 = 'Synced';
+                detail = [`${points.length} ${points.length === 1 ? 'point' : 'points'}`, repeats].filter(Boolean).join(' · ');
             }
+            const detailEl = document.createElement('span');
+            detailEl.className = 'rec-detail';
+            detailEl.textContent = ` · ${detail}`;
+            statusEl.replaceChildren(word1, detailEl);
+            statusEl.title = `${word1} · ${detail}`;
             actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Edit</button>';
         } else {
             statusEl.textContent = 'Not synced';
             statusEl.title = `The ${rec?.label?.toLowerCase() || 'recording'} plays on its own. The tab won't follow it until you add sync points.`;
             actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Add points</button>';
         }
-        if (points.length) statusEl.removeAttribute('title');
+        if (tapping) statusEl.removeAttribute('title');
         // Tick marks where the tab is pinned to the recording
         const dur = rec && durationOf(rec);
         marksEl.replaceChildren();

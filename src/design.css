@@ -3267,6 +3267,8 @@ body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guita
   body.phone-reader:not(.library-view-active) #scoreRecStrip { margin-bottom: 2px; }
   body.phone-reader:not(.library-view-active) .rec-time { font-size: 11px; }
   body.phone-reader:not(.library-view-active) .rec-status { font-size: 11px; }
+  /* The track needs the room: the bar and repeat counts show only in the tooltip and the Points list */
+  body.phone-reader:not(.library-view-active) .rec-strip:not(.is-tapping) .rec-detail { display: none; }
 }
 /* While tapping points the strip carries a status line and up to four actions, more than one row holds on a phone: time and
    track on the first row, the status on the second, the actions (Points, Undo, Clear, Done) on the third, right-aligned. */
