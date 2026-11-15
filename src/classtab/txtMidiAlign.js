@@ -467,6 +467,26 @@ export function alignTxtAndMidi({
                     return total > 0 ? hits / total : 0;
                 };
                 bar1Tick = scoreCandidate(candBeat) >= scoreCandidate(candBar) ? candBeat : candBar;
+                // A MIDI file's pickup does not always fall on a whole beat from tick 0 (a lead-in rest, or a pickup note
+                // that is not a beat long), so the beat and bar grids above can miss every downbeat. Try each onset in
+                // the first bar as bar 1; the most downbeat hits wins, and among equals the one that makes the pickup
+                // about as long as the tab's pickup is wide.
+                const pv = visualBars[0];
+                const firstCol = pv.noteOnsets?.[0]?.colOffset || 0;
+                const pickupCols = Math.max(1, (pv.colEnd - pv.colStart) - firstCol);
+                const barCols = Math.max(1, (pv.colEnd - pv.colStart) / Math.max(0.05, pv.widthRatio || 0.5));
+                const expectLen = Math.max(0.1, Math.min(0.9, pickupCols / barCols)) * barTicks;
+                let best = null;
+                const seen = new Set();
+                for (const n of midiNotes) {
+                    if (n.tick <= firstNoteTick + tol || n.tick > firstNoteTick + barTicks) continue;
+                    if (seen.has(n.tick)) continue;
+                    seen.add(n.tick);
+                    const hits = scoreCandidate(n.tick);
+                    const off = Math.abs(n.tick - firstNoteTick - expectLen);
+                    if (!best || hits > best.hits + 1e-9 || (Math.abs(hits - best.hits) <= 1e-9 && off < best.off)) best = { tick: n.tick, hits, off };
+                }
+                if (best && best.hits >= Math.max(scoreCandidate(bar1Tick), 0.5)) bar1Tick = best.tick;
                 pickupBar0 = {
                     index: 0,
                     startTick: firstNoteTick,

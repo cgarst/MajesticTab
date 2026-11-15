@@ -244,7 +244,7 @@ function arrangeViewOptions(root) {
     }
 
     const density = $('gpDensitySection');
-    const order = [...windowRows, size, density, paper, layout, notation, tracks, landscape, advance].filter(Boolean);
+    const order = [layout, ...windowRows, size, density, paper, notation, tracks, landscape, advance].filter(Boolean);
     root.innerHTML = '';
     order.forEach((el) => root.appendChild(el));
 }
