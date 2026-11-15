@@ -694,16 +694,8 @@ export function seekToBarWhenReady(bar, timeoutMs = 25000) {
 }
 
 
-export const READER_CURSOR_WIDTH = 20;
-
-/**
- * Build SVG path for a vertically oriented pill/stadium with a pointed V-shaped bottom
- */
-export function buildPillVPath(w, h) {
-    const r = w / 2;
-    const v = Math.min(12, Math.max(8, h * 0.12));
-    return `M ${r} 1 A ${r - 1} ${r - 1} 0 0 1 ${w - 1} ${r} L ${w - 1} ${h - v} L ${r + 2} ${h - 3} Q ${r} ${h - 1} ${r - 2} ${h - 3} L 1 ${h - v} L 1 ${r} A ${r - 1} ${r - 1} 0 0 1 ${r} 1 Z`;
-}
+import { READER_CURSOR_WIDTH, buildPillVPath } from '../utils/readerCursorShape.js';
+export { READER_CURSOR_WIDTH, buildPillVPath };
 
 /**
  * Get AlphaTab's MidiTickLookup instance if available

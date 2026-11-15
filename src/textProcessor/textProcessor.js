@@ -1,5 +1,6 @@
 // textProcessor.js
 import { setTextPagesPerView, getLandscapePageLayout } from '../utils/viewModeUtils.js';
+import { attachPillCursor } from '../utils/readerCursorShape.js';
 import { decodeText } from '../utils/decodeText.js';
 import { groupBlocks, paginate, createChordLyricSegments, sliceAnnotationCols } from './textBlocks.js';
 import { resolveTabTuning, capoFromHeaderText } from '../utils/tabTuningMeta.js';
@@ -131,6 +132,7 @@ function buildBlockElement(lines, block) {
         cursor.className = 'ts-bar-cursor';
         cursor.setAttribute('aria-hidden', 'true');
         cursor.hidden = true;
+        attachPillCursor(cursor);
         container.appendChild(cursor);
         return container;
     }
@@ -235,6 +237,7 @@ export function buildHorizontalRibbon(lines, blocks, { version = 1 } = {}) {
     const playhead = document.createElement('div');
     playhead.className = 'txt-ribbon-playhead';
     playhead.setAttribute('aria-hidden', 'true');
+    attachPillCursor(playhead);
     stage.appendChild(playhead);
 
     const scrollEl = document.createElement('div');
