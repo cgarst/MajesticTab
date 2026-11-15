@@ -744,12 +744,13 @@ export function initTextSync({ getConfig, getCurrentFile }) {
 
         const hostR = lineHost.getBoundingClientRect();
         const visible = y >= outR.top && y <= outR.bottom;
-        line.hidden = false;
+        line.hidden = !!box; // the cursor replaces the left-edge marker
         if (line._hiding) { clearTimeout(line._hiding); line._hiding = 0; }
         line.classList.toggle('is-off', !visible);
         line.style.transform = `translate3d(${r.left - hostR.left + lineHost.scrollLeft}px, ${y - hostR.top + lineHost.scrollTop}px, 0)`;
         if (box) {
             pdfCursor.hidden = false;
+            attachPillCursor(pdfCursor);
             pdfCursor.classList.toggle('is-off', !visible);
             pdfCursor.style.height = `${box.h}px`;
             pdfCursor.style.transform = `translate3d(${r.left - hostR.left + lineHost.scrollLeft + placed.x * r.width}px, ${y - box.h / 2 - hostR.top + lineHost.scrollTop}px, 0)`;
