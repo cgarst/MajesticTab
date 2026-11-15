@@ -23,7 +23,7 @@ on:
         required: false
         type: string
       play_slot:
-        description: Play beta slot (1 to 998) for the play channel; empty builds the release code (slot 999, see build/play-version-code.mjs)
+        description: Play beta slot (1 to 998) for the play channel; empty builds the release code (the plain versionCode, see build/play-version-code.mjs)
         required: false
         type: string
         default: ''
