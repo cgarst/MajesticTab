@@ -32,7 +32,9 @@ function checkSource(s, at, ck) {
   if ('durationMs' in s) ck(`${at}/durationMs`, isNum(s.durationMs) && s.durationMs >= 0, 'must be a number >= 0');
   if ('sha256' in s) ck(`${at}/sha256`, isStr(s.sha256) && SHA.test(s.sha256), 'must be lowercase hex sha256');
   if ('derivedFrom' in s) ck(`${at}/derivedFrom`, isStr(s.derivedFrom) && ID.test(s.derivedFrom), 'must be an id');
-  if (s.type === 'file') {
+  if (s.type === 'embedded') {
+    if ('score' in s) ck(`${at}/score`, isStr(s.score) && ID.test(s.score), 'must be a score id');
+  } else if (s.type === 'file') {
     ck(`${at}/path`, isStr(s.path) && PATH.test(s.path), 'is required and must be an archive path');
     if ('mime' in s) ck(`${at}/mime`, isStr(s.mime), 'must be a string');
   } else if (s.type === 'youtube') {
@@ -49,7 +51,11 @@ function checkRecording(r, at, ck) {
   ck(`${at}/role`, isStr(r.role) && r.role.length > 0, 'is required and must be a non-empty string');
   if ('label' in r) ck(`${at}/label`, isStr(r.label), 'must be a string');
   if (ck(`${at}/sources`, Array.isArray(r.sources), 'is required and must be an array')) r.sources.forEach((s, i) => checkSource(s, `${at}/sources/${i}`, ck));
-  if ('sync' in r) ck(`${at}/sync`, isStr(r.sync) && PATH.test(r.sync), 'must be an archive path');
+  if ('sync' in r && ck(`${at}/sync`, isObj(r.sync), 'must be an object mapping score ids to archive paths'))
+    for (const [k, v] of Object.entries(r.sync)) {
+      ck(`${at}/sync/${k}`, ID.test(k), 'the key must be a score id');
+      ck(`${at}/sync/${k}`, isStr(v) && PATH.test(v), 'must be an archive path');
+    }
   if ('syncFrom' in r) ck(`${at}/syncFrom`, isStr(r.syncFrom) && ID.test(r.syncFrom), 'must be an id');
   if ('syncOffsetMs' in r) ck(`${at}/syncOffsetMs`, isInt(r.syncOffsetMs), 'must be an integer');
   if ('stemOf' in r) ck(`${at}/stemOf`, isStr(r.stemOf) && ID.test(r.stemOf), 'must be an id');
@@ -62,7 +68,33 @@ function checkRecording(r, at, ck) {
   }
   if ('stemOf' in r) ck(`${at}/role`, r.role === 'stem', 'must be "stem" when stemOf is present');
   if ('syncOffsetMs' in r) ck(`${at}`, 'syncFrom' in r, 'syncOffsetMs requires syncFrom');
-  if ('sync' in r) ck(`${at}`, !('syncOffsetMs' in r), 'sync and syncOffsetMs cannot be used together');
+}
+
+function checkScore(t, at, ck) {
+  if (!ck(at, isObj(t), 'must be an object')) return;
+  ck(`${at}/id`, isStr(t.id) && ID.test(t.id), 'is required and must be an id');
+  if ('label' in t) ck(`${at}/label`, isStr(t.label), 'must be a string');
+  const hasPath = 'path' in t, hasExt = 'externalPath' in t;
+  ck(at, hasPath !== hasExt, 'must have either path or externalPath, not both');
+  if (hasPath) ck(`${at}/path`, isStr(t.path) && PATH.test(t.path), 'must be an archive path');
+  if (hasExt) ck(`${at}/externalPath`, isStr(t.externalPath) && PATH.test(t.externalPath), 'must be a relative path');
+  ck(`${at}/format`, isStr(t.format) && t.format in ANCHOR, `is required and must be one of ${Object.keys(ANCHOR).join(', ')}`);
+  if ((hasExt || 'startPage' in t || 'endPage' in t) && 'format' in t)
+    ck(`${at}/format`, t.format === 'pdf', 'must be "pdf" when externalPath, startPage or endPage is present');
+  ck(`${at}/sha256`, isStr(t.sha256) && SHA.test(t.sha256), 'is required and must be lowercase hex sha256');
+  if ('name' in t) ck(`${at}/name`, isStr(t.name), 'must be a string');
+  if ('pages' in t) ck(`${at}/pages`, isInt(t.pages) && t.pages >= 1, 'must be an integer >= 1');
+  if ('startPage' in t) ck(`${at}/startPage`, isInt(t.startPage) && t.startPage >= 1, 'must be an integer >= 1');
+  if ('endPage' in t) ck(`${at}/endPage`, isInt(t.endPage) && t.endPage >= 1, 'must be an integer >= 1');
+  if ('instruments' in t && ck(`${at}/instruments`, Array.isArray(t.instruments), 'must be an array')) {
+    t.instruments.forEach((ins, i) => {
+      const p = `${at}/instruments/${i}`;
+      if (!ck(p, ins && typeof ins === 'object' && !Array.isArray(ins), 'must be an object')) return;
+      if ('name' in ins) ck(`${p}/name`, isStr(ins.name) && ins.name.length >= 1, 'must be a non-empty string');
+      if ('tuning' in ins) ck(`${p}/tuning`, Array.isArray(ins.tuning) && ins.tuning.length >= 1 && ins.tuning.every((n) => isStr(n) && TUNING.test(n)), 'must be a non-empty array of pitch names');
+      if ('capo' in ins) ck(`${p}/capo`, isInt(ins.capo) && ins.capo >= 1, 'must be an integer >= 1');
+    });
+  }
 }
 
 /** Structure errors in a manifest, as strings. Empty when the manifest matches schema/manifest.schema.json. */
@@ -71,7 +103,7 @@ export function manifestSchemaErrors(m) {
   if (!ck('<root>', isObj(m), 'must be an object')) return errs;
   ck('/format', m.format === 'mpak', 'must be "mpak"');
   ck('/version', m.version === 1, 'must be 1');
-  ck('/score', 'score' in m, 'is required');
+  ck('/scores', 'scores' in m, 'is required');
   if ('createdAt' in m) ck('/createdAt', isStr(m.createdAt) && DATE.test(m.createdAt), 'must be a date-time');
   if ('generator' in m && ck('/generator', isObj(m.generator), 'must be an object')) {
     ck('/generator/name', isStr(m.generator.name) && m.generator.name.length > 0, 'is required and must be a non-empty string');
@@ -89,29 +121,12 @@ export function manifestSchemaErrors(m) {
         for (const k of ['recording', 'artist', 'release', 'releaseGroup']) if (k in mb) ck(`/song/ids/musicbrainz/${k}`, isStr(mb[k]) && UUID.test(mb[k]), 'must be a UUID');
     }
   }
-  if ('score' in m && ck('/score', isObj(m.score), 'must be an object')) {
-    const t = m.score;
-    const hasPath = 'path' in t, hasExt = 'externalPath' in t;
-    ck('/score', hasPath !== hasExt, 'must have either path or externalPath, not both');
-    if (hasPath) ck('/score/path', isStr(t.path) && PATH.test(t.path), 'must be an archive path');
-    if (hasExt) ck('/score/externalPath', isStr(t.externalPath) && PATH.test(t.externalPath), 'must be a relative path');
-    ck('/score/format', isStr(t.format) && t.format in ANCHOR, `is required and must be one of ${Object.keys(ANCHOR).join(', ')}`);
-    if ((hasExt || 'startPage' in t || 'endPage' in t) && 'format' in t)
-      ck('/score/format', t.format === 'pdf', 'must be "pdf" when externalPath, startPage or endPage is present');
-    ck('/score/sha256', isStr(t.sha256) && SHA.test(t.sha256), 'is required and must be lowercase hex sha256');
-    if ('name' in t) ck('/score/name', isStr(t.name), 'must be a string');
-    if ('pages' in t) ck('/score/pages', isInt(t.pages) && t.pages >= 1, 'must be an integer >= 1');
-    if ('startPage' in t) ck('/score/startPage', isInt(t.startPage) && t.startPage >= 1, 'must be an integer >= 1');
-    if ('endPage' in t) ck('/score/endPage', isInt(t.endPage) && t.endPage >= 1, 'must be an integer >= 1');
-    if ('instruments' in t && ck('/score/instruments', Array.isArray(t.instruments), 'must be an array')) {
-      t.instruments.forEach((ins, i) => {
-        const p = `/score/instruments/${i}`;
-        if (!ck(p, ins && typeof ins === 'object' && !Array.isArray(ins), 'must be an object')) return;
-        if ('name' in ins) ck(`${p}/name`, isStr(ins.name) && ins.name.length >= 1, 'must be a non-empty string');
-        if ('tuning' in ins) ck(`${p}/tuning`, Array.isArray(ins.tuning) && ins.tuning.length >= 1 && ins.tuning.every((n) => isStr(n) && TUNING.test(n)), 'must be a non-empty array of pitch names');
-        if ('capo' in ins) ck(`${p}/capo`, isInt(ins.capo) && ins.capo >= 1, 'must be an integer >= 1');
-      });
-    }
+  if ('scores' in m && ck('/scores', Array.isArray(m.scores) && m.scores.length >= 1, 'must be an array with at least one score')) {
+    m.scores.forEach((t, i) => {
+      checkScore(t, `/scores/${i}`, ck);
+      if (isObj(t) && 'alternates' in t && ck(`/scores/${i}/alternates`, Array.isArray(t.alternates), 'must be an array'))
+        t.alternates.forEach((a, j) => checkScore(a, `/scores/${i}/alternates/${j}`, ck));
+    });
   }
   if ('recordings' in m && ck('/recordings', Array.isArray(m.recordings), 'must be an array')) m.recordings.forEach((r, i) => checkRecording(r, `/recordings/${i}`, ck));
   return errs;
@@ -119,37 +134,44 @@ export function manifestSchemaErrors(m) {
 
 /** Rules a JSON Schema cannot express: unique ids, references, sync chains, cross-field page bounds. */
 export function manifestRuleErrors(m) {
-  const errs = [], recs = m.recordings || [], t = m.score || {};
-  if ('startPage' in t && 'endPage' in t && t.endPage < t.startPage) errs.push('score.endPage must be >= score.startPage');
-  if ('pages' in t && 'startPage' in t && t.startPage > t.pages) errs.push('score.startPage exceeds score.pages');
-  if ('pages' in t && 'endPage' in t && t.endPage > t.pages) errs.push('score.endPage exceeds score.pages');
-  const alts = Array.isArray(m.alternates) ? m.alternates : [];
-  const aids = alts.filter((a) => a && 'id' in a).map((a) => a.id);
-  if (new Set(aids).size !== aids.length) errs.push('duplicate alternate ids');
-  for (const a of alts) {
-    if (a && ANCHOR[a.format] && ANCHOR[t.format] && ANCHOR[a.format] !== ANCHOR[t.format])
-      errs.push(`alternate ${a.id}: anchor type of ${a.format} differs from the main score`);
+  const errs = [], recs = m.recordings || [], scores = m.scores || [];
+  const sids = scores.map((t) => t.id);
+  const allIds = [];
+  for (const t of scores) {
+    const parts = [[t, `score ${t.id}`], ...(t.alternates || []).map((a) => [a, `alternate ${a.id}`])];
+    for (const [x, name] of parts) {
+      allIds.push(x.id);
+      if ('startPage' in x && 'endPage' in x && x.endPage < x.startPage) errs.push(`${name}: endPage must be >= startPage`);
+      if ('pages' in x && 'startPage' in x && x.startPage > x.pages) errs.push(`${name}: startPage exceeds pages`);
+      if ('pages' in x && 'endPage' in x && x.endPage > x.pages) errs.push(`${name}: endPage exceeds pages`);
+      if (x !== t && ANCHOR[x.format] !== ANCHOR[t.format]) errs.push(`${name}: anchor type of ${x.format} differs from its parent score ${t.id}`);
+    }
   }
+  if (new Set(allIds).size !== allIds.length) errs.push('duplicate score or alternate ids');
   const ids = recs.map((r) => r.id);
   if (new Set(ids).size !== ids.length) errs.push('duplicate recording ids');
   for (const r of recs) {
     for (const k of ['syncFrom', 'stemOf']) if (k in r && !ids.includes(r[k])) errs.push(`${r.id}.${k} names unknown recording ${r[k]}`);
-    const sids = (r.sources || []).filter((s) => 'id' in s).map((s) => s.id);
-    if (new Set(sids).size !== sids.length) errs.push(`${r.id}: duplicate source ids`);
-    for (const s of r.sources || []) if ('derivedFrom' in s && !sids.includes(s.derivedFrom)) errs.push(`${r.id}: derivedFrom names unknown source ${s.derivedFrom}`);
+    for (const k of Object.keys(r.sync || {})) if (!sids.includes(k)) errs.push(`${r.id}.sync names unknown score ${k}`);
+    const srcIds = (r.sources || []).filter((s) => 'id' in s).map((s) => s.id);
+    if (new Set(srcIds).size !== srcIds.length) errs.push(`${r.id}: duplicate source ids`);
+    for (const s of r.sources || []) {
+      if ('derivedFrom' in s && !srcIds.includes(s.derivedFrom)) errs.push(`${r.id}: derivedFrom names unknown source ${s.derivedFrom}`);
+      if (s.type === 'embedded' && 'score' in s && !sids.includes(s.score)) errs.push(`${r.id}: source names unknown score ${s.score}`);
+    }
     if ((r.sources || []).filter((s) => s.type === 'embedded').length > 1) errs.push(`${r.id}: more than one embedded source`);
   }
-  for (const r of recs) {
+  for (const sid of sids) for (const r of recs) {
     const seen = new Set([r.id]);
     let cur = r;
-    while (!cur.sync && (cur.syncFrom || cur.stemOf)) {
+    while (!(cur.sync && sid in cur.sync) && (cur.syncFrom || cur.stemOf)) {
       const next = recs.find((x) => x.id === (cur.syncFrom || cur.stemOf));
       if (!next) break;
       if (seen.has(next.id)) { errs.push(`sync reference cycle at ${next.id}`); break; }
       seen.add(next.id); cur = next;
     }
   }
-  return errs;
+  return [...new Set(errs)];
 }
 
 export function validateManifest(m) {
@@ -185,6 +207,7 @@ export function syncSchemaErrors(s) {
   if (!ck('<root>', isObj(s), 'must be an object')) return errs;
   ck('/version', s.version === 1, 'must be 1');
   ck('/recording', isStr(s.recording) && ID.test(s.recording), 'is required and must be an id');
+  ck('/score', isStr(s.score) && ID.test(s.score), 'is required and must be an id');
   ck('/anchorType', s.anchorType in POINT, 'is required and must be bar, tick, pdf or text');
   if ('updatedAt' in s) ck('/updatedAt', isStr(s.updatedAt) && DATE.test(s.updatedAt), 'must be a date-time');
   if (ck('/points', Array.isArray(s.points), 'is required and must be an array')) {

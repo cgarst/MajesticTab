@@ -200,7 +200,7 @@ const isUtf8 = (bytes) => {
  * before points were stored as lines and pages) is converted with the score it was made for. Returns null when the record
  * is for another kind of score than `anchorType`.
  */
-function toV1SyncFile(rec, recordingId, anchorType, { firstPage = 1, lastPage = null, blocks = null } = {}) {
+function toV1SyncFile(rec, recordingId, scoreId, anchorType, { firstPage = 1, lastPage = null, blocks = null } = {}) {
     let points = rec.points;
     if (rec.anchorType === 'unit') points = unitsToPoints(points, anchorType, { firstPage, blocks: blocks || [] });
     else if (rec.anchorType !== anchorType) return null;
@@ -217,6 +217,7 @@ function toV1SyncFile(rec, recordingId, anchorType, { firstPage = 1, lastPage = 
     return {
         version: 1,
         recording: recordingId,
+        score: scoreId,
         anchorType,
         updatedAt: new Date(Number.isFinite(rec.updatedAt) && rec.updatedAt > 0 ? rec.updatedAt : Date.now()).toISOString(),
         points: out,
@@ -248,7 +249,39 @@ function rememberLibrarySongKey(librarySongId, key, meta = {}) {
     } catch { /* optional */ }
 }
 
-/** Builds a v1 .mpak bundle for the open song. Returns `{ blob, filename }`. */
+/**
+ * The other tabs of the open song that can go in its pack: the ones in the library whose file is stored on this device and
+ * that the app can show. Returns inputs for `buildMpak`'s `scores` option. Never throws.
+ */
+export async function otherLibraryScores(file) {
+    if (!file?.librarySongId) return [];
+    try {
+        const { getSongById } = await import('./libraryStore.js');
+        const { getStoredFile } = await import('./fileStore.js');
+        const song = await getSongById(file.librarySongId);
+        const out = [];
+        for (const t of song?.tabOptions || []) {
+            if (t.id === file.tabId || !t.fileStoreId) continue;
+            const stored = await getStoredFile(t.fileStoreId);
+            const f = stored?.file;
+            if (!f || !SUPPORTED_SCORE_FORMATS.includes(inferTabFormat(f))) continue;
+            out.push({
+                file: f,
+                label: t.name && t.name !== f.name ? t.name : undefined,
+                tuning: t.tuningSource === 'user' ? t.tuning : null,
+                startPage: Number.isInteger(t.startPage) ? t.startPage : undefined,
+                endPage: Number.isInteger(t.endPage) ? t.endPage : undefined,
+            });
+        }
+        return out;
+    } catch { return []; }
+}
+
+/**
+ * Builds a v1 .mpak bundle for the open song. Returns `{ blob, filename }`. The open tab is the primary score. The song's
+ * other tabs that are stored on this device go in as more scores, each with its own sync; `options.scores` replaces that
+ * list (inputs `{ file, label?, tuning?, startPage?, endPage?, pages? }`).
+ */
 export async function buildMpak(file, options = {}) {
     const { getAudioFile } = await import('./audioSync/audioFileStore.js');
     const { listRecords, isSyncSharedFromOriginal, mediaKey } = await import('./audioSync/syncStore.js');
@@ -301,34 +334,69 @@ export async function buildMpak(file, options = {}) {
     };
 
     const normSong = normalizeMpakSong(rawSongMeta);
-    const tabFormat = inferTabFormat(file);
-    const name = file.name || `score.${tabFormat}`;
-    const safeTabName = sanitizeSegment(name, `score.${tabFormat}`);
-    const tabPath = `score/${safeTabName}`;
-    let tabBytes = new Uint8Array(await file.arrayBuffer());
-    // The open tab's own hash: it names the sync records of the tab, even when the bytes are converted below
-    const openSha256 = await sha256(tabBytes);
-    // A text score must be UTF-8 in the file (SPEC section 6): convert one in another encoding and hash the converted bytes.
-    if (tabFormat === 'txt' && !isUtf8(tabBytes)) tabBytes = new TextEncoder().encode(decodeText(tabBytes));
-    const tabSha256 = await sha256(tabBytes);
+    // The scores of the file: the open tab first (the primary score), then the song's other tabs the caller passes.
+    // Each score has its own sync (SPEC section 6.2), found by what names its points in the store.
+    const files = new Map();
+    const manifestScores = [];
+    const scoreRuns = [];
+    const usedScoreIds = new Set();
+    const usedScorePaths = new Set();
+    let barSyncTaken = false;
+    const seenScores = new Set();
+    const inputs = [{ file, tuning: await manualTuning(file), startPage: options.startPage ?? file.mpakPageRange?.startPage ?? file.startPage, endPage: options.endPage ?? file.mpakPageRange?.endPage ?? file.endPage, pages: options.pages ?? file.mpakPageRange?.pages }, ...(options.scores ?? await otherLibraryScores(file))];
+    for (const input of inputs) {
+        const sFile = input.file;
+        const format = inferTabFormat(sFile);
+        const sName = sFile.name || `score.${format}`;
+        let bytes = new Uint8Array(await sFile.arrayBuffer());
+        // The tab's own hash names its sync records, even when the bytes are converted below
+        const openSha256 = await sha256(bytes);
+        // The same file twice (and the same pages of it) is one score
+        const dupKey = `${openSha256}:${input.startPage ?? ''}:${input.endPage ?? ''}`;
+        if (seenScores.has(dupKey)) continue;
+        seenScores.add(dupKey);
+        let id = format, n = 2;
+        while (usedScoreIds.has(id)) id = `${format}-${n++}`;
+        usedScoreIds.add(id);
+        let path = `score/${sanitizeSegment(sName, `score.${format}`)}`;
+        if (usedScorePaths.has(path.toLowerCase())) path = `score/${id}-${sanitizeSegment(sName, `score.${format}`)}`;
+        usedScorePaths.add(path.toLowerCase());
+        // A text score must be UTF-8 in the file (SPEC section 6): convert one in another encoding and hash the converted bytes.
+        if (format === 'txt' && !isUtf8(bytes)) bytes = new TextEncoder().encode(decodeText(bytes));
+        files.set(path, bytes);
+        const entry = { id, path, format, sha256: await sha256(bytes), name: sName };
+        if (input.label) entry.label = input.label;
+        const tuningArr = toManifestTuning(input.tuning);
+        if (tuningArr) entry.instruments = [{ tuning: tuningArr }];
+        if (format === 'pdf') {
+            if (Number.isInteger(input.pages) && input.pages >= 1) entry.pages = input.pages;
+            if (Number.isInteger(input.startPage) && input.startPage >= 1) entry.startPage = input.startPage;
+            if (Number.isInteger(input.endPage) && input.endPage >= 1) entry.endPage = input.endPage;
+        }
+        manifestScores.push(entry);
 
-    const files = new Map([[tabPath, tabBytes]]);
-    const score = {
-        path: tabPath,
-        format: tabFormat,
-        sha256: tabSha256,
-        name,
-    };
-    const tuningArr = toManifestTuning(await manualTuning(file));
-    if (tuningArr) score.instruments = [{ tuning: tuningArr }];
-    if (tabFormat === 'pdf') {
-        const startPage = options.startPage ?? file.mpakPageRange?.startPage ?? file.startPage;
-        const endPage = options.endPage ?? file.mpakPageRange?.endPage ?? file.endPage;
-        const pages = options.pages ?? file.mpakPageRange?.pages;
-        if (Number.isInteger(pages) && pages >= 1) score.pages = pages;
-        if (Number.isInteger(startPage) && startPage >= 1) score.startPage = startPage;
-        if (Number.isInteger(endPage) && endPage >= 1) score.endPage = endPage;
+        // Where this score's points are kept: by song for Guitar Pro bars (one set a song, so only the first score of
+        // that kind gets them), by song and score file for a text or PDF tab. Records an earlier version shared between
+        // a song's text and PDF tabs are read as well.
+        const anchorType = ANCHOR[format];
+        const run = { entry, anchorType, bytes, recordsByMedia: new Map(), syncKey: null, legacyKey: null };
+        if (anchorType === 'bar' && !barSyncTaken) { barSyncTaken = true; run.syncKey = songKey; }
+        else if (anchorType === 'pdf' || anchorType === 'text') { run.syncKey = scoreSyncKey(songKey, openSha256); run.legacyKey = legacyScoreSyncKey(songKey); }
+        if (run.syncKey) {
+            for (const rec of [...(run.legacyKey ? listRecords(run.legacyKey) : []), ...listRecords(run.syncKey)]) {
+                const k = mediaKey(rec.media);
+                if (!k || !rec.points?.length) continue;
+                // a legacy record of the other kind of score is not this tab's
+                if (rec.anchorType !== 'unit' && rec.anchorType !== anchorType) continue;
+                const have = run.recordsByMedia.get(k);
+                if (!have || rec.updatedAt >= have.updatedAt) run.recordsByMedia.set(k, rec);
+            }
+        }
+        scoreRuns.push(run);
     }
+    const primary = scoreRuns[0];
+    const tabFormat = primary.entry.format;
+    const name = primary.entry.name;
 
     const manifest = {
         format: MPAK_FORMAT,
@@ -336,32 +404,16 @@ export async function buildMpak(file, options = {}) {
         createdAt: new Date().toISOString(),
         generator: { name: 'MajesticTab' },
         ...(buildManifestSong(normSong) ? { song: buildManifestSong(normSong) } : {}),
-        score,
+        scores: manifestScores,
         recordings: [],
     };
-
-    // Where the song's points are kept depends on the score: by song for Guitar Pro bars, by song and score file for
-    // a text or PDF tab. Records an earlier version shared between a song's text and PDF tabs are read as well.
-    const anchorType = ANCHOR[tabFormat];
-    const syncKey = syncKeyFor(anchorType, songKey, openSha256);
-    const legacyKey = anchorType === 'bar' ? null : legacyScoreSyncKey(songKey);
-    const syncCtx = { firstPage: score.startPage || 1, lastPage: score.endPage || score.pages || null };
-    if (anchorType === 'text') syncCtx.blocks = textBlocksOf(tabBytes);
-    const recordsByMedia = new Map();
-    for (const rec of [...(legacyKey ? listRecords(legacyKey) : []), ...listRecords(syncKey)]) {
-        const k = mediaKey(rec.media);
-        if (!k || !rec.points?.length) continue;
-        // a legacy record of the other kind of score is not this tab's
-        if (rec.anchorType !== 'unit' && rec.anchorType !== anchorType) continue;
-        const have = recordsByMedia.get(k);
-        if (!have || rec.updatedAt >= have.updatedAt) recordsByMedia.set(k, rec);
-    }
 
     const usedNames = new Set();
     for (const slot of SLOTS) {
         const source = getSlotSourceFn(slot);
         const sources = [];
-        let syncRec = null;
+        const syncRecs = new Map(); // score run -> the record of this recording for that score
+        const findRecords = (media) => { for (const run of scoreRuns) { const rec = run.recordsByMedia.get(mediaKey(media)); if (rec && !syncRecs.has(run)) syncRecs.set(run, rec); } };
         try {
             if (source === 'local') {
                 let id = localStorage.getItem(`audio_file_${enc(songKey)}_${slot}`);
@@ -382,7 +434,7 @@ export async function buildMpak(file, options = {}) {
                     };
                     if (Number.isFinite(rec.durationMs) && rec.durationMs >= 0) fileSrc.durationMs = rec.durationMs;
                     sources.push(fileSrc);
-                    syncRec = recordsByMedia.get(mediaKey({ kind: 'local', audioId: id })) || null;
+                    findRecords({ kind: 'local', audioId: id });
                 }
             } else if (source === 'embedded' && tabFormat === 'gp') {
                 sources.push({ type: 'embedded' });
@@ -391,7 +443,7 @@ export async function buildMpak(file, options = {}) {
             const videoId = localStorage.getItem(`yt_track_${enc(songKey)}_${slot}`);
             if (videoId && YT_ID_RE.test(videoId)) {
                 sources.push({ type: 'youtube', videoId });
-                if (!syncRec) syncRec = recordsByMedia.get(mediaKey({ kind: 'youtube', videoId })) || null;
+                findRecords({ kind: 'youtube', videoId });
             }
         } catch (e) {
             console.warn('[mpak] could not read the', slot, 'recording:', e);
@@ -404,12 +456,16 @@ export async function buildMpak(file, options = {}) {
             role: slot,
             sources,
         };
-        if (syncRec && (anchorType === 'bar' || anchorType === 'pdf' || anchorType === 'text')) {
-            const syncPath = `sync/${slot}.json`;
-            const syncDoc = toV1SyncFile(syncRec, slot, anchorType, syncCtx);
+        for (const [run, syncRec] of syncRecs) {
+            const syncPath = `sync/${slot}-${run.entry.id}.json`;
+            const syncDoc = toV1SyncFile(syncRec, slot, run.entry.id, run.anchorType, {
+                firstPage: run.entry.startPage || 1,
+                lastPage: run.entry.endPage || run.entry.pages || null,
+                blocks: run.anchorType === 'text' ? textBlocksOf(run.bytes) : null,
+            });
             if (syncDoc?.points.length) {
                 files.set(syncPath, new TextEncoder().encode(JSON.stringify(syncDoc, null, 2) + '\n'));
-                recording.sync = syncPath;
+                (recording.sync ||= {})[run.entry.id] = syncPath;
             }
         }
         manifest.recordings.push(recording);
@@ -418,7 +474,8 @@ export async function buildMpak(file, options = {}) {
     // The first recording is the default (SPEC section 7), and the slots are visited original first.
     if (manifest.recordings.some((r) => r.id === 'original')) {
         const backing = manifest.recordings.find((r) => r.id === 'backing');
-        if (backing && !backing.sync && (isSyncSharedFromOriginal(syncKey) || (legacyKey && isSyncSharedFromOriginal(legacyKey)))) {
+        const shared = scoreRuns.some((run) => run.syncKey && (isSyncSharedFromOriginal(run.syncKey) || (run.legacyKey && isSyncSharedFromOriginal(run.legacyKey))));
+        if (backing && !backing.sync && shared) {
             backing.syncFrom = 'original';
         }
     }
@@ -497,34 +554,48 @@ export async function readMpak(input, options = {}) {
  * Unpacks an .mpak bundle into `{ header, opened, part, tabFile }`, attaching normalized `header.song`
  * (including any MusicBrainz IDs) as `tabFile.mpakSong`.
  */
-export async function unpackMpak(input, options = {}) {
-    const { header, opened } = await readMpak(input, options);
-    if (!SUPPORTED_SCORE_FORMATS.includes(header.score.format)) {
-        throw new MpakError(`This .mpak file has a ${SCORE_FORMAT_NAMES[header.score.format] || header.score.format} score, which MajesticTab cannot open. It opens Guitar Pro, PDF and text scores.`);
-    }
-    if (!opened.score) {
-        const extPath = header.score?.externalPath || 'external PDF';
-        throw new MpakError(`This .mpak file references an external score (${extPath}) that was not provided.`);
-    }
-    const tabName = header.score.name || (header.score.path || header.score.externalPath || `score.${header.score.format}`).split('/').pop();
-    const mime = MIME_BY_FORMAT[header.score.format] || 'application/octet-stream';
-    const tabFile = new File([opened.score], tabName, { type: mime });
+/** A score of a pack as a `File` the reader can open, with the tuning and page range its entry gives. */
+function scoreFileOf(entry, bytes) {
+    const name = entry.name || (entry.path || entry.externalPath || `score.${entry.format}`).split('/').pop();
+    const file = new File([bytes], name, { type: MIME_BY_FORMAT[entry.format] || 'application/octet-stream' });
     // `instruments` is informational and only for scores that carry no tuning of their own (SPEC section 6): take the
     // first entry that lists a tuning.
-    const instrumentTuning = (header.score?.instruments || []).find((i) => Array.isArray(i?.tuning) && i.tuning.length)?.tuning;
+    const instrumentTuning = (entry.instruments || []).find((i) => Array.isArray(i?.tuning) && i.tuning.length)?.tuning;
     if (instrumentTuning) {
-        tabFile.tabTuning = {
+        file.tabTuning = {
             tuning: instrumentTuning.map((n) => n.replace(/-?[0-9]$/, '')).join(' '),
             source: 'user',
         };
     }
-    if (header.score?.startPage != null || header.score?.endPage != null) {
-        tabFile.mpakPageRange = {
-            startPage: header.score.startPage ?? 1,
-            endPage: header.score.endPage ?? header.score.pages ?? null,
-            pages: header.score.pages ?? null,
+    if (entry.startPage != null || entry.endPage != null) {
+        file.mpakPageRange = {
+            startPage: entry.startPage ?? 1,
+            endPage: entry.endPage ?? entry.pages ?? null,
+            pages: entry.pages ?? null,
         };
     }
+    return file;
+}
+
+/**
+ * Unpacks an .mpak bundle into `{ header, opened, part, tabFile, score, otherScores }`. `tabFile` is the first score the
+ * app can show (the primary score when it can), `score` its manifest entry, and `otherScores` the rest of the scores it
+ * can show, as `{ score, file }`. The normalized `header.song` (including any MusicBrainz IDs) is attached to `tabFile`
+ * as `mpakSong`. Throws when no score is one the app can open.
+ */
+export async function unpackMpak(input, options = {}) {
+    const { header, opened } = await readMpak(input, options);
+    const supported = header.scores.filter((sc) => SUPPORTED_SCORE_FORMATS.includes(sc.format));
+    if (!supported.length) {
+        const names = [...new Set(header.scores.map((sc) => SCORE_FORMAT_NAMES[sc.format] || sc.format))].join(', ');
+        throw new MpakError(`This .mpak file has ${names} ${header.scores.length > 1 ? 'scores' : 'score'}, which MajesticTab cannot open. It opens Guitar Pro, PDF and text scores.`);
+    }
+    const score = supported[0];
+    const bytes = opened.scoreBytes(score.id);
+    if (!bytes) {
+        throw new MpakError(`This .mpak file references an external score (${score.externalPath || 'external PDF'}) that was not provided.`);
+    }
+    const tabFile = scoreFileOf(score, bytes);
     tabFile.mpakSong = header.song;
     if (header.song?.title && !tabFile.songTitle) tabFile.songTitle = header.song.title;
     if (header.song?.artist && !tabFile.artist) tabFile.artist = header.song.artist;
@@ -535,7 +606,12 @@ export async function unpackMpak(input, options = {}) {
     if (input?.sourceUrl && !tabFile.sourceUrl) tabFile.sourceUrl = input.sourceUrl;
     if (input?.sourceWebsite && !tabFile.sourceWebsite) tabFile.sourceWebsite = input.sourceWebsite;
     if (input?.providerId && !tabFile.providerId) tabFile.providerId = input.providerId;
-    return { header, opened, part: opened, tabFile };
+    // A score kept outside the archive that was not provided is skipped: the pack still opens without it
+    const otherScores = supported.slice(1)
+        .map((sc) => ({ score: sc, bytes: opened.scoreBytes(sc.id) }))
+        .filter((x) => x.bytes)
+        .map((x) => ({ score: x.score, file: scoreFileOf(x.score, x.bytes) }));
+    return { header, opened, part: opened, tabFile, score, otherScores };
 }
 
 const PENDING_BROWSER_TARGET_KEY = 'majestictab_pending_browser_target';
@@ -684,13 +760,32 @@ export async function applyMpakExtras(data, opened, options = {}) {
 
     const slots = mapRecordingsToSlots(data);
     const resolvedMedia = new Map();
+    // Each score is synced on its own (SPEC section 6.2). The points of text and PDF scores are kept by song and score
+    // file; bar points are kept by song, so only the first score of that kind gets them.
+    const scores = Array.isArray(data?.scores) ? data.scores : [];
+    let barTaken = false;
+    const syncTargets = scores.filter((sc) => {
+        const anchor = ANCHOR[sc.format];
+        if (!STORED_ANCHORS.includes(anchor)) return false;
+        if (anchor === 'bar') { if (barTaken) return false; barTaken = true; }
+        return true;
+    });
+    const syncDocsOf = (rec) => syncTargets
+        .map((sc) => ({ sc, doc: typeof opened?.sync === 'function' ? opened.sync(rec.id, sc.id) : null }))
+        .filter((x) => x.doc?.points?.length);
+    const saveSyncs = (docs, media) => {
+        for (const { sc, doc } of docs) {
+            const points = fromSyncPoints(doc.points, doc.anchorType);
+            for (const k of allKeys) saveRecord(syncKeyFor(doc.anchorType, k, sc.sha256), media, points, undefined, undefined, doc.anchorType);
+        }
+    };
 
     for (const slot of SLOTS) {
         const rec = slots[slot];
         if (!rec) continue;
         try {
-            const syncDoc = typeof opened?.sync === 'function' ? opened.sync(rec.id) : null;
-            const hasSync = Boolean(syncDoc?.points?.length);
+            const syncDocs = syncDocsOf(rec);
+            const hasSync = syncDocs.length > 0;
 
             // Cache any YouTube fallback videoId on the recording
             const ytSrc = (rec.sources || []).find((s) => s.type === 'youtube' && s.videoId);
@@ -736,7 +831,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
                     handled = true;
                     break;
                 }
-                if (src.type === 'embedded' && data.score?.format === 'gp') {
+                if (src.type === 'embedded' && scores.find((sc) => sc.id === (src.score ?? scores[0]?.id))?.format === 'gp') {
                     for (const k of allKeys) {
                         localStorage.setItem(`real_audio_source_${enc(k)}_${slot}`, 'embedded');
                     }
@@ -761,14 +856,9 @@ export async function applyMpakExtras(data, opened, options = {}) {
                 }
             }
 
-            if (handled && syncDoc?.points?.length && STORED_ANCHORS.includes(syncDoc.anchorType)) {
+            if (handled && syncDocs.length) {
                 const media = resolvedMedia.get(rec.id);
-                if (media) {
-                    const mjPoints = fromSyncPoints(syncDoc.points, syncDoc.anchorType);
-                    for (const k of allKeys) {
-                        saveRecord(syncKeyFor(syncDoc.anchorType, k, data?.score?.sha256), media, mjPoints, undefined, undefined, syncDoc.anchorType);
-                    }
-                }
+                if (media) saveSyncs(syncDocs, media);
             }
         } catch (e) {
             console.warn('[mpak] could not attach the', slot, 'recording:', e);
@@ -784,23 +874,23 @@ export async function applyMpakExtras(data, opened, options = {}) {
         try {
             const ytSrc = (rec.sources || []).find((s) => s.type === 'youtube' && s.videoId);
             if (!ytSrc) continue;
-            const syncDoc = typeof opened?.sync === 'function' ? opened.sync(rec.id) : null;
-            if (!syncDoc?.points?.length || !STORED_ANCHORS.includes(syncDoc.anchorType)) continue;
+            const syncDocs = syncDocsOf(rec);
+            if (!syncDocs.length) continue;
             const media = { kind: 'youtube', videoId: ytSrc.videoId, ...(rec.label ? { label: rec.label } : {}) };
             const key = mediaKey(media);
             if (!key || taken.has(key)) continue;
             taken.add(key);
-            const points = fromSyncPoints(syncDoc.points, syncDoc.anchorType);
-            for (const k of allKeys) saveRecord(syncKeyFor(syncDoc.anchorType, k, data?.score?.sha256), media, points, undefined, undefined, syncDoc.anchorType);
+            saveSyncs(syncDocs, media);
         } catch (e) {
             console.warn('[mpak] could not attach the', rec?.id, 'recording:', e);
         }
     }
 
-    if (slots.backing && !slots.backing.sync && slots.backing.syncFrom && slots.backing.syncFrom === slots.original?.id && !slots.backing.syncOffsetMs) {
-        const anchor = ANCHOR[data?.score?.format] || 'bar';
-        for (const k of allKeys) {
-            setSyncSharedFromOriginal(syncKeyFor(anchor, k, data?.score?.sha256), true);
+    if (slots.backing && slots.backing.syncFrom && slots.backing.syncFrom === slots.original?.id && !slots.backing.syncOffsetMs) {
+        // syncFrom covers the scores the backing track has no sync file of its own for
+        for (const sc of syncTargets) {
+            if (slots.backing.sync?.[sc.id]) continue;
+            for (const k of allKeys) setSyncSharedFromOriginal(syncKeyFor(ANCHOR[sc.format], k, sc.sha256), true);
         }
     }
 
@@ -868,6 +958,16 @@ export async function saveMpakToLibrary(input, options = {}) {
     );
     song = mapped.song || song;
     const tabOption = mapped.tabOption;
+
+    // The pack's other scores (a PDF beside a Guitar Pro file, say) become more tabs of the song
+    for (const other of unpacked.otherScores || []) {
+        try {
+            const added = await mapOpenFileToSong(other.file, song.id, other.file.name, providerId, other.file.name);
+            song = added.song || song;
+        } catch (e) {
+            console.warn('[mpak] could not add the', other.score.id, 'score to the song:', e);
+        }
+    }
 
     const mainKey = (song.artist && song.title)
         ? `${song.artist} - ${song.title}`

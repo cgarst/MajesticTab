@@ -297,12 +297,13 @@ async function createManualMpakBlob({ song, tabName = 'song.gp', tabBytes, origB
             ...(song?.album ? { album: song.album } : {}),
             ...(Object.keys(mb).length ? { ids: { musicbrainz: mb } } : {}),
         },
-        score: {
+        scores: [{
+            id: ext,
             path: tabPath,
             format: ext,
             sha256: await sha256(tabBytes),
             name: tabName,
-        },
+        }],
         recordings: [],
     };
 
@@ -326,6 +327,7 @@ async function createManualMpakBlob({ song, tabName = 'song.gp', tabBytes, origB
             const syncDoc = {
                 version: 1,
                 recording: id,
+                score: ext,
                 anchorType: 'bar',
                 updatedAt: '2026-11-14T12:00:00Z',
                 points: points.map((p) => ({
@@ -338,7 +340,7 @@ async function createManualMpakBlob({ song, tabName = 'song.gp', tabBytes, origB
                 })),
             };
             files.set(syncPath, new TextEncoder().encode(JSON.stringify(syncDoc)));
-            rec.sync = syncPath;
+            rec.sync = { [ext]: syncPath };
         }
         manifest.recordings.push(rec);
     };
@@ -752,7 +754,7 @@ test('buildMpak roundtrips local audio, youtube fallback, tuning, and sync point
     const { header, opened, tabFile: unpacked } = await unpackMpak(blob);
     assert.equal(header.format, 'mpak');
     assert.equal(header.version, 1);
-    assert.deepEqual(header.score.instruments[0].tuning, ['E', 'A', 'D', 'G', 'B', 'E']);
+    assert.deepEqual(header.scores[0].instruments[0].tuning, ['E', 'A', 'D', 'G', 'B', 'E']);
     assert.equal(unpacked.tabTuning.tuning, 'E A D G B E');
     assert.equal(header.recordings.length, 1);
     assert.equal(header.recordings[0].sources[0].type, 'file');
@@ -765,14 +767,15 @@ test('buildMpak roundtrips local audio, youtube fallback, tuning, and sync point
         format: 'mpak',
         version: 1,
         song: { title: 'Book Song', artist: 'Book Artist' },
-        score: {
+        scores: [{
+            id: 'pdf',
             externalPath: 'books/realbook.pdf',
             format: 'pdf',
             sha256: await sha256(pdfBytes),
             pages: 100,
             startPage: 12,
             endPage: 14,
-        },
+        }],
     };
     const { parts } = await coreBuildMpak(extManifest, {});
     const extBlob = new Blob(parts, { type: MEDIA_TYPE });
@@ -794,7 +797,7 @@ test('applyMpakExtras keeps every synced YouTube recording, not only the origina
     };
     const youtube = (id, videoId, role, label) => ({ id, role, label, sources: [{ type: 'youtube', videoId }] });
     const data = {
-        score: { format: 'gp5' },
+        scores: [{ id: 'gp5', format: 'gp5', sha256: 'a'.repeat(64) }],
         recordings: [
             youtube('v1', 'AAAAAAAAAAA', 'original', 'Full mix'),
             youtube('v2', 'BBBBBBBBBBB', 'original', 'Full mix (alternative 1)'),
@@ -819,18 +822,32 @@ test('applyMpakExtras keeps every synced YouTube recording, not only the origina
     assert.equal(saved('FFFFFFFFFFF'), null, 'a recording without sync points is not stored');
 });
 
-test('unpackMpak rejects a score format the app cannot open, with a clear message', async () => {
-    const bytes = new TextEncoder().encode('<score-partwise/>');
-    const manifest = {
-        format: 'mpak',
-        version: 1,
-        score: { path: 'score/song.musicxml', format: 'musicxml', sha256: await sha256(bytes) },
+test('unpackMpak rejects a pack with no score the app can open, and opens the first score it can', async () => {
+    const xml = new TextEncoder().encode('<score-partwise/>');
+    const gp = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]);
+    const only = {
+        format: 'mpak', version: 1,
+        scores: [{ id: 'xml', path: 'score/song.musicxml', format: 'musicxml', sha256: await sha256(xml) }],
     };
-    const { parts } = await coreBuildMpak(manifest, { 'score/song.musicxml': bytes });
+    const { parts } = await coreBuildMpak(only, { 'score/song.musicxml': xml });
     await assert.rejects(
         unpackMpak(new Blob(parts, { type: MEDIA_TYPE })),
         (e) => e instanceof MpakError && /MusicXML score, which MajesticTab cannot open/.test(e.message)
     );
+
+    // a MusicXML primary score does not stop the Guitar Pro score beside it from opening
+    const both = {
+        format: 'mpak', version: 1,
+        scores: [
+            { id: 'xml', path: 'score/song.musicxml', format: 'musicxml', sha256: await sha256(xml) },
+            { id: 'gp', path: 'score/song.gp', format: 'gp', sha256: await sha256(gp), name: 'song.gp' },
+        ],
+    };
+    const built = await coreBuildMpak(both, { 'score/song.musicxml': xml, 'score/song.gp': gp });
+    const unpacked = await unpackMpak(new Blob(built.parts, { type: MEDIA_TYPE }));
+    assert.equal(unpacked.tabFile.name, 'song.gp');
+    assert.equal(unpacked.score.id, 'gp');
+    assert.deepEqual(unpacked.otherScores, []);
 });
 
 const YT = { kind: 'youtube', videoId: 'dQw4w9WgXcQ' };
@@ -865,7 +882,7 @@ test('a text tab\'s sync points are stored as lines, written to the archive as t
 
     lsMap.clear();
     await applyMpakExtras(header, opened, { songKey: 'Other - Key', applyToActiveReader: false });
-    const back = loadRecord(scoreSyncKey('Other - Key', header.score.sha256), YT);
+    const back = loadRecord(scoreSyncKey('Other - Key', header.scores[0].sha256), YT);
     assert.equal(back.anchorType, 'text');
     assert.deepEqual(back.points.map((p) => [p.line, p.col, p.timeMs]), [[systems[0].line, 3, 1000], [systems[1].line, undefined, 5000]]);
     assert.equal(loadRecord('Other - Key', YT), null, 'bar points stay separate');
@@ -894,7 +911,7 @@ test('a PDF tab\'s sync points are stored as pages of the PDF, written as they a
 
     lsMap.clear();
     await applyMpakExtras(header, opened, { songKey: 'Other - Book', applyToActiveReader: false });
-    const back = loadRecord(scoreSyncKey('Other - Book', header.score.sha256), YT);
+    const back = loadRecord(scoreSyncKey('Other - Book', header.scores[0].sha256), YT);
     assert.deepEqual(back.points.map((p) => p.page), [12, 14, 12]);
 });
 
@@ -948,4 +965,88 @@ test('the text and the PDF tab of one song keep separate sync points, and a lega
     saveRecord(legacyScoreSyncKey(songKey), YT, [{ id: 'l', page: 3, timeMs: 300, source: 'tap' }], undefined, undefined, 'pdf');
     assert.deepEqual((await unpackMpak((await buildMpak(pdf, meta)).blob)).opened.sync('original').points.map((x) => x.page), [3]);
     assert.equal((await unpackMpak((await buildMpak(txt, meta)).blob)).opened.sync('original'), null);
+});
+
+// --- Several scores in one pack (SPEC section 6.2) ----------------------------------------------------------------
+
+async function multiScoreFixture(songKey) {
+    const { systems, file: txt } = await textFixture();
+    const gp = new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04, 9, 9, 9])], 'song.gp', { type: 'application/octet-stream' });
+    const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x32]);
+    const pdf = new File([pdfBytes], 'song.pdf', { type: 'application/pdf' });
+    localStorage.setItem(`yt_track_${enc(songKey)}_original`, 'dQw4w9WgXcQ');
+    saveRecord(songKey, YT, [
+        { id: 'b0', barIndex: 0, occurrence: 0, pos: 0, timeMs: 1000, source: 'tap' },
+        { id: 'b1', barIndex: 1, occurrence: 0, pos: 0, timeMs: 3000, source: 'tap' },
+    ]);
+    saveRecord(scoreSyncKey(songKey, await sha256(pdfBytes)), YT, [{ id: 'p0', page: 1, timeMs: 1500, source: 'tap' }, { id: 'p1', page: 2, timeMs: 4000, source: 'tap' }], undefined, undefined, 'pdf');
+    const txtSha = await sha256(new Uint8Array(await txt.arrayBuffer()));
+    saveRecord(scoreSyncKey(songKey, txtSha), YT, [{ id: 't0', line: systems[0].line, timeMs: 2000, source: 'tap' }], undefined, undefined, 'text');
+    return { gp, pdf, txt, systems };
+}
+
+test('buildMpak writes every score of the song with its own sync, and an import attaches each under its own key', async () => {
+    lsMap.clear();
+    const songKey = 'Band - Multi';
+    const { gp, pdf, txt, systems } = await multiScoreFixture(songKey);
+    const { blob } = await buildMpak(gp, {
+        songKey, song: { artist: 'Band', title: 'Multi' },
+        scores: [{ file: pdf, label: 'PDF' }, { file: txt }, { file: new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04, 9, 9, 9])], 'copy.gp') }],
+    });
+
+    const { header, opened, score, otherScores } = await unpackMpak(blob);
+    assert.deepEqual(header.scores.map((s) => [s.id, s.format]), [['gp', 'gp'], ['pdf', 'pdf'], ['txt', 'txt']], 'the same file twice is one score');
+    assert.equal(header.scores[1].label, 'PDF');
+    assert.deepEqual(Object.keys(header.recordings[0].sync).sort(), ['gp', 'pdf', 'txt']);
+    assert.equal(score.id, 'gp');
+    assert.deepEqual(otherScores.map((o) => o.file.name), ['song.pdf', 'song.txt']);
+    assert.deepEqual(opened.warnings, []);
+    assert.deepEqual(opened.sync('original', 'gp').points.map((p) => p.bar), [0, 1]);
+    assert.deepEqual(opened.sync('original', 'pdf').points.map((p) => p.page), [1, 2]);
+    assert.deepEqual(opened.sync('original', 'txt').points.map((p) => p.line), [systems[0].line]);
+    assert.equal(opened.sync('original', 'pdf').score, 'pdf');
+
+    lsMap.clear();
+    await applyMpakExtras(header, opened, { songKey: 'Other - Multi', applyToActiveReader: false });
+    assert.deepEqual(loadRecord('Other - Multi', YT).points.map((p) => p.barIndex), [0, 1]);
+    assert.deepEqual(loadRecord(scoreSyncKey('Other - Multi', header.scores[1].sha256), YT).points.map((p) => p.page), [1, 2]);
+    assert.deepEqual(loadRecord(scoreSyncKey('Other - Multi', header.scores[2].sha256), YT).points.map((p) => p.line), [systems[0].line]);
+});
+
+test('a backing track that shares the original\'s points does so for every score', async () => {
+    lsMap.clear();
+    const songKey = 'Band - Shared';
+    const { gp, pdf } = await multiScoreFixture(songKey);
+    const { setSyncSharedFromOriginal, isSyncSharedFromOriginal } = await import('../../src/audioSync/syncStore.js');
+    localStorage.setItem(`yt_track_${enc(songKey)}_backing`, 'BBBBBBBBBBB');
+    setSyncSharedFromOriginal(songKey, true);
+    const { blob } = await buildMpak(gp, { songKey, song: { artist: 'Band', title: 'Shared' }, scores: [{ file: pdf }] });
+    const { header, opened } = await unpackMpak(blob);
+    const backing = header.recordings.find((r) => r.id === 'backing');
+    assert.equal(backing.syncFrom, 'original');
+    assert.equal(backing.sync, undefined);
+    assert.equal(opened.sync('backing', 'pdf').points.length, 2, 'the backing track resolves the original\'s points for the PDF');
+
+    lsMap.clear();
+    await applyMpakExtras(header, opened, { songKey: 'Other - Shared', applyToActiveReader: false });
+    assert.ok(isSyncSharedFromOriginal('Other - Shared'));
+    assert.ok(isSyncSharedFromOriginal(scoreSyncKey('Other - Shared', header.scores[1].sha256)));
+});
+
+test('saveMpakToLibrary adds every score the app can show as a tab of the song, and exporting that tab finds the others', async () => {
+    lsMap.clear();
+    await clearAllLibraryData();
+    const songKey = 'Band - Library';
+    const { gp, pdf } = await multiScoreFixture(songKey);
+    const { blob } = await buildMpak(gp, { songKey, song: { artist: 'Band', title: 'Library' }, scores: [{ file: pdf }] });
+
+    const saved = await saveMpakToLibrary(blob, { queryMusicBrainz: false, allowTextFallback: true });
+    const song = await getSongById(saved.song.id);
+    assert.deepEqual(song.tabOptions.map((t) => t.name).sort(), ['song.gp', 'song.pdf']);
+
+    const { otherScores } = await import('../../src/mpak.js').then((m) => ({ otherScores: m.otherLibraryScores }));
+    const gpTab = song.tabOptions.find((t) => t.name === 'song.gp');
+    const others = await otherScores({ librarySongId: song.id, tabId: gpTab.id });
+    assert.deepEqual(others.map((o) => o.file.name), ['song.pdf']);
+    assert.deepEqual(await otherScores({ librarySongId: null }), []);
 });

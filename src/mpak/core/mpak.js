@@ -18,9 +18,10 @@ export async function sha256(bytes) {
  * Reads the end of the archive, the central directory, the manifest, the score and the sync files, and no audio.
  * Hash mismatches are warnings, not errors (SPEC section 12).
  *
- * Returns { manifest, entries, warnings, score, sync(recId), defaultRecording(), file(path, maxSize), stream(path), range(path) }:
- *   score        the score file's bytes (or null when score.externalPath is used and no externalScore was provided/resolved)
- *   sync(id)   the recording's sync points resolved on its own timeline (section 9), or null
+ * Returns { manifest, entries, warnings, score, scoreBytes(id), sync(recId, scoreId), defaultRecording(), file(path, maxSize), stream(path), range(path) }:
+ *   score        the primary score file's bytes (or null when it uses externalPath and no externalScore was provided/resolved)
+ *   scoreBytes(id)  the same for any score or alternate by its id
+ *   sync(id, scoreId)   the recording's sync points for a score (default: the primary), resolved on its own timeline (section 9), or null
  *   file(path) one entry read whole; stream(path) one entry as chunks; range(path) a Stored entry's {start, end} in the archive
  */
 export async function openMpak(source, { limits = LIMITS, hash = sha256, externalScore } = {}) {
@@ -41,49 +42,61 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
   const file = (p, maxSize = Infinity) => readEntry(source, need(p), { maxSize, limits });
   const stream = (p) => entryStream(source, need(p), { limits });
   const range = (p) => entryRange(need(p));
-  let score = null;
-  if (manifest.score.path) {
-    score = await file(manifest.score.path);
-    if (await hash(score) !== manifest.score.sha256) warnings.push(`score sha256 mismatch: ${manifest.score.path}`);
-  } else {
-    checkEntryName(manifest.score.externalPath);
-    if (externalScore) {
-      score = typeof externalScore === 'function' ? await externalScore(manifest.score.externalPath, warnings) : externalScore;
-      if (score && await hash(score) !== manifest.score.sha256) warnings.push(`score sha256 mismatch: ${manifest.score.externalPath}`);
+  // Every score in `scores`, primary first, then each one's alternates. A score stored outside the archive (externalPath) is null unless it was resolved.
+  const scoreBytes = new Map();
+  for (const t of manifest.scores.flatMap((x) => [x, ...(x.alternates || [])])) {
+    let bytes = null;
+    if (t.path) {
+      bytes = await file(t.path);
+      if (await hash(bytes) !== t.sha256) warnings.push(`score sha256 mismatch: ${t.path}`);
+    } else {
+      checkEntryName(t.externalPath);
+      if (externalScore) {
+        bytes = typeof externalScore === 'function' ? await externalScore(t.externalPath, warnings) : externalScore;
+        if (bytes && await hash(bytes) !== t.sha256) warnings.push(`score sha256 mismatch: ${t.externalPath}`);
+      }
     }
+    scoreBytes.set(t.id, bytes ?? null);
   }
-  const syncs = new Map();
+  const primary = manifest.scores[0];
+  const score = scoreBytes.get(primary.id);
+  const scoreOf = (id) => manifest.scores.find((t) => t.id === id);
+  const syncs = new Map(); // `${scoreId}\n${recordingId}` -> sync file
   for (const r of manifest.recordings || []) {
-    if (r.sync) {
-      if (!byName.has(r.sync)) { warnings.push(`${r.id}: missing sync file ${r.sync}`); continue; }
-      let s;
-      try { s = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await file(r.sync, limits.maxSync))); } catch (e) { warnings.push(`${r.sync}: ${e.message}`); continue; }
-      const se = validateSync(s, manifest.score.format);
-      if (se.length) { warnings.push(`${r.sync}: ${se.join('; ')}`); continue; }
-      if (s.recording !== r.id) { warnings.push(`${r.sync}: recording id mismatch`); continue; }
-      syncs.set(r.id, s);
+    for (const [sid, sp] of Object.entries(r.sync || {})) {
+      const t = scoreOf(sid);
+      if (!byName.has(sp)) { warnings.push(`${r.id}: missing sync file ${sp}`); continue; }
+      let sf;
+      try { sf = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await file(sp, limits.maxSync))); } catch (e) { warnings.push(`${sp}: ${e.message}`); continue; }
+      const se = validateSync(sf, t.format);
+      if (se.length) { warnings.push(`${sp}: ${se.join('; ')}`); continue; }
+      if (sf.recording !== r.id) { warnings.push(`${sp}: recording id mismatch`); continue; }
+      if (sf.score !== sid) { warnings.push(`${sp}: score id mismatch`); continue; }
+      syncs.set(`${sid}\n${r.id}`, sf);
     }
     for (const src of r.sources || []) {
-      if (src.type === 'embedded' && manifest.score.format !== 'gp') warnings.push(`${r.id}: embedded source on a ${manifest.score.format} score, skipped`);
+      if (src.type === 'embedded') {
+        const holder = scoreOf(src.score ?? primary.id);
+        if (holder.format !== 'gp') warnings.push(`${r.id}: embedded source on a ${holder.format} score, skipped`);
+      }
       if (src.type === 'file' && !byName.has(src.path)) warnings.push(`${r.id}: missing audio file ${src.path}`);
     }
   }
-  // Sync of a recording: its own file, else syncFrom (plus syncOffsetMs), else stemOf. Offsets add along the chain.
-  const resolveSync = (id) => {
+  // Sync of a recording for a score: its own file, else syncFrom (plus syncOffsetMs), else stemOf. Offsets add along the chain.
+  // The score defaults to the primary score.
+  const resolveSync = (id, scoreId = primary.id) => {
     const recs = manifest.recordings || [];
     let cur = recs.find((r) => r.id === id), offset = 0;
     for (let n = 0; cur && n <= recs.length; n++) {
-      if (syncs.has(cur.id)) {
-        const s = syncs.get(cur.id);
-        return { ...s, recording: id, points: s.points.map((p) => ({ ...p, timeMs: p.timeMs + offset })).filter((p) => p.timeMs >= 0) };
-      }
+      const own = syncs.get(`${scoreId}\n${cur.id}`);
+      if (own) return { ...own, recording: id, points: own.points.map((p) => ({ ...p, timeMs: p.timeMs + offset })).filter((p) => p.timeMs >= 0) };
       if (cur.syncFrom) offset += cur.syncOffsetMs || 0;
       cur = recs.find((r) => r.id === (cur.syncFrom || cur.stemOf));
     }
     return null;
   };
   const defaultRecording = () => (manifest.recordings || [])[0] || null;
-  return { manifest, entries: entries.map((e) => e.name), warnings, score, sync: resolveSync, defaultRecording, file, stream, range };
+  return { manifest, entries: entries.map((e) => e.name), warnings, score, scoreBytes: (id) => scoreBytes.get(id) ?? null, sync: resolveSync, defaultRecording, file, stream, range };
 }
 
 /**
