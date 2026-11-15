@@ -14,7 +14,8 @@ import {
     buildMpak as coreBuildMpak,
 } from './mpak/core/index.js';
 import { decodeText } from './utils/decodeText.js';
-import { groupBlocks } from './textProcessor/textBlocks.js';
+import { toSyncPoints, fromSyncPoints } from './audioSync/syncStore.js';
+import { unitsToPoints, scoreSyncKey, legacyScoreSyncKey, textBlocksOf } from './audioSync/anchors.js';
 
 export const MPAK_FORMAT = 'mpak';
 export const MPAK_VERSION = 1;
@@ -185,92 +186,44 @@ function buildManifestSong(norm) {
     return Object.keys(song).length ? song : null;
 }
 
-// The sync store keeps the points of a text or PDF tab under the song key `text:<song key>` (textSync.js), apart from
-// the bar points of a Guitar Pro tab. A point there names a unit in `barIndex`: the block number of a text tab, or the
-// index of a PDF page counted from the first page the tab shows.
-const TEXT_SYNC_PREFIX = 'text:';
-const syncStoreKey = (anchorType, songKey) => (anchorType === 'bar' ? songKey : `${TEXT_SYNC_PREFIX}${songKey}`);
+// The sync store keeps the points of a text or PDF tab apart from the bar points of a Guitar Pro tab, under a key that
+// names the score file (anchors.js). A record there holds Music Pack sync points already (syncStore.js), so it is written
+// to the archive as it is; only a record from before that, whose points are units, is converted.
+const syncKeyFor = (anchorType, songKey, scoreSha256) => (anchorType === 'bar' ? songKey : scoreSyncKey(songKey, scoreSha256));
 
 const isUtf8 = (bytes) => {
     try { new TextDecoder('utf-8', { fatal: true }).decode(bytes); return true; } catch { return false; }
 };
 
-/** The text of a `txt` score as the spec counts it (section 9.3): decoded, with CRLF and CR made LF, split into lines. */
-function textLines(bytes) {
-    return decodeText(bytes).replace(/\r\n?/g, '\n').split('\n');
-}
-
-/** The blocks of a text score, in the order that sync points number them (see textProcessor.js). */
-function textBlocksOf(bytes) {
-    return groupBlocks(textLines(bytes));
-}
-
 /**
- * The points of a stored record as a sync file (SPEC section 9) for `anchorType`.
- * `bar`: bar, occurrence and pos. `pdf`: the page, as the number in the PDF file (`firstPage` is the number of the
- * first page the tab shows). `text`: the line of the block's top string row. Points whose unit is gone are dropped.
+ * A stored record as a sync file (SPEC section 9). Its points are Music Pack sync points already. A record of units (kept
+ * before points were stored as lines and pages) is converted with the score it was made for. Returns null when the record
+ * is for another kind of score than `anchorType`.
  */
 function toV1SyncFile(rec, recordingId, anchorType, { firstPage = 1, lastPage = null, blocks = null } = {}) {
+    let points = rec.points;
+    if (rec.anchorType === 'unit') points = unitsToPoints(points, anchorType, { firstPage, blocks: blocks || [] });
+    else if (rec.anchorType !== anchorType) return null;
+    if (anchorType === 'pdf') points = points.filter((p) => p.page >= firstPage && (!lastPage || p.page <= lastPage));
     const seenTimes = new Set();
-    const points = [];
-    const sorted = [...(rec.points || [])].sort((a, b) => a.timeMs - b.timeMs);
-    for (const p of sorted) {
+    const out = [];
+    for (const p of toSyncPoints([...points].sort((a, b) => a.timeMs - b.timeMs), anchorType)) {
         if (!Number.isFinite(p.timeMs) || p.timeMs < 0) continue;
         let t = p.timeMs;
         while (seenTimes.has(t)) t += 1;
         seenTimes.add(t);
-        const source = (p.source === 'tap' || p.source === 'manual' || p.source === 'auto') ? p.source : 'manual';
-        let pt;
-        if (anchorType === 'pdf') {
-            const page = firstPage + p.barIndex;
-            if (page < firstPage || (lastPage && page > lastPage)) continue;
-            pt = { timeMs: t, page, source };
-        } else if (anchorType === 'text') {
-            const blk = blocks?.[p.barIndex];
-            if (!blk || blk.kind === 'blank') continue;
-            pt = { timeMs: t, line: blk.staffStart ?? blk.start, source };
-        } else {
-            pt = {
-                timeMs: t,
-                bar: p.barIndex,
-                occurrence: Number.isInteger(p.occurrence) && p.occurrence >= 0 ? p.occurrence : 0,
-                pos: Number.isFinite(p.pos) ? Math.max(0, Math.min(1, p.pos)) : 0,
-                source,
-            };
-        }
-        if (typeof p.id === 'string' && p.id) pt.id = p.id;
-        points.push(pt);
+        out.push({ ...p, timeMs: t });
     }
     return {
         version: 1,
         recording: recordingId,
         anchorType,
         updatedAt: new Date(Number.isFinite(rec.updatedAt) && rec.updatedAt > 0 ? rec.updatedAt : Date.now()).toISOString(),
-        points,
+        points: out,
     };
 }
 
 const STORED_ANCHORS = ['bar', 'pdf', 'text'];
-
-/**
- * A sync file's points as the sync store keeps them (the inverse of toV1SyncFile). `pdf` points name a page, which
- * becomes its index among the pages the tab shows; `text` points name a line, which becomes the number of the block that
- * holds it (any line of a block counts, SPEC section 9.3). Points that fall outside the tab are dropped. The finer
- * `x`, `y` and `col` are not kept: the app follows a page or a block.
- */
-function storePoints(syncDoc, { firstPage = 1, blocks = () => [] } = {}) {
-    const base = (p) => ({ ...(p.id ? { id: p.id } : {}), occurrence: 0, pos: 0, timeMs: p.timeMs, source: p.source || 'manual' });
-    if (syncDoc.anchorType === 'pdf') {
-        return syncDoc.points.filter((p) => p.page >= firstPage).map((p) => ({ ...base(p), barIndex: p.page - firstPage }));
-    }
-    if (syncDoc.anchorType === 'text') {
-        const list = blocks();
-        const unitOf = (line) => list.findIndex((b) => b.kind !== 'blank' && line >= b.start && line <= b.end);
-        return syncDoc.points.map((p) => ({ p, unit: unitOf(p.line) })).filter((x) => x.unit >= 0)
-            .map(({ p, unit }) => ({ ...base(p), barIndex: unit }));
-    }
-    return syncDoc.points.map((p) => ({ ...base(p), barIndex: p.bar, occurrence: p.occurrence ?? 0, pos: p.pos ?? 0 }));
-}
 
 function rememberLibrarySongKey(librarySongId, key, meta = {}) {
     if (!librarySongId || !key) return;
@@ -353,6 +306,8 @@ export async function buildMpak(file, options = {}) {
     const safeTabName = sanitizeSegment(name, `score.${tabFormat}`);
     const tabPath = `score/${safeTabName}`;
     let tabBytes = new Uint8Array(await file.arrayBuffer());
+    // The open tab's own hash: it names the sync records of the tab, even when the bytes are converted below
+    const openSha256 = await sha256(tabBytes);
     // A text score must be UTF-8 in the file (SPEC section 6): convert one in another encoding and hash the converted bytes.
     if (tabFormat === 'txt' && !isUtf8(tabBytes)) tabBytes = new TextEncoder().encode(decodeText(tabBytes));
     const tabSha256 = await sha256(tabBytes);
@@ -385,15 +340,21 @@ export async function buildMpak(file, options = {}) {
         recordings: [],
     };
 
-    // Where the song's points are kept depends on the score: bars for Guitar Pro, units for a text or PDF tab.
+    // Where the song's points are kept depends on the score: by song for Guitar Pro bars, by song and score file for
+    // a text or PDF tab. Records an earlier version shared between a song's text and PDF tabs are read as well.
     const anchorType = ANCHOR[tabFormat];
-    const syncKey = syncStoreKey(anchorType, songKey);
+    const syncKey = syncKeyFor(anchorType, songKey, openSha256);
+    const legacyKey = anchorType === 'bar' ? null : legacyScoreSyncKey(songKey);
     const syncCtx = { firstPage: score.startPage || 1, lastPage: score.endPage || score.pages || null };
     if (anchorType === 'text') syncCtx.blocks = textBlocksOf(tabBytes);
     const recordsByMedia = new Map();
-    for (const rec of listRecords(syncKey)) {
+    for (const rec of [...(legacyKey ? listRecords(legacyKey) : []), ...listRecords(syncKey)]) {
         const k = mediaKey(rec.media);
-        if (k && rec.points?.length) recordsByMedia.set(k, rec);
+        if (!k || !rec.points?.length) continue;
+        // a legacy record of the other kind of score is not this tab's
+        if (rec.anchorType !== 'unit' && rec.anchorType !== anchorType) continue;
+        const have = recordsByMedia.get(k);
+        if (!have || rec.updatedAt >= have.updatedAt) recordsByMedia.set(k, rec);
     }
 
     const usedNames = new Set();
@@ -446,7 +407,7 @@ export async function buildMpak(file, options = {}) {
         if (syncRec && (anchorType === 'bar' || anchorType === 'pdf' || anchorType === 'text')) {
             const syncPath = `sync/${slot}.json`;
             const syncDoc = toV1SyncFile(syncRec, slot, anchorType, syncCtx);
-            if (syncDoc.points.length) {
+            if (syncDoc?.points.length) {
                 files.set(syncPath, new TextEncoder().encode(JSON.stringify(syncDoc, null, 2) + '\n'));
                 recording.sync = syncPath;
             }
@@ -457,7 +418,7 @@ export async function buildMpak(file, options = {}) {
     // The first recording is the default (SPEC section 7), and the slots are visited original first.
     if (manifest.recordings.some((r) => r.id === 'original')) {
         const backing = manifest.recordings.find((r) => r.id === 'backing');
-        if (backing && !backing.sync && isSyncSharedFromOriginal(syncKey)) {
+        if (backing && !backing.sync && (isSyncSharedFromOriginal(syncKey) || (legacyKey && isSyncSharedFromOriginal(legacyKey)))) {
             backing.syncFrom = 'original';
         }
     }
@@ -723,11 +684,6 @@ export async function applyMpakExtras(data, opened, options = {}) {
 
     const slots = mapRecordingsToSlots(data);
     const resolvedMedia = new Map();
-    let blockList = null;
-    const syncCtx = {
-        firstPage: data?.score?.startPage || 1,
-        blocks: () => (blockList ||= (opened?.score ? textBlocksOf(opened.score) : [])),
-    };
 
     for (const slot of SLOTS) {
         const rec = slots[slot];
@@ -808,9 +764,9 @@ export async function applyMpakExtras(data, opened, options = {}) {
             if (handled && syncDoc?.points?.length && STORED_ANCHORS.includes(syncDoc.anchorType)) {
                 const media = resolvedMedia.get(rec.id);
                 if (media) {
-                    const mjPoints = storePoints(syncDoc, syncCtx);
-                    for (const k of mjPoints.length ? allKeys : []) {
-                        saveRecord(syncStoreKey(syncDoc.anchorType, k), media, mjPoints);
+                    const mjPoints = fromSyncPoints(syncDoc.points, syncDoc.anchorType);
+                    for (const k of allKeys) {
+                        saveRecord(syncKeyFor(syncDoc.anchorType, k, data?.score?.sha256), media, mjPoints, undefined, undefined, syncDoc.anchorType);
                     }
                 }
             }
@@ -834,9 +790,8 @@ export async function applyMpakExtras(data, opened, options = {}) {
             const key = mediaKey(media);
             if (!key || taken.has(key)) continue;
             taken.add(key);
-            const points = storePoints(syncDoc, syncCtx);
-            if (!points.length) continue;
-            for (const k of allKeys) saveRecord(syncStoreKey(syncDoc.anchorType, k), media, points);
+            const points = fromSyncPoints(syncDoc.points, syncDoc.anchorType);
+            for (const k of allKeys) saveRecord(syncKeyFor(syncDoc.anchorType, k, data?.score?.sha256), media, points, undefined, undefined, syncDoc.anchorType);
         } catch (e) {
             console.warn('[mpak] could not attach the', rec?.id, 'recording:', e);
         }
@@ -845,7 +800,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
     if (slots.backing && !slots.backing.sync && slots.backing.syncFrom && slots.backing.syncFrom === slots.original?.id && !slots.backing.syncOffsetMs) {
         const anchor = ANCHOR[data?.score?.format] || 'bar';
         for (const k of allKeys) {
-            setSyncSharedFromOriginal(syncStoreKey(anchor, k), true);
+            setSyncSharedFromOriginal(syncKeyFor(anchor, k, data?.score?.sha256), true);
         }
     }
 

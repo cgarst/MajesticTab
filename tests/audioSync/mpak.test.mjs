@@ -271,6 +271,7 @@ const {
     buildMpak: coreBuildMpak,
 } = await import('../../src/mpak/core/index.js');
 
+const { scoreSyncKey, legacyScoreSyncKey } = await import('../../src/audioSync/anchors.js');
 const { saveAudioFile, getAudioFile } = await import('../../src/audioSync/audioFileStore.js');
 const { saveRecord, loadRecord, listRecords } = await import('../../src/audioSync/syncStore.js');
 const { songHasLocalSlot, libraryAudioKey, readLibraryAudio } = await import('../../src/audioSync/libraryAudio.js');
@@ -832,61 +833,119 @@ test('unpackMpak rejects a score format the app cannot open, with a clear messag
     );
 });
 
-test('a text tab\'s sync points are written as text anchors (line) and come back as the same blocks', async () => {
-    lsMap.clear();
+const YT = { kind: 'youtube', videoId: 'dQw4w9WgXcQ' };
+
+async function textFixture() {
     const { groupBlocks } = await import('../../src/textProcessor/textBlocks.js');
     const staff = (a) => ['e|--0--2--3--|', 'B|--1--3--3--|', 'G|--0--2--0--|', 'D|--2--0--0--|', 'A|--3--------|', 'E|--------' + a + '--|'];
     const text = ['My Song', '', ...staff('1'), '', ...staff('2'), ''].join('\r\n');
-    const lines = text.split('\r\n');
-    const blocks = groupBlocks(lines);
-    const systems = blocks.map((b, i) => [b, i]).filter(([b]) => b.kind === 'system');
+    const blocks = groupBlocks(text.split('\r\n'));
+    const systems = blocks.map((b, i) => ({ unit: i, line: b.staffStart ?? b.start })).filter((x, i) => blocks[i].kind === 'system');
     assert.equal(systems.length, 2);
+    return { text, systems, file: new File([text], 'song.txt', { type: 'text/plain' }) };
+}
+
+test('a text tab\'s sync points are stored as lines, written to the archive as they are, and read back the same', async () => {
+    lsMap.clear();
+    const { text, systems, file } = await textFixture();
     const songKey = 'Band - Text Song';
     localStorage.setItem(`yt_track_${enc(songKey)}_original`, 'dQw4w9WgXcQ');
-    saveRecord(`text:${songKey}`, { kind: 'youtube', videoId: 'dQw4w9WgXcQ' }, [
-        { id: 'a', barIndex: systems[0][1], occurrence: 0, pos: 0, timeMs: 1000, source: 'tap' },
-        { id: 'b', barIndex: systems[1][1], occurrence: 0, pos: 0, timeMs: 5000, source: 'tap' },
-        { id: 'gone', barIndex: 999, occurrence: 0, pos: 0, timeMs: 9000, source: 'tap' },
-    ]);
-    const file = new File([text], 'song.txt', { type: 'text/plain' });
+    const fileSha = await sha256(new Uint8Array(await file.arrayBuffer()));
+    saveRecord(scoreSyncKey(songKey, fileSha), YT, [
+        { id: 'a', line: systems[0].line, col: 3, timeMs: 1000, source: 'tap' },
+        { id: 'b', line: systems[1].line, timeMs: 5000, source: 'tap' },
+    ], undefined, undefined, 'text');
     const { blob } = await buildMpak(file, { songKey, song: { artist: 'Band', title: 'Text Song' } });
 
     const { header, opened } = await unpackMpak(blob);
     const doc = opened.sync('original');
     assert.equal(doc.anchorType, 'text');
-    assert.deepEqual(doc.points.map((p) => p.line), systems.map(([b]) => b.staffStart ?? b.start), 'a block is named by its top string row');
-    assert.equal(doc.points.length, 2, 'a point whose block is gone is not written');
+    assert.deepEqual(doc.points.map((p) => [p.line, p.col, p.timeMs]), [[systems[0].line, 3, 1000], [systems[1].line, undefined, 5000]], 'the column is kept');
     assert.deepEqual(opened.warnings, []);
 
     lsMap.clear();
     await applyMpakExtras(header, opened, { songKey: 'Other - Key', applyToActiveReader: false });
-    const back = loadRecord('text:Other - Key', { kind: 'youtube', videoId: 'dQw4w9WgXcQ' });
-    assert.deepEqual(back.points.map((p) => p.barIndex), systems.map(([, i]) => i));
-    assert.deepEqual(back.points.map((p) => p.timeMs), [1000, 5000]);
-    assert.equal(loadRecord('Other - Key', { kind: 'youtube', videoId: 'dQw4w9WgXcQ' }), null, 'bar points stay separate');
+    const back = loadRecord(scoreSyncKey('Other - Key', header.score.sha256), YT);
+    assert.equal(back.anchorType, 'text');
+    assert.deepEqual(back.points.map((p) => [p.line, p.col, p.timeMs]), [[systems[0].line, 3, 1000], [systems[1].line, undefined, 5000]]);
+    assert.equal(loadRecord('Other - Key', YT), null, 'bar points stay separate');
 });
 
-test('a PDF tab\'s sync points are written as page anchors in the PDF\'s own numbering and come back as page indexes', async () => {
+test('a PDF tab\'s sync points are stored as pages of the PDF, written as they are, and read back the same', async () => {
     lsMap.clear();
     const songKey = 'Book - Song';
     localStorage.setItem(`yt_track_${enc(songKey)}_original`, 'dQw4w9WgXcQ');
-    saveRecord(`text:${songKey}`, { kind: 'youtube', videoId: 'dQw4w9WgXcQ' }, [
-        { id: 'a', barIndex: 0, occurrence: 0, pos: 0, timeMs: 0, source: 'tap' },
-        { id: 'b', barIndex: 2, occurrence: 0, pos: 0, timeMs: 4000, source: 'tap' },
-        { id: 'c', barIndex: 0, occurrence: 0, pos: 0, timeMs: 8000, source: 'tap' },
-        { id: 'far', barIndex: 7, occurrence: 0, pos: 0, timeMs: 9000, source: 'tap' },
-    ]);
-    const file = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], 'book.pdf', { type: 'application/pdf' });
+    const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
+    saveRecord(scoreSyncKey(songKey, await sha256(pdfBytes)), YT, [
+        { id: 'a', page: 12, timeMs: 0, source: 'tap' },
+        { id: 'b', page: 14, x: 0.25, y: 0.5, timeMs: 4000, source: 'tap' },
+        { id: 'c', page: 12, timeMs: 8000, source: 'tap' },
+        { id: 'far', page: 90, timeMs: 9000, source: 'tap' },
+    ], undefined, undefined, 'pdf');
+    const file = new File([pdfBytes], 'book.pdf', { type: 'application/pdf' });
     const { blob } = await buildMpak(file, { songKey, song: { artist: 'Book', title: 'Song' }, startPage: 12, endPage: 14, pages: 100 });
 
     const { header, opened } = await unpackMpak(blob);
     const doc = opened.sync('original');
     assert.equal(doc.anchorType, 'pdf');
-    assert.deepEqual(doc.points.map((p) => p.page), [12, 14, 12], 'pages keep the PDF numbering, and a jump back is a repeat');
+    assert.deepEqual(doc.points.map((p) => p.page), [12, 14, 12], 'a page outside the range is not written, and a jump back is a repeat');
+    assert.deepEqual([doc.points[1].x, doc.points[1].y], [0.25, 0.5], 'a position on the page is kept');
     assert.deepEqual(opened.warnings, []);
 
     lsMap.clear();
     await applyMpakExtras(header, opened, { songKey: 'Other - Book', applyToActiveReader: false });
-    const back = loadRecord('text:Other - Book', { kind: 'youtube', videoId: 'dQw4w9WgXcQ' });
-    assert.deepEqual(back.points.map((p) => p.barIndex), [0, 2, 0]);
+    const back = loadRecord(scoreSyncKey('Other - Book', header.score.sha256), YT);
+    assert.deepEqual(back.points.map((p) => p.page), [12, 14, 12]);
+});
+
+test('a version 1 record of units is converted to lines and pages when a tab is exported', async () => {
+    lsMap.clear();
+    const { systems, file } = await textFixture();
+    const { storageKey } = await import('../../src/audioSync/syncStore.js');
+    const { recordStorage } = await import('../../src/audioSync/syncRecordStore.js');
+    const songKey = 'Band - Old Text';
+    localStorage.setItem(`yt_track_${enc(songKey)}_original`, 'dQw4w9WgXcQ');
+    const v1 = (units) => JSON.stringify({
+        version: 1, media: YT, updatedAt: 1,
+        points: units.map((u, i) => ({ id: `p${i}`, barIndex: u, occurrence: 0, pos: 0, timeMs: 1000 * (i + 1), source: 'tap' })),
+    });
+    recordStorage.setItem(storageKey(`text:${songKey}`, YT), v1([systems[0].unit, systems[1].unit, 99]));
+    const read = loadRecord(`text:${songKey}`, YT);
+    assert.equal(read.anchorType, 'unit');
+    assert.deepEqual(read.points.map((p) => p.unit), [systems[0].unit, systems[1].unit, 99]);
+
+    const { blob } = await buildMpak(file, { songKey, song: { artist: 'Band', title: 'Old Text' } });
+    const { opened } = await unpackMpak(blob);
+    assert.deepEqual(opened.sync('original').points.map((p) => p.line), systems.map((x) => x.line), 'a unit that is not in the text is dropped');
+
+    // and the same record for a PDF whose first page is 12
+    recordStorage.setItem(storageKey(`text:${songKey}`, YT), v1([0, 2]));
+    const pdf = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], 'book.pdf', { type: 'application/pdf' });
+    const out = await buildMpak(pdf, { songKey, song: { artist: 'Band', title: 'Old Text' }, startPage: 12, endPage: 14, pages: 40 });
+    assert.deepEqual((await unpackMpak(out.blob)).opened.sync('original').points.map((p) => p.page), [12, 14]);
+});
+
+test('the text and the PDF tab of one song keep separate sync points, and a legacy shared record is still exported', async () => {
+    lsMap.clear();
+    const { systems, file: txt } = await textFixture();
+    const songKey = 'Band - Both';
+    localStorage.setItem(`yt_track_${enc(songKey)}_original`, 'dQw4w9WgXcQ');
+    const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]);
+    const pdf = new File([pdfBytes], 'song.pdf', { type: 'application/pdf' });
+    const txtSha = await sha256(new Uint8Array(await txt.arrayBuffer()));
+    saveRecord(scoreSyncKey(songKey, txtSha), YT, [{ id: 't', line: systems[0].line, timeMs: 100, source: 'tap' }], undefined, undefined, 'text');
+    saveRecord(scoreSyncKey(songKey, await sha256(pdfBytes)), YT, [{ id: 'p', page: 2, timeMs: 200, source: 'tap' }], undefined, undefined, 'pdf');
+
+    const meta = { songKey, song: { artist: 'Band', title: 'Both' } };
+    const t = (await unpackMpak((await buildMpak(txt, meta)).blob)).opened.sync('original');
+    const p = (await unpackMpak((await buildMpak(pdf, meta)).blob)).opened.sync('original');
+    assert.deepEqual([t.anchorType, t.points.map((x) => x.line)], ['text', [systems[0].line]]);
+    assert.deepEqual([p.anchorType, p.points.map((x) => x.page)], ['pdf', [2]]);
+
+    // a record from before the key named the score: used by the tab of its kind, not by the other
+    lsMap.clear();
+    localStorage.setItem(`yt_track_${enc(songKey)}_original`, 'dQw4w9WgXcQ');
+    saveRecord(legacyScoreSyncKey(songKey), YT, [{ id: 'l', page: 3, timeMs: 300, source: 'tap' }], undefined, undefined, 'pdf');
+    assert.deepEqual((await unpackMpak((await buildMpak(pdf, meta)).blob)).opened.sync('original').points.map((x) => x.page), [3]);
+    assert.equal((await unpackMpak((await buildMpak(txt, meta)).blob)).opened.sync('original'), null);
 });

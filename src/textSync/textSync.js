@@ -6,8 +6,11 @@
 // the line or page you hear). Once there are points the tab follows the recording: it scrolls to the line, or turns the page.
 //
 // Points are stored with the existing sync store (so they back up and sync like any others), under the song key
-// "text:<song key>" so the score follower and editor never see them. A point is { barIndex: unit, occurrence: 0, pos: 0,
-// timeMs } where unit is the block number (text) or the page's index in the PDF.
+// a song key of their own (the song and the score file's hash, see anchors.js) so the score follower and editor never see
+// them, and so a song's text and PDF tabs keep separate points. The store keeps Music Pack sync points: the page
+// in the PDF, or the line of the block's top string row (audioSync/anchors.js). In here a point is
+// { barIndex: unit, occurrence: 0, pos: 0, timeMs } where unit is the block number (text) or the index of the page among
+// the pages the tab shows, which is what the tab is drawn and followed by.
 //
 // Repeats: points are ordered by time, not by position, so a point that names an earlier unit than the one before it is a
 // jump back (a repeat sign, a D.S., a second verse on the first page). Tapping an earlier page or line while the
@@ -19,7 +22,9 @@ import { getLocalRecording } from '../audioSync/audioFilePlayer.js';
 import { getRealAudioActiveSource } from '../audioSync/realAudioController.js';
 import { synthPlayerState, isSynthPlaying, playPauseSynth, pauseSynthPlayer, seekSynthPercent, getAudioLatencyMs } from '../gpProcessor/gpPlayer.js';
 import { midiSynthActive } from '../classtab/midiSynth.js';
-import { loadRecord, saveRecord } from '../audioSync/syncStore.js';
+import { loadRecord, saveRecord, isSyncSharedFromOriginal, setSyncSharedFromOriginal } from '../audioSync/syncStore.js';
+import { unitsToPoints, pointsToUnits, scoreSyncKey, legacyScoreSyncKey, textBlocksOf, claimLegacyRecord } from '../audioSync/anchors.js';
+import { sha256 } from '../mpak/core/index.js';
 import { getScrubState, applyScrubValue } from '../utils/pageScrubber.js';
 import { makeId, formatTime } from '../audioSync/syncEdit.js';
 import { showToast } from '../utils/toast.js';
@@ -122,13 +127,39 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     let listOpen = false;
     let clearTimer = 0;
 
-    const textKey = () => `text:${getSongKey()}`;
+    // The open tab as the store knows it: the hash of its file, which names its points, and for text the blocks of its own
+    // bytes, which turn a line into a unit. Both come from the file itself, so they cannot belong to another tab.
+    const tabInfo = new WeakMap();
+    let tab = null;
+    let tabLoadingFor = null;
+    function tabOf(file) {
+        if (!tabInfo.has(file)) {
+            tabInfo.set(file, (async () => {
+                const bytes = new Uint8Array(await file.arrayBuffer());
+                return { hash: await sha256(bytes), blocks: isText(file) ? textBlocksOf(bytes) : [] };
+            })());
+        }
+        return tabInfo.get(file);
+    }
+    const textKey = () => (tab ? scoreSyncKey(getSongKey(), tab.hash) : null);
     const unitWord = () => (isPdf(getCurrentFile()) ? 'page' : 'line');
     const latency = () => getAudioLatencyMs() || 0;
 
+    const anchorKind = () => (isPdf(getCurrentFile()) ? 'pdf' : 'text');
+    const anchorCtx = () => ({ firstPage: Number(getCurrentFile()?.startPage) || 1, blocks: tab?.blocks || [] });
+
+    /** The stored points of the recording as units, or [] when there are none or they are for the other kind of tab. */
+    function savedUnits() {
+        const key = textKey();
+        if (!key) return [];
+        const stored = loadRecord(key, rec.media) || claimLegacyRecord(getSongKey(), rec.media, key, anchorKind(), anchorCtx());
+        if (!stored) return [];
+        return stored.anchorType === anchorKind() ? pointsToUnits(stored.points, stored.anchorType, anchorCtx()) : [];
+    }
+
     function readPoints() {
         if (!rec) { points = []; return; }
-        const saved = loadRecord(textKey(), rec.media)?.points || [];
+        const saved = savedUnits();
         if (saved.length > 0 && !saved.every((p) => p.source === 'auto')) {
             points = saved;
         } else if (rec.source === midiSource && isText(getCurrentFile()) && textState.alignment?.points?.length) {
@@ -139,11 +170,13 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     }
     function writePoints(next) {
         points = [...next].sort((a, b) => a.timeMs - b.timeMs);
-        saveRecord(textKey(), rec.media, points);
+        const key = textKey();
+        if (key) saveRecord(key, rec.media, unitsToPoints(points, anchorKind(), anchorCtx()), undefined, undefined, anchorKind());
     }
     function resetAutoPoints() {
         if (!rec) return;
-        saveRecord(textKey(), rec.media, []);
+        const key = textKey();
+        if (key) saveRecord(key, rec.media, [], undefined, undefined, anchorKind());
         readPoints();
         history = [];
         lastTapText = 'Reset to automatic alignment';
@@ -695,10 +728,26 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         if (file !== lastFileRef) {
             lastFileRef = file;
             stickyKind = null;
+            tab = null;
+            tabLoadingFor = null;
             if (tapping) stopTapping();
             lastUnit = null;
             drawnKey = '';
             markCurrent(null);
+        }
+        if (eligible && !tab && tabLoadingFor !== file) {
+            tabLoadingFor = file;
+            tabOf(file).then((info) => {
+                if (getCurrentFile() !== file) return;
+                tab = info;
+                // the song's share option moves to the tab's own key with its points
+                try {
+                    const own = textKey();
+                    if (own && isSyncSharedFromOriginal(legacyScoreSyncKey(getSongKey())) && !isSyncSharedFromOriginal(own)) setSyncSharedFromOriginal(own, true);
+                } catch { /* optional */ }
+                readPoints();
+                drawn(true);
+            }).catch((e) => console.warn('[textSync] could not read the tab:', e));
         }
         let next = eligible ? activeRecording(file) : null;
         // With Synth selected, a video or audio file is not what plays, so it gets no recording bar and the page strip stays

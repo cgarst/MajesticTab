@@ -130,3 +130,93 @@ test('the shared-points option travels in backups and merges on', async () => {
     clearAudioSync(b);
     assert.ok(!isSyncSharedFromOriginal('Song', b));
 });
+
+// --- Music Pack points (record version 2) -----------------------------------------------------------------------
+
+test('a bar record is stored as Music Pack sync points and read back with barIndex', () => {
+    const s = fakeStorage();
+    saveRecord('Song', yt, pts, s, 7);
+    const stored = JSON.parse(s.getItem(storageKey('Song', yt)));
+    assert.equal(stored.version, 2);
+    assert.equal(stored.anchorType, 'bar');
+    assert.deepEqual(stored.points[0], { id: 'a', occurrence: 0, pos: 0, timeMs: 1000, source: 'tap', bar: 0 });
+    assert.ok(stored.points.every((p) => !('barIndex' in p)));
+    const rec = loadRecord('Song', yt, s);
+    assert.equal(rec.anchorType, 'bar');
+    assert.deepEqual(rec.points.map((p) => p.barIndex), [0, 4]);
+});
+
+test('a version 1 bar record is still read, and a backup of it merges', () => {
+    const s = fakeStorage();
+    const v1 = { version: 1, media: yt, points: pts, updatedAt: 3 };
+    s.setItem(storageKey('Song', yt), JSON.stringify(v1));
+    assert.deepEqual(loadRecord('Song', yt, s).points.map((p) => p.barIndex), [0, 4]);
+    const t = fakeStorage();
+    assert.equal(mergeAudioSync({ [storageKey('Song', yt)]: v1 }, {}, t), 1);
+    assert.equal(JSON.parse(t.getItem(storageKey('Song', yt))).version, 2);
+});
+
+test('pdf and text records keep their own anchors and survive a backup', () => {
+    const s = fakeStorage();
+    saveRecord('text:Song', yt, [{ id: 'a', page: 3, x: 0.1, y: 0.2, timeMs: 10, source: 'tap' }, { id: 'b', page: 4, timeMs: 20, source: 'manual' }], s, 5);
+    const pdf = loadRecord('text:Song', yt, s);
+    assert.equal(pdf.anchorType, 'pdf');
+    assert.deepEqual(pdf.points[0], { id: 'a', page: 3, x: 0.1, y: 0.2, timeMs: 10, source: 'tap' });
+    saveRecord('text:Song', local, [{ id: 'l', line: 12, col: 4, timeMs: 10, source: 'tap' }], s, 5);
+    assert.equal(loadRecord('text:Song', local, s).anchorType, 'text');
+    const t = fakeStorage();
+    mergeAudioSync(collectAudioSync(s), {}, t);
+    assert.deepEqual(loadRecord('text:Song', local, t).points[0], { id: 'l', line: 12, col: 4, timeMs: 10, source: 'tap' });
+    assert.equal(loadRecord('text:Song', yt, t).points[1].page, 4);
+});
+
+test('malformed Music Pack points are dropped', () => {
+    const s = fakeStorage();
+    saveRecord('text:Song', yt, [
+        { id: 'ok', page: 1, timeMs: 0 },
+        { id: 'p0', page: 0, timeMs: 1 },
+        { id: 'xy', page: 2, x: 0.5, timeMs: 2 },
+        { id: 'big', page: 2, x: 2, y: 0.5, timeMs: 3 },
+    ], s, 1);
+    assert.deepEqual(loadRecord('text:Song', yt, s).points.map((p) => p.id), ['ok']);
+});
+
+test('a version 1 record under a text key is read as units and goes back out as version 1', () => {
+    const s = fakeStorage();
+    const key = storageKey('text:Song', yt);
+    s.setItem(key, JSON.stringify({ version: 1, media: yt, points: [{ id: 'a', barIndex: 3, occurrence: 0, pos: 0, timeMs: 10, source: 'tap' }], updatedAt: 9 }));
+    const rec = loadRecord('text:Song', yt, s);
+    assert.equal(rec.anchorType, 'unit');
+    assert.deepEqual(rec.points.map((p) => p.unit), [3]);
+    const t = fakeStorage();
+    mergeAudioSync(collectAudioSync(s), {}, t);
+    const out = JSON.parse(t.getItem(key));
+    assert.equal(out.version, 1, 'a device that has not been updated can still read it');
+    assert.equal(out.points[0].barIndex, 3);
+});
+
+test('a text or PDF tab takes over the record an earlier version shared between the tabs of a song', async () => {
+    const { claimLegacyRecord, scoreSyncKey, legacyScoreSyncKey } = await import('../../src/audioSync/anchors.js');
+    const s = fakeStorage();
+    const legacyKey = legacyScoreSyncKey('Song');
+    const own = scoreSyncKey('Song', 'a'.repeat(64));
+    const other = scoreSyncKey('Song', 'b'.repeat(64));
+
+    // a record of pages belongs to a PDF, not to a text tab
+    saveRecord(legacyKey, yt, [{ id: 'p', page: 3, timeMs: 10, source: 'tap' }], s, 4, 'pdf');
+    assert.equal(claimLegacyRecord('Song', yt, own, 'text', { blocks: [] }, s), null);
+    assert.ok(loadRecord(legacyKey, yt, s), 'left for the PDF');
+    const pdf = claimLegacyRecord('Song', yt, own, 'pdf', {}, s);
+    assert.deepEqual(pdf.points.map((p) => p.page), [3]);
+    assert.equal(pdf.updatedAt, 4, 'keeps its time, so a backup of it still merges');
+    assert.equal(loadRecord(legacyKey, yt, s), null, 'taken, not copied');
+    assert.deepEqual(loadRecord(own, yt, s).points.map((p) => p.page), [3]);
+    assert.equal(claimLegacyRecord('Song', yt, other, 'pdf', {}, s), null, 'a second tab finds nothing to take');
+
+    // a version 1 record of units goes to the first tab that asks, as lines
+    s.setItem(storageKey(legacyKey, local), JSON.stringify({ version: 1, media: local, updatedAt: 2, points: [{ id: 'u', barIndex: 1, occurrence: 0, pos: 0, timeMs: 5, source: 'tap' }] }));
+    const blocks = [{ kind: 'line', start: 0, end: 0 }, { kind: 'system', start: 2, end: 8, staffStart: 3 }];
+    const txt = claimLegacyRecord('Song', local, own, 'text', { blocks }, s);
+    assert.deepEqual(txt.points.map((p) => p.line), [3]);
+    assert.equal(txt.anchorType, 'text');
+});

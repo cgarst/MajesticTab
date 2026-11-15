@@ -6,8 +6,21 @@
 //
 // Records live in IndexedDB (syncRecordStore.js): localStorage's ~10 MB quota filled up with them.
 //
-// Record: { version: 1, media: { kind: 'youtube', videoId } | { kind: 'local', audioId, name, durationMs, fingerprint },
-//           points: [{ id, barIndex, occurrence, pos, timeMs, source }], updatedAt }
+// Record: { version: 2, media: { kind: 'youtube', videoId } | { kind: 'local', audioId, name, durationMs, fingerprint },
+//           anchorType: 'bar' | 'pdf' | 'text', points, updatedAt }
+//
+// A stored point is a Music Pack sync point (SPEC section 9) plus an `id` and a `source`, so a record is a sync file
+// of a .mpak: `{ timeMs, bar, occurrence, pos }`, `{ timeMs, page, x?, y? }` or `{ timeMs, line, col? }`. The points of a
+// text or PDF tab are kept under the song key `text:<song key>` (a namespace of the key, kept so that backups made by
+// earlier versions line up); the record's own `anchorType` says which kind they are.
+//
+// In memory a bar point keeps the name the score code has always used, `barIndex` (it is also the position type of the
+// timeline and the beat map), and this module is the one place that turns it into `bar` and back. `pdf` and `text`
+// points are the same in memory and in storage.
+//
+// Version 1 records have `barIndex` and no `anchorType`. Under a `text:` key a version 1 point names a unit (a text
+// block number or a PDF canvas index) that only the open tab can turn into a line or a page, so such a record is read
+// as `anchorType: 'unit'`, with the unit in `unit`, and textSync.js upgrades it.
 
 import { recordStorage } from './syncRecordStore.js';
 
@@ -15,9 +28,12 @@ import { recordStorage } from './syncRecordStore.js';
 export const SYNC_CHANGED_EVENT = 'audiosync:changed';
 
 export const AUDIO_SYNC_PREFIX = 'audio_sync_';
-export const AUDIO_SYNC_VERSION = 1;
+export const AUDIO_SYNC_VERSION = 2;
 
 const POINT_SOURCES = new Set(['tap', 'manual', 'auto']);
+const ANCHOR_TYPES = new Set(['bar', 'pdf', 'text']);
+const UNIT_KEY_PREFIX = `${AUDIO_SYNC_PREFIX}${encodeURIComponent('text:')}`;
+const isUnitKey = (key) => typeof key === 'string' && key.startsWith(UNIT_KEY_PREFIX);
 
 export function mediaKey(media) {
     if (media?.kind === 'youtube' && media.videoId) return `yt_${media.videoId}`;
@@ -31,24 +47,83 @@ export function storageKey(songKey, media) {
     return m ? `${AUDIO_SYNC_PREFIX}${encodeURIComponent(String(songKey).toLowerCase())}_${m}` : null;
 }
 
-function cleanPoint(p) {
+const unit01 = (v) => Number.isFinite(v) && v >= 0 && v <= 1;
+const sourceOf = (p) => (POINT_SOURCES.has(p.source) ? p.source : 'manual');
+
+/** One point as the app holds it, or null. Reads a stored point (`bar`) and an in-memory one (`barIndex`). */
+function cleanPoint(p, anchorType) {
     if (!p || typeof p !== 'object') return null;
-    const { barIndex, occurrence = 0, pos = 0, timeMs } = p;
+    const { occurrence = 0, pos = 0, timeMs } = p;
+    if (!Number.isFinite(timeMs) || timeMs < 0) return null;
+    if (anchorType === 'pdf') {
+        if (!Number.isInteger(p.page) || p.page < 1) return null;
+        const xy = p.x !== undefined || p.y !== undefined;
+        if (xy && !(unit01(p.x) && unit01(p.y))) return null;
+        return { id: typeof p.id === 'string' && p.id ? p.id : `p_${p.page}_${Math.round(timeMs)}`, page: p.page, ...(xy ? { x: p.x, y: p.y } : {}), timeMs, source: sourceOf(p) };
+    }
+    if (anchorType === 'text') {
+        if (!Number.isInteger(p.line) || p.line < 0) return null;
+        if (p.col !== undefined && (!Number.isInteger(p.col) || p.col < 0)) return null;
+        return { id: typeof p.id === 'string' && p.id ? p.id : `p_${p.line}_${Math.round(timeMs)}`, line: p.line, ...(p.col !== undefined ? { col: p.col } : {}), timeMs, source: sourceOf(p) };
+    }
+    if (anchorType === 'unit') {
+        if (!Number.isInteger(p.unit) || p.unit < 0) return null;
+        return { id: typeof p.id === 'string' && p.id ? p.id : `p_${p.unit}_${Math.round(timeMs)}`, unit: p.unit, timeMs, source: sourceOf(p) };
+    }
+    const barIndex = p.barIndex ?? p.bar;
     if (!Number.isInteger(barIndex) || barIndex < 0) return null;
     if (!Number.isInteger(occurrence) || occurrence < 0) return null;
     if (!Number.isFinite(pos) || pos < 0 || pos > 1) return null;
-    if (!Number.isFinite(timeMs) || timeMs < 0) return null;
     return {
         id: typeof p.id === 'string' && p.id ? p.id : `p_${barIndex}_${occurrence}_${Math.round(pos * 1000)}`,
         barIndex, occurrence, pos, timeMs,
-        source: POINT_SOURCES.has(p.source) ? p.source : 'manual'
+        source: sourceOf(p)
     };
 }
 
-/** Returns a clean record, or null when `raw` is not usable. Drops malformed points and sorts by time. */
-export function normalizeRecord(raw) {
-    if (!raw || typeof raw !== 'object' || raw.version !== AUDIO_SYNC_VERSION) return null;
+/** The anchor type a list of points is written for, from the fields of the first one (bar points when empty). */
+export function anchorTypeOf(points) {
+    const p = points?.[0];
+    if (p && p.page !== undefined) return 'pdf';
+    if (p && p.line !== undefined) return 'text';
+    return 'bar';
+}
+
+/** Points as Music Pack sync points (SPEC section 9): the one place `barIndex` becomes `bar`. */
+export function toSyncPoints(points, anchorType) {
+    return (points || []).map((p) => {
+        if (anchorType !== 'bar') return { ...p };
+        const { barIndex, ...rest } = p;
+        return { ...rest, bar: barIndex };
+    });
+}
+
+/** Music Pack sync points as the app holds them (the inverse of toSyncPoints). */
+export function fromSyncPoints(points, anchorType) {
+    return (points || []).map((p) => {
+        if (anchorType !== 'bar') return { ...p };
+        const { bar, ...rest } = p;
+        return { ...rest, barIndex: bar };
+    });
+}
+
+/**
+ * Returns a clean record, or null when `raw` is not usable. Drops malformed points and sorts by time. `raw` is a stored
+ * record or one this function returned earlier. `key` is the storage key it came from, which tells a version 1 record of
+ * a text or PDF tab (points that are units) from a version 1 record of bars.
+ */
+export function normalizeRecord(raw, key = null) {
+    if (!raw || typeof raw !== 'object' || (raw.version !== 1 && raw.version !== 2)) return null;
     if (!mediaKey(raw.media) || !Array.isArray(raw.points)) return null;
+    let anchorType;
+    let rawPoints = raw.points;
+    if (raw.version === 1) {
+        if (isUnitKey(key)) { anchorType = 'unit'; rawPoints = raw.points.map((p) => ({ ...p, unit: p?.barIndex })); }
+        else anchorType = 'bar';
+    } else {
+        anchorType = raw.anchorType;
+        if (!ANCHOR_TYPES.has(anchorType) && !(anchorType === 'unit' && raw.version === 2)) return null;
+    }
     const m = raw.media;
     const media = m.kind === 'youtube'
         ? {
@@ -62,12 +137,23 @@ export function normalizeRecord(raw) {
             durationMs: Number.isFinite(m.durationMs) ? m.durationMs : null, fingerprint: String(m.fingerprint ?? ''),
             ...(m.origin && typeof m.origin === 'object' ? { origin: m.origin } : {})
         };
-    const points = raw.points.map(cleanPoint).filter(Boolean).sort((a, b) => a.timeMs - b.timeMs);
-    return { version: AUDIO_SYNC_VERSION, media, points, updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : 0 };
+    const points = rawPoints.map((p) => cleanPoint(p, anchorType)).filter(Boolean).sort((a, b) => a.timeMs - b.timeMs);
+    return { version: AUDIO_SYNC_VERSION, media, anchorType, points, updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : 0 };
 }
 
-function parse(text) {
-    try { return normalizeRecord(JSON.parse(text)); } catch { return null; }
+/**
+ * A record as it is stored: version 2 with Music Pack points. A record of units (read from version 1 and not yet
+ * upgraded) goes back out as version 1, so a device that has not been updated still understands it.
+ */
+export function serializeRecord(rec) {
+    if (rec.anchorType === 'unit') {
+        return { version: 1, media: rec.media, points: rec.points.map(({ unit, ...p }) => ({ ...p, barIndex: unit, occurrence: 0, pos: 0 })), updatedAt: rec.updatedAt };
+    }
+    return { version: AUDIO_SYNC_VERSION, media: rec.media, anchorType: rec.anchorType, points: toSyncPoints(rec.points, rec.anchorType), updatedAt: rec.updatedAt };
+}
+
+function parse(text, key = null) {
+    try { return normalizeRecord(JSON.parse(text), key); } catch { return null; }
 }
 
 // Per song option: a backing track with no points of its own uses the original recording's points.
@@ -92,7 +178,7 @@ export function setSlotMediaResolver(fn) { slotMediaResolver = fn; }
 function loadOwnRecord(songKey, media, storage) {
     const key = storageKey(songKey, media);
     if (!key) return null;
-    try { const text = storage.getItem(key); return text === null ? null : parse(text); } catch { return null; }
+    try { const text = storage.getItem(key); return text === null ? null : parse(text, key); } catch { return null; }
 }
 
 /**
@@ -112,13 +198,14 @@ export function loadRecord(songKey, media, storage = recordStorage) {
 }
 
 /** Saves `points` for a recording, stamping `updatedAt`. An empty point list removes the entry. Returns the record. */
-export function saveRecord(songKey, media, points, storage = recordStorage, now = Date.now()) {
+export function saveRecord(songKey, media, points, storage = recordStorage, now = Date.now(), anchorType = anchorTypeOf(points)) {
     const key = storageKey(songKey, media);
     if (!key) return null;
-    const record = normalizeRecord({ version: AUDIO_SYNC_VERSION, media, points, updatedAt: now });
+    const record = normalizeRecord({ version: AUDIO_SYNC_VERSION, media, anchorType, points, updatedAt: now });
+    if (!record) return null;
     try {
         if (!record.points.length) storage.removeItem(key);
-        else storage.setItem(key, JSON.stringify(record));
+        else storage.setItem(key, JSON.stringify(serializeRecord(record)));
     } catch (e) {
         console.warn('[Audio Sync] Could not save sync points:', e);
         return null;
@@ -138,7 +225,7 @@ export function listRecords(songKey, storage = recordStorage) {
     for (let i = 0; i < storage.length; i++) {
         const k = storage.key(i);
         if (k && k.startsWith(prefix)) {
-            const rec = parse(storage.getItem(k));
+            const rec = parse(storage.getItem(k), k);
             if (rec) out.push(rec);
         }
     }
@@ -162,8 +249,8 @@ export function collectAudioSync(storage = recordStorage) {
             if (storage.getItem(k) === '1') out[k] = { shared: true };
             continue;
         }
-        const rec = parse(storage.getItem(k));
-        if (rec) out[k] = rec;
+        const rec = parse(storage.getItem(k), k);
+        if (rec) out[k] = serializeRecord(rec);
     }
     return out;
 }
@@ -183,11 +270,11 @@ export function mergeAudioSync(incoming, { wipe = false } = {}, storage = record
             }
             continue;
         }
-        const rec = normalizeRecord(raw);
+        const rec = normalizeRecord(raw, key);
         if (!rec || !rec.points.length) continue;
-        const local = wipe ? null : parse(storage.getItem(key));
+        const local = wipe ? null : parse(storage.getItem(key), key);
         if (local && local.updatedAt >= rec.updatedAt) continue;
-        try { storage.setItem(key, JSON.stringify(rec)); written++; } catch { /* quota: skip */ }
+        try { storage.setItem(key, JSON.stringify(serializeRecord(rec))); written++; } catch { /* quota: skip */ }
     }
     return written;
 }
