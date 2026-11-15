@@ -18,10 +18,28 @@ test('glides along a row between two points on the same row', () => {
     assert.ok(Math.abs(p.x - 0.3) < 1e-9 && p.y === 0.2);
 });
 
-test('holds the earlier point across a jump to another row, another page, or back', () => {
-    assert.deepEqual(pdfPlayheadAt([pt(0, 0, 0.9, 0.2), pt(0, 1000, 0.1, 0.4)], 500), { unit: 0, x: 0.9, y: 0.2 });
-    assert.deepEqual(pdfPlayheadAt([pt(0, 0, 0.9, 0.9), pt(1, 1000, 0.1, 0.1)], 500), { unit: 0, x: 0.9, y: 0.9 });
-    assert.deepEqual(pdfPlayheadAt([pt(0, 0, 0.8, 0.2), pt(0, 1000, 0.1, 0.2)], 500), { unit: 0, x: 0.8, y: 0.2 }, 'a repeat to the left');
+test('holds the earlier point across a jump back', () => {
+    assert.deepEqual(pdfPlayheadAt([pt(0, 0, 0.8, 0.2), pt(0, 1000, 0.1, 0.2)], 500), { unit: 0, x: 0.8, y: 0.2 }, 'a repeat to the left on the row');
+    assert.deepEqual(pdfPlayheadAt([pt(1, 0, 0.5, 0.5), pt(0, 1000, 0.1, 0.1)], 500), { unit: 1, x: 0.5, y: 0.5 }, 'back to an earlier page');
+});
+
+test('the last beat of a row keeps moving to the end of the staff, then the next row starts on time', () => {
+    const row = [pt(0, 0, 0.1, 0.2), pt(0, 1000, 0.2, 0.2), pt(0, 2000, 0.3, 0.2), pt(0, 3000, 0.4, 0.2)];
+    const pts = [...row, pt(0, 4000, 0.1, 0.4)];
+    const mid = pdfPlayheadAt(pts, 3500);       // the beat before was 0.1 wide, so the row ends at 0.5
+    assert.equal(mid.y, 0.2);
+    assert.ok(Math.abs(mid.x - 0.45) < 1e-9, `x ${mid.x}`);
+    assert.ok(Math.abs(pdfPlayheadAt(pts, 3999).x - 0.5) < 1e-3, 'it arrives at the end as the next beat starts');
+    assert.deepEqual(pdfPlayheadAt(pts, 4000), { unit: 0, x: 0.1, y: 0.4 }, 'then it is at the start of the next row');
+});
+
+test('the end of a row is held inside the staff, and it works across a page too', () => {
+    const pts = [pt(0, 0, 0.8, 0.9), pt(0, 1000, 0.95, 0.9), pt(1, 2000, 0.1, 0.1)];
+    const p = pdfPlayheadAt(pts, 1500);          // 0.95 + 0.15 would pass the staff, so the end is 0.985
+    assert.equal(p.unit, 0);
+    assert.ok(p.x > 0.95 && p.x < 0.985);
+    assert.equal(pdfPlayheadAt(pts, 2000).unit, 1);
+    assert.ok(Math.abs(pdfPlayheadAt([pt(0, 0, 0.9, 0.2), pt(0, 1000, 0.1, 0.4)], 500).x - 0.9425) < 1e-9, 'a lone beat on a row uses a default width');
 });
 
 test('a point with only a page puts the playhead on that page and gives no position', () => {

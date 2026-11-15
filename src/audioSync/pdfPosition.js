@@ -11,9 +11,9 @@ const hasPosition = (p) => Number.isFinite(p?.x) && Number.isFinite(p?.y);
 
 /**
  * The playhead at `timeMs`: `{ unit, x?, y? }`, or null when there are no points. Between two points it follows the
- * spec: hold the earlier point, except that two position points on the same row of one page are interpolated (a jump to
- * another row, to another page, or back to an earlier place holds until the next point). Before the first point and
- * after the last it holds.
+ * spec: hold the earlier point, except that two position points on the same row of one page are interpolated, and the last
+ * point of a row moves on to the end of the staff before the next row's first point (a jump back to an earlier place holds
+ * until the next point). Before the first point and after the last it holds.
  */
 export function pdfPlayheadAt(points, timeMs) {
     const usable = (points || []).filter((p) => Number.isInteger(p.barIndex) && Number.isFinite(p.timeMs));
@@ -29,7 +29,32 @@ export function pdfPlayheadAt(points, timeMs) {
         const f = (timeMs - a.timeMs) / (b.timeMs - a.timeMs);
         return { unit: a.barIndex, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
     }
+    // The last beat of a row, then the first of a later row or page: the playhead keeps moving along the row to its end, so it
+    // does not stand still for the length of a beat, and jumps to the next row when that beat starts.
+    if (hasPosition(a) && hasPosition(b) && b.timeMs > a.timeMs && (b.barIndex > a.barIndex || (b.barIndex === a.barIndex && b.y > a.y + SAME_ROW))) {
+        const end = rowEnd(usable, i);
+        if (end > a.x) return { unit: a.barIndex, x: a.x + (end - a.x) * ((timeMs - a.timeMs) / (b.timeMs - a.timeMs)), y: a.y };
+    }
     return at(a);
+}
+
+/** How far across the page the staff reaches (a fraction), past which the playhead does not go. */
+const STAFF_END = 0.985;
+/** The distance a beat covers when the row has no earlier beat to measure it from. */
+const DEFAULT_BEAT_WIDTH = 0.1;
+const MAX_BEAT_WIDTH = 0.15;
+
+/**
+ * Where the row of the point at `i` ends: the point's own x plus the width of the beat before it on the row (the last beat
+ * of a row reaches the staff's end about as far as the beat before reached it), held inside the staff.
+ */
+function rowEnd(usable, i) {
+    const a = usable[i];
+    const before = usable[i - 1];
+    const width = hasPosition(before) && before.barIndex === a.barIndex && Math.abs(before.y - a.y) <= SAME_ROW && a.x > before.x
+        ? Math.min(MAX_BEAT_WIDTH, a.x - before.x)
+        : DEFAULT_BEAT_WIDTH;
+    return Math.min(STAFF_END, a.x + width);
 }
 
 /** True when some point names a position, so the tab can draw a playhead and not only turn pages. */
