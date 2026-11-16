@@ -826,6 +826,22 @@ export async function openPackScore(file, id) {
     await applyMpakExtras(pack.header, pack.opened);
 }
 
+const hasFile = (r) => (r?.sources || []).some((src) => src.type === 'file' && src.path);
+
+/**
+ * A pack that is only stems, with no full mix (SPEC section 8): `{ lead, members }` (members include the lead), or null.
+ * The stems are the song's audio: the player mixes them and the person chooses which are heard. The lead is the stem that
+ * has sync points of its own, else the first one; the others use its points (`syncFrom`).
+ */
+export function stemSetOf(manifest) {
+    const recs = manifest?.recordings || [];
+    if (recs.some((r) => r.role === 'original' || r.role === 'backing' || r.role === 'alternate')) return null;
+    const members = recs.filter((r) => r.role === 'stem' && !r.stemOf && hasFile(r));
+    if (members.length < 2) return null;
+    const lead = members.find((r) => r.sync && Object.keys(r.sync).length) || members[0];
+    return { lead, members };
+}
+
 function mapRecordingsToSlots(manifest) {
     const recs = manifest?.recordings || [];
     const bySlot = { original: null, backing: null };
@@ -848,6 +864,9 @@ function mapRecordingsToSlots(manifest) {
         bySlot.original = recs[0];
         if (bySlot.backing === recs[0]) bySlot.backing = recs.find((r) => r !== recs[0] && r.role === 'backing') || null;
     }
+    // Stems with no full mix: both sounds play the set, and differ only in which parts start muted (audioSync/stemSet.js)
+    const set = stemSetOf(manifest);
+    if (set && !bySlot.original && !bySlot.backing) bySlot.original = bySlot.backing = set.lead;
     return bySlot;
 }
 
@@ -901,6 +920,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
     }
 
     const slots = mapRecordingsToSlots(data);
+    const stemSet = stemSetOf(data);
     const resolvedMedia = new Map();
     // Each score is synced on its own (SPEC section 6.2). The points of text and PDF scores are kept by song and score
     // file; bar points are kept by song, so only the first score of that kind gets them.
@@ -976,6 +996,20 @@ export async function applyMpakExtras(data, opened, options = {}) {
             const syncDocs = syncDocsOf(rec);
             const hasSync = syncDocs.length > 0;
             const takenId = options.keepExistingSlots ? slotTakenBy(slot) : null;
+
+            // One recording in both slots (a set of stems): the file is stored once, the second slot points at it
+            const already = resolvedMedia.get(rec.id);
+            if (already?.kind === 'local') {
+                if (!takenId || takenId === already.audioId) {
+                    for (const k of allKeys) {
+                        localStorage.setItem(`audio_file_${enc(k)}_${slot}`, already.audioId);
+                        localStorage.setItem(`real_audio_source_${enc(k)}_${slot}`, 'local');
+                    }
+                    if (targetSong) { try { attachLibraryAudio(targetSong, already.audioId, slot); } catch { /* optional */ } }
+                    if (applyToActiveReader) setSlotSource('local', slot);
+                }
+                continue;
+            }
 
             // Cache any YouTube fallback videoId on the recording
             const ytSrc = (rec.sources || []).find((s) => s.type === 'youtube' && s.videoId);
@@ -1081,7 +1115,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
                     durationMs: fileSrc.durationMs ?? null,
                 });
                 for (const k of allKeys) if (k !== primaryKey) await linkAudioFile(meta.id, k).catch(() => {});
-                if (targetSong) {
+                if (targetSong && !stemSet?.members.includes(rec)) { // the parts of a stem set are not recordings of their own
                     try { attachLibraryAudioAlternate(targetSong, meta.id, rec.role === 'backing' ? 'backing' : 'original'); } catch { /* optional */ }
                 }
                 decodePeaks(audioBuf.slice(0))
@@ -1114,7 +1148,23 @@ export async function applyMpakExtras(data, opened, options = {}) {
     (data?.recordings || []).forEach((rec, index) => {
         const media = resolvedMedia.get(rec.id);
         const meta = media && metaOfPackRecording(rec, index, keyOfId, scores[0]?.id);
-        if (meta) for (const k of allKeys) setRecordingMeta(k, media, meta);
+        if (!meta) return;
+        if (stemSet?.members.includes(rec)) {
+            const leadKey = keyOfId(stemSet.lead.id);
+            if (rec === stemSet.lead) {
+                // The lead stands for the whole set: it sorts first, and the player builds the mix from `stems`
+                const stems = stemSet.members.filter((m) => resolvedMedia.get(m.id)?.kind === 'local').map((m) => ({
+                    audioId: resolvedMedia.get(m.id).audioId, label: m.label, instrument: m.stem?.instrument,
+                }));
+                meta.role = 'original';
+                meta.label = 'All stems';
+                delete meta.instrument;
+                if (stems.length > 1) meta.stems = stems;
+            } else if (leadKey) {
+                meta.stemOf = leadKey;
+            }
+        }
+        for (const k of allKeys) setRecordingMeta(k, media, meta);
     });
 
     if (slots.backing && slots.backing.syncFrom && slots.backing.syncFrom === slots.original?.id && !slots.backing.syncOffsetMs) {

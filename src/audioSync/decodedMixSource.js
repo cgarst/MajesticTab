@@ -22,10 +22,12 @@ export const MAX_LEVEL = 1.5;
  * @param {object} spec `{ id, base, stems, context?, loadStretcher? }`
  *   base:  `{ id, name, type, data: ArrayBuffer, durationMs }`, always on, decoded by `ready()`
  *   stems: `[{ id, name, type, data, durationMs, level? }]`, off until `setPartEnabled`
+ *   mutableBase: true for a set of stems with no full mix, where every part can be switched off. The base part then
+ *     only keeps the clock and the length; switching it off silences it (its gain goes to 0) and it stays decoded.
  *   context, loadStretcher: injected for tests (default: the shared AudioContext and SoundTouch)
  * @returns the MediaSource, with `ready()`, `destroy()`, `parts()`, `setPartEnabled(id, on)` and `setPartLevel(id, level)`
  */
-export function createDecodedMixSource({ id, base, stems = [], context, loadStretcher } = {}) {
+export function createDecodedMixSource({ id, base, stems = [], mutableBase = false, context, loadStretcher } = {}) {
     const ctx = context || getContext();
     const bus = ctx.createGain();
     const master = ctx.createGain();
@@ -44,6 +46,7 @@ export function createDecodedMixSource({ id, base, stems = [], context, loadStre
         file, base: i === 0, enabled: i === 0, level: clampLevel(file.level ?? 1),
         buffer: null, loading: null, gain: null, node: null,
     }));
+    const gainOf = (p) => (p.enabled ? p.level : 0);
     const byId = (partId) => parts.find((p) => p.file.id === partId);
 
     let SoundTouchNode = null;
@@ -88,9 +91,9 @@ export function createDecodedMixSource({ id, base, stems = [], context, loadStre
     }
 
     function startPart(p, when, from) {
-        if (!p.enabled || !p.buffer || from >= p.buffer.duration) return;
+        if (!p.buffer || (!p.enabled && !p.base) || from >= p.buffer.duration) return;
         if (!p.gain) { p.gain = ctx.createGain(); p.gain.connect(bus); }
-        p.gain.gain.value = p.level;
+        p.gain.gain.value = gainOf(p);
         const src = ctx.createBufferSource();
         src.buffer = p.buffer;
         src.playbackRate.value = rate;
@@ -213,12 +216,19 @@ export function createDecodedMixSource({ id, base, stems = [], context, loadStre
 
         /**
          * Switches a stem on or off. Switching on decodes it first (the audio goes on without it until it is ready), then
-         * starts it in step with the others. Switching off releases its samples. The base part cannot be switched off.
+         * starts it in step with the others. Switching off releases its samples. The base part cannot be switched off unless `mutableBase`.
          * Rejects when the stem cannot be decoded, and then it stays off.
          */
         async setPartEnabled(partId, on) {
             const p = byId(partId);
-            if (!p || p.base || p.enabled === Boolean(on)) return;
+            if (!p || p.enabled === Boolean(on)) return;
+            if (p.base) {
+                if (!mutableBase) return;
+                p.enabled = Boolean(on);
+                if (p.gain) p.gain.gain.value = gainOf(p);
+                emit('parts');
+                return;
+            }
             if (!on) {
                 p.enabled = false;
                 stopPart(p);
@@ -244,7 +254,7 @@ export function createDecodedMixSource({ id, base, stems = [], context, loadStre
             const p = byId(partId);
             if (!p) return;
             p.level = clampLevel(level);
-            if (p.gain) p.gain.gain.value = p.level;
+            if (p.gain) p.gain.gain.value = gainOf(p);
             emit('parts');
         },
 

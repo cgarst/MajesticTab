@@ -829,6 +829,15 @@
       </div>
     </div>
 
+    <!-- A set of stems is mixed: each part can be heard or muted. Shown only while a set is the sound. -->
+    <div id="afStemSection" class="mb-3" hidden>
+      <div class="d-flex align-items-center justify-content-between mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted" id="afStemLabel">Stems</label>
+        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="afStemReset">Reset mix</button>
+      </div>
+      <div id="afStemList" class="d-flex flex-column gap-1" role="group" aria-labelledby="afStemLabel"></div>
+    </div>
+
     <!-- The file that is the sound: its waveform -->
     <div id="afPlayer" hidden>
       <canvas id="afWave" class="af-wave mb-2" height="72" aria-label="Waveform. Click to seek."></canvas>

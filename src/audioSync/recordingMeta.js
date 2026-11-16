@@ -7,7 +7,9 @@
 // recording's media key (syncStore.mediaKey: `yt_<videoId>` or `local_<audioId>`) to its meta. Backed up with the video
 // choices (the key starts with `rec_meta_`).
 //
-// Entry: { role, label?, packIndex?, stemOf?, tracks?: { mode: 'omits' | 'only', names: string[] } }
+// Entry: { role, label?, packIndex?, stemOf?, instrument?, stems?, tracks?: { mode: 'omits' | 'only', names: string[] } }
+// `instrument` is a stem's `stem.instrument`. `stems` is on the lead of a set of stems with no full mix (stemSet.js):
+// `[{ audioId, label, instrument }]`, the lead included.
 // `stemOf` is the media key of the recording the stem belongs to. `tracks` holds the track names the pack wrote in
 // `scoreTracks[...].names`; a pack that wrote only indexes gives no `tracks`, since the names cannot be known without the score.
 
@@ -32,6 +34,19 @@ function cleanMeta(raw) {
     if (Number.isInteger(raw.packIndex) && raw.packIndex >= 0) out.packIndex = raw.packIndex;
     const stemOf = str(raw.stemOf, 200);
     if (stemOf) out.stemOf = stemOf;
+    const instrument = str(raw.instrument, 40);
+    if (instrument) out.instrument = instrument;
+    if (Array.isArray(raw.stems)) {
+        const stems = raw.stems.map((m) => {
+            const audioId = str(m?.audioId, 200);
+            if (!audioId) return null;
+            const entry = { audioId, label: str(m.label, 200) || 'Stem' };
+            const inst = str(m.instrument, 40);
+            if (inst) entry.instrument = inst;
+            return entry;
+        }).filter(Boolean).slice(0, 32);
+        if (stems.length > 1) out.stems = stems;
+    }
     const t = raw.tracks;
     if (t && (t.mode === 'omits' || t.mode === 'only') && Array.isArray(t.names)) {
         const names = t.names.map((n) => str(n, 80)).filter(Boolean).slice(0, MAX_NAMES);
@@ -94,6 +109,8 @@ export function metaOfPackRecording(rec, index, keyOfId = () => null, primarySco
         const parent = keyOfId(rec.stemOf);
         if (parent) meta.stemOf = parent;
     }
+    const inst = rec.stem && typeof rec.stem.instrument === 'string' ? rec.stem.instrument : null;
+    if (rec.role === 'stem' && inst) meta.instrument = inst;
     const st = rec.scoreTracks && typeof rec.scoreTracks === 'object' ? rec.scoreTracks : null;
     if (st) {
         const entry = (primaryScoreId && st[primaryScoreId]) || st[Object.keys(st)[0]];
@@ -121,6 +138,7 @@ export function roleLabel(meta) {
 
 /** "Without Drums" / "Only Drums" from a recording's tracks, or ''. */
 export function tracksNote(meta) {
+    if (meta?.stems?.length > 1) return `${meta.stems.length} stems`;
     const t = meta?.tracks;
     if (!t?.names?.length) return '';
     return `${t.mode === 'omits' ? 'Without' : 'Only'} ${t.names.join(', ')}`;

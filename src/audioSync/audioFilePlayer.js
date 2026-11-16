@@ -21,6 +21,8 @@ import { isRemoveMode, setRecordingsPresent, REC_REMOVE_MODE_EVENT } from './rem
 import { listRecords, loadRecord, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { listRecordingMeta, forgetRecordingMeta, orderRecordings, roleLabel, tracksNote } from './recordingMeta.js';
 import { mountSyncRow } from './audioSyncUi.js';
+import { createStemSource, applyMutes, applyLevels, getMutedIds, setMutedIds, resetMutedIds, defaultMutedIds, getLevels, setLevel, resetLevels, stemsOfMeta } from './stemSet.js';
+import { getInstrumentMode } from '../utils/tuningUtils.js';
 
 const LAST_FILE_KEY = (songKey) => `audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`;
 const SLOT_FILE_KEY = (songKey, slot) => `audio_file_${encodeURIComponent(String(songKey).toLowerCase())}_${slot}`;
@@ -213,6 +215,36 @@ export async function openAudioSource(file, { onError } = {}) {
     }
 }
 
+/** The parts of the stem set the file leads, or null when it is a file on its own. */
+function stemsOfFile(id) {
+    return stemsOfMeta(listRecordingMeta(getSongKey())[mediaKey({ kind: 'local', audioId: id })]);
+}
+
+/** The mixing source of a stem set, with the parts the current sound mutes switched off; null to fall back to the lead file alone. */
+async function openStemSet(rec, stems) {
+    if (!decodedPlaybackSupported()) return null;
+    const nameOf = (audioId) => stems.find((m) => m.audioId === audioId)?.label || 'Stem';
+    const others = [];
+    for (const m of stems) {
+        if (m.audioId === rec.id) continue;
+        const r = await getAudioFile(m.audioId);
+        if (r) others.push({ id: m.audioId, name: nameOf(m.audioId), type: r.type, data: r.data, durationMs: r.durationMs });
+    }
+    if (!others.length) return null;
+    const source = createStemSource({ lead: { id: rec.id, name: nameOf(rec.id), type: rec.type, data: rec.data, durationMs: rec.durationMs }, others });
+    try {
+        await source.ready();
+        applyLevels(source, getLevels(getSongKey(), state.currentSlot || 'original'));
+        await applyMutes(source, getMutedIds(getSongKey(), state.currentSlot || 'original', stems, getInstrumentMode()));
+        return source;
+    } catch (e) {
+        console.warn('[Audio File] could not open the stems:', e);
+        source.destroy();
+        setStatus(e.message);
+        return null;
+    }
+}
+
 /** Loads the selected file from storage into a playable source. Resolves true when a source is ready. */
 let loading = null;
 function ensureSource() {
@@ -226,7 +258,8 @@ function ensureSource() {
                 await refreshFiles();
                 return false;
             }
-            const source = await openAudioSource(
+            const stems = stemsOfFile(id);
+            const source = (stems && await openStemSet({ id, ...rec }, stems)) || await openAudioSource(
                 { id, name: rec.name, type: rec.type, data: rec.data, durationMs: rec.durationMs },
                 { onError: setStatus }
             );
@@ -253,6 +286,8 @@ function ensureSource() {
                     notifySync(e.playing ? 'play' : 'stop');
                 } else if (e.type === 'time' || e.type === 'ended') {
                     drawWave();
+                } else if (e.type === 'parts' || e.type === 'buffering') {
+                    renderStems();
                 }
             });
             try { localStorage.setItem(LAST_FILE_KEY(getSongKey()), id); } catch { /* optional */ }
@@ -440,7 +475,12 @@ function render() {
     const countOf = (id) => synced.find(s => s.audioId === id)?.count || 0;
     const removeMode = isRemoveMode();
     // By role first, then the pack's order, then as the store lists them (see recordingMeta.js)
-    const ordered = orderRecordings(state.files, (f) => mediaKey({ kind: 'local', audioId: f.id }), listRecordingMeta(getSongKey()));
+    const metas = listRecordingMeta(getSongKey());
+    // The parts of a stem set are chosen in the Stems list below, not listed as recordings of their own
+    const inSet = new Set(Object.values(metas).flatMap((m) => (stemsOfMeta(m) || []).map((s) => s.audioId)));
+    const leads = new Set(Object.entries(metas).filter(([, m]) => stemsOfMeta(m)).map(([k]) => k));
+    const isPart = (f) => inSet.has(f.id) && !leads.has(mediaKey({ kind: 'local', audioId: f.id }));
+    const ordered = orderRecordings(state.files.filter((f) => !isPart(f)), (f) => mediaKey({ kind: 'local', audioId: f.id }), metas);
     const rows = ordered.map(({ item: f, meta, nested }) => {
         const count = countOf(f.id);
         const detail = [roleLabel(meta), 'Audio file', tracksNote(meta), f.durationMs ? clock(f.durationMs) : 'Unknown length', megabytes(f.size), pointsLabel(count)].filter(Boolean).join(' · ');
@@ -472,6 +512,7 @@ function render() {
     if ($('afFileSection')) $('afFileSection').hidden = rows.length === 0;
     setRecordingsPresent('files', state.files.length > 0);
 
+    renderStems();
     const loaded = Boolean(state.source);
     if ($('afPlayer')) $('afPlayer').hidden = !loaded;
     if ($('afPanelTitle')) $('afPanelTitle').textContent = state.meta?.name || 'Audio File';
@@ -479,6 +520,134 @@ function render() {
         updatePlayIcon();
         drawWave();
     }
+}
+
+// --- The stems of a set: which parts are heard -------------------------------------------------------------------
+
+const hasParts = () => Boolean(state.source?.parts && state.source.parts().length > 1);
+
+// One strip per stem, built like the Synth panel's mixer (mixerPanel.js): name, Mute and Solo, then Level.
+function stemStrip(p) {
+    const box = document.createElement('div');
+    box.className = 'track-mix';
+    box.dataset.id = p.id;
+    const head = document.createElement('div');
+    head.className = 'track-mix-head';
+    const name = document.createElement('span');
+    name.className = 'track-mix-name';
+    name.textContent = p.name;
+    name.title = p.name;
+    const toggles = document.createElement('div');
+    toggles.className = 'track-mix-toggles';
+    [['mixer-mute-btn', 'Mute', 'M'], ['mixer-solo-btn', 'Solo', 'S']].forEach(([cls, label, letter]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `btn btn-sm theme-control-btn mixer-toggle ${cls}`;
+        btn.textContent = letter;
+        btn.title = label;
+        btn.setAttribute('aria-pressed', 'false');
+        btn.setAttribute('aria-label', `${label} ${p.name}`);
+        toggles.append(btn);
+    });
+    head.append(name, toggles);
+    const sliders = document.createElement('div');
+    sliders.className = 'track-mix-sliders';
+    const wrap = document.createElement('div');
+    wrap.className = 'mixer-slider';
+    const label = document.createElement('span');
+    label.className = 'mixer-slider-label';
+    label.textContent = 'Level';
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.className = 'mixer-volume';
+    input.min = '0'; input.max = '150'; input.step = '1';
+    input.setAttribute('aria-label', `${p.name} level`);
+    const badge = document.createElement('span');
+    badge.className = 'theme-value-badge mixer-volume-badge';
+    wrap.append(label, input, badge);
+    sliders.append(wrap);
+    box.append(head, sliders);
+    return box;
+}
+
+function renderStems() {
+    const section = $('afStemSection');
+    const list = $('afStemList');
+    if (!section || !list) return;
+    section.hidden = !hasParts();
+    if (section.hidden) { list.replaceChildren(); delete list.dataset.key; return; }
+    const parts = state.source.parts();
+    // Built once per set, then updated in place, so a slider being dragged is not replaced under the finger
+    const key = parts.map((p) => p.id).join('|');
+    if (list.dataset.key !== key) {
+        list.replaceChildren(...parts.map(stemStrip));
+        list.dataset.key = key;
+    }
+    for (const p of parts) {
+        const box = list.querySelector(`.track-mix[data-id="${CSS.escape(p.id)}"]`);
+        if (!box) continue;
+        const mute = box.querySelector('.mixer-mute-btn');
+        const solo = box.querySelector('.mixer-solo-btn');
+        mute.classList.toggle('active', !p.enabled); mute.setAttribute('aria-pressed', String(!p.enabled));
+        const isSolo = p.enabled && parts.every((q) => q === p || !q.enabled) && parts.length > 1;
+        solo.classList.toggle('active', isSolo); solo.setAttribute('aria-pressed', String(isSolo));
+        box.classList.toggle('is-muted', !p.enabled);
+        const vol = box.querySelector('.mixer-volume');
+        if (document.activeElement !== vol) vol.value = Math.round(p.level * 100);
+        box.querySelector('.mixer-volume-badge').textContent = p.loading ? '…' : `${Math.round(p.level * 100)}%`;
+    }
+    const stems = stemsOfFile(state.currentId) || [];
+    const slot = state.currentSlot || 'original';
+    const muted = parts.filter((p) => !p.enabled).map((p) => p.id).sort().join('|');
+    const standard = defaultMutedIds(stems, slot, getInstrumentMode()).sort().join('|');
+    const levelled = parts.some((p) => p.level !== 1);
+    if ($('afStemReset')) $('afStemReset').disabled = muted === standard && !levelled;
+    if ($('afStemLabel')) $('afStemLabel').textContent = slot === 'backing' ? 'Stems (backing)' : 'Stems (original)';
+}
+
+async function setStemMuted(muted) {
+    const source = state.source;
+    if (!hasParts()) return;
+    setMutedIds(getSongKey(), state.currentSlot || 'original', [...muted]);
+    try { await applyMutes(source, muted); } catch (e) { setStatus(e.message); }
+    renderStems();
+}
+
+function onStemClick(e) {
+    const btn = e.target.closest('.mixer-toggle');
+    const box = e.target.closest('.track-mix');
+    if (!btn || !box || !hasParts()) return;
+    const parts = state.source.parts();
+    const muted = new Set(parts.filter((p) => !p.enabled).map((p) => p.id));
+    const id = box.dataset.id;
+    if (btn.classList.contains('mixer-mute-btn')) {
+        if (muted.has(id)) muted.delete(id); else muted.add(id);
+    } else if (btn.getAttribute('aria-pressed') === 'true') {
+        muted.clear(); // a solo pressed again brings every stem back
+    } else {
+        parts.forEach((p) => { if (p.id !== id) muted.add(p.id); }); muted.delete(id);
+    }
+    setStemMuted(muted);
+}
+
+function onStemLevel(e) {
+    const box = e.target.closest('.track-mix');
+    if (!box || !e.target.classList.contains('mixer-volume') || !hasParts()) return;
+    const level = Number(e.target.value) / 100;
+    state.source.setPartLevel(box.dataset.id, level);
+    setLevel(getSongKey(), state.currentSlot || 'original', box.dataset.id, level);
+}
+
+/** The current sound's own start: its default mutes and levels, or the person's choice for it. Used when the sound changes. */
+async function reapplyMutes({ reset = false } = {}) {
+    if (!hasParts()) return;
+    const slot = state.currentSlot || 'original';
+    const songKey = getSongKey();
+    if (reset) { resetMutedIds(songKey, slot); resetLevels(songKey, slot); }
+    const stems = stemsOfFile(state.currentId) || [];
+    applyLevels(state.source, getLevels(songKey, slot));
+    try { await applyMutes(state.source, getMutedIds(songKey, slot, stems, getInstrumentMode())); } catch (e) { setStatus(e.message); }
+    renderStems();
 }
 
 function updatePlayIcon() {
@@ -563,6 +732,8 @@ export function setAudioFileSlot(slot) {
         destroySource();
         state.currentId = targetId;
         if (targetId) ensureSource();
+    } else {
+        reapplyMutes(); // the same stems in the other sound: only what is muted changes
     }
     render();
 }
@@ -615,6 +786,15 @@ export function initAudioFilePlayer() {
     const input = $('afFileInput');
 
     $('afChooseBtn')?.addEventListener('click', () => { state.relinkTarget = null; input.click(); });
+    $('afStemReset')?.addEventListener('click', () => reapplyMutes({ reset: true }));
+    $('afStemList')?.addEventListener('click', onStemClick);
+    $('afStemList')?.addEventListener('input', onStemLevel);
+    $('afStemList')?.addEventListener('dblclick', (e) => {
+        if (!e.target.classList.contains('mixer-volume') || !hasParts()) return;
+        e.target.value = '100';
+        onStemLevel(e);
+        renderStems();
+    });
     input?.addEventListener('change', () => {
         const file = input.files?.[0];
         const relink = state.relinkTarget;
