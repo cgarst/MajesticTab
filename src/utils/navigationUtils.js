@@ -1364,9 +1364,9 @@ export function selectSound(kind) {
  * @param {'synth'|'youtube'|'audio'|'real'|null} mode
  */
 export function setActiveAudioMode(mode) {
-    // The video sheet belongs to Original playing from YouTube: the Synth (or a local file) closes it, which pauses
-    if (mode === 'synth' || mode === 'audio') scheduleOriginalVideo(false);
     const isReal = mode === 'youtube' || mode === 'audio' || mode === 'real';
+    // The video sheet belongs to Original playing from YouTube: Synth, local, or embedded audio closes it, which pauses
+    if (mode === 'synth' || mode === 'audio' || (isReal && getRealAudioActiveSource() !== 'youtube')) scheduleOriginalVideo(false);
     document.getElementById('synthToggleBtn')?.classList.toggle('active-audio-mode', mode === 'synth');
     document.getElementById('mobileSynthToggleBtn')?.classList.toggle('active-audio-mode', mode === 'synth');
     document.getElementById('ytToggleBtn')?.classList.toggle('active-audio-mode', isReal);

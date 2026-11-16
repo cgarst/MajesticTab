@@ -302,7 +302,7 @@ export function playPauseYouTube() {
  * for play. Only when a video is already known; the video already shown leaves it.
  */
 export function showOriginalVideo() {
-    if (isVideoShown() || !hasSavedVideo()) return;
+    if (isVideoShown() || slotUsesOwnAudio() || !hasSavedVideo()) return;
     loadCurrentTrack(false);
     showSheet();
 }
@@ -1545,7 +1545,7 @@ export function initYouTubePlayer() {
 
     // The video sheet: closing it pauses (a player that is not shown must not play), and the native player follows it.
     initYtSheet({
-        onClose: () => { sheetClosedAt = performance.now(); pauseYouTube(); },
+        onClose: () => { clearTimeout(settleTimer); settleTimer = 0; sheetClosedAt = performance.now(); pauseYouTube(); },
         // Back in the reader with Original (YouTube) selected: its video is on the screen again
         onReaderShown: () => {
             const original = document.getElementById('mobileYtToggleBtn')?.classList.contains('active-audio-mode');

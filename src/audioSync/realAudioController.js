@@ -474,9 +474,10 @@ export function switchRealAudioSource(source, { load = true } = {}) {
     embedded.source?.pause();
 
     setSlotSource(source, state.slot);
-    if (source !== 'youtube') cancelYouTubeSearch(); // a search under way stops: the slot plays its own audio now
-    else if (load) showYouTubeSource(); // a video that is being added loads itself
-    if (source === 'embedded') closeSheet(); // the file's audio has no video (closing pauses)
+    if (source !== 'youtube') {
+        cancelYouTubeSearch(); // a search under way stops: the slot plays its own audio now
+        closeSheet(); // a local or embedded file has no video (closing pauses)
+    } else if (load) showYouTubeSource(); // a video that is being added loads itself
     applyEmbeddedAudioMode();
     if (source !== 'embedded') window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
     updateRealAudioPanelView();
