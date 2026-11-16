@@ -176,6 +176,13 @@ def submit_app_store_release(deliver_platform:, notes_platform:, options: {})
   asc_platform = Spaceship::ConnectAPI::Platform.map(deliver_platform)
   version = options[:version] || current_app_version
 
+  pin_env = deliver_platform == "ios" ? "PIN_APPSTORE_IOS" : "PIN_APPSTORE_MAC"
+  pinned = (options[:pinned_version] || ENV[pin_env] || "").strip.sub(/\Av/, "")
+  if !pinned.empty? && pinned != version
+    UI.important("#{asc_platform} is pinned to #{pinned} via #{pin_env}; skipping App Store review submission for #{version}")
+    return
+  end
+
   # Cancel any in-progress review submission before ensure_version! so an earlier unapproved version can be renamed to `version`.
   if (in_progress = app.get_in_progress_review_submission(platform: asc_platform))
     UI.message("Cancelling in-progress review submission (#{in_progress.id}) on #{asc_platform}...")

@@ -79,7 +79,15 @@ jobs:
           PLAY_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
           PLAY_PROMOTE_TO: ${{ vars.PLAY_PROMOTE_TO || 'production' }}
           PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
+          PIN_PLAY: ${{ vars.PIN_PLAY }}
         run: |
+          version="${GITHUB_REF_NAME#v}"
+          pinned="${PIN_PLAY#v}"
+          pinned="$(printf '%s' "$pinned" | tr -d '[:space:]')"
+          if [ -n "$pinned" ] && [ "$pinned" != "$version" ]; then
+            echo "::notice::play is pinned to $pinned; uploading to $PLAY_TRACK only and skipping promotion for $version"
+            export PLAY_PROMOTE_TO=none
+          fi
           # Fastlane reads the changelog named after the AAB's versionCode, which is the Play code (build/play-version-code.mjs).
           versionCode=$(node build/play-version-code.mjs)
           changelog="fastlane/metadata/android/en-US/changelogs/${versionCode}.txt"
@@ -103,6 +111,13 @@ jobs:
       - name: Upload package, sync listing, and submit
         shell: bash
         run: |
+          version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
+          pinned="${PIN_MSSTORE#v}"
+          pinned="$(printf '%s' "$pinned" | tr -d '[:space:]')"
+          if [ -n "$pinned" ] && [ "$pinned" != "$version" ]; then
+            echo "::notice::msstore is pinned to $pinned; skipping submission for $version"
+            exit 0
+          fi
           msstore reconfigure --tenantId "$MSSTORE_TENANT_ID" --sellerId "$MSSTORE_SELLER_ID" \
             --clientId "$MSSTORE_CLIENT_ID" --clientSecret "$MSSTORE_CLIENT_SECRET"
           # Upload the package but keep the submission in draft. This recreates the draft, so it must
@@ -112,7 +127,6 @@ jobs:
           mkdir -p bundle-in
           cp store-msstore/*.msix bundle-in/
           # Without /bv makeappx stamps the bundle with the build date; match the MSIX version instead.
-          version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
           "$makeappx" bundle //o //bv "$version.0" //d bundle-in //p MajesticTab-msstore.msixbundle
           # A package file as the path (not a directory) selects the CLI's MSIX publisher, which uploads it as is.
           msstore publish MajesticTab-msstore.msixbundle --appId "$MSSTORE_PRODUCT_ID" --noCommit
@@ -128,6 +142,7 @@ jobs:
           MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
           MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
           MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
+          PIN_MSSTORE: ${{ vars.PIN_MSSTORE }}
 
   # Upload to TestFlight, create or update the App Store version, attach the build and submit for App Store review.
   # External TestFlight distribution also happens in the lane when the TESTFLIGHT_GROUPS repo variable names the
@@ -152,6 +167,8 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           TESTFLIGHT_GROUPS: ${{ vars.TESTFLIGHT_GROUPS }}
+          PIN_APPSTORE_MAC: ${{ vars.PIN_APPSTORE_MAC }}
+          PIN_APPSTORE_IOS: ${{ vars.PIN_APPSTORE_IOS }}
         run: |
           if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_CONTENT" ]; then
             echo "::warning::ASC_* secrets are not set; skipping the App Store upload"
@@ -178,6 +195,8 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           TESTFLIGHT_GROUPS: ${{ vars.TESTFLIGHT_GROUPS }}
+          PIN_APPSTORE_MAC: ${{ vars.PIN_APPSTORE_MAC }}
+          PIN_APPSTORE_IOS: ${{ vars.PIN_APPSTORE_IOS }}
         run: |
           if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_CONTENT" ]; then
             echo "::warning::ASC_* secrets are not set; skipping the App Store upload"
