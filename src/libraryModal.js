@@ -1486,6 +1486,7 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
                     const albumDurationText = totalSecs > 0 ? formatTrackDuration(totalSecs) : '';
                     const albTabs = albumTabsMap.get(alb.title) || [];
                     const hasAlbumTabs = albTabs.length > 0;
+                    const hasSetlistableSongs = getAlbumSetlistItems(alb.songs).length > 0;
 
                     return `
                     <div class="album-block" data-album-name="${escapeHtml(alb.title)}">
@@ -1509,18 +1510,24 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
                               <span>Find tabs</span>
                             </button>
                           ` : ''}
-                          <button type="button" class="btn btn-sm btn-theme-outline explore-album-tracklist-btn py-1 px-2 d-none d-sm-inline-flex align-items-center gap-1" data-album-title="${escapeHtml(alb.title)}" title="Explore complete album tracklist on MusicBrainz">
-                            <span>Tracklist</span>
-                          </button>
                           <div class="dropdown">
                             <button class="btn btn-sm btn-theme-outline py-1 px-2 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" title="Attach tab or book to album">
                               <span>Album tab</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
                               ${addTabProviderItemsHtml('import-album-tab-btn', `data-album-title="${escapeHtml(alb.title)}"`)}
+                            </ul>
+                          </div>
+                          <div class="dropdown">
+                            <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" title="Album options" aria-label="Album options">
+                              <i class="bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
+                              ${hasSetlistableSongs ? `<li><button class="dropdown-item small add-album-to-setlist-btn" data-album-title="${escapeHtml(alb.title)}">Add to setlist</button></li>` : ''}
+                              <li><button class="dropdown-item small explore-album-tracklist-btn" data-album-title="${escapeHtml(alb.title)}">Tracklist</button></li>
                               ${isAlbumEditMode ? `
                                 <li><hr class="dropdown-divider"></li>
-                                <li><button class="dropdown-item small text-danger delete-album-btn" data-album-title="${escapeHtml(alb.title)}"><i class="bi-trash me-2"></i> Delete Album</button></li>
+                                <li><button class="dropdown-item small text-danger delete-album-btn" data-album-title="${escapeHtml(alb.title)}">Delete album</button></li>
                               ` : ''}
                             </ul>
                           </div>
@@ -3754,10 +3761,33 @@ export function renderSongList(songs, options = {}) {
     return renderAlbumSongsList(songs, options);
 }
 
-function renderAlbumSongsList(songs, options = {}) {
+function getCleanAlbumSongs(songs) {
     const hasCd = (songs || []).some(s => !isDvdOrBlurayMedium(s) && !isVinylOrTapeMedium(s));
     let cleanSongs = (songs || []).filter(s => !isDvdOrBlurayMedium(s) && !(hasCd && isVinylOrTapeMedium(s)));
-    cleanSongs = filterInstrumentalBonusDiscs(cleanSongs);
+    return filterInstrumentalBonusDiscs(cleanSongs);
+}
+
+/** Collect playable { songId, tabId } entries for an album in medium/track order. */
+function getAlbumSetlistItems(songs) {
+    const cleanSongs = getCleanAlbumSongs(songs).filter(songHasTabs);
+    if (cleanSongs.length === 0) return [];
+    const mediaGroups = new Map();
+    for (const song of cleanSongs) {
+        const medNum = song.mediumNumber || 1;
+        if (!mediaGroups.has(medNum)) mediaGroups.set(medNum, []);
+        mediaGroups.get(medNum).push(song);
+    }
+    const ordered = Array.from(mediaGroups.entries())
+        .sort((a, b) => a[0] - b[0])
+        .flatMap(([, grpSongs]) => grpSongs);
+    return ordered.map(song => {
+        const tab = (song.defaultTabId && song.tabOptions?.find(t => t.id === song.defaultTabId)) || song.tabOptions?.[0];
+        return { songId: song.id, tabId: tab?.id || null };
+    });
+}
+
+function renderAlbumSongsList(songs, options = {}) {
+    let cleanSongs = getCleanAlbumSongs(songs);
     if (isHideNoTabSongsEnabled()) {
         cleanSongs = cleanSongs.filter(songHasTabs);
     }
@@ -3858,6 +3888,26 @@ function setupSongRowActions(container) {
             const song = await getSongById(btn.dataset.songId);
             const tab = song?.tabOptions && ((song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song.tabOptions[0]);
             if (song && tab) openAddToSetlistModal({ songId: song.id, tabId: tab.id, title: song.title });
+        });
+    });
+
+    // Add album's playable songs (in track order) to a setlist
+    container.querySelectorAll('.add-album-to-setlist-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const albumTitle = btn.dataset.albumTitle || selectedAlbum?.title;
+            const targetAlb = selectedArtist?.albums?.find(a => a.title === albumTitle) || selectedAlbum;
+            if (!targetAlb) return;
+            const items = getAlbumSetlistItems(targetAlb.songs);
+            if (items.length === 0) {
+                showToast('No songs with tabs in this album.', 'info');
+                return;
+            }
+            openAddToSetlistModal({
+                title: `${targetAlb.title} \u00b7 ${items.length} ${items.length === 1 ? 'song' : 'songs'}`,
+                items,
+                defaultNewName: targetAlb.title
+            });
         });
     });
 

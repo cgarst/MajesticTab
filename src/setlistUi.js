@@ -3,7 +3,7 @@
 
 import {
     getAllSetlists, createSetlist, renameSetlist, deleteSetlist,
-    addToSetlist, removeFromSetlist, moveSetlistItem
+    addToSetlist, addManyToSetlist, removeFromSetlist, moveSetlistItem
 } from './setlistStore.js';
 import { getSongById, getAllSongs, getRecents } from './libraryStore.js';
 import { getPlaceholderCoverSvg, hydrateCachedImages, getSynchronousCachedArtUrl } from './musicbrainz.js';
@@ -422,9 +422,10 @@ function bindSetlistsChrome(container, rerender) {
     });
 }
 
-/** Themed picker: choose an existing setlist (or create one) to append a tab to. */
-export async function openAddToSetlistModal({ songId, tabId, title }) {
+/** Themed picker: choose an existing setlist (or create one) to append a tab or album of tabs to. */
+export async function openAddToSetlistModal({ songId, tabId, title, items = null, defaultNewName = '' }) {
     const setlists = await getAllSetlists();
+    const isBatch = Array.isArray(items) && items.length > 0;
 
     let modal = document.getElementById('addToSetlistModal');
     if (!modal) {
@@ -440,7 +441,7 @@ export async function openAddToSetlistModal({ songId, tabId, title }) {
         <div class="theme-modal-title-group">
           <div class="theme-modal-icon"><i class="bi-collection-play text-primary fs-5"></i></div>
           <div class="theme-modal-titles">
-            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Add to Setlist</h5>
+            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Add to setlist</h5>
             <div class="small text-muted text-truncate" style="font-size: 0.78rem;">${escapeHtml(title || '')}</div>
           </div>
         </div>
@@ -458,7 +459,7 @@ export async function openAddToSetlistModal({ songId, tabId, title }) {
               </button>`).join('')}
           </div>` : ''}
         <form id="addToSetlistNewForm" class="d-flex gap-2">
-          <input type="text" class="form-control form-control-sm" id="addToSetlistNewName" placeholder="Setlist name" autocomplete="off" aria-label="Setlist name">
+          <input type="text" class="form-control form-control-sm" id="addToSetlistNewName" placeholder="Setlist name" value="${escapeHtml(defaultNewName)}" autocomplete="off" aria-label="Setlist name">
           <button type="submit" class="btn btn-sm btn-theme-primary px-3 flex-shrink-0">Create</button>
         </form>
       </div>
@@ -471,9 +472,16 @@ export async function openAddToSetlistModal({ songId, tabId, title }) {
         document.removeEventListener('keydown', handleKeyDown);
     };
     const addTo = async (setlistId) => {
-        const sl = await addToSetlist(setlistId, songId, tabId);
+        const sl = isBatch
+            ? await addManyToSetlist(setlistId, items)
+            : await addToSetlist(setlistId, songId, tabId);
         closeModal();
-        if (sl) showToast(`Added to "${sl.name}"`, 'success');
+        if (sl) {
+            const msg = isBatch
+                ? `Added ${countLabel(items.length)} to "${sl.name}"`
+                : `Added to "${sl.name}"`;
+            showToast(msg, 'success');
+        }
     };
 
     modal.querySelector('#addToSetlistCloseBtn').addEventListener('click', closeModal);
@@ -491,7 +499,11 @@ export async function openAddToSetlistModal({ songId, tabId, title }) {
     document.addEventListener('keydown', handleKeyDown);
     modal.style.display = 'flex';
     modal.classList.add('show');
-    setTimeout(() => modal.querySelector(setlists.length ? '.add-to-setlist-choice' : '#addToSetlistNewName')?.focus(), 50);
+    setTimeout(() => {
+        const target = modal.querySelector(setlists.length ? '.add-to-setlist-choice' : '#addToSetlistNewName');
+        target?.focus();
+        if (!setlists.length && defaultNewName && target?.select) target.select();
+    }, 50);
 }
 
 /** "Add to Setlist" button in the notation menu (only for tabs that live in the library). */

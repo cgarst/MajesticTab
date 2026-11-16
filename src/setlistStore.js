@@ -57,6 +57,17 @@ export async function addToSetlist(setlistId, songId, tabId = null) {
     return saveSetlist(setlist);
 }
 
+/** Append multiple tabs ({ songId, tabId }) to a setlist in one write. */
+export async function addManyToSetlist(setlistId, entries) {
+    const setlist = await getSetlist(setlistId);
+    if (!setlist || !Array.isArray(entries) || entries.length === 0) return null;
+    for (const entry of entries) {
+        if (!entry?.songId) continue;
+        setlist.items.push({ id: genId('sli'), songId: entry.songId, tabId: entry.tabId || null });
+    }
+    return saveSetlist(setlist);
+}
+
 /** A tab moved to another song: setlist entries for it follow, so they still open it. */
 export async function retargetSetlistTab(tabId, fromSongId, toSongId) {
     const all = await getAllSetlists();
