@@ -345,3 +345,37 @@ test('replaceRemoteFromLocal overwrites remote with local state, removes obsolet
     await sync(store, a, baseA);
     assert.deepEqual([...a.state.songs.keys()], ['three']);
 });
+
+test('sync merges tab sources by id, updatedAt, and deletion tombstones instead of overwriting', async () => {
+    const store = await newStore();
+    const a = fakeLocal(), baseA = memoryBaselines(), b = fakeLocal(), baseB = memoryBaselines();
+    const K = 'majestictab_tab_sources';
+    const D = 'majestictab_tab_sources_deleted';
+
+    a.state.settings[K] = [
+        { id: 'duckduckgo', name: 'DuckDuckGo', isSeed: true },
+        { id: 'src-shared', name: 'Shared Old', urlTemplate: 'https://example.com/old?q=$s', updatedAt: 100 },
+        { id: 'src-a', name: 'Source A', urlTemplate: 'https://example.com/a?q=$s', updatedAt: 110 },
+        { id: 'src-deleted', name: 'Deleted', urlTemplate: 'https://example.com/del?q=$s', updatedAt: 150 },
+    ];
+    await sync(store, a, baseA);
+
+    b.state.settings[K] = [
+        { id: 'duckduckgo', name: 'DuckDuckGo', isSeed: true },
+        { id: 'src-shared', name: 'Shared New', urlTemplate: 'https://example.com/new?q=$s', updatedAt: 200 },
+        { id: 'src-b', name: 'Source B', urlTemplate: 'https://example.com/b?q=$s', updatedAt: 210 },
+    ];
+    b.state.settings[D] = { 'src-deleted': 250 };
+    await sync(store, b, baseB);
+
+    const bById = new Map(b.state.settings[K].map((s) => [s.id, s]));
+    assert.deepEqual([...bById.keys()].sort(), ['duckduckgo', 'src-a', 'src-b', 'src-shared']);
+    assert.equal(bById.get('src-shared').name, 'Shared New');
+    assert.equal(b.state.settings[D]['src-deleted'], 250);
+
+    await sync(store, a, baseA);
+    const aById = new Map(a.state.settings[K].map((s) => [s.id, s]));
+    assert.deepEqual([...aById.keys()].sort(), ['duckduckgo', 'src-a', 'src-b', 'src-shared']);
+    assert.equal(aById.get('src-shared').name, 'Shared New');
+    assert.equal(a.state.settings[D]['src-deleted'], 250);
+});

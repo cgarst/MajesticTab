@@ -20,7 +20,7 @@ import { createPackStore } from './packStore.js';
 import { readStoreInfo } from './storeInfo.js';
 import { readIfExists, readJson, writeJson, updateJson, ConflictError, NotFoundError } from './contract.js';
 import { toLibraryDoc, fromLibraryDoc, toProfileDoc, fromProfileDoc, portableSong, mergeSong, applyIndexToSong, LIBRARY_PATH, PROFILE_PATH } from './libraryDocs.js';
-import { RECORD_ACTION, fingerprintValue, planRecords } from '../recordSync.js';
+import { RECORD_ACTION, fingerprintValue, stableStringify, planRecords, TAB_SOURCES_KEY, TAB_SOURCES_DELETED_KEY, readSourceList, readTombstones, mergeSourceLists } from '../recordSync.js';
 
 /**
  * @typedef {object} LocalAdapter   this device's data; the app's version wraps IndexedDB, tests use a fake
@@ -129,7 +129,7 @@ function recordMap(library, settings) {
     for (const s of library.songs || []) { const v = portableSong(s); add(`song:${s.id}`, 'song', s.id, s.title, v); }
     for (const r of library.recents || []) add(`rec:${r.id}`, 'recent', r.id, r.title || r.name, r);
     for (const s of library.setlists || []) add(`sl:${s.id}`, 'setlist', s.id, s.name, s);
-    for (const [k, v] of Object.entries(settings || {})) if (!PER_SONG_SETTINGS.has(k)) add(`set:${k}`, 'setting', k, k, v);
+    for (const [k, v] of Object.entries(settings || {})) if (!PER_SONG_SETTINGS.has(k) && k !== TAB_SOURCES_KEY && k !== TAB_SOURCES_DELETED_KEY) add(`set:${k}`, 'setting', k, k, v);
     return records;
 }
 
@@ -189,7 +189,10 @@ async function syncRecords({ store, local, base, freshPackIds = new Set() }) {
 
     // Settings, through profile.json
     const setMine = new Map([...mineMap].filter(([, v]) => v.kind === 'setting'));
+    const mineSources = readSourceList(mine.settings?.[TAB_SOURCES_KEY]);
+    const mineTombs = readTombstones(mine.settings?.[TAB_SOURCES_DELETED_KEY]);
     let setDecisions = [], setTheirs = new Map();
+    let mergedSources = null, hadRemoteSources = false, remoteSourcesChanged = false;
     await updateJson(store, PROFILE_PATH, (cur) => {
         remoteSettings = cur ? fromProfileDoc(cur) : { settings: {}, soundFonts: [] };
         setTheirs = recordMap({}, remoteSettings.settings);
@@ -199,6 +202,21 @@ async function syncRecords({ store, local, base, freshPackIds = new Set() }) {
             if (d.action === RECORD_ACTION.PUSH) next[d.id] = setMine.get(d.key).value;
             else if (d.action === RECORD_ACTION.DELETE_REMOTE) delete next[d.id];
         }
+        const theirSources = readSourceList(remoteSettings.settings?.[TAB_SOURCES_KEY]);
+        const theirTombs = readTombstones(remoteSettings.settings?.[TAB_SOURCES_DELETED_KEY]);
+        hadRemoteSources = theirSources.length > 0 || Object.keys(theirTombs).length > 0;
+        if (mineSources.length || hadRemoteSources || Object.keys(mineTombs).length) {
+            mergedSources = mergeSourceLists(mineSources, theirSources, mineTombs, theirTombs);
+            if (mergedSources.sources.length) next[TAB_SOURCES_KEY] = mergedSources.sources;
+            else delete next[TAB_SOURCES_KEY];
+            if (Object.keys(mergedSources.tombs).length) next[TAB_SOURCES_DELETED_KEY] = mergedSources.tombs;
+            else delete next[TAB_SOURCES_DELETED_KEY];
+            remoteSourcesChanged = stableStringify(mergedSources.sources) !== stableStringify(theirSources)
+                || stableStringify(mergedSources.tombs) !== stableStringify(theirTombs);
+        } else {
+            mergedSources = null;
+            remoteSourcesChanged = false;
+        }
         return toProfileDoc({ settings: next, soundFonts: remoteSettings.soundFonts });
     });
     for (const d of setDecisions) {
@@ -207,6 +225,19 @@ async function syncRecords({ store, local, base, freshPackIds = new Set() }) {
         else if (d.action === RECORD_ACTION.DELETE_LOCAL) { await local.removeSetting(d.id); stats.removedHere++; }
         else if (d.action === RECORD_ACTION.PUSH) stats.pushed++;
         else if (d.action === RECORD_ACTION.DELETE_REMOTE) stats.removedThere++;
+    }
+    if (mergedSources) {
+        if (mergedSources.sources.length && stableStringify(mergedSources.sources) !== stableStringify(mineSources)) {
+            await local.setSetting(TAB_SOURCES_KEY, mergedSources.sources);
+            stats.pulled++;
+        } else if (!mergedSources.sources.length && mineSources.length) {
+            await local.removeSetting(TAB_SOURCES_KEY);
+            stats.removedHere++;
+        }
+        if (Object.keys(mergedSources.tombs).length && stableStringify(mergedSources.tombs) !== stableStringify(mineTombs)) {
+            await local.setSetting(TAB_SOURCES_DELETED_KEY, mergedSources.tombs);
+        }
+        if (remoteSourcesChanged) stats.pushed++;
     }
 
     // What the baseline should say now: the fingerprints of every record as it stands on both sides after this sync

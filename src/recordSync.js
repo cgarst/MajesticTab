@@ -111,3 +111,36 @@ export function describeRecords(decisions) {
     }
     return { receive, send };
 }
+
+export const TAB_SOURCES_KEY = 'majestictab_tab_sources';
+export const TAB_SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
+
+export function readSourceList(value) {
+    if (typeof value === 'string') {
+        try { value = JSON.parse(value); } catch { return []; }
+    }
+    return Array.isArray(value) ? value.filter(s => s && s.id) : [];
+}
+
+export function readTombstones(value) {
+    if (typeof value === 'string') {
+        try { value = JSON.parse(value); } catch { return {}; }
+    }
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+/** Merge two tab-source lists by id: newer updatedAt wins, and a deletion tombstone wins over older edits. */
+export function mergeSourceLists(mine, theirs, mineTombs, theirTombs) {
+    const tombs = { ...theirTombs };
+    for (const [id, at] of Object.entries(mineTombs)) tombs[id] = Math.max(Number(tombs[id]) || 0, Number(at) || 0);
+    const theirById = new Map(theirs.map(x => [x.id, x]));
+    const mineIds = new Set(mine.map(x => x.id));
+    const sources = [];
+    for (const x of [...mine, ...theirs.filter(t => !mineIds.has(t.id))]) {
+        const other = theirById.get(x.id);
+        const pick = other && mineIds.has(x.id) && (other.updatedAt || 0) > (x.updatedAt || 0) ? other : x;
+        if (!pick.isSeed && (Number(tombs[pick.id]) || 0) > (pick.updatedAt || 0)) continue;
+        sources.push(pick);
+    }
+    return { sources, tombs };
+}
