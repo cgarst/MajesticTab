@@ -116,6 +116,7 @@ export function manifestSchemaErrors(m) {
   ck('/format', m.format === 'mpak', 'must be "mpak"');
   ck('/version', m.version === 1, 'must be 1');
   ck('/scores', 'scores' in m, 'is required');
+  if ('id' in m) ck('/id', isStr(m.id) && ID.test(m.id), 'must be 1 to 64 of A-Z a-z 0-9 _ -');
   if ('createdAt' in m) ck('/createdAt', isStr(m.createdAt) && DATE.test(m.createdAt), 'must be a date-time');
   if ('generator' in m && ck('/generator', isObj(m.generator), 'must be an object')) {
     ck('/generator/name', isStr(m.generator.name) && m.generator.name.length > 0, 'is required and must be a non-empty string');

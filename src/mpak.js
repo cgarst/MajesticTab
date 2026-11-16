@@ -7,6 +7,7 @@ import {
     ANCHOR,
     MpakError,
     sha256,
+    derivedPackId,
     bytesSource,
     readDirectory,
     readEntry,
@@ -26,6 +27,9 @@ export const MPAK_EXTENSION = 'mpak';
 const SLOTS = ['original', 'backing'];
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const YT_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+/** What a pack `id` may be (SPEC section 4): 1 to 64 of A-Z a-z 0-9 _ - */
+const PACK_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+export const isPackId = (v) => typeof v === 'string' && PACK_ID_RE.test(v);
 const PITCH_RE = /^[A-G][#b]?(-?[0-9])?$/;
 
 const MIME_BY_FORMAT = {
@@ -400,9 +404,19 @@ export async function buildMpak(file, options = {}) {
     const tabFormat = primary.entry.format;
     const name = primary.entry.name;
 
+    // The pack's identity (SPEC section 4): the library song's own id when a pack can use it, else the id the song remembers
+    // for its packs, else the one the file was opened with. A song that has none gets one now, kept for its later packs.
+    let packId = options.id || (isPackId(libSong?.id) ? libSong.id : null) || (isPackId(libSong?.packId) ? libSong.packId : null)
+        || (isPackId(file?.mpakId) ? file.mpakId : null);
+    if (!packId) packId = libSong?.id ? (globalThis.crypto?.randomUUID?.() || await derivedPackId(primary.entry.sha256)).toLowerCase() : await derivedPackId(primary.entry.sha256);
+    if (libSong?.id && !isPackId(libSong.id) && libSong.packId !== packId) {
+        try { await (await import('./libraryStore.js')).setSongPackId(libSong.id, packId); } catch { /* the id is still written to this pack */ }
+    }
+
     const manifest = {
         format: MPAK_FORMAT,
         version: MPAK_VERSION,
+        id: packId,
         createdAt: new Date().toISOString(),
         generator: { name: 'MajesticTab' },
         ...(buildManifestSong(normSong) ? { song: buildManifestSong(normSong) } : {}),
@@ -663,6 +677,7 @@ export async function unpackMpak(input, options = {}) {
     }
     const tabFile = scoreFileOf(score, bytes);
     tabFile.mpakSong = header.song;
+    if (isPackId(header.id)) tabFile.mpakId = header.id;
     if (header.song?.title && !tabFile.songTitle) tabFile.songTitle = header.song.title;
     if (header.song?.artist && !tabFile.artist) tabFile.artist = header.song.artist;
     if (header.song?.album && !tabFile.album) tabFile.album = header.song.album;
@@ -777,7 +792,7 @@ function rememberPackScores(unpacked) {
         return { id: sc.id, file, name: sc.label || sc.name || file.name, detail: [kind, pages].filter(Boolean).join(' \u00b7 ') };
     });
     for (const e of entries) {
-        if (e.file !== tabFile) { e.file.mpakSong = header.song; }
+        if (e.file !== tabFile) { e.file.mpakSong = header.song; if (isPackId(header.id)) e.file.mpakId = header.id; }
         packScores.set(e.file, { entries, header, opened });
     }
 }
@@ -1155,25 +1170,34 @@ export async function saveMpakToLibrary(input, options = {}) {
         : await unpackMpak(input);
     const { header, part, tabFile } = unpacked;
 
-    const { getSongById, resolveAndSaveOrMergeSong, mapOpenFileToSong } = await import('./libraryStore.js');
+    const { getSongById, findSongByPackId, setSongPackId, resolveAndSaveOrMergeSong, mapOpenFileToSong } = await import('./libraryStore.js');
 
     let song = null;
     let merged = false;
     let created = false;
+    const packId = isPackId(header.id) ? header.id : null;
 
     if (targetSongId) {
         song = await getSongById(targetSongId);
         if (song) merged = true;
     }
 
+    // A pack with an `id` is the song that has that id (SPEC section 4), whatever its title or artist now say
+    if (!song && packId) {
+        song = await findSongByPackId(packId);
+        if (song) merged = true;
+    }
+
     if (!song) {
-        const resolved = await resolveAndSaveOrMergeSong(header.song || {}, collectionId, {
+        const resolved = await resolveAndSaveOrMergeSong(packId ? { ...(header.song || {}), id: packId } : (header.song || {}), collectionId, {
             queryMusicBrainz,
             allowTextFallback,
         });
         song = resolved.song;
         merged = resolved.merged;
         created = resolved.created;
+        // Found by its title and artist, not its id: the song now remembers the pack's id, so its next pack carries it
+        if (merged && packId && song.id !== packId && song.packId !== packId) song = (await setSongPackId(song.id, packId)) || song;
     }
 
     // A score the song already has (the same file, by its SHA-256) is not added again, so adding the same pack twice, or a

@@ -7,6 +7,25 @@ import { validateManifest, validateSync, validateBeats, ANCHOR } from './check.j
 /** The media type of a .mpak file. It is not written inside the archive. */
 export const MEDIA_TYPE = 'application/vnd.mpak+zip';
 
+/** The namespace of the derived pack id (SPEC section 4, "Pack identity"). */
+export const PACK_ID_NAMESPACE = '03924935-9520-4f8c-91cd-ebd5f6cf57c5';
+
+/**
+ * The `id` a tool gives a pack that has none: the UUID version 5 (RFC 4122) of the primary score's `sha256` (64 lowercase hex
+ * characters, as UTF-8) in PACK_ID_NAMESPACE. Two tools that do this for the same file choose the same id.
+ */
+export async function derivedPackId(scoreSha256) {
+  const ns = PACK_ID_NAMESPACE.replace(/-/g, '').match(/../g).map((h) => parseInt(h, 16));
+  const name = new TextEncoder().encode(String(scoreSha256).toLowerCase());
+  const input = new Uint8Array(ns.length + name.length);
+  input.set(ns); input.set(name, ns.length);
+  const h = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', input)).slice(0, 16);
+  h[6] = (h[6] & 0x0f) | 0x50;
+  h[8] = (h[8] & 0x3f) | 0x80;
+  const x = Array.from(h, (b) => b.toString(16).padStart(2, '0')).join('');
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`;
+}
+
 /** Lowercase hex SHA-256 of a Uint8Array, using Web Crypto. */
 export async function sha256(bytes) {
   const d = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', bytes));

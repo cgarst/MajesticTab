@@ -465,6 +465,8 @@ export async function saveSongToLibrary(songData, collectionId = DEFAULT_COLLECT
         tabOptions: Array.isArray(songData.tabOptions) ? songData.tabOptions : [],
         defaultTabId: songData.defaultTabId || null,
         pinned: Boolean(songData.pinned),
+        // The id a .mpak of this song carries, when the song's own id is not one a pack can use (mpak.js, packIdOf)
+        packId: songData.packId || null,
         isCustom: Boolean(songData.isCustom),
         folderPath: songData.folderPath || null,
         isAlbumTabContainer: Boolean(songData.isAlbumTabContainer),
@@ -583,6 +585,24 @@ export async function deleteSongFromLibrary(songId) {
 /**
  * Get single song by ID
  */
+/**
+ * The library song a pack with this `id` belongs to (SPEC section 4, "Pack identity"): the song whose own id is it, or
+ * the one that remembers it as its `packId`.
+ */
+export async function findSongByPackId(packId) {
+    if (!packId) return null;
+    const direct = await getSongById(packId);
+    if (direct) return direct;
+    return (await getAllSongs()).find((s) => s.packId === packId) || null;
+}
+
+/** Remembers the id a song's packs carry, when the song's own id cannot be one. Returns the saved song, or null. */
+export async function setSongPackId(songId, packId) {
+    const song = await getSongById(songId);
+    if (!song || song.packId === packId) return song;
+    return saveSongToLibrary({ ...song, packId }, song.collectionId);
+}
+
 export async function getSongById(songId) {
     const db = await getDB();
     return new Promise((resolve, reject) => {
