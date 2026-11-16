@@ -778,15 +778,7 @@
       </div>
     </div>
 
-    <p class="small text-white-50 mb-3" id="realAudioEmptyHint" hidden>Nothing is attached to this tab yet. Search for a recording below or choose an audio file, then sync it to the score.</p>
-
-    <!-- Where the sound comes from: the sources not in use are offered as plain actions -->
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-3" id="realAudioSourceSwitch">
-      <button type="button" class="btn btn-sm rec-text-btn" id="realAudioSourceYt" data-source="youtube" title="Stream audio from YouTube">Use a YouTube video</button>
-      <button type="button" class="btn btn-sm rec-text-btn" id="realAudioSourceLocal" data-source="local" title="Play a recording from this device">Use an audio file</button>
-      <button type="button" class="btn btn-sm rec-text-btn" id="realAudioSourceEmbedded" data-source="embedded" hidden title="Play the audio stored in this Guitar Pro file">Use the audio in the file</button>
-    </div>
-    <p class="small text-white-50 mb-3" id="realAudioEmbeddedNote" hidden>Playing the audio stored in this Guitar Pro file.</p>
+    <p class="small text-white-50 mb-3" id="realAudioEmptyHint" hidden>Nothing is attached to this tab yet. Add an audio file or a video below, then sync it to the score.</p>
 
     <!-- Shared Playback Speed -->
     <div class="d-flex align-items-center justify-content-between mb-3 px-1" hidden>
@@ -799,8 +791,14 @@
       </div>
     </div>
 
-    <!-- YouTube Sub-View -->
-    <div id="realAudioYtSection">
+    <!-- Add a recording: an audio file, or a video. Files come first, here and in the list below. -->
+    <div class="mb-3" id="realAudioAdd">
+      <div class="small text-white-50 mb-2" id="afJamNote" hidden>In a Jam session, guests do not hear an audio file. They follow the host's video or the synth.</div>
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <button type="button" class="btn btn-sm rec-text-btn" id="afChooseBtn">Add audio file</button>
+        <input type="file" id="afFileInput" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" hidden>
+        <span class="small text-white-50 text-truncate" id="afStatus" role="status"></span>
+      </div>
       <!-- Add a video: one field. A link or video ID is added as it is; anything else is a search whose first match is added. -->
       <div class="yt-add" role="group" aria-labelledby="ytAddLabel">
         <div class="rec-label small mb-1" id="ytAddLabel">Add a video</div>
@@ -814,53 +812,47 @@
         </div>
         <p class="small text-muted mb-3" id="ytAddHint">Search by song or paste a link: either adds the video to the list below, where it keeps its own sync points.</p>
       </div>
-      <!-- Videos picked or played for this recording: switch between them, each keeps its own sync points -->
-      <div id="ytVideoSection" class="mb-3" hidden>
-        <div class="rec-label small mb-1" id="ytVideoListLabel">Videos for this recording</div>
-        <div id="ytVideoList" class="rec-slots" role="radiogroup" aria-labelledby="ytVideoListLabel"></div>
+    </div>
+
+    <!-- The recordings for this tab, one list: the audio in the file, then audio files, then videos. Each keeps its own sync points; pressing one makes it the sound. -->
+    <div id="realAudioRecordings" class="mb-3">
+      <div class="rec-label small mb-1" id="recListLabel">Recordings for this tab</div>
+      <div id="recEmbeddedList" class="rec-slots" role="radiogroup" aria-labelledby="recListLabel" hidden></div>
+      <div id="afFileSection" hidden>
+        <div id="afFileList" class="rec-slots" role="radiogroup" aria-labelledby="recListLabel"></div>
       </div>
-      <div id="ytSyncRow" class="mb-3 rec-sync-proxy" hidden>
-        <div class="d-flex align-items-center justify-content-between gap-2">
-          <span class="text-muted text-truncate" id="ytSyncInfo" style="font-size: 0.72rem;"></span>
-          <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="ytSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
-        </div>
-        <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="ytSyncTapBtn" hidden title="Play the recording and tap each bar of the tab as you hear it">Tap to Sync</button>
+      <div id="ytVideoSection" hidden>
+        <div id="ytVideoList" class="rec-slots" role="radiogroup" aria-labelledby="recListLabel"></div>
       </div>
       <div class="yt-danger-row">
+        <button type="button" class="btn btn-sm rec-text-btn" id="afEditFilesBtn" hidden aria-pressed="false">Remove files…</button>
         <button type="button" class="btn btn-sm rec-text-btn" id="ytEditVideosBtn" hidden aria-pressed="false">Remove videos…</button>
       </div>
     </div>
 
-    <!-- Local Audio Sub-View -->
-    <div id="realAudioLocalSection" hidden>
-      <!-- Files for this recording: switch between them, each keeps its own sync points -->
-      <div id="afFileSection" class="mb-3" hidden>
-        <div class="rec-label small mb-1" id="afFileListLabel">Files for this recording</div>
-        <div id="afFileList" class="rec-slots" role="radiogroup" aria-labelledby="afFileListLabel"></div>
+    <!-- The file that is the sound: its waveform -->
+    <div id="afPlayer" hidden>
+      <canvas id="afWave" class="af-wave mb-2" height="72" aria-label="Waveform. Click to seek."></canvas>
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <button type="button" class="btn btn-sm btn-theme-icon" id="afPlayBtn" title="Play or pause" aria-label="Play or pause"><i class="bi-play-fill" id="afPlayIcon"></i></button>
+        <span class="small text-white-50 af-time" id="afTime">0:00 / 0:00</span>
       </div>
-      <div class="small text-white-50 mb-2" id="afJamNote" hidden>In a Jam session, guests do not hear this file. They follow the host's video or the synth.</div>
-      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-        <button type="button" class="btn btn-sm rec-text-btn" id="afChooseBtn">Add audio file</button>
-        <input type="file" id="afFileInput" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" hidden>
-        <span class="small text-white-50 text-truncate" id="afStatus" role="status"></span>
+    </div>
+
+    <!-- The sync controls the dock bar and the Sync sheet drive (hidden; see syncSheet.js) -->
+    <div id="ytSyncRow" class="mb-3 rec-sync-proxy" hidden>
+      <div class="d-flex align-items-center justify-content-between gap-2">
+        <span class="text-muted text-truncate" id="ytSyncInfo" style="font-size: 0.72rem;"></span>
+        <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="ytSyncEditBtn" style="font-size: 0.75rem;">Edit points</button>
       </div>
-      <div class="yt-danger-row mb-2">
-        <button type="button" class="btn btn-sm rec-text-btn" id="afEditFilesBtn" hidden aria-pressed="false">Remove files…</button>
+      <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="ytSyncTapBtn" hidden title="Play the recording and tap each bar of the tab as you hear it">Tap along</button>
+    </div>
+    <div id="afSyncRow" class="mb-1 rec-sync-proxy" hidden>
+      <div class="d-flex align-items-center justify-content-between gap-2">
+        <span class="text-muted text-truncate" id="afSyncInfo" style="font-size: 0.72rem;"></span>
+        <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="afSyncEditBtn" style="font-size: 0.75rem;">Edit points</button>
       </div>
-      <div id="afPlayer" hidden>
-        <canvas id="afWave" class="af-wave mb-2" height="72" aria-label="Waveform. Click to seek."></canvas>
-        <div class="d-flex align-items-center gap-2 mb-2">
-          <button type="button" class="btn btn-sm btn-theme-icon" id="afPlayBtn" title="Play or pause" aria-label="Play or pause"><i class="bi-play-fill" id="afPlayIcon"></i></button>
-          <span class="small text-white-50 af-time" id="afTime">0:00 / 0:00</span>
-        </div>
-        <div id="afSyncRow" class="mb-1 rec-sync-proxy" hidden>
-          <div class="d-flex align-items-center justify-content-between gap-2">
-            <span class="text-muted text-truncate" id="afSyncInfo" style="font-size: 0.72rem;"></span>
-            <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="afSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
-          </div>
-          <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="afSyncTapBtn" hidden title="Play the recording and tap each bar of the tab as you hear it">Tap to Sync</button>
-        </div>
-      </div>
+      <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="afSyncTapBtn" hidden title="Play the recording and tap each bar of the tab as you hear it">Tap along</button>
     </div>
   </div>
 </div>

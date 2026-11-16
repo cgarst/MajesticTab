@@ -13,6 +13,10 @@ import { getSyncRow } from './audioSyncUi.js';
 import { getActiveSlot } from './realAudioController.js';
 import { openCopySyncedVideoModal } from './syncedVideosModal.js';
 import { PROBLEM_TEXT } from './audioSyncEditor.js';
+import { loadRecord } from './syncStore.js';
+import { buildTimelineModel } from './timelineModel.js';
+import { buildScoreTimeline, playedBarsFromLookup } from './scorePositions.js';
+import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
 
 const MODAL = 'syncSheetModal';
 const $ = (id) => document.getElementById(id);
@@ -25,6 +29,32 @@ export function syncStateText(count, summary, fromHost = false) {
     const state = summary.flaggedBar ? `Check bar ${summary.flaggedBar}` : summary.full ? 'Synced' : 'Partly synced';
     return fromHost ? `${state} · from the host` : state;
 }
+
+/**
+ * How well the points cover the score: `{ full, flaggedBar, flagKind, gapBars }`. A bar with no point drifts and a
+ * flagged point looks late against the sound. Without a loaded score there is nothing to judge, so it says nothing.
+ */
+export function describeSync(points) {
+    const summary = { full: false, flaggedBar: null, flagKind: null, gapBars: 0 };
+    if (!points.length) return summary;
+    try {
+        const api = window.gpApi;
+        const lookup = api && getMidiTickLookup(api);
+        const played = lookup ? playedBarsFromLookup(lookup) : [];
+        if (played.length) {
+            const view = buildTimelineModel({ timeline: buildScoreTimeline(played), points, axis: 'bars' });
+            const flagged = view.markers.find((m) => m.flag);
+            summary.full = view.gaps.length === 0;
+            summary.flaggedBar = flagged ? flagged.barIndex + 1 : null;
+            summary.flagKind = flagged ? flagged.flag : null;
+            summary.gapBars = view.gaps.reduce((sum, g) => sum + (g.bars || 0), 0);
+        }
+    } catch { /* the bar still shows the point count */ }
+    return summary;
+}
+
+/** A recording's name for the sheet's title line. */
+export const recordingName = (media) => (media.kind === 'local' ? (media.name || 'Audio file') : (getVideoInfo(media.videoId)?.title || 'YouTube video'));
 
 /** What is wrong, as sentences, when something is: a point to check, or bars with no point. */
 function problemLines(summary) {
@@ -177,4 +207,18 @@ export function openSyncSheet(opts) {
         siblings = s || [];
         if (siblings.length && $(MODAL)?.classList.contains('show')) render();
     }).catch(() => {});
+}
+
+/** Opens the sheet for a recording of this song right after tap mode: its points as they are now, and what still needs fixing. */
+export function openSyncSheetFor({ media }) {
+    const prefix = media.kind === 'youtube' ? 'yt' : 'af';
+    openSyncSheet({
+        prefix,
+        name: () => recordingName(media),
+        read: () => {
+            const record = loadRecord(getSongKey(), media);
+            const points = record?.points || [];
+            return { points, summary: describeSync(points), fromHost: false, media, origin: record?.media?.origin || null };
+        }
+    });
 }

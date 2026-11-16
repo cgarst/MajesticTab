@@ -8,13 +8,9 @@ import { getSongKey, playerState } from '../youtubePlayer.js';
 import { getActiveRecording, getActiveMedia, getEmbeddedSyncPoints } from './realAudioController.js';
 import { loadRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { sessionPointsFor, isJamGuestFollowing, JAM_BRIDGE_EVENT } from './jamBridge.js';
-import { buildTimelineModel } from './timelineModel.js';
-import { buildScoreTimeline, playedBarsFromLookup } from './scorePositions.js';
-import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
 import { isTvMode } from '../tvMode.js';
 import { midiSynthActive } from '../classtab/midiSynth.js';
-import { openSyncSheet, syncStateText } from './syncSheet.js';
-import { getVideoInfo } from '../youtubePlayer.js';
+import { openSyncSheet, syncStateText, describeSync, recordingName } from './syncSheet.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -72,22 +68,7 @@ export function initScoreRecordingStrip() {
         origin = record?.media?.origin || null;
         fromHost = Boolean(host);
         if (!points.length) return;
-        // Coverage: a bar with no point drifts, a flagged point looks late against the sound
-        try {
-            const api = window.gpApi;
-            const lookup = api && getMidiTickLookup(api);
-            const played = lookup ? playedBarsFromLookup(lookup) : [];
-            if (played.length) {
-                const view = buildTimelineModel({ timeline: buildScoreTimeline(played), points, axis: 'bars' });
-                const flagged = view.markers.find((m) => m.flag);
-                summary = {
-                    full: view.gaps.length === 0,
-                    flaggedBar: flagged ? flagged.barIndex + 1 : null,
-                    flagKind: flagged ? flagged.flag : null,
-                    gapBars: view.gaps.reduce((sum, g) => sum + (g.bars || 0), 0)
-                };
-            }
-        } catch { /* the bar still shows the point count */ }
+        summary = describeSync(points);
     }
 
     function draw(force = false) {
@@ -130,7 +111,7 @@ export function initScoreRecordingStrip() {
         const opened = rec;
         openSyncSheet({
             prefix: prefixOf(opened),
-            name: () => (opened.kind === 'local' ? (opened.media.name || 'Audio file') : (getVideoInfo(opened.media.videoId)?.title || 'YouTube video')),
+            name: () => recordingName(opened.media),
             // Re-read on every call, so the sheet follows edits; a recording that changed under it shows nothing
             read: () => {
                 if (key === recKey) readPoints();

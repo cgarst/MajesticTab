@@ -6221,3 +6221,8 @@ body.theme-sheet-active .txt-ribbon-gutter {
 /* Tap bar: the controls for tapping stay in one row; the rest sit behind More */
 .sync-mode-bar .sync-mode-more { margin-top: 8px; }
 .sync-mode-bar .sync-mode-more[hidden] { display: none; }
+
+/* The Original panel lists every recording in one list; its heading shows only when there is a row, and the
+   waveform of a file shows only while a file is the sound */
+#realAudioRecordings:not(:has(.vrow)) { display: none; }
+#ytDropdownPanel:not([data-rec-source="local"]) #afPlayer { display: none !important; }

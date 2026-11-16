@@ -14,7 +14,7 @@ import {
 } from '../youtubePlayer.js';
 import {
     isAudioFileAvailable, isAudioFilePlaying, playPauseAudioFile, pauseAudioFile,
-    rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, renderAudioFile, getLocalRecording, openAudioSource
+    rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, renderAudioFile, renderAudioFileList, getLocalRecording, openAudioSource
 } from './audioFilePlayer.js';
 import { createYouTubeSource } from './mediaSource.js';
 import { closeSheet } from '../ytSheet.js';
@@ -382,30 +382,42 @@ export function updateRecordingSlots() {
     });
 }
 
+/** The audio stored in the Guitar Pro file is a row in the same list as the files and videos (Original only). */
+function renderEmbeddedRow(selected) {
+    const host = $('recEmbeddedList');
+    if (!host) return;
+    const available = hasEmbeddedAudio() && state.slot === 'original';
+    host.hidden = !available;
+    if (!available) { host.replaceChildren(); return; }
+    const row = document.createElement('div');
+    row.className = 'vrow';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'slot';
+    btn.setAttribute('role', 'radio');
+    btn.setAttribute('aria-checked', selected ? 'true' : 'false');
+    const rd = document.createElement('span'); rd.className = 'rd'; rd.setAttribute('aria-hidden', 'true');
+    const t = document.createElement('span'); t.className = 't';
+    const b = document.createElement('b'); b.textContent = 'Audio in the Guitar Pro file';
+    const sub = document.createElement('span'); sub.textContent = 'Stored in the song file · Synced';
+    t.append(b, sub);
+    btn.append(rd, t);
+    btn.addEventListener('click', () => switchRealAudioSource('embedded'));
+    row.append(btn);
+    host.replaceChildren(row);
+}
+
 export function updateRealAudioPanelView() {
     const activeSource = getRealAudioActiveSource();
     const isLocal = activeSource === 'local';
     const isEmbedded = activeSource === 'embedded';
 
-    const ytSection = $('realAudioYtSection');
-    const localSection = $('realAudioLocalSection');
-
-    if (ytSection) ytSection.hidden = isLocal || isEmbedded;
-    if (localSection) localSection.hidden = !isLocal;
-
-    // Update source toggle pills
-    const ytPill = $('realAudioSourceYt');
-    const localPill = $('realAudioSourceLocal');
-    const embeddedPill = $('realAudioSourceEmbedded');
-    // The sources not in use are offered; the one in use is the section below (the 'active' class stays for the video code)
-    if (ytPill) { ytPill.classList.toggle('active', !isLocal && !isEmbedded); ytPill.hidden = !isLocal && !isEmbedded; }
-    if (localPill) { localPill.classList.toggle('active', isLocal); localPill.hidden = isLocal; }
-    if (embeddedPill) {
-        embeddedPill.classList.toggle('active', isEmbedded);
-        embeddedPill.hidden = isEmbedded || !(hasEmbeddedAudio() && state.slot === 'original');
-    }
-    const embeddedNote = $('realAudioEmbeddedNote');
-    if (embeddedNote) embeddedNote.hidden = !isEmbedded;
+    // One list holds every recording; the panel says which kind is the sound, and the lists mark the one in use
+    const panel = $('ytDropdownPanel');
+    if (panel) panel.dataset.recSource = activeSource;
+    renderEmbeddedRow(isEmbedded);
+    renderSyncedVideos();
+    if (!isLocal) renderAudioFileList();
 
     // Update track mode radio checks
     const origRadio = $('ytTrackOriginal');
@@ -451,7 +463,7 @@ export function switchRealAudioSlot(slot) {
 /**
  * Handle user switching between YouTube and Local Audio sources.
  */
-export function switchRealAudioSource(source) {
+export function switchRealAudioSource(source, { load = true } = {}) {
     if (source !== 'youtube' && source !== 'local' && source !== 'embedded') return;
     if (source === 'embedded' && !hasEmbeddedAudio()) return;
 
@@ -463,7 +475,7 @@ export function switchRealAudioSource(source) {
 
     setSlotSource(source, state.slot);
     if (source !== 'youtube') cancelYouTubeSearch(); // a search under way stops: the slot plays its own audio now
-    else showYouTubeSource();
+    else if (load) showYouTubeSource(); // a video that is being added loads itself
     if (source === 'embedded') closeSheet(); // the file's audio has no video (closing pauses)
     applyEmbeddedAudioMode();
     if (source !== 'embedded') window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
@@ -595,18 +607,10 @@ export function initRealAudioController() {
     if (state.initialized) return;
     state.initialized = true;
 
-    // Source switcher pills
-    $('realAudioSourceYt')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        switchRealAudioSource('youtube');
-    });
-    $('realAudioSourceLocal')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        switchRealAudioSource('local');
-    });
-    $('realAudioSourceEmbedded')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        switchRealAudioSource('embedded');
+    // A recording that is picked or added makes its kind the sound: a file, or a video
+    window.addEventListener('majestictab:use-source', (e) => {
+        const source = e.detail?.source;
+        if (getRealAudioActiveSource() !== source) switchRealAudioSource(source, { load: e.detail?.load !== false });
     });
 
     // Whether the open file carries audio is known only once its player is set up (and is false again when it closes)

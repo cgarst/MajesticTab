@@ -486,6 +486,7 @@ export function redoSearchWithQuery(override = null) {
 
     // Clear saved video ID so the search runs fresh
     localStorage.removeItem(getStorageKey());
+    useYouTubeSource();
     markUserPick(mode); // an explicit search wins over the synced default
     clearVideoRemoved(mode);
     setVideoId(null, 'user');
@@ -680,7 +681,7 @@ function showSearchTimeout() {
  */
 /**
  * Is the slot's recording a local file (or the file's own audio) rather than a video? Then the player leaves YouTube alone:
- * no search, no loading, no sheet, until the person presses YouTube under Source in the Original audio panel.
+ * no search, no loading, no sheet, until the person adds or picks a video in the Original audio panel.
  */
 function slotUsesOwnAudio(mode = playerState.trackMode) {
     const key = getSongKey();
@@ -689,6 +690,11 @@ function slotUsesOwnAudio(mode = playerState.trackMode) {
     try { source = localStorage.getItem(slotSourceKey(key, mode)); } catch { /* optional */ }
     if (source === 'local' || source === 'embedded') return true;
     return source !== 'youtube' && songHasLocalSlot(key, mode);
+}
+
+/** A video is being added or picked: make YouTube the slot's sound (the video loads itself, so the source does not). */
+function useYouTubeSource() {
+    if (slotUsesOwnAudio()) window.dispatchEvent(new CustomEvent('majestictab:use-source', { detail: { source: 'youtube', load: false } }));
 }
 
 /** The person chose YouTube as the slot's source: show its saved video, or ask for a search or a link. Never searches. */
@@ -1188,7 +1194,7 @@ export function getVideoChoices(slot = playerState.trackMode) {
 }
 
 const videoTitle = (id) => getVideoInfo(id)?.title || 'Loading…';
-const videoSubline = (id, count) => [getVideoInfo(id)?.author, count ? `Synced · ${count} ${count === 1 ? 'point' : 'points'}` : 'Not synced'].filter(Boolean).join(' · ');
+const videoSubline = (id, count) => ['YouTube', getVideoInfo(id)?.author, count ? `Synced · ${count} ${count === 1 ? 'point' : 'points'}` : 'Not synced'].filter(Boolean).join(' · ');
 
 function disarm() { clearTimeout(armTimer); armedRemoval = null; }
 function arm(kind, id) {
@@ -1197,14 +1203,14 @@ function arm(kind, id) {
     armTimer = setTimeout(() => { disarm(); renderSyncedVideos(); }, 4000);
 }
 
-function videoRow({ videoId, count }, current, { remove = false } = {}) {
+function videoRow({ videoId, count }, current, { remove = false, active = true } = {}) {
     const row = document.createElement('div');
     row.className = 'vrow';
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'slot';
     btn.setAttribute('role', 'radio');
-    btn.setAttribute('aria-checked', videoId === current ? 'true' : 'false');
+    btn.setAttribute('aria-checked', active && videoId === current ? 'true' : 'false');
     btn.dataset.videoId = videoId;
     const rd = document.createElement('span'); rd.className = 'rd'; rd.setAttribute('aria-hidden', 'true');
     const t = document.createElement('span'); t.className = 't';
@@ -1232,18 +1238,17 @@ export async function renderSyncedVideos() {
     if (!wrap || !list) return;
 
     const choices = getVideoChoices();
-    let siblingVideos = [];
-    try { siblingVideos = await getSiblingSyncedVideos(); } catch { /* optional */ }
-    wrap.hidden = choices.length === 0 && siblingVideos.length === 0;
+    wrap.hidden = choices.length === 0;
     const editBtn = document.getElementById('ytEditVideosBtn');
     if (editBtn) { editBtn.hidden = choices.length === 0; editBtn.textContent = removeMode ? 'Done' : 'Remove videos…'; editBtn.setAttribute('aria-pressed', removeMode ? 'true' : 'false'); }
     if (choices.length === 0) removeMode = false;
-    if (wrap.hidden) return;
+    if (wrap.hidden) { list.textContent = ''; return; }
 
     const current = localStorage.getItem(getStorageKey()) || playerState.currentVideoId;
+    const active = !slotUsesOwnAudio();
     list.textContent = '';
     choices.forEach((c) => {
-        list.appendChild(videoRow(c, current, { remove: removeMode }));
+        list.appendChild(videoRow(c, current, { remove: removeMode, active }));
         if (!getVideoInfo(c.videoId)) lookupVideoInfo(c.videoId);
     });
 }
@@ -1294,6 +1299,7 @@ function initVideoList() {
 export function bindSyncedVideo(videoId) {
     if (!videoId) return;
     if (playerState.isSearching) cancelYouTubeSearch();
+    useYouTubeSource();
     localStorage.setItem(getStorageKey(), videoId);
     clearVideoRemoved();
     markUserPick();
@@ -1544,7 +1550,7 @@ export function initYouTubePlayer() {
         // Back in the reader with Original (YouTube) selected: its video is on the screen again
         onReaderShown: () => {
             const original = document.getElementById('mobileYtToggleBtn')?.classList.contains('active-audio-mode');
-            const youtube = document.getElementById('realAudioSourceYt')?.classList.contains('active');
+            const youtube = !slotUsesOwnAudio();
             if (original && youtube) scheduleOriginalVideo(true);
         }
     });
@@ -1620,6 +1626,7 @@ export function initYouTubePlayer() {
 
         const videoId = extractVideoId(text);
         if (videoId) {
+            useYouTubeSource();
             setVideoId(videoId, 'user');
             localStorage.setItem(getStorageKey(), videoId);
             clearVideoRemoved();

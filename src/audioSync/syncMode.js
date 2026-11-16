@@ -24,6 +24,7 @@ import { nudgePoint, wholeBarRange, retapWindow } from './refine.js';
 import { openTapCalibration } from './tapCalibrationModal.js';
 import { isTvMode } from '../tvMode.js';
 import { isJamGuestFollowing } from './jamBridge.js';
+import { openSyncSheetFor } from './syncSheet.js';
 
 const OFFSET_KEY = 'audio_sync_tap_offset';
 const TIMELINE_KEY = 'audio_sync_timeline';
@@ -671,7 +672,12 @@ function wireToolbar(s) {
         if (s.rangeArmed) cancelRange();
         else { s.rangeArmed = true; s.rangeStart = null; updateToolbar(); }
     });
-    on('smDoneBtn', exitSyncMode);
+    on('smDoneBtn', () => {
+        // Back to the Sync sheet: it says whether the recording is synced, and what to fix if it is not
+        const media = s.media;
+        exitSyncMode();
+        if (media) openSyncSheetFor({ media });
+    });
     on('smAdjustBtn', () => {
         // Hand over to the point editor of the same recording
         const editBtn = $(`${s.media.kind === 'youtube' ? 'yt' : 'af'}SyncEditBtn`);

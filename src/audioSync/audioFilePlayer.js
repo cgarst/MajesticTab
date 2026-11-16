@@ -269,7 +269,14 @@ function ensureSource() {
     return loading;
 }
 
+/** A file is being picked or added: make a file the slot's sound (the controller switches the source). */
+function useFileSource() {
+    window.dispatchEvent(new CustomEvent('majestictab:use-source', { detail: { source: 'local' } }));
+}
+const fileSourceActive = () => document.getElementById('ytDropdownPanel')?.dataset.recSource === 'local';
+
 async function selectFile(id) {
+    useFileSource();
     const songKey = getSongKey();
     const slot = state.currentSlot || 'original';
     try {
@@ -336,6 +343,7 @@ async function addFile(file, { relink = null } = {}) {
 }
 
 async function finishAdd(meta) {
+    useFileSource();
     if (!state.songFinal) state.pendingAdds.push({ id: meta.id, key: getSongKey() });
     const slot = state.currentSlot || 'original';
     try {
@@ -429,7 +437,7 @@ function render() {
     const countOf = (id) => synced.find(s => s.audioId === id)?.count || 0;
     const rows = state.files.map(f => {
         const count = countOf(f.id);
-        const detail = [f.durationMs ? clock(f.durationMs) : 'Unknown length', megabytes(f.size), pointsLabel(count)].join(' · ');
+        const detail = ['Audio file', f.durationMs ? clock(f.durationMs) : 'Unknown length', megabytes(f.size), pointsLabel(count)].join(' · ');
         let actions;
         if (state.removeMode) {
             const rm = actionButton('Remove this file', state.armedRemoval === f.id ? `Delete ${count} sync points too?` : 'Remove', () => {
@@ -442,7 +450,7 @@ function render() {
         } else {
             actions = [];
         }
-        return fileRow({ title: f.name, detail, selected: f.id === state.currentId, onSelect: state.removeMode ? null : () => selectFile(f.id), actions });
+        return fileRow({ title: f.name, detail, selected: f.id === state.currentId && fileSourceActive(), onSelect: state.removeMode ? null : () => selectFile(f.id), actions });
     });
     for (const m of state.missing) {
         rows.push(fileRow({
@@ -563,6 +571,9 @@ export function setAudioFileRate(rate) {
     state.source?.setRate(rate);
 }
 
+/** Redraws the files in the list (the list shows them whichever sound is selected). */
+export const renderAudioFileList = () => render();
+
 export function renderAudioFile() {
     render();
     if (state.currentId && !state.source) ensureSource();
@@ -598,8 +609,7 @@ export async function updateSongForAudioFile({ final = false } = {}) {
 }
 
 export function initAudioFilePlayer() {
-    const section = $('realAudioLocalSection');
-    if (!section) return;
+    if (!$('afFileList')) return;
     const input = $('afFileInput');
 
     $('afChooseBtn')?.addEventListener('click', () => { state.relinkTarget = null; input.click(); });
