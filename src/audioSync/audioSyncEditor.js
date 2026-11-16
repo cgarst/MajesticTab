@@ -239,20 +239,18 @@ export function initAudioSyncEditor() {
         const totalBars = ctx?.timeline?.bars?.length || 0;
         const syncedBars = new Set(points.map(p => p.barIndex)).size;
         const flagged = Object.keys(info.flags).length;
-        let infoHtml = `<span class="tnum">${points.length} point${points.length === 1 ? '' : 's'}, ${syncedBars} of ${totalBars} bars synced.</span>`;
-        if (flagged > 0) {
-            infoHtml += ` <span class="chip warn">${flagged} to check</span>`;
-        }
-        if (totalBars > syncedBars && points.length > 0) {
-            infoHtml += ` <span class="chip">${totalBars - syncedBars} bars not synced</span>`;
-        }
+        // Plain text separated by middle dots, as everywhere else: statuses are not pills. What needs a look is in ink.
+        const parts = [`<span class="tnum">${points.length} point${points.length === 1 ? '' : 's'}, ${syncedBars} of ${totalBars} bars synced</span>`];
+        if (totalBars > syncedBars && points.length > 0) parts.push(`<span class="tnum">${totalBars - syncedBars} not synced</span>`);
+        if (flagged > 0) parts.push(`<span class="sync-info-check tnum">${flagged} to check</span>`);
         const fit = ctx && points.length ? syncFit(ctx.timeline, points) : null;
-        if (fit) infoHtml += ` <span class="chip ${fit.level === 'good' ? 'ok' : 'warn'}">${escapeHtml(fit.text)}</span>`;
+        if (fit) parts.push(`<span class="${fit.level === 'good' ? '' : 'sync-info-check'}">${escapeHtml(fit.text)}</span>`);
         if (currentRecord?.media?.origin?.fromTabName || currentRecord?.media?.origin?.fromSongKey) {
             const originName = currentRecord.media.origin.fromTabName || currentRecord.media.origin.fromSongKey;
-            infoHtml += ` <span class="small text-muted ms-auto">Copied from tab: <b>${escapeHtml(originName)}</b></span>`;
+            parts.push(`<span>Copied from tab ${escapeHtml(originName)}</span>`);
         }
-        infoHtml += ` <span class="chip warn" id="syncAlignNote"${alignText ? '' : ' hidden'}>${escapeHtml(alignText)}</span>`;
+        let infoHtml = parts.join('');
+        infoHtml += `<span class="sync-info-check sync-info-note" id="syncAlignNote"${alignText ? '' : ' hidden'}>${escapeHtml(alignText)}</span>`;
         $('syncEditorInfo').innerHTML = infoHtml;
         checkAlignment();
     }

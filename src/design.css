@@ -1564,10 +1564,16 @@ body.fretboard-open {
 }
 #syncEditorInfo {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 2px;
   flex-wrap: wrap;
 }
+#syncEditorInfo > span + span:not([hidden])::before { content: "\00b7"; margin-right: 8px; }
+#syncEditorInfo .sync-info-check { color: var(--ink); font-weight: 500; }
+/* A sentence, not a count: it takes its own line */
+#syncEditorInfo .sync-info-note { flex-basis: 100%; }
+#syncEditorInfo .sync-info-note::before { content: none !important; }
 #syncEditorTimeline {
   margin-top: 8px;
   margin-bottom: 12px;
