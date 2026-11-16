@@ -121,12 +121,24 @@
 <ol>
   <li>Select <strong>Settings</strong> in the library navigation and then select <strong>Library and backup</strong>.</li>
   <li>Next to <strong>Create a backup</strong>, select <strong>Create</strong>.</li>
-  <li>Choose where to save the backup: a file, a folder or your cloud.</li>
+  <li>Check the file name, then select <strong>Back up</strong>.</li>
 </ol>
-<p>The backup is one <code>.mtbackup</code> file that contains your library, settings and SoundFonts. Audio files that you linked to tabs are included unless you turn that off.</p>
+<p>The backup is one <code>.mtbackup</code> file that MajesticTab saves on your device. To save it somewhere else, such as Google Drive, an S3 bucket or a WebDAV server, select <strong>Save somewhere else</strong> before you select <strong>Back up</strong>. The screen also shows when you last made a backup on this device.</p>
+<p>The file holds your library, setlists, settings and SoundFonts. Each song is stored as a standard <code>.mpak</code> file inside it, with its tabs, the recordings you saved with it and their sync points. A backup does not depend on your sync service, and it is a good copy to keep before you change anything large.</p>
 
 <h2 id="restore-a-backup">Restore a backup</h2>
-<p>In <strong>Library and backup</strong>, next to <strong>Restore from a backup</strong>, select <strong>Restore</strong>. Then choose your backup. On the start screen of an empty library, you can also select <strong>Restore a backup</strong>.</p>
+<ol>
+  <li>In <strong>Library and backup</strong>, next to <strong>Restore from a backup</strong>, select <strong>Restore</strong>. On the start screen of an empty library, you can also select <strong>Restore a backup</strong>.</li>
+  <li>Choose a <code>.mtbackup</code> file, or drop one on the screen. MajesticTab shows how many songs, setlists and SoundFonts it holds and when it was made.</li>
+  <li>Choose how to restore it, then select <strong>Restore backup</strong>:
+    <ul>
+      <li><strong>Add missing items</strong> keeps everything you have and adds what the backup has and you lack. Songs that are already in your library are left as they are.</li>
+      <li><strong>Replace all data</strong> erases your stored tabs, library, settings and audio files first, and replaces them with the backup. Tick the box to confirm.</li>
+    </ul>
+  </li>
+</ol>
+<p>If a file is damaged or incomplete, MajesticTab restores what it can and tells you how many files were missing.</p>
+<p>Backups made by earlier versions of MajesticTab still restore. Snapshots that an earlier version saved to Google Drive, an S3 bucket, a WebDAV server or a backup folder are on the same screen, under the file picker.</p>
 
 <h2 id="sync-your-library-across-devices">Sync your library across devices</h2>
 <p>In <strong>Library and backup</strong>, next to <strong>Sync</strong>, select <strong>Sync</strong> and connect one of these services:</p>
