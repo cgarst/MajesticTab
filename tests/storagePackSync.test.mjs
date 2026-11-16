@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createMemoryStore } from '../src/storage/memoryStore.js';
 import { createPackStore } from '../src/storage/packStore.js';
 import { writeStoreInfo } from '../src/storage/storeInfo.js';
-import { decideItem, planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, ITEM_ACTION as A } from '../src/storage/packSync.js';
+import { decideItem, planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, replaceRemoteFromLocal, ITEM_ACTION as A } from '../src/storage/packSync.js';
 import { readLibrary } from '../src/storage/libraryDocs.js';
 import { fakeLocal, memoryBaselines } from './storage/fakeLocal.mjs';
 
@@ -320,4 +320,28 @@ test('hybrid mode keeps audio and SoundFonts remote, settles on repeat sync, and
     assert.equal(ra.downloaded, 1);
     assert.equal(a.state.songs.get('one').scores.get('b.gp5'), 'edited on hybrid');
     assert.ok(await store.stat('packs/one/audio/a.bin'));
+});
+
+test('replaceRemoteFromLocal overwrites remote with local state, removes obsolete remote items, and seeds baseline', async () => {
+    const store = await newStore();
+    const a = fakeLocal(), baseA = memoryBaselines(), b = fakeLocal(), baseB = memoryBaselines();
+    a.addSong('one', 'One'); a.addSong('two', 'Two');
+    a.state.fonts.set('f1', { name: 'Font', bytes: new Uint8Array([1, 2, 3]), addedAt: 5 });
+    await sync(store, a, baseA);
+
+    b.addSong('three', 'Three');
+    const res = await replaceRemoteFromLocal({ store, local: b, baselines: baseB, location: LOC });
+    assert.equal(res.uploaded, 1);
+    assert.equal(res.removedThere, 3);
+    assert.deepEqual(await packIds(store), ['three']);
+    assert.equal(await store.stat('soundfonts/f1.sf2'), null);
+    assert.deepEqual((await readLibrary(store)).songs.map((s) => s.id), ['three']);
+
+    // Next sync on B finds nothing to do
+    const planB = await planPackSync({ store, local: b, baselines: baseB, location: LOC });
+    assert.deepEqual(planB.items, []);
+
+    // Device A syncing afterwards converges to B's state
+    await sync(store, a, baseA);
+    assert.deepEqual([...a.state.songs.keys()], ['three']);
 });

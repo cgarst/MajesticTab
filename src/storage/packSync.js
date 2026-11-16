@@ -431,3 +431,50 @@ export async function seedItemBaselines({ store, local, baselines, location }) {
     }
     baselines.set(location, { syncedAt: Date.now(), items });
 }
+
+/**
+ * Replaces the store's contents with this device's library: uploads every local item (skipping same-size files),
+ * overwrites library.json and profile.json with this device's state, removes any remote items not on this device
+ * (recording tombstones for removed packs), and seeds the baseline so the next sync has nothing to move.
+ */
+export async function replaceRemoteFromLocal({ store, local, baselines, location, onProgress = () => {} }) {
+    const read = await readRemote(store);
+    const mine = await local.items();
+    const toRemove = read ? [...read.remote.keys()].filter((k) => !mine.has(k)) : [];
+    const total = mine.size + toRemove.length;
+    let done = 0;
+
+    const { packIds, records, settings, soundFonts } = await exportLocalToStore(store, local, (p) => {
+        done = p.current;
+        onProgress({ current: done, total, name: p.name, action: ITEM_ACTION.UPLOAD });
+    });
+
+    const packs = createPackStore(store);
+    const tombstones = { version: 1, items: { ...(read?.tombstones?.items || {}) } };
+    const now = Date.now();
+    for (const key of toRemove) {
+        const entry = read.remote.get(key);
+        onProgress({ current: ++done, total, name: entry?.name || key, action: ITEM_ACTION.DELETE_REMOTE });
+        if (key.startsWith('p:')) {
+            await packs.remove(key.slice(2));
+            tombstones.items[key] = { at: now };
+        } else {
+            await store.delete(blobPath(key));
+        }
+    }
+
+    await writeJson(store, LIBRARY_PATH, toLibraryDoc(records));
+    await writeJson(store, PROFILE_PATH, toProfileDoc({ settings, soundFonts }));
+    await writeJson(store, TOMBSTONES_PATH, tombstones);
+
+    const remoteNow = await readRemote(store);
+    const items = {};
+    for (const [key, m] of mine) {
+        const r = remoteNow?.remote.get(key);
+        if (r) items[key] = { l: m.fp, r: r.version };
+    }
+    const fps = {};
+    for (const [k, v] of recordMap(records, settings)) fps[k] = v.fp;
+    baselines.set(location, { syncedAt: now, items, records: fps });
+    return { uploaded: packIds.length, removedThere: toRemove.length };
+}

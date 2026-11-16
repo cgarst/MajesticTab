@@ -3,7 +3,7 @@
 // (see syncEngine.js), one confirmation, and a short result. The sync location is remembered.
 import { planSync, applySync, clearSyncBase } from './syncEngine.js';
 import { UPGRADE_MARKER_NAME } from './incrementalBackup.js';
-import { planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, ITEM_ACTION } from './storage/packSync.js';
+import { planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, replaceRemoteFromLocal, ITEM_ACTION } from './storage/packSync.js';
 import { probeLocation, needsUpgrade, upgradeLocation } from './storage/upgrade.js';
 import { writeStoreInfo, StoreTooNewError } from './storage/storeInfo.js';
 import { createProviderStore } from './storageProviders.js';
@@ -330,6 +330,7 @@ function showReview(target, store, plan) {
                 ${target === FOLDER ? textAction('change-folder', 'Change folder') : ''}
                 ${target === S3 ? textAction('edit-s3', 'Bucket settings') : ''}
                 ${target === WEBDAV ? textAction('edit-webdav', 'Server settings') : ''}
+                ${textAction('replace-remote', `Replace ${shortPlace(target)}`)}
                 ${textAction('switch', 'Change location')}
             </div>
         </div>`;
@@ -360,6 +361,20 @@ function showReview(target, store, plan) {
         {
             subtitle: `Sync with ${place}`,
             footer: button('close', 'Cancel') + button('apply', parts.length ? `Sync now (${parts.join(', ')})` : 'Sync now', { primary: true })
+        });
+}
+
+/** Confirms overwriting the remote store with this device's library. */
+function showConfirmReplace(target, store) {
+    const place = where(target);
+    frame(`
+        <div class="task-status task-status-error" role="alert">
+            <strong>Replace everything in ${escapeHtml(place)}?</strong>
+            <span class="task-status-detail">This sends every song and setting from this device and removes anything in ${escapeHtml(place)} that is not on this device.</span>
+        </div>`,
+        {
+            subtitle: `Replace ${place}`,
+            footer: button('back-to-review', 'Cancel') + button('confirm-replace-remote', `Replace ${shortPlace(target)}`, { danger: true })
         });
 }
 
@@ -516,6 +531,33 @@ async function apply({ quiet = false } = {}) {
     }
 }
 
+/** Overwrites the remote store with this device's library after confirmation. */
+async function replaceRemote() {
+    if (!context?.store) return;
+    const { target, store, local } = context;
+    const mine = ++session;
+    showProgress(target);
+    try {
+        const result = await replaceRemoteFromLocal({
+            store, local, baselines: localBaselines, location: location(target, store),
+            onProgress: (p) => {
+                if (mine !== session) return;
+                const push = p.action === ITEM_ACTION.UPLOAD || p.action === ITEM_ACTION.DELETE_REMOTE;
+                updateProgress({ phase: push ? 'push' : 'pull', current: p.current - 1, total: p.total, text: p.name });
+            },
+        });
+        if (mine !== session) return;
+        rememberLocation(location(target, store));
+        context = null;
+        showDone(target, result, { title: `Replaced ${where(target)}` });
+        refreshSyncStatus();
+    } catch (err) {
+        if (mine !== session) return;
+        console.error('[Sync] Replace remote failed:', err);
+        showError(err.message, failureNote(target));
+    }
+}
+
 /** Moves the location from the old layout to the new one, then goes on to a normal sync. */
 async function upgrade() {
     if (!context?.probe) return;
@@ -554,6 +596,9 @@ async function handleAction(action) {
         if (action === 'upgrade') return upgrade();
         if (action === 'retry') return start({ interactive: true });
         if (action === 'apply') return apply();
+        if (action === 'replace-remote' && context) return showConfirmReplace(context.target, context.store);
+        if (action === 'back-to-review' && context) return showReview(context.target, context.store, context.plan);
+        if (action === 'confirm-replace-remote') return replaceRemote();
         if (action === 'switch') return showChooseLocation();
         // @googleDrive:begin
         if (action === 'pick-google-drive') {
