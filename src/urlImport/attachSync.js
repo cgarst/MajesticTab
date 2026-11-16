@@ -94,7 +94,7 @@ export async function attachSyncSets(sets, { songKey = null, aliasKeys = [], bar
     const uniqueKeys = [...new Set(allKeys.map(k => String(k).trim()))].filter(Boolean);
     for (const key of uniqueKeys) {
         for (const { videoId, points, label } of placed) {
-            saveRecord(key, { kind: 'youtube', videoId, label }, points);
+            saveRecord(key, { kind: 'youtube', videoId, label }, points, undefined, undefined, undefined, { restoreTo: points });
         }
     }
     if (placed.length) window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));

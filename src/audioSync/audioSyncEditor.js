@@ -5,9 +5,9 @@
 
 import { getSongKey } from '../youtubePlayer.js';
 import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
-import { loadRecord, saveRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
+import { loadRecord, saveRecord, loadRestorePoint, samePoints, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { getScoreContext } from './audioSyncController.js';
-import { pointProblems } from './pointCheck.js';
+import { pointProblems, syncFit } from './pointCheck.js';
 import { buildBeatMap } from './beatMap.js';
 import { loadFromUrl, setToPoints, setsFittingScore, detectSets } from './importers/index.js';
 import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
@@ -80,9 +80,25 @@ export function initAudioSyncEditor() {
             redoStack = [];
         }
         points = next;
-        saveRecord(songKey(), media(), points);
+        // An edit keeps the points from before it as the restore point, when the recording has none yet
+        saveRecord(songKey(), media(), points, undefined, undefined, undefined, { holdPrevious: true });
         window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
         render();
+    }
+
+    const when = (ms) => (ms ? new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+
+    // Restore original: the restore point is the points a pack or importer brought, or ones kept with "Keep as restore point"
+    function updateRestoreButtons() {
+        const restore = loadRestorePoint(songKey(), media());
+        const differs = Boolean(restore) && !samePoints(restore.points, points);
+        const btn = $('syncRestoreBtn');
+        btn.disabled = !differs;
+        btn.title = restore
+            ? `Put back the restore point: ${restore.points.length} points, saved ${when(restore.savedAt)}${differs ? '' : ' (same as now)'}`
+            : 'No restore point yet. One is kept when you first edit, or when you choose Keep as restore point';
+        const keep = $('syncKeepBtn');
+        keep.disabled = !points.length || (Boolean(restore) && samePoints(restore.points, points));
     }
 
     function numberInput(value, { min, max, step, label, onCommit }) {
@@ -217,6 +233,7 @@ export function initAudioSyncEditor() {
         timeline.refresh();
         updateUndoButtons();
         $('syncEmpty').hidden = points.length > 0;
+        updateRestoreButtons();
         const totalBars = ctx?.timeline?.bars?.length || 0;
         const syncedBars = new Set(points.map(p => p.barIndex)).size;
         const flagged = Object.keys(info.flags).length;
@@ -227,6 +244,8 @@ export function initAudioSyncEditor() {
         if (totalBars > syncedBars && points.length > 0) {
             infoHtml += ` <span class="chip">${totalBars - syncedBars} bars not synced</span>`;
         }
+        const fit = ctx && points.length ? syncFit(ctx.timeline, points) : null;
+        if (fit) infoHtml += ` <span class="chip ${fit.level === 'good' ? 'ok' : 'warn'}">${escapeHtml(fit.text)}</span>`;
         if (currentRecord?.media?.origin?.fromTabName || currentRecord?.media?.origin?.fromSongKey) {
             const originName = currentRecord.media.origin.fromTabName || currentRecord.media.origin.fromSongKey;
             infoHtml += ` <span class="small text-muted ms-auto">Copied from tab: <b>${escapeHtml(originName)}</b></span>`;
@@ -321,6 +340,18 @@ export function initAudioSyncEditor() {
         }
     }
 
+    $('syncRestoreBtn').addEventListener('click', () => {
+        const restore = loadRestorePoint(songKey(), media());
+        if (!restore || samePoints(restore.points, points)) return;
+        if (!confirm(`Replace the ${points.length} current points with the restore point (${restore.points.length} points, saved ${when(restore.savedAt)})? Undo brings the current ones back while this window is open.`)) return;
+        persist(restore.points);
+    });
+    $('syncKeepBtn').addEventListener('click', () => {
+        if (!points.length) return;
+        saveRecord(songKey(), media(), points, undefined, undefined, undefined, { restoreTo: points });
+        $('syncEditorInfo').textContent = `Kept these ${points.length} points as the restore point`;
+        updateRestoreButtons();
+    });
     $('syncUndoBtn').addEventListener('click', undo);
     $('syncRedoBtn').addEventListener('click', redo);
     $('syncImportToggleBtn').addEventListener('click', () => {

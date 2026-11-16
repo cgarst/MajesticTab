@@ -831,7 +831,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
     const { saveAudioFile, linkAudioFile, setAudioPeaks } = await import('./audioSync/audioFileStore.js');
     const { decodePeaks } = await import('./audioSync/peaks.js');
     const { attachLibraryAudio, attachLibraryAudioAlternate } = await import('./audioSync/libraryAudio.js');
-    const { saveRecord, setSyncSharedFromOriginal, mediaKey, SYNC_CHANGED_EVENT } = await import('./audioSync/syncStore.js');
+    const { saveRecord, loadRecord, samePoints, setSyncSharedFromOriginal, mediaKey, SYNC_CHANGED_EVENT } = await import('./audioSync/syncStore.js');
 
     let activeReaderKey = null;
     if (!options.songKey || options.applyToActiveReader === undefined) {
@@ -901,6 +901,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
         }
         return playedBarsCache.get(sc.id);
     };
+    let keptEdits = false;
     const saveSyncs = async (docs, media) => {
         for (const { sc, doc } of docs) {
             let points = fromSyncPoints(doc.points, doc.anchorType);
@@ -916,7 +917,19 @@ export async function applyMpakExtras(data, opened, options = {}) {
                     }
                 }
             }
-            for (const k of allKeys) saveRecord(syncKeyFor(doc.anchorType, k, sc.sha256), media, points, undefined, undefined, doc.anchorType);
+            for (const k of allKeys) {
+                const key = syncKeyFor(doc.anchorType, k, sc.sha256);
+                // Points the person edited since the last import stay. The pack's own become the restore point, so
+                // "Restore original" in the sync editor brings them back.
+                const cur = loadRecord(key, media);
+                const edited = cur && !cur.inherited && cur.restore && !samePoints(cur.points, cur.restore.points) && !samePoints(cur.points, points);
+                if (edited) {
+                    saveRecord(key, media, cur.points, undefined, undefined, doc.anchorType, { restoreTo: points });
+                    keptEdits = true;
+                } else {
+                    saveRecord(key, media, points, undefined, undefined, doc.anchorType, { restoreTo: points });
+                }
+            }
         }
     };
 
@@ -1071,6 +1084,13 @@ export async function applyMpakExtras(data, opened, options = {}) {
             if (slots.backing.sync?.[sc.id]) continue;
             for (const k of allKeys) setSyncSharedFromOriginal(syncKeyFor(ANCHOR[sc.format], k, sc.sha256), true);
         }
+    }
+
+    if (keptEdits) {
+        try {
+            const { showToast } = await import('./utils/toast.js');
+            showToast('Kept your edited sync points. The pack\'s own are under Restore original in the sync editor.', 'info', 6000);
+        } catch { /* headless environment */ }
     }
 
     if (applyToActiveReader) {

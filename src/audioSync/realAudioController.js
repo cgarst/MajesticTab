@@ -26,6 +26,7 @@ import {
 } from './syncStore.js';
 import { buildTimelineModel } from './timelineModel.js';
 import { playedBarsFromLookup, buildScoreTimeline } from './scorePositions.js';
+import { syncFit } from './pointCheck.js';
 import {
     getMidiTickLookup, synthPlayerState, playClick, pauseSynthPlayer, clearSynthHighlights, isSynthPlaying, onTransportEvent
 } from '../gpProcessor/gpPlayer.js';
@@ -362,7 +363,12 @@ export function updateRecordingSlots() {
             chip.textContent = 'Not synced';
         } else if (timeline) {
             const view = buildTimelineModel({ timeline, points: rec.points, axis: 'bars' });
-            if (view.gaps.length === 0) {
+            const fit = rec.anchorType === 'bar' ? syncFit(timeline, rec.points) : null;
+            chip.title = fit ? fit.text : '';
+            if (fit?.flagged) {
+                chip.className = 'chip warn';
+                chip.textContent = 'Check sync';
+            } else if (view.gaps.length === 0) {
                 chip.className = 'chip ok';
                 chip.textContent = 'Synced';
             } else {

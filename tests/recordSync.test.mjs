@@ -49,3 +49,25 @@ test('fingerprints ignore key order and the plan text counts each kind', () => {
     const d = planRecords(new Map(), new Map([rec('song:1', 'song', {}), rec('song:2', 'song', {})]), null);
     assert.match(describeRecords(d).receive[0].text, /^2 songs new or changed in the snapshot/);
 });
+
+test('a restore point is kept across edits, survives clearing, and is held on the first edit', async () => {
+    const { saveRecord, loadRecord, loadRestorePoint, samePoints } = await import('../src/audioSync/syncStore.js');
+    const mem = new Map();
+    const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, v), removeItem: (k) => mem.delete(k), key: (i) => [...mem.keys()][i] ?? null, get length() { return mem.size; } };
+    const media = { kind: 'youtube', videoId: 'abcdefghijk' };
+    const pts = (...t) => t.map((timeMs, i) => ({ id: `p${i}`, barIndex: i, occurrence: 0, pos: 0, timeMs, source: 'manual' }));
+    const a = pts(1000, 3000, 5000);
+    saveRecord('s', media, a, storage, 10, undefined, { restoreTo: a });
+    saveRecord('s', media, pts(1100, 3100, 5100), storage, 20, undefined, { holdPrevious: true });
+    assert.ok(samePoints(loadRestorePoint('s', media, storage).points, a));
+    assert.equal(loadRecord('s', media, storage).points[0].timeMs, 1100);
+    saveRecord('s', media, [], storage, 30, undefined, { holdPrevious: true });
+    assert.equal(loadRecord('s', media, storage), null);
+    assert.ok(loadRestorePoint('s', media, storage));
+    // no restore point yet: the first edit holds what was there
+    const m2 = { kind: 'youtube', videoId: 'bbbbbbbbbbb' };
+    saveRecord('s', m2, a, storage, 40);
+    assert.equal(loadRestorePoint('s', m2, storage), null);
+    saveRecord('s', m2, pts(1, 2, 3), storage, 50, undefined, { holdPrevious: true });
+    assert.ok(samePoints(loadRestorePoint('s', m2, storage).points, a));
+});

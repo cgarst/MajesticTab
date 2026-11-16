@@ -14,6 +14,10 @@
 // text or PDF tab are kept under the song key `text:<song key>` (a namespace of the key, kept so that backups made by
 // earlier versions line up); the record's own `anchorType` says which kind they are.
 //
+// A record can also carry a restore point, `restore: { points, savedAt }`: the points as a pack or an importer brought
+// them, or as the person last saved them, kept apart from the points that edits change. The editor's "Restore
+// original" puts them back. The first edit of a record that has none keeps the points from before that edit.
+//
 // In memory a bar point keeps the name the score code has always used, `barIndex` (it is also the position type of the
 // timeline and the beat map), and this module is the one place that turns it into `bar` and back. `pdf` and `text`
 // points are the same in memory and in storage.
@@ -137,8 +141,18 @@ export function normalizeRecord(raw, key = null) {
             durationMs: Number.isFinite(m.durationMs) ? m.durationMs : null, fingerprint: String(m.fingerprint ?? ''),
             ...(m.origin && typeof m.origin === 'object' ? { origin: m.origin } : {})
         };
-    const points = rawPoints.map((p) => cleanPoint(p, anchorType)).filter(Boolean).sort((a, b) => a.timeMs - b.timeMs);
-    return { version: AUDIO_SYNC_VERSION, media, anchorType, points, updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : 0 };
+    const clean = (list) => list.map((p) => cleanPoint(p, anchorType)).filter(Boolean).sort((a, b) => a.timeMs - b.timeMs);
+    const points = clean(rawPoints);
+    const restorePoints = Array.isArray(raw.restore?.points) ? clean(raw.restore.points) : [];
+    const restore = restorePoints.length ? { points: restorePoints, savedAt: Number.isFinite(raw.restore.savedAt) ? raw.restore.savedAt : 0 } : null;
+    return { version: AUDIO_SYNC_VERSION, media, anchorType, points, updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : 0, ...(restore ? { restore } : {}) };
+}
+
+/** Whether two point lists put the same positions at the same times. */
+export function samePoints(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    const key = (p) => [p.barIndex ?? p.bar, p.occurrence, p.pos, p.page, p.x, p.y, p.line, p.col, p.unit, p.timeMs].join('|');
+    return a.every((p, i) => key(p) === key(b[i]));
 }
 
 /**
@@ -149,7 +163,10 @@ export function serializeRecord(rec) {
     if (rec.anchorType === 'unit') {
         return { version: 1, media: rec.media, points: rec.points.map(({ unit, ...p }) => ({ ...p, barIndex: unit, occurrence: 0, pos: 0 })), updatedAt: rec.updatedAt };
     }
-    return { version: AUDIO_SYNC_VERSION, media: rec.media, anchorType: rec.anchorType, points: toSyncPoints(rec.points, rec.anchorType), updatedAt: rec.updatedAt };
+    return {
+        version: AUDIO_SYNC_VERSION, media: rec.media, anchorType: rec.anchorType, points: toSyncPoints(rec.points, rec.anchorType), updatedAt: rec.updatedAt,
+        ...(rec.restore ? { restore: { points: toSyncPoints(rec.restore.points, rec.anchorType), savedAt: rec.restore.savedAt } } : {}),
+    };
 }
 
 function parse(text, key = null) {
@@ -186,8 +203,10 @@ function loadOwnRecord(songKey, media, storage) {
  * (marked `inherited`) when the song's option is on; saving after an edit stores them under the backing track.
  */
 export function loadRecord(songKey, media, storage = recordStorage) {
-    const own = loadOwnRecord(songKey, media, storage);
-    if (own?.points.length || !slotMediaResolver || !isSyncSharedFromOriginal(songKey, storage)) return own;
+    const stored = loadOwnRecord(songKey, media, storage);
+    // A record with no points (cleared, but holding a restore point) is not a synced recording
+    const own = stored?.points.length ? stored : null;
+    if (own || !slotMediaResolver || !isSyncSharedFromOriginal(songKey, storage)) return own;
     let slots = null;
     try { slots = slotMediaResolver(songKey); } catch { slots = null; }
     if (!slots?.original || !slots.backing || mediaKey(slots.backing) !== mediaKey(media)) return own;
@@ -197,14 +216,33 @@ export function loadRecord(songKey, media, storage = recordStorage) {
     return { ...orig, media: normalizeRecord({ ...orig, media }).media, inherited: true };
 }
 
-/** Saves `points` for a recording, stamping `updatedAt`. An empty point list removes the entry. Returns the record. */
-export function saveRecord(songKey, media, points, storage = recordStorage, now = Date.now(), anchorType = anchorTypeOf(points)) {
+/** The restore point of a recording, `{ points, savedAt }`, or null. */
+export function loadRestorePoint(songKey, media, storage = recordStorage) {
+    return loadOwnRecord(songKey, media, storage)?.restore || null;
+}
+
+/**
+ * Saves `points` for a recording, stamping `updatedAt`. An empty point list removes the entry, unless it holds a
+ * restore point. The record keeps the restore point it has. `restoreTo` replaces it with those points (a pack's or an
+ * importer's, or the current ones the person chose to keep); `holdPrevious` (an edit in the sync editor) makes the
+ * points the record had before into its restore point when it has none yet. Returns the record.
+ */
+export function saveRecord(songKey, media, points, storage = recordStorage, now = Date.now(), anchorType = anchorTypeOf(points), { restoreTo = null, holdPrevious = false } = {}) {
     const key = storageKey(songKey, media);
     if (!key) return null;
     const record = normalizeRecord({ version: AUDIO_SYNC_VERSION, media, anchorType, points, updatedAt: now });
     if (!record) return null;
+    const before = loadOwnRecord(songKey, media, storage);
+    let restore = before?.restore || null;
+    if (restoreTo) {
+        const kept = normalizeRecord({ version: AUDIO_SYNC_VERSION, media, anchorType, points: restoreTo, updatedAt: now })?.points || [];
+        if (kept.length) restore = { points: kept, savedAt: now };
+    } else if (holdPrevious && !restore && before?.points.length && !samePoints(before.points, record.points)) {
+        restore = { points: before.points, savedAt: before.updatedAt };
+    }
+    if (restore) record.restore = restore;
     try {
-        if (!record.points.length) storage.removeItem(key);
+        if (!record.points.length && !restore) storage.removeItem(key);
         else storage.setItem(key, JSON.stringify(serializeRecord(record)));
     } catch (e) {
         console.warn('[Audio Sync] Could not save sync points:', e);
@@ -226,7 +264,7 @@ export function listRecords(songKey, storage = recordStorage) {
         const k = storage.key(i);
         if (k && k.startsWith(prefix)) {
             const rec = parse(storage.getItem(k), k);
-            if (rec) out.push(rec);
+            if (rec?.points.length) out.push(rec);
         }
     }
     return out.sort((a, b) => b.updatedAt - a.updatedAt);

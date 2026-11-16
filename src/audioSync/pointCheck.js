@@ -37,3 +37,25 @@ export function pointProblems(timeline, stored) {
     });
     return { flags, tempos };
 }
+
+/**
+ * How well stored bar points fit the score: how many of the bars it plays they place, how many points are flagged, and
+ * how far the tempo they imply strays from the written one. `level` is 'good' (every bar placed, nothing flagged),
+ * 'partial' (some bars have no point, nothing flagged), or 'check' (a flagged point, or under 90% of the bars placed).
+ * `text` is the sentence the recording row and the sync editor show.
+ */
+export function syncFit(timeline, stored) {
+    const total = timeline?.bars?.length || 0;
+    if (!total || !stored?.length) return null;
+    const { flags, tempos } = pointProblems(timeline, stored);
+    const covered = new Set();
+    for (const p of stored) {
+        if (positionToScoreMs(timeline, { barIndex: p.barIndex, occurrence: p.occurrence || 0, pos: p.pos || 0 }) !== null) covered.add(`${p.barIndex}:${p.occurrence || 0}`);
+    }
+    const flagged = Object.keys(flags).length;
+    const devs = Object.values(tempos).map(t => Math.abs(t.ratio - 1)).filter(Number.isFinite).sort((a, b) => a - b);
+    const tempoSpread = devs.length ? devs[Math.min(devs.length - 1, Math.floor(devs.length * 0.9))] : 0;
+    const level = flagged > 0 || covered.size < total * 0.9 ? 'check' : covered.size < total ? 'partial' : 'good';
+    const text = `${covered.size} of ${total} bars placed, ${flagged} to check` + (devs.length ? `, tempo within ${Math.max(1, Math.round(tempoSpread * 100))}% of written` : '');
+    return { level, placed: covered.size, total, flagged, tempoSpread, text };
+}

@@ -1,7 +1,7 @@
 // Run with: node --test tests/audioSync/pointCheck.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolvePoints, pointProblems } from '../../src/audioSync/pointCheck.js';
+import { resolvePoints, pointProblems, syncFit } from '../../src/audioSync/pointCheck.js';
 import { buildScoreTimeline } from '../../src/audioSync/scorePositions.js';
 
 // Bars 0 1 2 1 2 3 played, 2000 ms each at 120 bpm.
@@ -34,4 +34,18 @@ test('flags missing, out of order and implausible tempo; order problems get no t
     assert.equal(flags.c, 'order');
     assert.equal(tempos.c, undefined);
     assert.ok(flags.b === 'tempo' || flags.e === 'tempo');
+});
+
+test('syncFit reports coverage, flagged points and the tempo spread', () => {
+    const play = [[0, 0], [1, 0], [2, 0], [1, 1], [2, 1], [3, 0]];
+    const all = play.map(([b, o], i) => P(`p${i}`, b, 1000 + i * 2000, { occurrence: o }));
+    const good = syncFit(tl, all);
+    assert.equal(good.level, 'good');
+    assert.equal(good.text, '6 of 6 bars placed, 0 to check, tempo within 1% of written');
+    assert.equal(syncFit(tl, all.slice(0, 5)).level, 'check'); // 5 of 6 bars is under 90%
+    // a point on a pass the score does not play, in a list that places only 4 of 6 bars
+    const bad = syncFit(tl, [...all.slice(0, 4), P('x', 9, 99999)]);
+    assert.equal(bad.level, 'check');
+    assert.equal(bad.flagged, 1);
+    assert.equal(syncFit(tl, []), null);
 });
