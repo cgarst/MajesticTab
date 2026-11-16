@@ -4516,90 +4516,140 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
             }
         }
         // @googleDrive:end
-        if (!file) {
-            try {
-                const { isPackId } = await import('./mpak.js');
-                const packId = isPackId(song.id) ? song.id : (isPackId(song.packId) ? song.packId : null);
-                if (packId) {
-                    const { getTarget, openSyncStore, locationOf } = await import('./syncBackend.js');
-                    const target = getTarget();
-                    if (target) {
-                        showToast(`Downloading "${song.title || tabOption.name}"...`, 'info');
-                        const store = await openSyncStore(target, { interactive: true });
-                        if (store) {
-                            const { fetchPackOnDemand, isHybridSyncEnabled } = await import('./packSyncLocal.js');
-                            await fetchPackOnDemand(store, packId, { includeAudio: !isHybridSyncEnabled(), location: locationOf(target, store) });
-                            const refreshed = await getSongById(song.id);
-                            const match = (refreshed?.tabOptions || []).find((t) =>
-                                t.id === tabOption.id || (tabOption.sha256 && t.sha256 === tabOption.sha256) || t.name === tabOption.name
-                            ) || refreshed?.tabOptions?.[0];
-                            if (match?.fileStoreId) {
-                                const stored = await getStoredFile(match.fileStoreId);
-                                if (stored?.file) {
-                                    file = stored.file;
-                                    tabOption = match;
-                                    song = refreshed;
+        let heldLoading = false;
+        let loadingOutput = null;
+        let endLoadingHoldFn = null;
+        let downloadFailureReason = null;
+        try {
+            if (!file) {
+                try {
+                    const { isPackId } = await import('./mpak.js');
+                    const packId = isPackId(song.id) ? song.id : (isPackId(song.packId) ? song.packId : null);
+                    if (packId) {
+                        const { getTarget, openSyncStore, locationOf } = await import('./syncBackend.js');
+                        const target = getTarget();
+                        if (target) {
+                            const { beginLoadingHold, endLoadingHold, setCurrentLoadingProgress, setLoadingProgressRange } = await import('./utils/loadingCard.js');
+                            loadingOutput = typeof document !== 'undefined' ? document.getElementById('output') : null;
+                            endLoadingHoldFn = endLoadingHold;
+                            closeLibraryModal(true);
+                            beginLoadingHold(loadingOutput, {
+                                title: song.title || tabOption.name,
+                                subtitle: song.artist || '',
+                                coverUrl: getSynchronousCachedArtUrl(song.coverUrl) || song.coverUrl || '',
+                                stage: 'Downloading…',
+                            });
+                            heldLoading = true;
+                            setLoadingProgressRange(0, 35);
+                            setCurrentLoadingProgress(15, 'Downloading…');
+
+                            const opened = await openSyncStore(target, { interactive: true });
+                            const store = opened?.status === 'ready' ? opened.store : null;
+                            if (!store) {
+                                downloadFailureReason = `sync store not ready (${opened?.status || 'unavailable'})`;
+                            } else {
+                                setCurrentLoadingProgress(40, 'Downloading…');
+                                const { fetchPackOnDemand, isHybridSyncEnabled } = await import('./packSyncLocal.js');
+                                await fetchPackOnDemand(store, packId, { includeAudio: !isHybridSyncEnabled(), location: locationOf(target, store), targetSongId: song.id });
+                                setCurrentLoadingProgress(90, 'Opening…');
+                                const refreshed = await getSongById(song.id);
+                                const tabs = refreshed?.tabOptions || [];
+                                const isSameTab = (t) =>
+                                    t.id === tabOption.id
+                                    || (tabOption.sha256 && t.sha256 === tabOption.sha256)
+                                    || (tabOption.relativePath && t.relativePath === tabOption.relativePath)
+                                    || t.name === tabOption.name;
+                                const match = tabs.find((t) => t.fileStoreId && isSameTab(t))
+                                    || tabs.find(isSameTab)
+                                    || tabs.find((t) => t.fileStoreId)
+                                    || tabs[0];
+                                if (match?.fileStoreId) {
+                                    const stored = await getStoredFile(match.fileStoreId);
+                                    if (stored?.file) {
+                                        file = stored.file;
+                                        tabOption = match;
+                                        song = refreshed;
+                                    }
                                 }
+                                if (!file) {
+                                    downloadFailureReason = `score missing after pack download (tabs=${refreshed?.tabOptions?.length ?? 0}, fileStoreId=${match?.fileStoreId ?? 'none'})`;
+                                }
+                            }
+                            if (file) {
+                                setLoadingProgressRange(35, 100);
                             }
                         }
                     }
+                } catch (dlErr) {
+                    console.warn('Could not download song from sync store:', dlErr);
+                    downloadFailureReason = dlErr?.message || String(dlErr);
                 }
-            } catch (dlErr) {
-                console.warn('Could not download song from sync store:', dlErr);
+            }
+
+            if (file) {
+                file.songTitle = song.title;
+                file.librarySongTitle = song.title;
+                file.artist = song.artist;
+                file.album = song.album;
+                file.coverUrl = getSynchronousCachedArtUrl(song.coverUrl) || song.coverUrl || null;
+                file.tunings = song.tunings;
+                file.hiddenTunings = song.hiddenTunings || [];
+                file.startPage = (tabOption.startPage !== undefined && tabOption.startPage !== null) ? parseInt(tabOption.startPage, 10) : null;
+                file.endPage = (tabOption.endPage !== undefined && tabOption.endPage !== null) ? parseInt(tabOption.endPage, 10) : null;
+                file.tabId = tabOption.id;
+                file.tabName = tabOption.name || file.name;
+                file.fileStoreId = tabOption.fileStoreId;
+                file.preferredStringCount = tabOption.preferredStringCount || null;
+                file.librarySongId = song.id;
+                file.sourceUrl = tabOption.sourceUrl || null;
+                file.sourceWebsite = tabOption.sourceWebsite || null;
+                file.providerId = tabOption.providerId || 'local';
+                file.addedAt = tabOption.addedAt || song.addedAt || null;
+                file.setlistId = setlistContext.setlistId || null;
+                file.setlistItemId = setlistContext.setlistItemId || null;
+                closeLibraryModal();
+                await loadFile(file);
+
+                // Record recent with full library and specific tab metadata
+                const recentId = (song.id && tabOption.id)
+                    ? `${song.id}_tab_${tabOption.id}`
+                    : (file.name + (tabOption.startPage ? `_p${tabOption.startPage}_${tabOption.endPage}` : ''));
+                await addRecentOpened({
+                    id: recentId,
+                    name: tabOption.name || file.name,
+                    fileName: file.name,
+                    tabId: tabOption.id,
+                    tabName: tabOption.name || file.name,
+                    startPage: tabOption.startPage,
+                    endPage: tabOption.endPage,
+                    fileStoreId: tabOption.fileStoreId,
+                    providerId: tabOption.providerId || 'local',
+                    relativePath: tabOption.relativePath || file.name,
+                    librarySongId: song.id,
+                    songTitle: song.title,
+                    artist: song.artist,
+                    album: song.album,
+                    coverUrl: song.coverUrl,
+                    tunings: song.tunings,
+                    hiddenTunings: song.hiddenTunings || [],
+                    preferredStringCount: tabOption.preferredStringCount || null
+                });
+                return true;
+            }
+        } finally {
+            if (heldLoading && endLoadingHoldFn) {
+                endLoadingHoldFn(loadingOutput);
             }
         }
-
-        if (file) {
-            file.songTitle = song.title;
-            file.librarySongTitle = song.title;
-            file.artist = song.artist;
-            file.album = song.album;
-            file.coverUrl = getSynchronousCachedArtUrl(song.coverUrl) || song.coverUrl || null;
-            file.tunings = song.tunings;
-            file.hiddenTunings = song.hiddenTunings || [];
-            file.startPage = (tabOption.startPage !== undefined && tabOption.startPage !== null) ? parseInt(tabOption.startPage, 10) : null;
-            file.endPage = (tabOption.endPage !== undefined && tabOption.endPage !== null) ? parseInt(tabOption.endPage, 10) : null;
-            file.tabId = tabOption.id;
-            file.tabName = tabOption.name || file.name;
-            file.fileStoreId = tabOption.fileStoreId;
-            file.preferredStringCount = tabOption.preferredStringCount || null;
-            file.librarySongId = song.id;
-            file.sourceUrl = tabOption.sourceUrl || null;
-            file.sourceWebsite = tabOption.sourceWebsite || null;
-            file.providerId = tabOption.providerId || 'local';
-            file.addedAt = tabOption.addedAt || song.addedAt || null;
-            file.setlistId = setlistContext.setlistId || null;
-            file.setlistItemId = setlistContext.setlistItemId || null;
-            closeLibraryModal();
-            await loadFile(file);
-
-            // Record recent with full library and specific tab metadata
-            const recentId = (song.id && tabOption.id) 
-                ? `${song.id}_tab_${tabOption.id}` 
-                : (file.name + (tabOption.startPage ? `_p${tabOption.startPage}_${tabOption.endPage}` : ''));
-            await addRecentOpened({
-                id: recentId,
-                name: tabOption.name || file.name,
-                fileName: file.name,
-                tabId: tabOption.id,
-                tabName: tabOption.name || file.name,
-                startPage: tabOption.startPage,
-                endPage: tabOption.endPage,
-                fileStoreId: tabOption.fileStoreId,
-                providerId: tabOption.providerId || 'local',
-                relativePath: tabOption.relativePath || file.name,
-                librarySongId: song.id,
-                songTitle: song.title,
-                artist: song.artist,
-                album: song.album,
-                coverUrl: song.coverUrl,
-                tunings: song.tunings,
-                hiddenTunings: song.hiddenTunings || [],
-                preferredStringCount: tabOption.preferredStringCount || null
-            });
-            return true;
+        if (heldLoading && !getCurrentFile()) {
+            await openLibraryModal();
         }
-        showToast(`Tab file not found locally. Please re-import tab for ${song.title}.`, 'warning');
+        showToast(
+            downloadFailureReason
+                ? `Could not open "${song.title}": ${downloadFailureReason}`
+                : `Tab file not found locally. Please re-import tab for ${song.title}.`,
+            'warning'
+        );
     } catch (err) {
         console.error('Failed to load song tab:', err);
         showToast(`Error opening tab: ${err.message}`, 'error');

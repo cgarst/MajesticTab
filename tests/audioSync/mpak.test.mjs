@@ -1140,3 +1140,39 @@ test('saveMpakToLibrary adds every score the app can show as a tab of the song, 
     assert.deepEqual(others.map((o) => o.file.name), ['song.pdf']);
     assert.deepEqual(await otherScores({ librarySongId: null }), []);
 });
+
+test('saveMpakToLibrary attaches fileStoreId and sha256 to an existing remote-only tab without sha256', async () => {
+    lsMap.clear();
+    await clearAllLibraryData();
+    const { saveSongToLibrary } = await import('../../src/libraryStore.js');
+
+    const songKey = 'Haken - Messiah Complex II';
+    const gpBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4]);
+    const gpFile = new File([gpBytes], '07 Messiah Complex II.gp', { type: 'application/octet-stream' });
+    const { blob } = await buildMpak(gpFile, { songKey, song: { artist: 'Haken', title: 'Messiah Complex II' } });
+
+    const remoteSong = {
+        id: 'song_remote_1',
+        title: 'Messiah Complex II',
+        artist: 'Haken',
+        packId: '49fdb94b-eaf6-4a20-b8a5-4e8f0d8ec4fa',
+        tabOptions: [
+            {
+                id: 'tab_remote_1',
+                name: '07 Messiah Complex II.gp',
+                relativePath: '07 Messiah Complex II.gp',
+                fileType: 'gp',
+                fileStoreId: null,
+                sha256: null,
+            },
+        ],
+    };
+    await saveSongToLibrary(remoteSong);
+
+    await saveMpakToLibrary(blob, { targetSongId: remoteSong.id, queryMusicBrainz: false });
+    const refreshed = await getSongById(remoteSong.id);
+    assert.equal(refreshed.tabOptions.length, 1);
+    assert.equal(refreshed.tabOptions[0].id, 'tab_remote_1');
+    assert.ok(refreshed.tabOptions[0].fileStoreId);
+    assert.ok(refreshed.tabOptions[0].sha256);
+});

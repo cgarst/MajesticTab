@@ -32,7 +32,9 @@ const songKeyOf = (song) => [song.artist, song.title].filter(Boolean).join(' - '
 const SLOT_NAMES = new Set(['original', 'backing']);
 const SLOT_KEY = /^(audio_file_|real_audio_source_|yt_track_)(?:last_)?(.+)$/;
 const SCORE_SYNC = /^audio_sync_score%3A[0-9a-f]{64}%3A(.+)$/;
-const asBuffer = (u8) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+const asBuffer = (u8) => (u8.byteOffset === 0 && u8.byteLength === u8.buffer.byteLength
+    ? u8.buffer
+    : u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength));
 
 /**
  * Every localStorage entry that belongs to a song's recordings, grouped by the song key it is stored under. One pass over
@@ -134,7 +136,10 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
             const audioById = new Map(audio.map((a) => [a.id, a]));
             const songsWithAudio = new Set();
             for (const a of audio) {
-                for (const k of a.songKeys || []) songsWithAudio.add(k);
+                for (const k of a.songKeys || []) {
+                    songsWithAudio.add(k);
+                    songsWithAudio.add(enc(k));
+                }
             }
             const recording = indexRecordingKeys();
             const out = new Map();
@@ -248,10 +253,10 @@ export const localBaselines = {
 };
 
 /** Downloads a remote pack (scores and optionally audio) on demand and updates the baseline so it is not re-uploaded. */
-export async function fetchPackOnDemand(store, packId, { includeAudio = !isHybridSyncEnabled(), baselines = localBaselines, location = null } = {}) {
+export async function fetchPackOnDemand(store, packId, { includeAudio = !isHybridSyncEnabled(), baselines = localBaselines, location = null, targetSongId = null } = {}) {
     const pack = await createPackStore(store).open(packId);
     const blob = await pack.toMpak({ includeAudio });
-    await saveMpakToLibrary(blob, { queryMusicBrainz: false });
+    await saveMpakToLibrary(blob, { targetSongId, queryMusicBrainz: false });
     if (location) {
         const base = baselines.get(location) || { items: {}, records: {} };
         const items = { ...(base.items || {}) };
@@ -296,10 +301,17 @@ function findEvictableAssets({ fonts, audioFiles, storedFiles, songs, setlists, 
         const packBySongKey = new Map();
         const protectedSongKeys = new Set();
         for (const song of songs) {
-            const k = enc(songKeyOf(song));
+            const rawKey = songKeyOf(song);
+            const k = enc(rawKey);
             const pid = isPackId(song.id) ? song.id : (isPackId(song.packId) ? song.packId : null);
-            if (k && pid) packBySongKey.set(k, pid);
-            if (k && isProtected(song)) protectedSongKeys.add(k);
+            if (rawKey && pid) {
+                packBySongKey.set(rawKey, pid);
+                packBySongKey.set(k, pid);
+            }
+            if (rawKey && isProtected(song)) {
+                protectedSongKeys.add(rawKey);
+                protectedSongKeys.add(k);
+            }
         }
         for (const a of audioFiles) {
             const keys = a.songKeys || [];

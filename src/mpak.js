@@ -1257,20 +1257,39 @@ export async function applyMpakExtras(data, opened, options = {}) {
  */
 async function findTabOfScore(song, file, entry) {
     const sha = entry?.sha256 || file?.contentSha256 || null;
-    const ext = (file?.name || '').split('.').pop().toLowerCase();
+    const fileName = file?.name || '';
+    const ext = fileName.split('.').pop().toLowerCase();
+    const label = entry?.label || '';
+    const entryName = entry?.name || '';
+    const remoteCandidates = [];
+
     for (const t of song?.tabOptions || []) {
         if (sha && t.sha256) {
             if (t.sha256 === sha) return t;
             continue;
         }
-        if (!t.fileStoreId || t.fileType !== ext) continue;
+        if (!t.fileStoreId) {
+            const tabExt = (t.fileType || '').toLowerCase();
+            if (tabExt && ext && tabExt !== ext) continue;
+            const relBase = (t.relativePath || '').split(/[\\/]/).pop();
+            if (
+                (fileName && (relBase === fileName || t.name === fileName))
+                || (label && t.name === label)
+                || (entryName && (relBase === entryName || t.name === entryName))
+            ) {
+                return t;
+            }
+            if (!t.sha256) remoteCandidates.push(t);
+            continue;
+        }
+        if (t.fileType !== ext) continue;
         try {
             const { getStoredFileRecord } = await import('./fileStore.js');
             const rec = await getStoredFileRecord(t.fileStoreId);
             if (rec && rec.size === file.size && rec.name === file.name) return t;
         } catch { /* compare no further */ }
     }
-    return null;
+    return remoteCandidates.length === 1 ? remoteCandidates[0] : null;
 }
 
 /**
@@ -1330,7 +1349,28 @@ export async function saveMpakToLibrary(input, options = {}) {
     // second pack that carries the same score, leaves one tab. A different score becomes another tab, named by its label.
     const addScore = async (file, entry, name) => {
         const existing = await findTabOfScore(song, file, entry);
-        if (existing) return { song, tabOption: existing, stored: null, duplicate: true };
+        if (existing) {
+            // A song record synced from library.json (dynamic/hybrid mode) can carry a tab's sha256 without a local fileStore entry.
+            const { getStoredFileRecord, saveStoredFile } = await import('./fileStore.js');
+            const hasLocalFile = existing.fileStoreId && Boolean(await getStoredFileRecord(existing.fileStoreId));
+            if (hasLocalFile) return { song, tabOption: existing, stored: null, duplicate: true };
+            const stored = await saveStoredFile(file, providerId, {
+                name: file.name,
+                type: file.type,
+                relativePath: relativePath || file.name,
+                songId: song.id,
+                sourceUrl: file.sourceUrl || null,
+                sourceWebsite: file.sourceWebsite || null,
+            });
+            const { updateTabOptionOnSong } = await import('./libraryStore.js');
+            const sha = entry?.sha256 || file?.contentSha256 || null;
+            const updatedTab = await updateTabOptionOnSong(song.id, existing.id, {
+                fileStoreId: stored.id,
+                ...(sha && !existing.sha256 ? { sha256: sha } : {}),
+            });
+            const refreshedSong = (await getSongById(song.id)) || song;
+            return { song: refreshedSong, tabOption: updatedTab, stored, duplicate: false };
+        }
         const label = entry?.label || null;
         return mapOpenFileToSong(file, song.id, name || label || file.name, providerId, file.name);
     };

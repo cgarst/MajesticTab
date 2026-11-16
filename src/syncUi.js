@@ -108,8 +108,10 @@ export async function closeSyncModal() {
     const mod = await import('./backupRestore.js');
     reset();
     mod.setTaskOpenState(null);
-    // Open library views read their stores once, so a reload shows what the sync brought in
-    if (reloadOnClose) { reloadOnClose = false; window.location.reload(); }
+    if (reloadOnClose) {
+        reloadOnClose = false;
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+    }
 }
 
 function frame(body, { subtitle = '', footer = '' } = {}) {

@@ -712,6 +712,7 @@ export async function updateTabOptionOnSong(songId, tabOptionId, updates = {}) {
     if (updates.tunings !== undefined) tab.tunings = updates.tunings;
     if (updates.tuningSource !== undefined) tab.tuningSource = updates.tuningSource;
     if (updates.fileType !== undefined) tab.fileType = updates.fileType;
+    if (updates.sha256 !== undefined) tab.sha256 = updates.sha256;
     if (updates.providerId !== undefined) tab.providerId = updates.providerId;
     if (updates.preferredStringCount !== undefined) tab.preferredStringCount = updates.preferredStringCount;
 
@@ -1000,6 +1001,13 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
     }
 
     const meta = await detectFileMetadata(file, file.name);
+    let contentSha256 = file.contentSha256 || null;
+    if (!contentSha256 && typeof file?.arrayBuffer === 'function') {
+        try {
+            const { sha256 } = await import('./mpak/core/index.js');
+            contentSha256 = await sha256(new Uint8Array(await file.arrayBuffer()));
+        } catch { /* hash optional */ }
+    }
     // A tuning the player set in the Song menu while the tab was not yet in the library is theirs, and wins
     const chosen = file.tabTuning && typeof file.tabTuning === 'object' ? file.tabTuning : null;
     const tabOption = {
@@ -1015,7 +1023,7 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
         fileType: file.name.split('.').pop().toLowerCase(),
         sourceUrl: file.sourceUrl || null,
         sourceWebsite: file.sourceWebsite || null,
-        sha256: file.contentSha256 || null
+        sha256: contentSha256
     };
 
     const addedOption = await addTabOptionToSong(songId, tabOption);

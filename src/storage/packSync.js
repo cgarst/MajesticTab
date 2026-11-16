@@ -79,6 +79,7 @@ export function decideItem({ l, r, base, tombstoneAt = 0, time = 0 }) {
 
 // --- reading the store ---
 
+const PACK_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const PACK_MANIFEST_RE = /^packs\/([A-Za-z0-9_-]{1,64})\/manifest\.json$/;
 const PACK_AUDIO_RE = /^packs\/([^/]+)\/audio\/.+/;
 const preparedPlans = new WeakMap();
@@ -101,8 +102,9 @@ async function readRemote(store, { hybrid = false, includeLibrary = hybrid, base
     if (usedLibraryIndex) {
         // Hybrid mode uses library.json as the remote pack index instead of walking every folder in packs/.
         for (const s of remoteLibrary.songs || []) {
+            if (!(s.tabOptions || []).length) continue;
             const id = s.packId || s.id;
-            if (!id) continue;
+            if (!id || !PACK_ID_RE.test(id)) continue;
             const key = packKey(id);
             remote.set(key, { kind: 'pack', id, version: base?.items?.[key]?.r ?? '__hybrid__', size: 0, hasAudio: false });
         }
