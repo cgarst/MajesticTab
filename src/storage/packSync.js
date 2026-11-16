@@ -26,6 +26,8 @@ import { RECORD_ACTION, fingerprintValue, stableStringify, planRecords, TAB_SOUR
  * @typedef {object} LocalAdapter   this device's data; the app's version wraps IndexedDB, tests use a fake
  * @property {() => Promise<Map<string, {kind: 'pack'|'soundfont'|'classtab', id: string, name: string, fp: string, time: number, size?: number}>>} items
  *           every item here, by key, with a cheap fingerprint that changes whenever the item's content does
+ * @property {(packIdsBySongId: Map<string, string>) => Promise<void>} [adoptPackIds]
+ *           adopts pack ids assigned by another device for matching legacy song ids before items() mints new ones
  * @property {(key: string) => Promise<{files: Map<string, Uint8Array>}|{bytes: Uint8Array, name: string, size?: number, addedAt?: number}>} readItem
  *           a pack as the files of its directory form, or a blob item's bytes
  * @property {(packId: string, pack: object) => Promise<void>} applyPack     add the store's pack (a packStore.open handle) to this device, additively
@@ -75,7 +77,7 @@ export function decideItem({ l, r, base, tombstoneAt = 0, time = 0 }) {
 
 // --- reading the store ---
 
-async function readRemote(store, { hybrid = false } = {}) {
+async function readRemote(store, { hybrid = false, includeLibrary = hybrid } = {}) {
     const info = await readStoreInfo(store);
     if (!info) return null;
     const packs = createPackStore(store);
@@ -98,7 +100,7 @@ async function readRemote(store, { hybrid = false } = {}) {
         }
     }
     const tombstones = (await readIfExists(store, TOMBSTONES_PATH)) ? await readJson(store, TOMBSTONES_PATH) : { version: 1, items: {} };
-    const remoteLibrary = hybrid && (await readIfExists(store, LIBRARY_PATH)) ? fromLibraryDoc(await readJson(store, LIBRARY_PATH)) : null;
+    const remoteLibrary = includeLibrary && (await readIfExists(store, LIBRARY_PATH)) ? fromLibraryDoc(await readJson(store, LIBRARY_PATH)) : null;
     return { remote, tombstones, profile, remoteLibrary };
 }
 
@@ -125,16 +127,30 @@ async function resolveKeepLocalPacks(read, local, hybrid) {
 
 // --- plan ---
 
+async function readAndPlan({ store, local, baselines, location, hybrid = false }) {
+    const base = baselines.get(location);
+    const read = await readRemote(store, { hybrid, includeLibrary: hybrid || !base });
+    if (!read) return { read: null };
+    if (!base && read.remoteLibrary && local.adoptPackIds) {
+        const map = new Map();
+        for (const s of read.remoteLibrary.songs || []) {
+            if (s.packId && s.packId !== s.id) map.set(s.id, s.packId);
+        }
+        if (map.size) await local.adoptPackIds(map);
+    }
+    const mine = await local.items();
+    const keepLocalPacks = await resolveKeepLocalPacks(read, local, hybrid);
+    return { read, base, mine, keepLocalPacks, plan: planFrom(read, mine, base, { hybrid, keepLocalPacks }) };
+}
+
 /**
  * What a sync would do, without changing anything.
  * @returns {Promise<{ firstSync: boolean, items: Array<{key, kind, id, name, action, conflict?: boolean, size: number}>, unchanged: number, notAStore?: boolean }>}
  */
 export async function planPackSync({ store, local, baselines, location, hybrid = false }) {
-    const read = await readRemote(store, { hybrid });
+    const { read, plan } = await readAndPlan({ store, local, baselines, location, hybrid });
     if (!read) return { notAStore: true, firstSync: true, items: [], unchanged: 0 };
-    const mine = await local.items();
-    const keepLocalPacks = await resolveKeepLocalPacks(read, local, hybrid);
-    return planFrom(read, mine, baselines.get(location), { hybrid, keepLocalPacks });
+    return plan;
 }
 
 function planFrom(read, mine, base, { hybrid = false, keepLocalPacks = new Set() } = {}) {
@@ -313,13 +329,10 @@ async function renameImportedSongs({ store, local }) {
  * An item that fails is left as it was and not recorded in the baseline, so the next sync tries it again.
  */
 export async function applyPackSync({ store, local, baselines, location, hybrid = false, onProgress = () => {} }) {
-    const read = await readRemote(store, { hybrid });
+    const { read, base, mine, keepLocalPacks, plan: planned } = await readAndPlan({ store, local, baselines, location, hybrid });
     if (!read) throw new Error('This location is not a MajesticTab library');
-    const base = baselines.get(location);
     const packs = createPackStore(store);
-    const mine = await local.items();
-    const keepLocalPacks = await resolveKeepLocalPacks(read, local, hybrid);
-    const plan = planFrom(read, mine, base, { hybrid, keepLocalPacks }).items;
+    const plan = planned.items;
     const nextItems = { ...(base?.items || {}) };
     const out = { uploaded: 0, downloaded: 0, merged: 0, removedHere: 0, removedThere: 0, conflicts: 0, failed: [] };
     const tombstones = { version: 1, items: { ...(read.tombstones.items || {}) } };

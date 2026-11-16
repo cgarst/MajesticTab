@@ -281,7 +281,7 @@ function hybridControlsHtml(target) {
                 <input class="form-check-input theme-switch" type="checkbox" id="syncHybridToggle" ${on ? 'checked' : ''}>
                 <label class="form-check-label small" for="syncHybridToggle">Keep audio and SoundFonts remote</label>
             </div>
-            ${on ? textAction('evict-local-heavy', `Free local copies already in ${shortPlace(target)}`) : ''}
+            ${on ? textAction('evict-local-heavy', `Remove local audio and SoundFonts in ${shortPlace(target)}`) : ''}
         </div>`;
 }
 
@@ -475,10 +475,11 @@ async function start({ interactive = false } = {}) {
 
         setStep('Comparing songs...');
         const local = createLocalAdapter();
-        const plan = await planPackSync({ store, local, baselines: localBaselines, location: location(target, store), hybrid: isHybridSyncEnabled() });
+        const hybrid = isHybridSyncEnabled();
+        const plan = await planPackSync({ store, local, baselines: localBaselines, location: location(target, store), hybrid });
         stopChecking();
         if (mine !== session) return;
-        context = { target, legacy, store, local, plan };
+        context = { target, legacy, store, local, plan, plannedHybrid: hybrid };
         // Nothing to review: still settle the library and settings, which have no review of their own
         if (!plan.items.length) return apply({ quiet: true });
         showReview(target, store, plan);
@@ -606,7 +607,7 @@ async function evictHeavy() {
             const mb = res.freedBytes >= 1024 * 1024 ? ` (${(res.freedBytes / (1024 * 1024)).toFixed(1)} MB)` : '';
             showToast(`Removed ${parts.join(' and ')} from this device${mb}. Copies remain in ${where(target)}.`, 'success');
         } else {
-            showToast(`No local audio or SoundFonts in ${where(target)} to free.`, 'info');
+            showToast(`No local audio or SoundFonts in ${where(target)} to remove.`, 'info');
         }
         return start();
     } catch (err) {
@@ -695,6 +696,41 @@ async function handleAction(action) {
 }
 
 /** Opens the Sync task under its row in Settings and compares. Used by the row and by the Sync button in the library. */
+async function onHybridToggle(checked) {
+    setHybridSyncEnabled(checked);
+    if (!context?.plan || !context?.store) return start();
+    const { target, store, local } = context;
+    if (checked) {
+        const basePlan = context.fullPlan || context.plan;
+        context.fullPlan = basePlan;
+        context.plan = {
+            ...basePlan,
+            items: basePlan.items.filter((i) => !(i.kind === 'soundfont' && i.action === ITEM_ACTION.DOWNLOAD)),
+        };
+        return showReview(target, store, context.plan);
+    }
+    if (context.fullPlan && !context.plannedHybrid) {
+        context.plan = context.fullPlan;
+        return showReview(target, store, context.plan);
+    }
+    // Originally planned with hybrid=true, so SoundFont downloads were omitted; re-plan without re-opening or probing
+    const applyBtn = modal.querySelector('[data-sync-action="apply"]');
+    if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Updating...'; }
+    const mine = session;
+    try {
+        const plan = await planPackSync({ store, local, baselines: localBaselines, location: location(target, store), hybrid: false });
+        if (mine !== session || !context) return;
+        context.plan = plan;
+        context.fullPlan = plan;
+        context.plannedHybrid = false;
+        showReview(target, store, plan);
+    } catch (err) {
+        if (mine !== session) return;
+        console.error('[Sync] Could not update comparison:', err);
+        showError(err.message);
+    }
+}
+
 export async function openSyncModal() {
     const back = await import('./backupRestore.js');
     const host = await back.getSettingsDataHost('sync');
@@ -713,10 +749,7 @@ export async function openSyncModal() {
             if (action) handleAction(action);
         });
         modal.addEventListener('change', (e) => {
-            if (e.target.id === 'syncHybridToggle') {
-                setHybridSyncEnabled(e.target.checked);
-                start();
-            }
+            if (e.target.id === 'syncHybridToggle') onHybridToggle(e.target.checked);
         });
     }
     await start();

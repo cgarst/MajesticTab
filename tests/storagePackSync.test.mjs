@@ -427,3 +427,39 @@ test('hybrid mode keeps audio local for pinned songs and songs in any setlist', 
     assert.equal(rb3.downloaded, 1);
     assert.deepEqual(b.state.songs.get('plain-song').audio, audioPlain);
 });
+
+test('a second device adopts remote packIds for matching legacy song ids instead of duplicating them', async () => {
+    const store = await newStore();
+    const a = fakeLocal(), baseA = memoryBaselines();
+    a.addSong('pack-a-uuid', 'Legacy Song');
+    a.state.records.songs[0].id = 'legacy_1';
+    a.state.records.songs[0].packId = 'pack-a-uuid';
+    await sync(store, a, baseA);
+
+    const b = fakeLocal(), baseB = memoryBaselines();
+    b.addSong('pack-b-wrong', 'Legacy Song');
+    b.state.records.songs[0].id = 'legacy_1';
+    b.state.records.songs[0].packId = 'pack-b-wrong';
+    b.adoptPackIds = async (map) => {
+        for (const s of b.state.records.songs) {
+            const target = map.get(s.id);
+            if (!target || s.packId === target) continue;
+            const prev = s.packId;
+            s.packId = target;
+            if (prev && b.state.songs.has(prev)) {
+                const song = b.state.songs.get(prev);
+                song.id = target;
+                b.state.songs.set(target, song);
+                b.state.songs.delete(prev);
+            }
+        }
+    };
+
+    const plan = await planPackSync({ store, local: b, baselines: baseB, location: LOC });
+    assert.deepEqual(plan.items.map((i) => [i.key, i.action]), [['p:pack-a-uuid', A.MERGE]]);
+
+    const rb = await sync(store, b, baseB);
+    assert.deepEqual([rb.merged, rb.downloaded, rb.uploaded], [1, 0, 0]);
+    assert.deepEqual(await packIds(store), ['pack-a-uuid']);
+    assert.equal((await planPackSync({ store, local: b, baselines: baseB, location: LOC })).items.length, 0);
+});

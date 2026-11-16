@@ -115,6 +115,18 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
     let songOfPack = new Map();
 
     const adapter = {
+        async adoptPackIds(packIdsBySongId) {
+            if (!packIdsBySongId?.size) return;
+            const { songs } = await getAllLibraryData();
+            for (const song of songs) {
+                if (isPackId(song.id)) continue;
+                const target = packIdsBySongId.get(song.id);
+                if (isPackId(target) && song.packId !== target) {
+                    await setSongPackId(song.id, target);
+                }
+            }
+        },
+
         async items() {
             const [{ songs }, files, audio, fonts, classtab] = await Promise.all([getAllLibraryData(), getAllStoredFiles(), listAudioFiles(), listSoundFonts(), listClasstab()]);
             const fileById = new Map(files.map((f) => [f.id, f]));
