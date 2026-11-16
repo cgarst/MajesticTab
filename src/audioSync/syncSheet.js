@@ -8,12 +8,13 @@
 import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
 import { getSongKey, getVideoInfo, getSiblingSyncedVideos } from '../youtubePlayer.js';
 import { borrowableRecords } from './borrowSync.js';
-import { SYNC_CHANGED_EVENT, isSyncSharedFromOriginal, setSyncSharedFromOriginal } from './syncStore.js';
+import { SYNC_CHANGED_EVENT, isSyncSharedFromOriginal, setSyncSharedFromOriginal, loadRecord, saveRecord, listPdfRecordsForMedia } from './syncStore.js';
+import { inferBarSyncFromPdf } from './inferBarSync.js';
+import { showToast } from '../utils/toast.js';
 import { getSyncRow } from './audioSyncUi.js';
 import { getActiveSlot } from './realAudioController.js';
 import { openCopySyncedVideoModal } from './syncedVideosModal.js';
 import { PROBLEM_TEXT } from './audioSyncEditor.js';
-import { loadRecord } from './syncStore.js';
 import { buildTimelineModel } from './timelineModel.js';
 import { buildScoreTimeline, playedBarsFromLookup } from './scorePositions.js';
 import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
@@ -97,6 +98,23 @@ function row(label, sub, onPress, { pressed = null, armed = false } = {}) {
     return b;
 }
 
+function findPdfInference(songKey, media) {
+    try {
+        const pdfRecords = listPdfRecordsForMedia(songKey, media);
+        if (!pdfRecords.length) return null;
+        const api = window.gpApi;
+        const lookup = api && getMidiTickLookup(api);
+        const played = lookup ? playedBarsFromLookup(lookup) : [];
+        if (!played.length) return null;
+        const timeline = buildScoreTimeline(played);
+        for (const rec of pdfRecords) {
+            const inferred = inferBarSyncFromPdf(timeline, rec.points);
+            if (inferred) return inferred;
+        }
+    } catch { /* ignore */ }
+    return null;
+}
+
 function render() {
     if (!current) return;
     const { prefix, name, read } = current;
@@ -126,6 +144,18 @@ function render() {
     if (has) list.append(row('Edit points', 'Nudge, shift or delete points', () => handOff(() => $(`${prefix}SyncEditBtn`)?.click())));
 
     const songKey = getSongKey();
+    if (!has && media && songKey) {
+        const inferred = findPdfInference(songKey, media);
+        if (inferred) {
+            list.append(row('Infer from PDF sync', inferred.fit.text, () => {
+                const saved = saveRecord(songKey, media, inferred.points, undefined, undefined, 'bar');
+                if (!saved) { showToast('Could not save the inferred sync points', 'error'); return; }
+                window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+                closeModal(MODAL);
+                showToast(`Inferred ${inferred.fit.placed} of ${inferred.fit.total} bars from PDF sync`, 'success');
+            }));
+        }
+    }
     const others = media ? borrowableRecords(songKey, media) : [];
     if (others.length) {
         list.append(row('Use another recording’s sync', 'Another video or file of this song', () => { pickerOpen = !pickerOpen; disarm(); render(); $('syncSheetBody')?.querySelector('[aria-expanded]')?.focus(); }, { pressed: pickerOpen }));

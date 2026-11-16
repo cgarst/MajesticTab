@@ -280,6 +280,27 @@ export function listRecords(songKey, storage = recordStorage) {
     return out.sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+/** Every stored `pdf` record for `songKey` and `media` (under `score:<sha256>:<songKey>` or `text:<songKey>`), newest first. */
+export function listPdfRecordsForMedia(songKey, media, storage = recordStorage) {
+    const m = mediaKey(media);
+    if (!songKey || !m) return [];
+    const encodedSong = encodeURIComponent(String(songKey).toLowerCase());
+    const scorePrefix = `${AUDIO_SYNC_PREFIX}${encodeURIComponent('score:')}`;
+    const scoreSuffix = `${encodeURIComponent(':')}${encodedSong}_${m}`;
+    const legacyKey = storageKey(`text:${songKey}`, media);
+    const out = [];
+    for (let i = 0; i < storage.length; i++) {
+        const k = storage.key(i);
+        if (!k) continue;
+        const matchesScore = k.startsWith(scorePrefix) && k.endsWith(scoreSuffix);
+        const matchesLegacy = legacyKey && k === legacyKey;
+        if (!matchesScore && !matchesLegacy) continue;
+        const rec = parse(storage.getItem(k), k);
+        if (rec?.anchorType === 'pdf' && rec.points.length) out.push(rec);
+    }
+    return out.sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
 /** True when any recording of the song has at least one sync point. */
 export function songHasSyncPoints(songKey, storage = recordStorage) {
     try { return listRecords(songKey, storage).some(r => r.points.length > 0); } catch { return false; }

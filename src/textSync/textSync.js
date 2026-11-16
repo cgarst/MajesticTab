@@ -413,21 +413,32 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         } else if (points.length) {
             const repeats = backs.size ? `${backs.size} ${backs.size === 1 ? 'repeat' : 'repeats'}` : '';
             const word1 = isAuto ? 'Auto-synced' : 'Synced';
+            statusEl.textContent = '';
+            statusEl.removeAttribute('title');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ct-text';
+            btn.dataset.act = 'sync';
             if (repeats) {
                 const detailEl = document.createElement('span');
                 detailEl.className = 'rec-detail';
                 detailEl.textContent = ` · ${repeats}`;
-                statusEl.replaceChildren(word1, detailEl);
-                statusEl.title = `${word1} · ${repeats}`;
+                btn.replaceChildren(word1, detailEl);
+                btn.title = `${word1} · ${repeats}`;
             } else {
-                statusEl.textContent = word1;
-                statusEl.removeAttribute('title');
+                btn.textContent = word1;
             }
-            actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Edit</button>';
+            actionsEl.replaceChildren(btn);
         } else {
-            statusEl.textContent = 'Not synced';
-            statusEl.title = `The ${rec?.label?.toLowerCase() || 'recording'} plays on its own. The tab won't follow it until you add sync points.`;
-            actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Sync</button>';
+            statusEl.textContent = '';
+            statusEl.removeAttribute('title');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ct-text';
+            btn.dataset.act = 'sync';
+            btn.textContent = 'Not synced';
+            btn.title = `The ${rec?.label?.toLowerCase() || 'recording'} plays on its own. The tab won't follow it until you add sync points.`;
+            actionsEl.replaceChildren(btn);
         }
         if (tapping) statusEl.removeAttribute('title');
         // Tick marks where the tab is pinned to the recording

@@ -78,16 +78,26 @@ export function initScoreRecordingStrip() {
         drawnKey = key;
         strip.classList.toggle('is-synced', points.length > 0);
         const n = points.length;
-        if (!n) {
-            statusEl.textContent = 'Not synced';
-            statusEl.title = 'The recording plays on its own. The cursor won’t follow it until you add sync points.';
+        const label = !n ? 'Not synced' : syncStateText(n, summary, fromHost);
+        const hint = !n ? 'The recording plays on its own. The cursor won’t follow it until you add sync points.' : '';
+        if (!canAuthor()) {
+            statusEl.textContent = label;
+            if (hint) statusEl.title = hint;
+            else statusEl.removeAttribute('title');
+            actionsEl.innerHTML = '';
         } else {
+            // One door: the status label itself opens the Sync sheet
+            statusEl.textContent = '';
             statusEl.removeAttribute('title');
-            statusEl.textContent = syncStateText(n, summary, fromHost);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ct-text';
+            btn.dataset.act = 'sync';
+            btn.textContent = label;
+            if (hint) btn.title = hint;
+            btn.setAttribute('aria-label', `${label} — open sync options`);
+            actionsEl.replaceChildren(btn);
         }
-        if (!canAuthor()) actionsEl.innerHTML = '';
-        // One door: the Sync sheet says what to do for the state the recording is in
-        else actionsEl.innerHTML = `<button type="button" class="ct-text" data-act="sync">${n ? 'Edit sync' : 'Sync'}</button>`;
         marksEl.replaceChildren();
         if (dur) {
             // A tab with hundreds of points would paint the whole track solid and hide the position: draw at most one
