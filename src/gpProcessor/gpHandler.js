@@ -411,7 +411,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         const desiredWidth = isHorizontal ? 'max-content' : '100%';
         const widthChanged = container.style.width !== desiredWidth;
         container.style.width = desiredWidth;
-        container.style.minWidth = isHorizontal ? '100%' : '';
+        container.style.minWidth = '';
         container.style.height = 'auto';
         container.style.minHeight = isHorizontal ? '0' : '100%';
         container.style.flexShrink = '0';
@@ -433,7 +433,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
             const unsubSettle = api.postRenderFinished.on(() => {
                 unsubSettle();
                 fitScoreText(container);
-                if (api.tickPosition > 0) {
+                if (isHorizontal || api.tickPosition > 0) {
                     window.__majesticUpdateContinuousPlaybackScroll?.(api.tickPosition, true, null, null, true);
                 }
                 settleLayout();
