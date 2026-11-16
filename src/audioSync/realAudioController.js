@@ -20,10 +20,7 @@ import { createYouTubeSource } from './mediaSource.js';
 import { closeSheet } from '../ytSheet.js';
 import { preferredSlot, rememberLastSlot } from './libraryAudio.js';
 import { setActiveAudioMode, updateGlobalAudioControls } from '../utils/navigationUtils.js';
-import {
-    loadRecord, SYNC_CHANGED_EVENT, setSlotMediaResolver,
-    isSyncSharedFromOriginal, setSyncSharedFromOriginal
-} from './syncStore.js';
+import { loadRecord, SYNC_CHANGED_EVENT, setSlotMediaResolver } from './syncStore.js';
 import { buildTimelineModel } from './timelineModel.js';
 import { playedBarsFromLookup, buildScoreTimeline } from './scorePositions.js';
 import { syncFit } from './pointCheck.js';
@@ -300,6 +297,9 @@ let ytSource = null;
  * The media descriptor is the one the sync points are stored under.
  */
 /** The media attached to the Original slot (YouTube, local file, or audio in the file), even when its player is not loaded yet; null when none. */
+/** 'original' or 'backing': the slot the Sound panel and the dock follow. */
+export const getActiveSlot = () => state.slot;
+
 export function getActiveMedia() {
     if (state.slot === 'original' && getSlotSource('original') === 'embedded') return { kind: 'embedded' };
     return getMediaForSlot(state.slot);
@@ -380,14 +380,6 @@ export function updateRecordingSlots() {
             chip.textContent = 'Synced';
         }
     });
-
-    // The shared-points option only applies to a backing track
-    const shareRow = $('realAudioShareSyncRow');
-    if (shareRow) {
-        shareRow.hidden = state.slot !== 'backing';
-        const shareSwitch = $('realAudioShareSyncSwitch');
-        if (shareSwitch) shareSwitch.checked = Boolean(songKey) && isSyncSharedFromOriginal(songKey);
-    }
 }
 
 export function updateRealAudioPanelView() {
@@ -657,14 +649,6 @@ export function initRealAudioController() {
     // Slot rows
     $('slotRowOriginal')?.addEventListener('click', () => switchRealAudioSlot('original'));
     $('slotRowBacking')?.addEventListener('click', () => switchRealAudioSlot('backing'));
-
-    // Backing track uses the original recording's sync points
-    $('realAudioShareSyncSwitch')?.addEventListener('change', () => {
-        const songKey = getSongKey();
-        if (!songKey) return;
-        setSyncSharedFromOriginal(songKey, $('realAudioShareSyncSwitch').checked);
-        window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
-    });
 
     window.addEventListener(SYNC_CHANGED_EVENT, () => {
         applySyncedDefaults();

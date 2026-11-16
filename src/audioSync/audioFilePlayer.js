@@ -4,7 +4,7 @@
 // audio mode next to the synth and YouTube. Files are kept on the device (audioFileStore.js), keyed to the song, and a
 // sync record remembers each file's name, length and fingerprint so a missing file can be relinked.
 
-import { getSongKey, getSiblingSyncedVideos, getVideoInfo, lookupVideoInfo, pauseYouTube, onYouTubeEvent, toggleYouTubePanel } from '../youtubePlayer.js';
+import { getSongKey, pauseYouTube, onYouTubeEvent, toggleYouTubePanel } from '../youtubePlayer.js';
 import { pauseSynthPlayer, clearSynthHighlights, onTransportEvent } from '../gpProcessor/gpPlayer.js';
 import { setActiveAudioMode, updateGlobalAudioControls } from '../utils/navigationUtils.js';
 import { createLocalAudioSource } from './localAudioSource.js';
@@ -17,7 +17,7 @@ import {
 import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
 import { adoptUnassignedAudio } from './libraryAudio.js';
 import { isJamHosting, JAM_BRIDGE_EVENT } from './jamBridge.js';
-import { listRecords, loadRecord, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './syncStore.js';
+import { listRecords, loadRecord, saveRecord, deleteRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { mountSyncRow } from './audioSyncUi.js';
 
 const LAST_FILE_KEY = (songKey) => `audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`;
@@ -38,7 +38,6 @@ const state = {
     uiTimer: 0,
     removeMode: false,  // the list shows Remove beside each file
     armedRemoval: null, // file id waiting for a second press (it has sync points)
-    armedCopy: null,    // file id waiting for a second press (it would replace points)
     armTimer: 0,
     // A song is known by its file name until its score has been read, then by artist and title. Files added in
     // between are linked to the first and moved to the second.
@@ -383,28 +382,11 @@ function syncedFiles() {
 }
 const pointsLabel = (count) => (count ? `Synced · ${count} ${count === 1 ? 'point' : 'points'}` : 'Not synced');
 
-function disarm() { clearTimeout(state.armTimer); state.armedRemoval = null; state.armedCopy = null; }
+function disarm() { clearTimeout(state.armTimer); state.armedRemoval = null; }
 function arm(kind, id) {
     disarm();
-    if (kind === 'remove') state.armedRemoval = id; else state.armedCopy = id;
+    if (kind === 'remove') state.armedRemoval = id;
     state.armTimer = setTimeout(() => { disarm(); render(); }, 4000);
-}
-
-/** Copies the sync points of another file of this song onto the loaded one (the times are copied as they are). */
-function copyPointsBetweenFiles(fromKey) {
-    const songKey = getSongKey();
-    const from = listRecords(songKey).find(r => mediaKey(r.media) === fromKey);
-    if (!songKey || !state.meta || !from) return;
-    const origin = from.media.kind === 'local'
-        ? { fromAudioId: from.media.audioId, fromAudioName: from.media.name, fromSongKey: songKey, copiedAt: Date.now() }
-        : { fromVideoId: from.media.videoId, fromSongKey: songKey, copiedAt: Date.now() };
-    const media = { ...mediaOf(state.meta), origin };
-    if (saveRecord(songKey, media, from.points)) {
-        window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
-        if ($('afCopyPicker')) $('afCopyPicker').hidden = true;
-        $('afCopyBetweenBtn')?.setAttribute('aria-expanded', 'false');
-        render();
-    }
 }
 
 // --- Rendering -----------------------------------------------------------------------------------------------------
@@ -479,52 +461,6 @@ function render() {
         editBtn.setAttribute('aria-pressed', state.removeMode ? 'true' : 'false');
     }
     if (state.files.length === 0) state.removeMode = false;
-
-    const mine = state.currentId ? synced.find(s => s.audioId === state.currentId) : null;
-    const origin = $('afOriginInfo');
-    if (origin) {
-        const o = mine?.origin;
-        const fromName = o?.fromAudioId ? (state.files.find(f => f.id === o.fromAudioId)?.name || o.fromAudioName) : null;
-        origin.hidden = !o;
-        origin.textContent = o
-            ? (o.fromAudioId ? `Sync points copied from ${fromName || 'another file'}`
-                : o.fromVideoId ? `Sync points copied from ${getVideoInfo(o.fromVideoId)?.title || 'a video'}`
-                    : `Copied from tab: ${o.fromTabName || o.fromSongKey || ''}`)
-            : '';
-    }
-    // Copy sync points between this song's files: into the loaded one, from another that has points
-    // From any recording of the song with points: another file or a YouTube video
-    const sources = listRecords(getSongKey()).filter(r => r.points.length && mediaKey(r.media) !== `local_${state.currentId}`);
-    const showCopy = Boolean(state.currentId) && sources.length > 0;
-    if ($('afCopyBetweenBtn')) $('afCopyBetweenBtn').hidden = !showCopy;
-    const picker = $('afCopyPicker');
-    if (picker && !showCopy) picker.hidden = true;
-    const pickerList = $('afCopyPickerList');
-    if (pickerList && picker && !picker.hidden) {
-        pickerList.replaceChildren(...sources.map((r) => {
-            const key = mediaKey(r.media);
-            const isLocal = r.media.kind === 'local';
-            const row = document.createElement('button');
-            row.type = 'button';
-            row.className = 'slot vrow-copy';
-            row.dataset.copyFrom = key;
-            const t = document.createElement('span'); t.className = 't';
-            const b = document.createElement('b');
-            b.textContent = state.armedCopy === key ? `Replace ${mine?.count || 0} sync points?` : (isLocal ? (r.media.name || 'Audio file') : (getVideoInfo(r.media.videoId)?.title || 'Loading…'));
-            const sub = document.createElement('span');
-            sub.textContent = `${isLocal ? 'Audio file' : 'YouTube video'} · ${r.points.length} ${r.points.length === 1 ? 'point' : 'points'}`;
-            t.append(b, sub);
-            row.append(t);
-            if (state.armedCopy === key) row.classList.add('is-armed');
-            if (!isLocal && !getVideoInfo(r.media.videoId)) lookupVideoInfo(r.media.videoId);
-            return row;
-        }));
-    }
-
-    getSiblingSyncedVideos().then((sibs) => {
-        const btn = $('afCopyFromOtherTabBtn');
-        if (btn) btn.hidden = sibs.length === 0;
-    }).catch(() => {});
 
     const loaded = Boolean(state.source);
     if ($('afPlayer')) $('afPlayer').hidden = !loaded;
@@ -680,25 +616,6 @@ export function initAudioFilePlayer() {
         state.removeMode = !state.removeMode;
         disarm();
         render();
-    });
-    $('afCopyBetweenBtn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const picker = $('afCopyPicker');
-        if (!picker) return;
-        picker.hidden = !picker.hidden;
-        e.currentTarget.setAttribute('aria-expanded', picker.hidden ? 'false' : 'true');
-        disarm();
-        render();
-    });
-    $('afCopyPickerList')?.addEventListener('click', (e) => {
-        const row = e.target.closest('[data-copy-from]');
-        if (!row) return;
-        e.stopPropagation();
-        const id = row.dataset.copyFrom;
-        const mine = syncedFiles().find(f => f.audioId === state.currentId);
-        if (mine?.count > 0 && state.armedCopy !== id) { arm('copy', id); render(); return; }
-        disarm();
-        copyPointsBetweenFiles(id);
     });
     window.addEventListener(SYNC_CHANGED_EVENT, () => render());
 

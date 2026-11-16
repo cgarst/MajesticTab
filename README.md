@@ -63,11 +63,11 @@ Most tab apps hand you a list of files. MajesticTab builds a library around the 
 
 Sync any tab to the record you learned it from, and the playhead follows the music.
 
-- **Tap to sync:** Link a YouTube video or a local audio file on your device, press **Tap to sync**, and tap each bar as you hear it. The cursor, metronome, and count-in follow the recording through tempo changes and live drift.
+- **Tap to sync:** Link a YouTube video or a local audio file on your device, select **Sync** and then **Tap along**, and tap each bar as you hear it. The cursor, metronome, and count-in follow the recording through tempo changes and live drift.
 - **Fine-tune any section:** Re-tap a range of bars, nudge individual sync points, snap a tap to the nearest audio transient, or attach a separate backing track and switch between the original and backing audio.
 - **Built-in SoundFont synth:** Play Guitar Pro tabs offline with per-track mixing, solo/mute controls, one-click "No guitars" (or "No bass") backing mode, custom `.sf2` / `.sf3` SoundFonts, speed control from 50% to 125% (pitch-preserved on local audio too), bar looping, and a 10-second rewind.
 
-![The Recording panel with the original recording and a backing track, a YouTube or local audio source, and a Tap to sync button](docs/img/app/original.webp)
+![The Recording panel with the original recording and a backing track, and a YouTube or local audio source](docs/img/app/original.webp)
 
 ### Make any tab fit your guitar
 

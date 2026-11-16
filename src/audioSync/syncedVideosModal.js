@@ -222,10 +222,6 @@ export function initSyncedVideosModals() {
         openManageSyncedVideosModal();
     });
 
-    for (const id of ['ytCopyFromOtherTabBtn', 'afCopyFromOtherTabBtn']) {
-        document.getElementById(id)?.addEventListener('click', () => openCopySyncedVideoModal());
-    }
-
     // Close buttons
     document.getElementById('manageSyncedVideosModalCloseBtn')?.addEventListener('click', () => {
         closeModal('manageSyncedVideosModal');

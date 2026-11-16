@@ -1,8 +1,8 @@
 // audioSync/scoreRecordingStrip.js
 // The recording bar for Guitar Pro tabs: the same two-bar layout the text and PDF tabs have. While Original is the
 // selected sound, the recording's own progress (time, a track with ticks at the sync points, and its sync state) sits
-// directly above the bar ruler. "Add sync points" lives here, so the Original panel only chooses the source.
-// The bar drives the existing sync controls (tap to sync, which links on to the point editor) rather than copying them.
+// directly above the bar ruler. "Sync" (or "Edit sync" once points exist) lives here and opens the Sync sheet, so the Original panel only chooses
+// the source. The sheet drives the existing sync controls (tap mode, the point editor) rather than copying them.
 
 import { getSongKey, playerState } from '../youtubePlayer.js';
 import { getActiveRecording, getActiveMedia, getEmbeddedSyncPoints } from './realAudioController.js';
@@ -13,6 +13,8 @@ import { buildScoreTimeline, playedBarsFromLookup } from './scorePositions.js';
 import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
 import { isTvMode } from '../tvMode.js';
 import { midiSynthActive } from '../classtab/midiSynth.js';
+import { openSyncSheet, syncStateText } from './syncSheet.js';
+import { getVideoInfo } from '../youtubePlayer.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -51,7 +53,8 @@ export function initScoreRecordingStrip() {
     let recKey = '';
     let points = [];
     let fromHost = false;
-    let summary = { full: false, flaggedBar: null };
+    let summary = { full: false, flaggedBar: null, flagKind: null, gapBars: 0 };
+    let origin = null;
     let drawnKey = '';
 
     const prefixOf = (r) => (r.kind === 'local' ? 'af' : 'yt');
@@ -60,11 +63,13 @@ export function initScoreRecordingStrip() {
     function readPoints() {
         points = [];
         fromHost = false;
-        summary = { full: false, flaggedBar: null };
+        summary = { full: false, flaggedBar: null, flagKind: null, gapBars: 0 };
+        origin = null;
         if (!rec) return;
         const host = rec.kind === 'embedded' ? null : sessionPointsFor(rec.media);
         const record = rec.kind === 'embedded' ? { points: getEmbeddedSyncPoints() } : host ? { points: host } : loadRecord(getSongKey(), rec.media);
         points = record?.points || [];
+        origin = record?.media?.origin || null;
         fromHost = Boolean(host);
         if (!points.length) return;
         // Coverage: a bar with no point drifts, a flagged point looks late against the sound
@@ -75,7 +80,12 @@ export function initScoreRecordingStrip() {
             if (played.length) {
                 const view = buildTimelineModel({ timeline: buildScoreTimeline(played), points, axis: 'bars' });
                 const flagged = view.markers.find((m) => m.flag);
-                summary = { full: view.gaps.length === 0, flaggedBar: flagged ? flagged.barIndex + 1 : null };
+                summary = {
+                    full: view.gaps.length === 0,
+                    flaggedBar: flagged ? flagged.barIndex + 1 : null,
+                    flagKind: flagged ? flagged.flag : null,
+                    gapBars: view.gaps.reduce((sum, g) => sum + (g.bars || 0), 0)
+                };
             }
         } catch { /* the bar still shows the point count */ }
     }
@@ -92,12 +102,11 @@ export function initScoreRecordingStrip() {
             statusEl.title = 'The recording plays on its own. The cursor won’t follow it until you add sync points.';
         } else {
             statusEl.removeAttribute('title');
-            const state = summary.flaggedBar ? `Check bar ${summary.flaggedBar}` : summary.full ? 'Synced' : 'Partly synced';
-            statusEl.textContent = fromHost ? `${state} · from the host` : state;
+            statusEl.textContent = syncStateText(n, summary, fromHost);
         }
         if (!canAuthor()) actionsEl.innerHTML = '';
-        else if (!n) actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Add points</button>';
-        else actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Add points</button>';
+        // One door: the Sync sheet says what to do for the state the recording is in
+        else actionsEl.innerHTML = `<button type="button" class="ct-text" data-act="sync">${n ? 'Edit sync' : 'Sync'}</button>`;
         marksEl.replaceChildren();
         if (dur) {
             // A tab with hundreds of points would paint the whole track solid and hide the position: draw at most one
@@ -116,10 +125,18 @@ export function initScoreRecordingStrip() {
     }
 
     actionsEl.addEventListener('click', (e) => {
-        const act = e.target.closest('[data-act]')?.dataset.act;
-        if (!act || !rec) return;
-        // The controls that own the sync flow live in the Original panel; they check TV and Jam guest rules themselves
-        $(`${prefixOf(rec)}SyncTapBtn`)?.click();
+        if (!e.target.closest('[data-act]') || !rec) return;
+        const key = recKey;
+        const opened = rec;
+        openSyncSheet({
+            prefix: prefixOf(opened),
+            name: () => (opened.kind === 'local' ? (opened.media.name || 'Audio file') : (getVideoInfo(opened.media.videoId)?.title || 'YouTube video')),
+            // Re-read on every call, so the sheet follows edits; a recording that changed under it shows nothing
+            read: () => {
+                if (key === recKey) readPoints();
+                return { points: key === recKey ? points : [], summary, fromHost, media: key === recKey ? rec?.media : null, origin };
+            }
+        });
     });
 
     function seekFromPointer(e) {

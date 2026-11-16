@@ -826,13 +826,6 @@
       <div id="ytVideoSection" class="mb-3" hidden>
         <div class="rec-label small mb-1" id="ytVideoListLabel">Videos for this recording</div>
         <div id="ytVideoList" class="rec-slots" role="radiogroup" aria-labelledby="ytVideoListLabel"></div>
-        <div id="ytSyncedOriginInfo" class="small text-muted mt-1" hidden></div>
-        <button type="button" class="btn btn-sm rec-text-btn mt-1" id="ytCopyBetweenBtn" hidden aria-expanded="false" aria-controls="ytCopyPicker">Copy sync points from another video or file…</button>
-        <div id="ytCopyPicker" class="mt-1" hidden>
-          <p class="small text-muted mb-1">The times are copied as they are. Use it for the same recording as a video or a file, then adjust in Sync points.</p>
-          <div id="ytCopyPickerList" class="rec-slots" role="group" aria-label="Copy sync points from"></div>
-        </div>
-        <button type="button" class="btn btn-sm rec-text-btn" id="ytCopyFromOtherTabBtn" hidden>Copy sync points from another tab…</button>
       </div>
       <div id="ytSyncRow" class="mb-3 rec-sync-proxy" hidden>
         <div class="d-flex align-items-center justify-content-between gap-2">
@@ -852,21 +845,12 @@
       <div id="afFileSection" class="mb-3" hidden>
         <div class="rec-label small mb-1" id="afFileListLabel">Files for this recording</div>
         <div id="afFileList" class="rec-slots" role="radiogroup" aria-labelledby="afFileListLabel"></div>
-        <div id="afOriginInfo" class="small text-muted mt-1" hidden></div>
-        <button type="button" class="btn btn-sm rec-text-btn mt-1" id="afCopyBetweenBtn" hidden aria-expanded="false" aria-controls="afCopyPicker">Copy sync points from another file or video…</button>
-        <div id="afCopyPicker" class="mt-1" hidden>
-          <p class="small text-muted mb-1">The times are copied as they are. Use it for the same recording as a file or a video, then adjust in Sync points.</p>
-          <div id="afCopyPickerList" class="rec-slots" role="group" aria-label="Copy sync points from"></div>
-        </div>
       </div>
       <div class="small text-white-50 mb-2" id="afJamNote" hidden>In a Jam session, guests do not hear this file. They follow the host's video or the synth.</div>
       <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <button type="button" class="btn btn-sm rec-text-btn" id="afChooseBtn">Add audio file</button>
         <input type="file" id="afFileInput" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" hidden>
         <span class="small text-white-50 text-truncate" id="afStatus" role="status"></span>
-      </div>
-      <div class="mb-2">
-        <button type="button" class="btn btn-sm rec-text-btn" id="afCopyFromOtherTabBtn" hidden>Copy sync points from another tab…</button>
       </div>
       <div class="yt-danger-row mb-2">
         <button type="button" class="btn btn-sm rec-text-btn" id="afEditFilesBtn" hidden aria-pressed="false">Remove files…</button>
@@ -882,17 +866,8 @@
             <span class="text-muted text-truncate" id="afSyncInfo" style="font-size: 0.72rem;"></span>
             <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="afSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
           </div>
-          <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="afSyncBorrowBtn" hidden title="Copy the sync points of another recording of this song to this one, lined up by the sound">Use sync points from another recording</button>
           <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="afSyncTapBtn" hidden title="Play the recording and tap each bar of the tab as you hear it">Tap to Sync</button>
         </div>
-      </div>
-    </div>
-
-    <!-- Backing track: reuse the original recording's sync points -->
-    <div class="rec-row mt-3" id="realAudioShareSyncRow" hidden>
-      <label class="rec-label" for="realAudioShareSyncSwitch">Use the original recording's sync points</label>
-      <div class="form-check form-switch mb-0">
-        <input class="form-check-input theme-switch" type="checkbox" id="realAudioShareSyncSwitch">
       </div>
     </div>
   </div>
@@ -1320,7 +1295,7 @@
       <button type="button" class="btn btn-sm" data-sm-rate="0.75">0.75x</button>
       <button type="button" class="btn btn-sm" data-sm-rate="1">1x</button>
     </div>
-    <button type="button" class="btn btn-sm btn-theme-outline" id="smRangeBtn" title="Tap the start and the end of a bad stretch to redo everything between them">Fix Range</button>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smRangeBtn" title="Tap the start and the end of a bad stretch to redo everything between them">Fix range</button>
     <label class="sync-mode-offset small text-white-50" title="Subtracted from every tap, for a reaction delay. Raise it if your taps land late.">
       Offset <input type="number" class="form-control form-control-sm" id="smOffset" value="0" step="10" min="0" max="500" aria-label="Tap offset in milliseconds"> ms
     </label>
@@ -1330,7 +1305,7 @@
     <button type="button" class="btn btn-sm btn-theme-outline" id="smRedoBtn" title="Redo (Ctrl+Shift+Z)">Redo</button>
     <span class="small text-white-50 sync-mode-count" id="smCount"></span>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smTimelineBtn" title="Show or hide the timeline of all the points">Timeline</button>
-    <button type="button" class="sm-link" id="smAdjustBtn" title="Leave tapping and edit the points one by one">Adjust points</button>
+    <button type="button" class="sm-link" id="smAdjustBtn" title="Leave tapping and edit the points one by one">Edit points</button>
   </div>
   <div id="smRefine" class="sync-mode-refine" hidden>
     <span class="small text-white sync-mode-selected" id="smSelectedLabel"></span>
@@ -1341,13 +1316,32 @@
       <button type="button" class="btn btn-sm" data-sm-nudge="50" title="Later by 50 ms (Shift+Right)">+50</button>
     </div>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smAuditionBtn" title="Play 2 seconds around the point (A)">Audition</button>
-    <button type="button" class="btn btn-sm btn-theme-outline" id="smSnapPointBtn" title="Move the point to the nearest sound in the recording" hidden>Snap to Sound</button>
-    <button type="button" class="btn btn-sm btn-theme-danger" id="smDeletePointBtn" title="Delete the point (Delete)">Delete Point</button>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smSnapPointBtn" title="Move the point to the nearest sound in the recording" hidden>Snap to sound</button>
+    <button type="button" class="btn btn-sm btn-theme-danger" id="smDeletePointBtn" title="Delete the point (Delete)">Delete point</button>
   </div>
   <div id="smTimeline" class="sync-tl-host mt-2" hidden></div>
 </div>
 
 
+
+<div id="syncSheetModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="syncSheetTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card sync-sheet-card">
+    <header class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="syncSheetTitle">Sync</h2>
+          <div class="small text-white-50 sync-sheet-sub" id="syncSheetSub"></div>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="syncSheetCloseBtn" aria-label="Close">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+    <div class="theme-modal-body" id="syncSheetBody"></div>
+  </section>
+</div>
 
 <div id="syncEditorModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="syncEditorModalTitle" aria-hidden="true" style="display:none;">
   <section class="theme-modal-card synth-modal-card sync-editor-card">
@@ -1369,6 +1363,7 @@
     <div class="theme-modal-body">
       <div class="small text-white-50 mb-2" id="syncEditorInfo"></div>
       <div class="d-flex flex-wrap gap-2 mb-2">
+        <button type="button" class="btn btn-sm btn-theme-outline" id="syncTapAgainBtn" title="Close this and tap along to the recording again">Tap again</button>
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncImportToggleBtn">Import</button>
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncUndoBtn" title="Undo the last change">Undo</button>
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncRedoBtn" title="Redo">Redo</button>

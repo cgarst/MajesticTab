@@ -117,7 +117,7 @@
         <h1>Original recording</h1>
         <p class="lead">Sync a tab to a recording, and the cursor follows the music. You can use a YouTube video or an audio file on your device.</p>
 
-<figure class="shot"><img src="../img/app/original.webp" alt="The original recording panel with a YouTube source, a backing track and the Tap to Sync button" width="2880" height="1800" loading="lazy" decoding="async"><figcaption>The original recording panel.</figcaption></figure>
+<figure class="shot"><img src="../img/app/original.webp" alt="The original recording panel with a YouTube source and a backing track" width="2880" height="1800" loading="lazy" decoding="async"><figcaption>The original recording panel.</figcaption></figure>
 
 <h2 id="add-a-recording">Add a recording</h2>
 <ol>
@@ -129,26 +129,30 @@
 <p>The list <strong>Videos for this recording</strong> can hold several videos. Each video keeps its own sync points. Audio files stay on your device. They're included in backups and cloud sync unless you turn that off.</p>
 
 <h2 id="sync-the-recording-by-tapping">Sync the recording by tapping</h2>
+<p>The recording bar above the bar ruler shows the sync state of the recording: <strong>Not synced</strong>, <strong>Partly synced</strong>, <strong>Synced</strong> or <strong>Check bar</strong> with a bar number. Everything you do to sync a recording starts there.</p>
 <ol>
-  <li>Select <strong>Tap to Sync</strong>.</li>
+  <li>In the recording bar, select <strong>Sync</strong>. On a Guitar Pro tab, the Sync sheet opens.</li>
+  <li>In the Sync sheet, select <strong>Tap along</strong>.</li>
   <li>Play the recording. Tap each bar of the tab when you hear it.</li>
+  <li>Select <strong>Done</strong>.</li>
 </ol>
+<p>On a PDF or text tab, <strong>Sync</strong> starts tapping straight away, and the recording bar has the controls for it.</p>
 <p>After you sync, the cursor follows the recording through tempo changes. The metronome and count-in follow it too. Syncing works for Guitar Pro, PDF and text tabs.</p>
-<p><strong>Calibrate tap offset</strong> measures how long you take to tap after you hear a sound, and removes that delay from every tap.</p>
+<p><strong>Calibrate</strong> measures how long you take to tap after you hear a sound, and removes that delay from every tap.</p>
 
 <h2 id="correct-sync-points">Correct sync points</h2>
-<p>Select <strong>Sync Points</strong> to edit the points you tapped. You can:</p>
+<p>When a recording has sync points, the recording bar shows <strong>Edit sync</strong> instead of <strong>Sync</strong>. Select it to open the Sync sheet. It tells you what looks wrong: a bar whose point looks out of place, or bars with no point. From the sheet you can:</p>
 <ul>
-  <li>Tap again over a range of bars without redoing the rest.</li>
-  <li>Nudge a point.</li>
-  <li>Play two seconds around a point to check it.</li>
-  <li>Move a point to the nearest sound in the recording.</li>
-  <li>Delete a point.</li>
+  <li>Select <strong>Tap along again</strong> to tap over the bars that drift. In tap mode, <strong>Fix range</strong> redoes a stretch of bars without redoing the rest.</li>
+  <li>Select <strong>Edit points</strong> to open the points. There you can nudge a point, play two seconds around it to check it, move it to the nearest sound in the recording, shift every point at once, or delete a point.</li>
 </ul>
-<p>To reuse sync points, select <strong>Copy sync points from another video or file…</strong> or <strong>Copy sync points from another tab…</strong>. MajesticTab copies the times as they are. Use this for the same recording, and then adjust the points.</p>
+
+<h2 id="reuse-sync-points">Reuse sync points</h2>
+<p>In the Sync sheet, select <strong>Use another recording’s sync</strong> to copy the points of another video or file of the same tab. If the other recording is an audio file and so is this one, MajesticTab lines them up by the sound. Otherwise it copies the times as they are. Then the points open so that you can shift them by ear. If this recording already has points, you select the other recording twice to replace them.</p>
+<p>Select <strong>Use another tab’s sync</strong> to copy a synced video from another tab of the same song. Select <strong>Import points…</strong> to load points from a file or an address.</p>
 
 <h2 id="add-a-backing-track">Add a backing track</h2>
-<p>Switch the panel from <strong>Recording</strong> to <strong>Backing</strong> to attach a separate backing track to the same tab. Sync it the same way. Then you can switch between the original recording and the backing track.</p>
+<p>Switch the panel from <strong>Recording</strong> to <strong>Backing</strong> to attach a separate backing track to the same tab. Sync it the same way. Then you can switch between the original recording and the backing track. To make the backing track follow the original recording’s points, turn on <strong>Use the original recording’s sync</strong> in the Sync sheet.</p>
 
 <h2 id="change-the-speed">Change the speed</h2>
 <p>The original recording has its own speed options: 50%, 75%, 100% and 125%.</p>
@@ -163,7 +167,7 @@
       </nav>
       <p class="gedit small muted">If something on this page is wrong or out of date, <a href="https://github.com/cgarst/MajesticTab/edit/main/support/guide/pages/original-audio.html">edit this page on GitHub</a> or <a href="https://github.com/cgarst/MajesticTab/issues">report an issue</a>.</p>
     </main>
-    <nav class="gtoc" aria-label="On this page"><h2 class="gtoc-title">On this page</h2><ul><li><a href="#add-a-recording">Add a recording</a></li><li><a href="#sync-the-recording-by-tapping">Sync the recording by tapping</a></li><li><a href="#correct-sync-points">Correct sync points</a></li><li><a href="#add-a-backing-track">Add a backing track</a></li><li><a href="#change-the-speed">Change the speed</a></li><li><a href="#use-a-recording-in-a-jam">Use a recording in a Jam</a></li></ul></nav>
+    <nav class="gtoc" aria-label="On this page"><h2 class="gtoc-title">On this page</h2><ul><li><a href="#add-a-recording">Add a recording</a></li><li><a href="#sync-the-recording-by-tapping">Sync the recording by tapping</a></li><li><a href="#correct-sync-points">Correct sync points</a></li><li><a href="#reuse-sync-points">Reuse sync points</a></li><li><a href="#add-a-backing-track">Add a backing track</a></li><li><a href="#change-the-speed">Change the speed</a></li><li><a href="#use-a-recording-in-a-jam">Use a recording in a Jam</a></li></ul></nav>
 </div>
 <footer class="foot">
   <div class="wrap gwrap">

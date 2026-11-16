@@ -792,10 +792,10 @@ function updateToolbar() {
     let hint;
     if (s.source.isBuffering?.()) hint = 'Waiting for the recording...';
     else if (s.audition) hint = 'Auditioning: the cursor follows the points. Press Stop when you have heard enough.';
-    else if (s.rangeArmed && !s.rangeStart) hint = 'Fix Range: while it plays, click the bar where the bad stretch starts. Escape cancels.';
+    else if (s.rangeArmed && !s.rangeStart) hint = 'Fix range: while it plays, click the bar where the bad stretch starts. Escape cancels.';
     else if (s.rangeArmed) hint = 'Now click the bar where the bad stretch ends.';
     else if (playing) hint = 'Click any bar at the moment you hear it start. The points it contradicts are replaced.';
-    else hint = 'Press play. When the cursor drifts, click the bar you hear. Use Fix Range for a longer stretch.';
+    else hint = 'Press play. When the cursor drifts, click the bar you hear. Use Fix range for a longer stretch.';
     if (s.lastSnap !== null && !s.audition) hint += ` (Last tap snapped ${Math.abs(s.lastSnap)} ms ${s.lastSnap < 0 ? 'earlier' : 'later'}.)`;
     $('smHint').textContent = hint;
 }

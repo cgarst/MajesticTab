@@ -25,7 +25,7 @@ import {
 
 export { SYNC_CHANGED_EVENT };
 
-const PROBLEM_TEXT = {
+export const PROBLEM_TEXT = {
     missing: 'This bar pass is not played in the score',
     order: 'Out of order: must come after the previous point in both the recording and the score',
     tempo: 'Implies a tempo far from the written one'
@@ -476,6 +476,12 @@ export function initAudioSyncEditor() {
     });
     $('syncUndoBtn').addEventListener('click', undo);
     $('syncRedoBtn').addEventListener('click', redo);
+    $('syncTapAgainBtn').addEventListener('click', () => {
+        // Hand over to tap mode of the same recording (the panel's tap control checks TV and Jam guest rules itself)
+        const tapBtn = document.getElementById(`${current?.media?.kind === 'youtube' ? 'yt' : 'af'}SyncTapBtn`);
+        closeModal('syncEditorModal');
+        tapBtn?.click();
+    });
     $('syncImportToggleBtn').addEventListener('click', () => {
         const panel = $('syncImportPanel');
         panel.hidden = !panel.hidden;

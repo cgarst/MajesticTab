@@ -1151,7 +1151,6 @@ const slotOfKind = (kind) => (kind === 'backing' ? 'backing' : 'original');
 let lastRememberedId = null;
 let removeMode = false;
 let armedRemoval = null;
-let armedCopy = null;
 let armTimer = 0;
 
 /** Remembers the video that is loaded as a choice for the current slot (not a Jam video, which belongs to the host). */
@@ -1191,11 +1190,10 @@ export function getVideoChoices(slot = playerState.trackMode) {
 const videoTitle = (id) => getVideoInfo(id)?.title || 'Loading…';
 const videoSubline = (id, count) => [getVideoInfo(id)?.author, count ? `Synced · ${count} ${count === 1 ? 'point' : 'points'}` : 'Not synced'].filter(Boolean).join(' · ');
 
-const songKeyNow = () => getSongKey();
-function disarm() { clearTimeout(armTimer); armedRemoval = null; armedCopy = null; }
+function disarm() { clearTimeout(armTimer); armedRemoval = null; }
 function arm(kind, id) {
     disarm();
-    if (kind === 'remove') armedRemoval = id; else armedCopy = id;
+    if (kind === 'remove') armedRemoval = id;
     armTimer = setTimeout(() => { disarm(); renderSyncedVideos(); }, 4000);
 }
 
@@ -1240,8 +1238,6 @@ export async function renderSyncedVideos() {
     const editBtn = document.getElementById('ytEditVideosBtn');
     if (editBtn) { editBtn.hidden = choices.length === 0; editBtn.textContent = removeMode ? 'Done' : 'Remove videos…'; editBtn.setAttribute('aria-pressed', removeMode ? 'true' : 'false'); }
     if (choices.length === 0) removeMode = false;
-    const copyTabBtn = document.getElementById('ytCopyFromOtherTabBtn');
-    if (copyTabBtn) copyTabBtn.hidden = siblingVideos.length === 0;
     if (wrap.hidden) return;
 
     const current = localStorage.getItem(getStorageKey()) || playerState.currentVideoId;
@@ -1250,65 +1246,6 @@ export async function renderSyncedVideos() {
         list.appendChild(videoRow(c, current, { remove: removeMode }));
         if (!getVideoInfo(c.videoId)) lookupVideoInfo(c.videoId);
     });
-
-    const activeVideo = getSyncedVideos().find((v) => v.videoId === current);
-    const originInfo = document.getElementById('ytSyncedOriginInfo');
-    if (originInfo) {
-        const o = activeVideo?.origin;
-        originInfo.hidden = !o;
-        originInfo.textContent = o ? (o.fromAudioId ? `Sync points copied from ${o.fromAudioName || 'an audio file'}` : o.fromVideoId ? `Sync points copied from ${getVideoInfo(o.fromVideoId)?.title || 'another video'}` : `Copied from tab: ${o.fromTabName || o.fromSongKey || ''}`) : '';
-    }
-
-    // Copy sync points between this tab's videos: into the current video, from another one that has points
-    // (from any recording of the song with points: another video or an audio file)
-    const sources = listRecords(songKeyNow()).filter((r) => r.points.length && mediaKey(r.media) !== `yt_${current}`);
-    const copyBtn = document.getElementById('ytCopyBetweenBtn');
-    const picker = document.getElementById('ytCopyPicker');
-    const showCopy = Boolean(current) && sources.length > 0;
-    if (copyBtn) copyBtn.hidden = !showCopy;
-    if (picker && !showCopy) picker.hidden = true;
-    const pickerList = document.getElementById('ytCopyPickerList');
-    if (pickerList && picker && !picker.hidden) {
-        pickerList.textContent = '';
-        const mine = getSyncedVideos().find((v) => v.videoId === current);
-        sources.forEach((r) => {
-            const key = mediaKey(r.media);
-            const isLocal = r.media.kind === 'local';
-            const row = document.createElement('button');
-            row.type = 'button';
-            row.className = 'slot vrow-copy';
-            row.dataset.copyFrom = key;
-            const t = document.createElement('span'); t.className = 't';
-            const b = document.createElement('b');
-            b.textContent = armedCopy === key ? `Replace ${mine?.count || 0} sync points?` : (isLocal ? (r.media.name || 'Audio file') : videoTitle(r.media.videoId));
-            const sub = document.createElement('span');
-            sub.textContent = isLocal ? `Audio file · ${r.points.length} ${r.points.length === 1 ? 'point' : 'points'}` : videoSubline(r.media.videoId, r.points.length);
-            t.append(b, sub);
-            row.append(t);
-            if (armedCopy === key) row.classList.add('is-armed');
-            pickerList.appendChild(row);
-            if (!isLocal && !getVideoInfo(r.media.videoId)) lookupVideoInfo(r.media.videoId);
-        });
-    }
-}
-
-/** Copies the sync points of one of this tab's videos onto the current one (the times are copied as they are). */
-function copyPointsBetweenVideos(fromKey) {
-    const songKey = getSongKey();
-    const toVideoId = localStorage.getItem(getStorageKey()) || playerState.currentVideoId;
-    const from = listRecords(songKey).find((r) => mediaKey(r.media) === fromKey);
-    if (!songKey || !toVideoId || !from) return;
-    const origin = from.media.kind === 'local'
-        ? { fromAudioId: from.media.audioId, fromAudioName: from.media.name, fromSongKey: songKey, copiedAt: Date.now() }
-        : { fromVideoId: from.media.videoId, fromSongKey: songKey, copiedAt: Date.now() };
-    const media = { kind: 'youtube', videoId: toVideoId, origin };
-    if (saveRecord(songKey, media, from.points)) {
-        window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
-        const picker = document.getElementById('ytCopyPicker');
-        if (picker) picker.hidden = true;
-        document.getElementById('ytCopyBetweenBtn')?.setAttribute('aria-expanded', 'false');
-        renderSyncedVideos();
-    }
 }
 
 /** Removes a video from the list, and its sync points with it; if it was the current one, the next most recent takes over. */
@@ -1350,26 +1287,6 @@ function initVideoList() {
         removeMode = !removeMode;
         disarm();
         renderSyncedVideos();
-    });
-    document.getElementById('ytCopyBetweenBtn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const picker = document.getElementById('ytCopyPicker');
-        if (!picker) return;
-        picker.hidden = !picker.hidden;
-        e.currentTarget.setAttribute('aria-expanded', picker.hidden ? 'false' : 'true');
-        disarm();
-        renderSyncedVideos();
-    });
-    document.getElementById('ytCopyPickerList')?.addEventListener('click', (e) => {
-        const row = e.target.closest('[data-copy-from]');
-        if (!row) return;
-        e.stopPropagation();
-        const id = row.dataset.copyFrom;
-        const current = localStorage.getItem(getStorageKey()) || playerState.currentVideoId;
-        const mine = getSyncedVideos().find((v) => v.videoId === current);
-        if (mine?.count > 0 && armedCopy !== id) { arm('copy', id); renderSyncedVideos(); return; }
-        disarm();
-        copyPointsBetweenVideos(id);
     });
     window.addEventListener(SYNC_CHANGED_EVENT, () => renderSyncedVideos());
 }

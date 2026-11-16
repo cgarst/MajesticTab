@@ -1619,10 +1619,6 @@ body.fretboard-open {
 #manageSyncedSelectAll:indeterminate {
   background-color: var(--action) !important;
 }
-#ytSyncedOriginInfo {
-  font-size: 12px;
-  color: var(--ink2);
-}
 
 /* ==========================================================================
    Discography Shelf & Album Blocks (Precision Gear-Stack Style)
@@ -6205,3 +6201,20 @@ body.theme-sheet-active .txt-ribbon-gutter {
     padding-left: 10px;
   }
 }
+
+/* Sync sheet: the one place to line a recording up with the score. Rows, not cards; tone steps, no outlines; the one
+   primary action (Tap along) is the only coloured control. */
+.sync-sheet-card { max-width: min(460px, calc(100vw - 24px)) !important; }
+.sync-sheet-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.sync-sheet-status { margin: 0 0 4px; font: 500 15px system-ui, sans-serif; color: var(--ink); }
+.sync-sheet-note { margin: 0 0 4px; font-size: 13px; color: var(--ink2); }
+.sync-sheet-primary { display: block; width: 100%; margin: 12px 0 8px; min-height: 44px; }
+.sync-sheet-list { display: flex; flex-direction: column; gap: 2px; }
+.sync-sheet-row { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; min-height: 44px; padding: 8px 10px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--ink); text-align: left; }
+.sync-sheet-row:hover, .sync-sheet-row:focus-visible, .sync-sheet-row[aria-expanded="true"] { background: var(--s2); }
+.sync-sheet-row.is-armed { background: var(--s3); }
+.sync-sheet-row-label { font: 500 14px system-ui, sans-serif; }
+.sync-sheet-row-sub { font-size: 12px; color: var(--ink2); }
+.sync-sheet-picker { display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px 12px; }
+.sync-sheet-picker .sync-sheet-row { background: var(--s1); }
+.sync-sheet-picker .sync-sheet-row:hover, .sync-sheet-picker .sync-sheet-row:focus-visible, .sync-sheet-picker .sync-sheet-row.is-armed { background: var(--s2); }
