@@ -44,6 +44,8 @@ export const ITEM_ACTION = Object.freeze({
     UPLOAD: 'upload', DOWNLOAD: 'download', MERGE: 'merge', DELETE_LOCAL: 'delete-local', DELETE_REMOTE: 'delete-remote',
 });
 
+export const REMOTE_ONLY_FP = '__remote_only__';
+
 export const TOMBSTONES_PATH = 'tombstones.json';
 const SOUNDFONT_DIR = 'soundfonts';
 const CLASSTAB_DIR = 'classtab';
@@ -160,9 +162,15 @@ function planFrom(read, mine, base, { hybrid = false, keepLocalPacks = new Set()
         const m = mine.get(key), r = read.remote.get(key);
         const d = decideItem({ l: m?.fp, r: r?.version, base: base?.items?.[key], tombstoneAt: read.tombstones.items?.[key]?.at || 0, time: m?.time || 0 });
         if (!d) {
-            if (hybrid && key.startsWith('p:') && m?.hasAudio === false && r?.hasAudio && keepLocalPacks.has(m.id)) {
-                items.push({ key, kind: 'pack', id: m.id, name: m.name || m.id, size: r.size || 0, action: ITEM_ACTION.DOWNLOAD });
-                continue;
+            if (key.startsWith('p:') && r) {
+                if (m?.remoteOnly && (!hybrid || keepLocalPacks.has(m.id))) {
+                    items.push({ key, kind: 'pack', id: m.id, name: m.name || m.id, size: r.size || 0, action: ITEM_ACTION.DOWNLOAD });
+                    continue;
+                }
+                if (hybrid && m?.hasAudio === false && r?.hasAudio && keepLocalPacks.has(m.id)) {
+                    items.push({ key, kind: 'pack', id: m.id, name: m.name || m.id, size: r.size || 0, action: ITEM_ACTION.DOWNLOAD });
+                    continue;
+                }
             }
             unchanged++;
             continue;
@@ -362,11 +370,22 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
         }
     };
 
+    const remoteLibraryPackIds = new Set((read.remoteLibrary?.songs || []).map((s) => s.packId || s.id));
+
     const download = async (item) => {
         if (item.kind === 'pack') {
+            const itemHybrid = hybrid && !keepLocalPacks.has(item.id);
+            const isRemoteOnlyHere = !mine.has(item.key) || mine.get(item.key)?.remoteOnly;
+            if (itemHybrid && isRemoteOnlyHere) {
+                // Fast hybrid sync: library.json already carries song metadata and tabOptions; only read manifest.json for packs absent from library.json
+                if (!remoteLibraryPackIds.has(item.id) && local.applyManifest) {
+                    const manifest = await readJson(store, `packs/${item.id}/manifest.json`);
+                    await local.applyManifest(item.id, manifest);
+                }
+                return;
+            }
             if (!mine.has(item.key)) freshPackIds.add(item.id);
-            const includeAudio = !hybrid || keepLocalPacks.has(item.id);
-            await local.applyPack(item.id, await packs.open(item.id), { includeAudio });
+            await local.applyPack(item.id, await packs.open(item.id), { includeAudio: !itemHybrid });
         } else if (!hybrid) {
             const meta = read.remote.get(item.key);
             await local.applyBlob(item.key, await store.read(blobPath(item.key)), { name: meta.name, size: meta.size, addedAt: meta.addedAt });
@@ -386,13 +405,17 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
                 nextItems[item.key] = { l: undefined, r: rVersion }; needsFp.add(item.key);
                 out.downloaded++;
             } else if (item.action === ITEM_ACTION.MERGE) {
-                await download(item);
-                // The store's copy is in here now; send the result back only if it holds something the store's copy lacks
                 const itemHybrid = hybrid && !keepLocalPacks.has(item.id);
-                if (item.kind === 'pack' && await differsFromStore(local, packs, item, { hybrid: itemHybrid })) {
-                    await upload(item, rVersion);
-                    nextItems[item.key] = { l: undefined, r: await remoteVersion(item.key) };
-                } else nextItems[item.key] = { l: undefined, r: rVersion };
+                if (item.kind === 'pack' && itemHybrid && mine.get(item.key)?.remoteOnly) {
+                    nextItems[item.key] = { l: undefined, r: rVersion };
+                } else {
+                    await download(item);
+                    // The store's copy is in here now; send the result back only if it holds something the store's copy lacks
+                    if (item.kind === 'pack' && await differsFromStore(local, packs, item, { hybrid: itemHybrid })) {
+                        await upload(item, rVersion);
+                        nextItems[item.key] = { l: undefined, r: await remoteVersion(item.key) };
+                    } else nextItems[item.key] = { l: undefined, r: rVersion };
+                }
                 needsFp.add(item.key);
                 out.merged++;
             } else if (item.action === ITEM_ACTION.UPLOAD) {

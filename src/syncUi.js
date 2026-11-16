@@ -279,9 +279,9 @@ function hybridControlsHtml(target) {
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2">
             <div class="form-check form-switch m-0">
                 <input class="form-check-input theme-switch" type="checkbox" id="syncHybridToggle" ${on ? 'checked' : ''}>
-                <label class="form-check-label small" for="syncHybridToggle">Keep audio and SoundFonts remote</label>
+                <label class="form-check-label small" for="syncHybridToggle">Keep files in cloud until opened</label>
             </div>
-            ${on ? textAction('evict-local-heavy', `Remove local audio and SoundFonts in ${shortPlace(target)}`) : ''}
+            ${on ? textAction('evict-local-heavy', `Remove local files already in ${shortPlace(target)}`) : ''}
         </div>`;
 }
 
@@ -599,15 +599,12 @@ async function evictHeavy() {
     updateProgress({ phase: 'pull', current: 1, total: 2, text: `Checking ${where(target)}...` });
     try {
         const res = await evictLocalHeavyAssets({ store, baselines: localBaselines, location: location(target, store) });
-        const parts = [];
-        if (res.freedAudio) parts.push(`${res.freedAudio} audio file${res.freedAudio === 1 ? '' : 's'}`);
-        if (res.freedSoundFonts) parts.push(`${res.freedSoundFonts} SoundFont${res.freedSoundFonts === 1 ? '' : 's'}`);
-        if (parts.length) {
+        if (res.freedAudio || res.freedSoundFonts || res.freedScores) {
             reloadOnClose = true;
             const mb = res.freedBytes >= 1024 * 1024 ? ` (${(res.freedBytes / (1024 * 1024)).toFixed(1)} MB)` : '';
-            showToast(`Removed ${parts.join(' and ')} from this device${mb}. Copies remain in ${where(target)}.`, 'success');
+            showToast(`Removed local files from this device${mb}. Copies remain in ${where(target)}.`, 'success');
         } else {
-            showToast(`No local audio or SoundFonts in ${where(target)} to remove.`, 'info');
+            showToast(`No local files in ${where(target)} to remove.`, 'info');
         }
         return start();
     } catch (err) {

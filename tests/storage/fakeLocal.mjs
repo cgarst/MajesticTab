@@ -1,6 +1,7 @@
 // tests/storage/fakeLocal.mjs
 // A fake of this device for the pack sync tests: songs with scores (and optionally audio), soundfonts, records, settings.
 import { buildMpak, concatParts, sha256 } from '../../src/mpak/core/index.js';
+import { REMOTE_ONLY_FP } from '../../src/storage/packSync.js';
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -27,6 +28,10 @@ export function fakeLocal() {
         async items() {
             const out = new Map();
             for (const s of state.songs.values()) out.set(`p:${s.id}`, { kind: 'pack', id: s.id, name: s.title, fp: fpOf(s), time: s.added, hasAudio: Boolean(s.audio) });
+            for (const r of state.records.songs) {
+                const pid = r.packId || r.id;
+                if (pid && !out.has(`p:${pid}`)) out.set(`p:${pid}`, { kind: 'pack', id: pid, name: r.title, fp: REMOTE_ONLY_FP, time: r.addedAt || 0, hasAudio: false, remoteOnly: true });
+            }
             for (const [id, f] of state.fonts) out.set(`s:${id}`, { kind: 'soundfont', id, name: f.name, fp: `${f.bytes.length}:${f.addedAt}`, time: f.addedAt, size: f.bytes.length });
             return out;
         },

@@ -4475,6 +4475,38 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
             }
         }
         // @googleDrive:end
+        if (!file) {
+            try {
+                const { isPackId } = await import('./mpak.js');
+                const packId = isPackId(song.id) ? song.id : (isPackId(song.packId) ? song.packId : null);
+                if (packId) {
+                    const { getTarget, openSyncStore, locationOf } = await import('./syncBackend.js');
+                    const target = getTarget();
+                    if (target) {
+                        showToast(`Downloading "${song.title || tabOption.name}"...`, 'info');
+                        const store = await openSyncStore(target, { interactive: true });
+                        if (store) {
+                            const { fetchPackOnDemand, isHybridSyncEnabled } = await import('./packSyncLocal.js');
+                            await fetchPackOnDemand(store, packId, { includeAudio: !isHybridSyncEnabled(), location: locationOf(target, store) });
+                            const refreshed = await getSongById(song.id);
+                            const match = (refreshed?.tabOptions || []).find((t) =>
+                                t.id === tabOption.id || (tabOption.sha256 && t.sha256 === tabOption.sha256) || t.name === tabOption.name
+                            ) || refreshed?.tabOptions?.[0];
+                            if (match?.fileStoreId) {
+                                const stored = await getStoredFile(match.fileStoreId);
+                                if (stored?.file) {
+                                    file = stored.file;
+                                    tabOption = match;
+                                    song = refreshed;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (dlErr) {
+                console.warn('Could not download song from sync store:', dlErr);
+            }
+        }
 
         if (file) {
             file.songTitle = song.title;

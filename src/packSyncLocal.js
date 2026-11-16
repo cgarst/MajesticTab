@@ -7,7 +7,7 @@
 // and video choices of its two recording slots, and its sync points. Any change to those changes the fingerprint, which is
 // what makes sync send the song again. It reads stored-file and audio metadata, never file bytes.
 import { getAllLibraryData, getSongById, putLibraryRecord, deleteLibraryRecord, deleteSongFromLibrary, setSongPackId } from './libraryStore.js';
-import { getAllStoredFiles } from './fileStore.js';
+import { getAllStoredFiles, getStoredFile, deleteStoredFile } from './fileStore.js';
 import { listSoundFonts, getSoundFontData, restoreSoundFontEntry, deleteSoundFont } from './soundFontStore.js';
 import { listClasstab, getClasstabData, restoreClasstabEntry, deleteClasstab, classtabFingerprint } from './classtab/backup.js';
 import { listAudioFiles, deleteAudioFile } from './audioSync/audioFileStore.js';
@@ -17,6 +17,8 @@ import { isPackId, saveMpakToLibrary } from './mpak.js';
 import { readDirectory, readEntry } from './mpak/core/index.js';
 import { blobSource } from './storage/mtbackup.js';
 import { createPackStore } from './storage/packStore.js';
+import { REMOTE_ONLY_FP } from './storage/packSync.js';
+import { songFromManifest } from './storage/libraryDocs.js';
 import { recordStorage } from './audioSync/syncRecordStore.js';
 
 const HYBRID_SYNC_KEY = 'majestictab_sync_hybrid';
@@ -24,7 +26,6 @@ export const isHybridSyncEnabled = () => { try { return localStorage.getItem(HYB
 export const setHybridSyncEnabled = (on) => { try { localStorage.setItem(HYBRID_SYNC_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ } };
 import { fingerprintValue } from './recordSync.js';
 import { sha256 } from './mpak/core/index.js';
-import { getStoredFile } from './fileStore.js';
 
 const enc = (s) => encodeURIComponent(String(s).toLowerCase());
 const songKeyOf = (song) => [song.artist, song.title].filter(Boolean).join(' - ') || song.title || '';
@@ -140,7 +141,14 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
             songOfPack = new Map();
             for (const song of songs) {
                 const tabs = (song.tabOptions || []).filter((t) => t.fileStoreId && fileById.has(t.fileStoreId));
-                if (!tabs.length) continue;
+                if (!tabs.length) {
+                    if ((song.tabOptions || []).length && (isPackId(song.id) || isPackId(song.packId))) {
+                        const packId = isPackId(song.id) ? song.id : song.packId;
+                        songOfPack.set(packId, song.id);
+                        out.set(`p:${packId}`, { kind: 'pack', id: packId, name: song.title, fp: REMOTE_ONLY_FP, time: song.addedAt || 0, hasAudio: false, remoteOnly: true });
+                    }
+                    continue;
+                }
                 const packId = await packIdOfSong(song);
                 songOfPack.set(packId, song.id);
                 const songKey = enc(songKeyOf(song));
@@ -200,6 +208,11 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
             await saveMpakToLibrary(blob, { queryMusicBrainz: false });
         },
 
+        /** Creates a remote-only song record from a pack's manifest when it isn't in library.json. */
+        async applyManifest(packId, manifest) {
+            await putLibraryRecord('song', songFromManifest(packId, manifest, { now: now() }));
+        },
+
         async applyBlob(key, bytes, meta) {
             const item = { id: key.slice(2), name: meta.name, size: meta.size || bytes.length, addedAt: meta.addedAt || now(), fetchData: async () => asBuffer(bytes) };
             if (key.startsWith('s:')) await restoreSoundFontEntry(item, { wipe: true });
@@ -234,11 +247,23 @@ export const localBaselines = {
     clear(location) { try { localStorage.removeItem(this.key(location)); } catch { /* storage unavailable */ } },
 };
 
+/** Downloads a remote pack (scores and optionally audio) on demand and updates the baseline so it is not re-uploaded. */
+export async function fetchPackOnDemand(store, packId, { includeAudio = !isHybridSyncEnabled(), baselines = localBaselines, location = null } = {}) {
+    const pack = await createPackStore(store).open(packId);
+    const blob = await pack.toMpak({ includeAudio });
+    await saveMpakToLibrary(blob, { queryMusicBrainz: false });
+    if (location) {
+        const base = baselines.get(location) || { items: {}, records: {} };
+        const items = { ...(base.items || {}) };
+        const after = (await createLocalAdapter().items()).get(`p:${packId}`);
+        if (after) items[`p:${packId}`] = { l: after.fp, r: pack.version };
+        baselines.set(location, { ...base, items });
+    }
+}
+
 /** Downloads a remote pack's audio on demand (used when hybrid mode skipped audio during sync). */
 export async function fetchPackAudioOnDemand(store, packId) {
-    const pack = await createPackStore(store).open(packId);
-    const blob = await pack.toMpak({ includeAudio: true });
-    await saveMpakToLibrary(blob, { queryMusicBrainz: false });
+    return fetchPackOnDemand(store, packId, { includeAudio: true });
 }
 
 /** Downloads a remote SoundFont on demand (used when hybrid mode kept it remote during sync). */
@@ -255,7 +280,7 @@ export async function fetchSoundFontOnDemand(store, id, meta = {}) {
 export async function evictLocalHeavyAssets({ store, baselines = localBaselines, location }) {
     const base = baselines.get(location) || { items: {}, records: {} };
     const nextBase = { items: { ...(base.items || {}) }, records: { ...(base.records || {}) } };
-    let freedSoundFonts = 0, freedAudio = 0, freedBytes = 0;
+    let freedSoundFonts = 0, freedAudio = 0, freedScores = 0, freedBytes = 0;
 
     const [fonts, remoteFontEntries] = await Promise.all([listSoundFonts(), store.list('soundfonts/')]);
     const remoteFontPaths = new Set(remoteFontEntries.map((e) => e.path));
@@ -267,30 +292,35 @@ export async function evictLocalHeavyAssets({ store, baselines = localBaselines,
         freedBytes += f.size || 0;
     }
 
-    const [audioFiles, { songs, setlists }, remotePackEntries] = await Promise.all([
-        listAudioFiles(), getAllLibraryData(), store.list('packs/'),
+    const [audioFiles, storedFiles, { songs, setlists }, remotePackEntries] = await Promise.all([
+        listAudioFiles(), getAllStoredFiles(), getAllLibraryData(), store.list('packs/'),
     ]);
+    const packsWithAudio = new Set();
+    const remoteManifestPacks = new Set();
+    for (const e of remotePackEntries) {
+        const audioMatch = /^packs\/([^/]+)\/audio\/.+/.exec(e.path);
+        if (audioMatch) packsWithAudio.add(audioMatch[1]);
+        const manMatch = /^packs\/([^/]+)\/manifest\.json$/.exec(e.path);
+        if (manMatch) remoteManifestPacks.add(manMatch[1]);
+    }
+    const setlistSongIds = new Set();
+    for (const sl of setlists || []) {
+        for (const item of sl.items || []) {
+            if (item?.songId) setlistSongIds.add(item.songId);
+        }
+    }
+    const isProtected = (song) => Boolean(song.pinned || setlistSongIds.has(song.id));
+    const evictedPackIds = new Set();
+
     if (audioFiles.length) {
-        const packsWithAudio = new Set();
-        for (const e of remotePackEntries) {
-            const m = /^packs\/([^/]+)\/audio\/.+/.exec(e.path);
-            if (m) packsWithAudio.add(m[1]);
-        }
-        const setlistSongIds = new Set();
-        for (const sl of setlists || []) {
-            for (const item of sl.items || []) {
-                if (item?.songId) setlistSongIds.add(item.songId);
-            }
-        }
         const packBySongKey = new Map();
         const protectedSongKeys = new Set();
         for (const song of songs) {
             const k = enc(songKeyOf(song));
             const pid = isPackId(song.id) ? song.id : (isPackId(song.packId) ? song.packId : null);
             if (k && pid) packBySongKey.set(k, pid);
-            if (k && (song.pinned || setlistSongIds.has(song.id))) protectedSongKeys.add(k);
+            if (k && isProtected(song)) protectedSongKeys.add(k);
         }
-        const evictedPackIds = new Set();
         for (const a of audioFiles) {
             const keys = a.songKeys || [];
             if (!keys.length) continue;
@@ -302,18 +332,48 @@ export async function evictLocalHeavyAssets({ store, baselines = localBaselines,
             freedBytes += a.size || 0;
             for (const pid of packIds) evictedPackIds.add(pid);
         }
-        if (evictedPackIds.size) {
-            const afterItems = await createLocalAdapter().items();
-            for (const pid of evictedPackIds) {
-                const key = `p:${pid}`;
-                const after = afterItems.get(key);
-                if (nextBase.items[key] && after) {
-                    nextBase.items[key] = { ...nextBase.items[key], l: after.fp };
-                }
+    }
+
+    const fileById = new Map(storedFiles.map((f) => [f.id, f]));
+    const refCounts = new Map();
+    for (const song of songs) {
+        for (const t of song.tabOptions || []) {
+            if (t.fileStoreId) refCounts.set(t.fileStoreId, (refCounts.get(t.fileStoreId) || 0) + 1);
+        }
+    }
+    for (const song of songs) {
+        if (isProtected(song)) continue;
+        const pid = isPackId(song.id) ? song.id : (isPackId(song.packId) ? song.packId : null);
+        if (!pid || !remoteManifestPacks.has(pid)) continue;
+        const hadFile = (song.tabOptions || []).some((t) => t.fileStoreId && fileById.has(t.fileStoreId));
+        if (!hadFile) continue;
+        const updatedTabs = (song.tabOptions || []).map((t) => {
+            if (!t.fileStoreId) return t;
+            refCounts.set(t.fileStoreId, (refCounts.get(t.fileStoreId) || 1) - 1);
+            return { ...t, fileStoreId: null };
+        });
+        await putLibraryRecord('song', { ...song, tabOptions: updatedTabs });
+        evictedPackIds.add(pid);
+    }
+    for (const [fileId, count] of refCounts) {
+        if (count <= 0 && fileById.has(fileId)) {
+            await deleteStoredFile(fileId);
+            freedScores++;
+            freedBytes += fileById.get(fileId).size || 0;
+        }
+    }
+
+    if (evictedPackIds.size) {
+        const afterItems = await createLocalAdapter().items();
+        for (const pid of evictedPackIds) {
+            const key = `p:${pid}`;
+            const after = afterItems.get(key);
+            if (nextBase.items[key] && after) {
+                nextBase.items[key] = { ...nextBase.items[key], l: after.fp };
             }
         }
     }
 
     baselines.set(location, nextBase);
-    return { freedAudio, freedSoundFonts, freedBytes };
+    return { freedAudio, freedSoundFonts, freedScores, freedBytes };
 }
