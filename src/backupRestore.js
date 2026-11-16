@@ -1317,9 +1317,8 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
     const songsMissingCover = (libraryData.songs || []).filter(s => !s.coverUrl || s.coverUrl.includes('data:image/svg+xml')).length;
     const uniqueAlbumsCount = new Set((libraryData.songs || []).map(s => `${(s.artist || '').toLowerCase().trim()}:::${(s.album || '').toLowerCase().trim()}`).filter(Boolean)).size;
 
-    // The location chosen for Sync is the default here too ('folder' is the Local Device provider)
-    const preferred = getPreferredStorage() === 'folder' ? 'local' : getPreferredStorage();
-    const wanted = options.provider || preferred;
+    // A backup is a file the user keeps; it defaults to this device and is independent of the location chosen for Sync
+    const wanted = options.provider || 'local';
     const preferredProviderId = providers.some(p => p.id === wanted) ? wanted : providers[0]?.id;
 
     modal.innerHTML = `
@@ -1342,63 +1341,40 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="backup-summary-box p-3 rounded-3 mb-3">
             <div class="small fw-semibold text-white mb-2">In this backup</div>
             <div class="text-white-50 small">
-              <span class="text-white fw-medium">${storedFiles.length}</span> tabs (${formatBytes(tabsTotalSize)}) · <span class="text-white fw-medium">${libraryData.songs?.length || 0}</span> songs · App settings
+              <span class="text-white fw-medium">${libraryData.songs?.length || 0}</span> songs · <span class="text-white fw-medium">${storedFiles.length}</span> tabs (${formatBytes(tabsTotalSize)}) · setlists and app settings
             </div>
+            <div class="text-white-50 small mt-1" style="font-size: 0.75rem;">One .mtbackup file. Each song is a standard .mpak inside it, with its recordings and sync points.</div>
+            <div class="text-white-50 small mt-2" id="backupLastLine" style="font-size: 0.75rem;"></div>
           </div>
 
-          <!-- Destination Provider Selector -->
-          <div class="mb-3">
-            <label class="form-label small fw-semibold text-white-50 mb-2 d-block">
-              Save to
-            </label>
-            <div class="d-flex flex-column gap-2" id="backupProviderList">
-              ${providers.map((p, idx) => `
-                <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center justify-content-between gap-2" style="cursor: pointer;">
-                  <div class="d-flex align-items-center gap-3 min-w-0">
-                    <input class="form-check-input theme-radio m-0" type="radio" name="backupTargetProvider" value="${escapeHtml(p.id)}" ${p.id === preferredProviderId ? 'checked' : ''}>
-                    <div class="min-w-0">
-                      <div class="fw-semibold text-white small leading-tight">${escapeHtml(p.name)}</div>
-                      <div class="text-muted text-truncate" style="font-size: 0.73rem;">${escapeHtml(p.saveDescription || p.description || '')}</div>
-                    </div>
-                  </div>
-                </label>
-              `).join('')}
-            </div>
-          </div>
-
-          <!-- Backup Format -->
-          <div class="mb-3">
-            <label class="form-label small fw-semibold text-white-50 mb-2 d-block">Format</label>
-            <div class="d-flex flex-column gap-2">
-              <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center gap-3" id="backupFormatIncrementalOption" style="cursor: pointer;">
-                <input class="form-check-input theme-radio m-0" type="radio" name="backupFormat" value="incremental">
-                <div class="min-w-0">
-                  <div class="fw-semibold text-white small leading-tight">Incremental snapshots</div>
-                  <div class="text-muted" style="font-size: 0.73rem;">Saves only new or changed tabs. Each backup is a restorable snapshot. Works with Google Drive, an S3 bucket, a WebDAV server or a local folder.</div>
-                  <div class="text-warning" id="backupIncrementalHint" style="font-size: 0.73rem; display: none;"></div>
-                </div>
-              </label>
-              <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center gap-3" id="backupFormatSingleOption" style="cursor: pointer;">
-                <input class="form-check-input theme-radio m-0" type="radio" name="backupFormat" value="single">
-                <div class="min-w-0">
-                  <div class="fw-semibold text-white small leading-tight">Single file</div>
-                  <div class="text-muted" style="font-size: 0.73rem;">Everything in one portable .mtbackup file.</div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <!-- Single file: filename -->
+          <!-- Filename -->
           <div class="mb-3" id="backupFilenameGroup">
             <label class="form-label small fw-semibold text-white-50 mb-1" for="backupFilenameInput">Filename</label>
             <input type="text" class="form-control form-control-sm" id="backupFilenameInput" value="${escapeHtml(defaultFilename)}">
           </div>
 
-          <!-- Incremental: what this backup will do -->
-          <div class="backup-summary-box p-3 rounded-3 mb-3" id="backupIncrementalPreview" style="display:none;" aria-live="polite"></div>
-
-          <!-- Audio files: whether they go with the backup -->
-          <div class="backup-summary-box p-3 rounded-3 mb-3" id="backupAudioBox" style="display:none;" aria-live="polite"></div>
+          <!-- Where the file goes: a file on this device unless another place is asked for -->
+          <div class="mb-3">
+            <div class="d-flex align-items-center justify-content-between gap-2">
+              <span class="small text-white-50" id="backupSaveToLine">Saves to a file on this device.</span>
+              <button type="button" class="btn btn-sm btn-link p-0 text-white-50 text-decoration-none flex-shrink-0" id="backupSaveElsewhereBtn" style="font-size: 0.75rem;" aria-expanded="false" aria-controls="backupProviderGroup">Save somewhere else</button>
+            </div>
+            <div class="mt-2" id="backupProviderGroup" style="display: none;">
+              <div class="d-flex flex-column gap-2" id="backupProviderList">
+                ${providers.map((p) => `
+                  <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center justify-content-between gap-2" style="cursor: pointer;">
+                    <div class="d-flex align-items-center gap-3 min-w-0">
+                      <input class="form-check-input theme-radio m-0" type="radio" name="backupTargetProvider" value="${escapeHtml(p.id)}" ${p.id === preferredProviderId ? 'checked' : ''}>
+                      <div class="min-w-0">
+                        <div class="fw-semibold text-white small leading-tight">${escapeHtml(p.name)}</div>
+                        <div class="text-muted text-truncate" style="font-size: 0.73rem;">${escapeHtml(p.saveDescription || p.description || '')}</div>
+                      </div>
+                    </div>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+          </div>
 
           <!-- Status / Action -->
           <div id="backupStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
@@ -1406,7 +1382,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="backupCancelBtn">Cancel</button>
             <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="backupExecuteBtn">
-              Create and save backup
+              Back up
             </button>
           </div>
         </div>
@@ -1416,8 +1392,8 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <!-- Step 1: File Picker / Dropzone -->
           <div class="backup-dropzone p-4 rounded-3 text-center mb-3" id="restoreDropzone">
             <input type="file" id="restoreFileInput" accept=".mtbackup" class="d-none">
-            <div class="fw-semibold text-white small mb-1">Restore from a snapshot or a backup file</div>
-            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Pick an incremental snapshot from Google Drive, an S3 bucket, a WebDAV server or a backup folder, or open a single .mtbackup file<span class="restore-drop-hint"> (you can also drop one here)</span></div>
+            <div class="fw-semibold text-white small mb-1">Restore from a backup file</div>
+            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Open a .mtbackup file<span class="restore-drop-hint"> (you can also drop one here)</span>. Snapshots made by older versions in Google Drive, an S3 bucket, a WebDAV server or a backup folder can still be restored from the buttons below.</div>
             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
               <button type="button" class="btn btn-sm btn-theme-outline px-3" id="restoreBrowseBtn">
                 <span>From file…</span>
@@ -1483,11 +1459,12 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               </div>
               <div class="d-flex align-items-center gap-2 flex-wrap">
                 <span class="small text-white-50" id="restoreExportedDate" style="font-size: 0.75rem;"></span>
-                <button type="button" class="btn btn-sm srow-ghost px-2 py-0" id="restoreChangeFileBtn" style="font-size: 0.75rem;">Change</button>
+                <button type="button" class="btn btn-sm btn-link p-0 text-white-50 text-decoration-none" id="restoreChangeFileBtn" style="font-size: 0.75rem;">Change</button>
               </div>
             </div>
             <div class="text-white-50 small mb-3">
-              <span class="text-white fw-medium" id="restoreTabsCount">0</span> tabs · <span class="text-white fw-medium" id="restoreSongsCount">0</span> songs
+              <span id="restoreCountsLegacy"><span class="text-white fw-medium" id="restoreTabsCount">0</span> tabs · <span class="text-white fw-medium" id="restoreSongsCount">0</span> songs</span>
+              <span id="restoreCountsPacks" style="display:none;"></span>
             </div>
 
             <!-- Snapshot restore preview (incremental backups only) -->
@@ -1984,11 +1961,8 @@ function attachModalHandlers(modal, options = {}) {
     const backupStatusAlert = modal.querySelector('#backupStatusAlert');
     const backupFilenameInput = modal.querySelector('#backupFilenameInput');
     const backupFilenameGroup = modal.querySelector('#backupFilenameGroup');
-    const backupIncrementalPreview = modal.querySelector('#backupIncrementalPreview');
-    const incrementalRadio = modal.querySelector('input[name="backupFormat"][value="incremental"]');
-    const singleRadio = modal.querySelector('input[name="backupFormat"][value="single"]');
-    const incrementalOption = modal.querySelector('#backupFormatIncrementalOption');
-    const getBackupFormat = () => modal.querySelector('input[name="backupFormat"]:checked')?.value || 'single';
+    // Backups are one .mtbackup file; incremental snapshots belong to Sync
+    const getBackupFormat = () => 'single';
     const getBackupProviderId = () => modal.querySelector('input[name="backupTargetProvider"]:checked')?.value || 'local';
 
     // Resolves where an incremental backup would be stored. `interactive` calls must come from a click,
@@ -2028,211 +2002,43 @@ function attachModalHandlers(modal, options = {}) {
         return { status: 'ready', backend: folders.createFolderBackend(handle) };
     };
 
-    // Audio files are the big part of a backup, so say how much goes and and that it is always included
-    const backupAudioBox = modal.querySelector('#backupAudioBox');
-    const renderAudioBox = async () => {
-        if (!backupAudioBox) return;
-        const o = await audioBackupOverview();
-        if (!o.total) { backupAudioBox.style.display = 'none'; return; }
-        backupAudioBox.style.display = 'block';
-        const single = getBackupFormat() === 'single';
-        const plan = single ? await audioBackupPlan() : null;
-        const lines = [];
-        {
-            lines.push(`${plural(o.count, 'audio file')} (${formatBytes(o.bytes)}) will be included. Audio goes only to the backup destination you choose here, never to MajesticTab.`);
-            if (plan?.tooLarge.length) lines.push(`${plural(plan.tooLarge.length, 'file')} over ${formatBytes(SINGLE_FILE_AUDIO_LIMIT)} cannot go into a single file. Use incremental snapshots to include ${plan.tooLarge.length === 1 ? 'it' : 'them'}.`);
-            if (o.bytes >= LARGE_AUDIO_UPLOAD_BYTES) lines.push('That is a lot to send the first time. Later backups send only new or changed audio.');
-        }
-        backupAudioBox.innerHTML = `
-            <div class="d-flex align-items-start justify-content-between gap-2">
-                <div class="min-w-0">
-                    <div class="small fw-semibold text-white"><i class="bi-file-earmark-music text-info me-1"></i> Audio files</div>
-                    ${lines.map(l => `<div class="small text-white-50 mt-1" style="font-size:0.75rem;">${escapeHtml(l)}</div>`).join('')}
-                </div>
-            </div>`;
+    const LAST_BACKUP_KEY = 'majestictab_last_backup_at';
+    const lastBackupLine = modal.querySelector('#backupLastLine');
+    const showLastBackup = () => {
+        if (!lastBackupLine) return;
+        let at = 0;
+        try { at = Number(localStorage.getItem(LAST_BACKUP_KEY)) || 0; } catch { /* storage unavailable */ }
+        lastBackupLine.textContent = at
+            ? `Last backup ${new Date(at).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+            : 'No backup made on this device yet';
     };
+    showLastBackup();
 
-    let previewRequest = 0;
-    const renderIncrementalPreview = async () => {
-        if (!backupIncrementalPreview) return;
-        const request = ++previewRequest;
-        const isDrive = getBackupProviderId() === 'google-drive';
-        const isIcloud = getBackupProviderId() === 'icloud-drive';
-        const isS3 = getBackupProviderId() === 's3';
-        const isWebDav = getBackupProviderId() === 'webdav';
-        const where = isDrive ? 'Google Drive' : isIcloud ? 'iCloud Drive' : isS3 ? 'your S3 bucket' : isWebDav ? 'your WebDAV server' : 'the backup folder';
-        const note = (html) => { if (request === previewRequest) backupIncrementalPreview.innerHTML = html; };
-        const actionBtn = (action, icon, label) => `<button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2" data-backup-action="${action}"><span>${label}</span></button>`;
-
-        note(waitingHtml('Checking for existing backups…'));
-        try {
-            const target = await resolveIncrementalTarget();
-            // @googleDrive:begin
-            if (target.status === 'needs-auth') {
-                return note(`<div class="small text-white-50">Connect Google Drive to back up there and see what changed since your last backup.</div>${actionBtn('connect', '', 'Connect Google Drive')}`);
-            }
-            // @googleDrive:end
-            if (target.status === 'needs-icloud') {
-                return note(`<div class="small text-white-50">iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud, and make sure MajesticTab is allowed to use it.</div>`);
-            }
-            if (target.status === 'needs-s3') {
-                const { s3ConfigFormHtml } = await import('./s3Ui.js');
-                return note(`<div class="small text-white-50 mb-2">Connect an S3 bucket to keep your backups there.</div>${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div>${actionBtn('save-s3', '', 'Save and connect')}`);
-            }
-            if (target.status === 'needs-webdav') {
-                const { webdavConfigFormHtml } = await import('./webdavUi.js');
-                return note(`<div class="small text-white-50 mb-2">Connect a WebDAV server to keep your backups there.</div>${webdavConfigFormHtml()}<div id="backupWebDavError" class="small text-warning mt-2" style="display:none;"></div>${actionBtn('save-webdav', '', 'Save and connect')}`);
-            }
-            if (target.status === 'needs-folder') {
-                return note(`<div class="small text-white-50">Choose a folder on this device to keep your backups in.</div>${actionBtn('choose-folder', '', 'Choose folder')}`);
-            }
-            if (target.status === 'needs-permission') {
-                return note(`<div class="small text-white-50">MajesticTab needs permission to use "${escapeHtml(target.folderName)}" again.</div>${actionBtn('allow-folder', '', 'Allow access')} ${actionBtn('choose-folder', '', 'Choose another')}`);
-            }
-
-            const { previewIncrementalBackup } = await import('./incrementalBackup.js');
-            const p = await previewIncrementalBackup(target.backend);
-            const when = p.latest ? new Date(p.latest.exportedAt).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-            const head = p.latest
-                ? `Last backup ${escapeHtml(when)} (${p.backupCount} saved)`
-                : `No backup in ${where} yet. This will be your first.`;
-            const stat = changeStatHtml;
-            const nothing = p.latest && !p.added && !p.modified && !p.removed && !p.audio.added && !p.audio.modified;
-            const audioLine = p.audio.count
-                ? `<div class="small text-white-50 mt-1" style="font-size:0.75rem;">${p.audio.added + p.audio.modified
-                    ? `${plural(p.audio.added + p.audio.modified, 'audio file')} new or changed (${formatBytes(p.audio.bytesToSend)} to send)`
-                    : 'No new audio'}${p.audio.unchanged ? `, ${p.audio.unchanged} already backed up` : ''}.</div>`
-                : '';
-            note(`
-                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
-                    <div class="min-w-0">
-                        <div class="small fw-semibold text-white">${head}</div>
-                        <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(target.backend.location)}">${escapeHtml(target.backend.location)}</div>
-                    </div>
-                    ${isDrive || isIcloud ? '' : isS3 ? '<div class="d-flex align-items-center gap-1 flex-shrink-0"><button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-backup-action="edit-s3">Bucket settings</button><button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-backup-action="disconnect-s3">Disconnect</button></div>' : isWebDav ? '<div class="d-flex align-items-center gap-1 flex-shrink-0"><button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-backup-action="edit-webdav">Server settings</button><button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-backup-action="disconnect-webdav">Disconnect</button></div>' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
-                </div>
-                <div class="row g-2">
-                    ${stat(p.added, 'New tabs', 'text-success')}
-                    ${stat(p.modified, 'Changed', 'text-info')}
-                    ${stat(p.removed, 'Removed locally', 'text-warning')}
-                    ${stat(p.unchanged, 'Unchanged', 'text-white')}
-                </div>
-                <div class="small text-white-50 mt-2" style="font-size:0.75rem;">
-                    ${nothing ? 'No tab changes. Library and settings are still saved as a new snapshot.' : `About ${formatBytes(p.bytesToSend)} to save. Library and settings are saved with every snapshot.`}
-                    ${p.removed ? ' Removed tabs stay in older snapshots.' : ''}
-                </div>
-                ${audioLine}`);
-        } catch (err) {
-            note(`<div class="small text-warning">Could not check ${where}: ${escapeHtml(err.message)}</div>`);
+    // The save target is a file on this device unless another place is asked for
+    const providerGroup = modal.querySelector('#backupProviderGroup');
+    const saveElsewhereBtn = modal.querySelector('#backupSaveElsewhereBtn');
+    const saveToLine = modal.querySelector('#backupSaveToLine');
+    const updateSaveToLine = () => {
+        const shown = providerGroup && providerGroup.style.display !== 'none';
+        if (saveElsewhereBtn) { saveElsewhereBtn.textContent = shown ? 'Save to this device' : 'Save somewhere else'; saveElsewhereBtn.setAttribute('aria-expanded', String(Boolean(shown))); }
+        if (saveToLine) {
+            const chosen = modal.querySelector('input[name="backupTargetProvider"]:checked');
+            const name = chosen?.closest('label')?.querySelector('.leading-tight')?.textContent;
+            saveToLine.textContent = shown && name ? `Saves to ${name}.` : 'Saves to a file on this device.';
         }
     };
-
-    backupIncrementalPreview?.addEventListener('click', async (e) => {
-        const action = e.target.closest('[data-backup-action]')?.dataset.backupAction;
-        if (!action) return;
-        try {
-            // @googleDrive:begin
-            if (action === 'connect') {
-                const { redirectToGoogleAuth } = await import('./googleDrive.js');
-                redirectToGoogleAuth('backup_create');
-                return;
-            }
-            // @googleDrive:end
-            if (action === 'edit-s3') {
-                const { s3ConfigFormHtml } = await import('./s3Ui.js');
-                backupIncrementalPreview.innerHTML = `${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div><div class="d-flex align-items-center justify-content-between gap-2 mt-2"><button type="button" class="btn btn-sm btn-theme-outline px-3" data-backup-action="save-s3"><span>Save and connect</span></button><button type="button" class="btn btn-sm btn-theme-danger px-2 py-1" style="font-size:0.75rem;" data-backup-action="disconnect-s3"><span>Disconnect</span></button></div>`;
-                return;
-            }
-            if (action === 'edit-webdav') {
-                const { webdavConfigFormHtml } = await import('./webdavUi.js');
-                backupIncrementalPreview.innerHTML = `${webdavConfigFormHtml()}<div id="backupWebDavError" class="small text-warning mt-2" style="display:none;"></div><div class="d-flex align-items-center justify-content-between gap-2 mt-2"><button type="button" class="btn btn-sm btn-theme-outline px-3" data-backup-action="save-webdav"><span>Save and connect</span></button><button type="button" class="btn btn-sm btn-theme-danger px-2 py-1" style="font-size:0.75rem;" data-backup-action="disconnect-webdav"><span>Disconnect</span></button></div>`;
-                return;
-            }
-            if (action === 'save-webdav') {
-                const btn = e.target.closest('[data-backup-action]');
-                const errorEl = backupIncrementalPreview.querySelector('#backupWebDavError');
-                if (errorEl) errorEl.style.display = 'none';
-                btn.disabled = true;
-                try {
-                    const { saveWebDavConfigFromForm } = await import('./webdavUi.js');
-                    await saveWebDavConfigFromForm(backupIncrementalPreview);
-                } catch (err) {
-                    btn.disabled = false;
-                    if (errorEl) { errorEl.textContent = err.message; errorEl.style.display = 'block'; }
-                    return;
-                }
-            } else if (action === 'save-s3') {
-                const btn = e.target.closest('[data-backup-action]');
-                const errorEl = backupIncrementalPreview.querySelector('#backupS3Error');
-                if (errorEl) errorEl.style.display = 'none';
-                btn.disabled = true;
-                try {
-                    const { saveS3ConfigFromForm } = await import('./s3Ui.js');
-                    await saveS3ConfigFromForm(backupIncrementalPreview);
-                } catch (err) {
-                    btn.disabled = false;
-                    if (errorEl) { errorEl.textContent = err.message; errorEl.style.display = 'block'; }
-                    return;
-                }
-            } else if (action === 'disconnect-s3') {
-                const { clearS3Config } = await import('./s3Client.js');
-                clearS3Config();
-                showToast('Disconnected S3 bucket on this device.', 'info');
-                renderIncrementalPreview();
-                return;
-            } else if (action === 'disconnect-webdav') {
-                const { clearWebDavConfig } = await import('./webdavClient.js');
-                clearWebDavConfig();
-                showToast('Disconnected WebDAV server on this device.', 'info');
-                renderIncrementalPreview();
-                return;
-            } else if (action === 'choose-folder') {
-                const { pickBackupFolder } = await import('./folderBackup.js');
-                if (!(await pickBackupFolder())) return;
-            } else if (action === 'allow-folder') {
-                const { getSavedBackupFolder, ensureFolderPermission } = await import('./folderBackup.js');
-                const handle = await getSavedBackupFolder();
-                if (handle) await ensureFolderPermission(handle);
-            }
-        } catch (err) {
-            showToast(err.message, 'error');
-        }
-        renderIncrementalPreview();
+    if (providerGroup) providerGroup.style.display = 'none';
+    saveElsewhereBtn?.addEventListener('click', () => {
+        const shown = providerGroup.style.display !== 'none';
+        providerGroup.style.display = shown ? 'none' : 'block';
+        if (shown) { const local = modal.querySelector('input[name="backupTargetProvider"][value="local"]'); if (local) local.checked = true; }
+        updateSaveToLine();
     });
-
-    // Incremental works with Google Drive or (where the browser can open folders) a local folder;
-    // keep the format and destination consistent
-    const syncBackupFormat = ({ providerChanged = false, refresh = true } = {}) => {
-        const providerId = getBackupProviderId();
-        const canIncrement = providerId === 'google-drive' || providerId === 'icloud-drive' || providerId === 's3' || providerId === 'webdav' || (providerId === 'local' && isFolderBackupSupported());
-        if (incrementalRadio) incrementalRadio.disabled = !canIncrement;
-        const hint = modal.querySelector('#backupIncrementalHint');
-        if (hint) {
-            hint.style.display = canIncrement ? 'none' : 'block';
-            hint.textContent = providerId === 'local'
-                ? 'Local folders need the desktop app, or Chrome or Edge on a computer. Use Google Drive instead, or save a single file.'
-                : 'Choose Google Drive, iCloud Drive, S3 Bucket, WebDAV or Local Device to use incremental snapshots.';
-        }
-        if (incrementalOption) incrementalOption.style.opacity = canIncrement ? '' : '0.5';
-        if (providerChanged && canIncrement) incrementalRadio.checked = true;
-        if (!canIncrement || !incrementalRadio.checked) singleRadio.checked = true;
-        const incremental = getBackupFormat() === 'incremental';
-        if (backupFilenameGroup) backupFilenameGroup.style.display = incremental ? 'none' : 'block';
-        if (backupIncrementalPreview) backupIncrementalPreview.style.display = incremental ? 'block' : 'none';
-        if (backupExecuteBtn) backupExecuteBtn.textContent = incremental ? 'Back up changes' : 'Create and save backup';
-        if (incremental && refresh) renderIncrementalPreview();
-        renderAudioBox();
-    };
-    modal.querySelectorAll('input[name="backupTargetProvider"]').forEach(el =>
-        el.addEventListener('change', () => syncBackupFormat({ providerChanged: true })));
-    modal.querySelectorAll('input[name="backupFormat"]').forEach(el =>
-        el.addEventListener('change', () => syncBackupFormat()));
-    syncBackupFormat({ providerChanged: true });
+    modal.querySelectorAll('input[name="backupTargetProvider"]').forEach(el => el.addEventListener('change', updateSaveToLine));
 
     backupExecuteBtn?.addEventListener('click', async () => {
         const selectedProviderEl = modal.querySelector('input[name="backupTargetProvider"]:checked');
         const providerId = selectedProviderEl?.value || 'local';
-        const incremental = getBackupFormat() === 'incremental';
         let filename = (backupFilenameInput?.value || '').trim();
         if (!filename) filename = `MajesticTab-backup-${new Date().toISOString().split('T')[0]}.mtbackup`;
         if (filename.toLowerCase().endsWith('.json')) {
@@ -2243,65 +2049,34 @@ function attachModalHandlers(modal, options = {}) {
         }
 
         backupExecuteBtn.disabled = true;
-        backupExecuteBtn.textContent = incremental ? 'Backing up…' : 'Creating backup…';
-        showTaskProgress(backupStatusAlert, { label: incremental ? 'Comparing with existing backups…' : 'Packaging settings and tabs…' });
+        backupExecuteBtn.textContent = 'Backing up…';
+        showTaskProgress(backupStatusAlert, { label: 'Packaging songs…' });
 
         try {
             const providerLabel = selectedProviderEl?.closest('label')?.querySelector('.leading-tight')?.textContent || providerId;
-            let savedBytes = 0;
-            let successMessage = null;
-
-            if (incremental) {
-                // Only tabs and SoundFonts the destination doesn't already hold are stored
-                const target = await resolveIncrementalTarget({ interactive: true });
-                // @googleDrive:begin
-                if (target.status === 'needs-auth') {
-                    const { redirectToGoogleAuth } = await import('./googleDrive.js');
-                    redirectToGoogleAuth('backup_create');
-                    throw new Error('Please authorize Google Drive to save the backup.');
+            const { createMtBackup } = await import('./mtbackup.js');
+            const made = await createMtBackup({
+                onProgress: ({ phase, current, total, name }) => {
+                    if (phase === 'songs' && total > 0) {
+                        showTaskProgress(backupStatusAlert, { label: 'Packaging songs…', detail: `${current} of ${total}${name ? ` · ${name}` : ''}`, value: Math.round((current / total) * 80) });
+                    } else if (phase === 'writing') {
+                        showTaskProgress(backupStatusAlert, { label: 'Writing the backup file…', value: 90 });
+                    }
                 }
-                // @googleDrive:end
-                if (target.status === 'needs-icloud') throw new Error('iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud.');
-                if (target.status === 'needs-s3') throw new Error('Connect your S3 bucket first.');
-                if (target.status === 'needs-webdav') throw new Error('Connect your WebDAV server first.');
-                if (target.status !== 'ready') throw new Error('Choose a backup folder and allow access to it first.');
-                const { createIncrementalBackup } = await import('./incrementalBackup.js');
-                const result = await createIncrementalBackup(target.backend, {
-                    onProgress: ({ phase, current, total, weightDone, weightTotal, bytesSent, uploaded = 0, reused = 0, name }) => {
-                        const share = weightTotal > 0 ? weightDone / weightTotal : total > 0 ? current / total : 0;
-                        const pct = phase === 'manifest' ? 99 : total > 0 ? Math.min(98, Math.round(share * 98)) : 0;
-                        const known = phase !== 'scan' && total > 0;
-                        showTaskProgress(backupStatusAlert, {
-                            label: phase === 'scan' ? 'Checking what is already backed up…' : phase === 'manifest' ? 'Writing the backup manifest…' : 'Backing up…',
-                            detail: known && phase !== 'manifest' ? `${current} of ${total} checked · ${uploaded} saved (${formatBytes(bytesSent)}) · ${reused} already backed up` : '',
-                            value: known ? pct : null
-                        });
-                    }
-                });
-                savedBytes = result.bytesSent;
-                successMessage = result.uploaded
-                    ? `Snapshot saved: ${result.uploaded} new or changed file${result.uploaded === 1 ? '' : 's'} saved (${formatBytes(result.bytesSent)}), ${result.reused} unchanged skipped`
-                    : `Snapshot saved: nothing new to save, ${result.reused} file${result.reused === 1 ? '' : 's'} already backed up`;
-                if (result.pruned) successMessage += `. ${result.pruned} oldest snapshot${result.pruned === 1 ? '' : 's'} removed`;
-            } else {
-                const blob = await createBackupBlob((current, total) => {
-                    if (total > 0) {
-                        const pct = Math.round((current / total) * 40); // 0-40% packaging
-                        showTaskProgress(backupStatusAlert, { label: 'Packaging tabs…', detail: `${current} of ${total}`, value: pct });
-                    }
-                });
-                savedBytes = blob.size;
+            });
+            const savedBytes = made.blob.size;
 
-                showTaskProgress(backupStatusAlert, { label: `Saving to ${providerLabel}…`, detail: formatBytes(savedBytes) });
+            showTaskProgress(backupStatusAlert, { label: `Saving to ${providerLabel}…`, detail: formatBytes(savedBytes) });
+            await saveToProvider(providerId, made.blob, filename);
 
-                await saveToProvider(providerId, blob, filename);
-            }
-
-            showTaskResult(backupStatusAlert, 'done', successMessage || `Backup saved (${formatBytes(savedBytes)})`);
+            try { localStorage.setItem(LAST_BACKUP_KEY, String(Date.now())); } catch { /* storage unavailable */ }
+            showLastBackup();
+            const note = made.skipped.length ? ` · ${made.skipped.length} song${made.skipped.length === 1 ? '' : 's'} could not be packed: ${made.skipped.slice(0, 3).map(x => x.title).join(', ')}${made.skipped.length > 3 ? '…' : ''}` : '';
+            showTaskResult(backupStatusAlert, made.skipped.length ? 'warn' : 'done', `Backup saved (${formatBytes(savedBytes)}) · ${made.summary.packs} song${made.summary.packs === 1 ? '' : 's'}${note}`);
             backupExecuteBtn.textContent = 'Saved';
             setTimeout(() => {
                 backupExecuteBtn.disabled = false;
-                syncBackupFormat();
+                backupExecuteBtn.textContent = 'Back up';
             }, 3000);
         } catch (err) {
             console.error('Backup creation failed:', err);
@@ -2759,7 +2534,6 @@ function attachModalHandlers(modal, options = {}) {
     if (activeDriveAccountHandler) window.removeEventListener('googleAuthChanged', activeDriveAccountHandler);
     activeDriveAccountHandler = () => {
         refreshDriveAccountRow();
-        if (getBackupProviderId() === 'google-drive' && getBackupFormat() === 'incremental') renderIncrementalPreview();
     };
     window.addEventListener('googleAuthChanged', activeDriveAccountHandler);
     modal.querySelector('#driveDisconnectBtn')?.addEventListener('click', async () => {
@@ -2773,10 +2547,6 @@ function attachModalHandlers(modal, options = {}) {
         if (e.detail?.state === 'restore_backup') {
             if (currentParsedBackup) return;
             loadGoogleDriveBackups();
-        }
-        // Signed in while the backup tab is open (or via another window): replace the "Connect" prompt
-        if (getBackupProviderId() === 'google-drive' && getBackupFormat() === 'incremental') {
-            renderIncrementalPreview();
         }
     };
     window.addEventListener('googleAuthSuccess', activeGoogleAuthHandler);
@@ -2816,6 +2586,7 @@ function attachModalHandlers(modal, options = {}) {
     // either way, and the files can be relinked later
     let restoreAudioChoice = isAudioDownloadEnabled();
     let restoreInspection = null;
+    let restoreIsZip = false;   // the file is the ZIP format (mtbackup.js), not the older single JSON document
     let restoreAudioInfo = null;
     const restoreAudioBox = modal.querySelector('#restoreAudioBox');
     const renderRestoreAudioBox = (info) => {
@@ -2906,7 +2677,20 @@ function attachModalHandlers(modal, options = {}) {
             // Allow UI to render spinner before decompressing/parsing
             await new Promise(resolve => setTimeout(resolve, 50));
 
-            const inspection = await inspectBackupFile(file);
+            restoreIsZip = false;
+            const mt = await import('./mtbackup.js');
+            const isZip = (await mt.backupKindOfFile(file)) === 'zip';
+            let inspection;
+            if (isZip) {
+                try {
+                    const info = await mt.inspectMtBackup(file);
+                    inspection = { valid: true, zip: true, info, exportedAt: info.exportedAt ? new Date(info.exportedAt).toLocaleString() : 'Unknown date' };
+                } catch (err) {
+                    inspection = { valid: false, error: err.message };
+                }
+            } else {
+                inspection = await inspectBackupFile(file);
+            }
 
             if (!inspection.valid) {
                 restoreStatusAlert.style.display = 'block';
@@ -2919,8 +2703,23 @@ function attachModalHandlers(modal, options = {}) {
             }
 
             currentBackupFile = file;
-            currentParsedBackup = inspection.data || inspection;
+            currentParsedBackup = inspection.zip ? null : (inspection.data || inspection);
             restoreInspection = inspection;
+            restoreIsZip = Boolean(inspection.zip);
+            const legacyCounts = modal.querySelector('#restoreCountsLegacy');
+            const packCounts = modal.querySelector('#restoreCountsPacks');
+            if (legacyCounts) legacyCounts.style.display = restoreIsZip ? 'none' : '';
+            if (packCounts) {
+                packCounts.style.display = restoreIsZip ? '' : 'none';
+                if (restoreIsZip) {
+                    const i = inspection.info;
+                    const parts = [`<span class="text-white fw-medium">${i.songs}</span> song${i.songs === 1 ? '' : 's'}`];
+                    if (i.soundFonts) parts.push(`<span class="text-white fw-medium">${i.soundFonts}</span> SoundFont${i.soundFonts === 1 ? '' : 's'}`);
+                    if (i.setlists) parts.push(`<span class="text-white fw-medium">${i.setlists}</span> setlist${i.setlists === 1 ? '' : 's'}`);
+                    parts.push(formatBytes(i.bytes || 0));
+                    packCounts.innerHTML = parts.join(' · ') + (i.missing?.length ? `<div class="text-warning mt-1">${i.missing.length} file${i.missing.length === 1 ? ' is' : 's are'} missing from this backup. The rest can be restored.</div>` : '');
+                }
+            }
 
             // Populate Inspection Card
             const filenameLabel = modal.querySelector('#restoreFilenameLabel');
@@ -2989,6 +2788,7 @@ function attachModalHandlers(modal, options = {}) {
     modal.querySelector('#restoreChangeFileBtn')?.addEventListener('click', () => {
         currentBackupFile = null;
         currentParsedBackup = null;
+        restoreIsZip = false;
         restoreInspectionCard.style.display = 'none';
         restoreDropzone.style.display = 'block';
         restoreExecuteBtn.disabled = true;
@@ -3016,6 +2816,29 @@ function attachModalHandlers(modal, options = {}) {
         showTaskProgress(restoreStatusAlert, { label: restoreLabel });
 
         try {
+            if (restoreIsZip && currentBackupFile instanceof Blob) {
+                const { restoreMtBackup } = await import('./mtbackup.js');
+                const r = await restoreMtBackup(currentBackupFile, {
+                    mode,
+                    onProgress: ({ current, total, name }) => {
+                        if (total > 0) showTaskProgress(restoreStatusAlert, { label: 'Restoring songs…', detail: `${current} of ${total}${name ? ` · ${name}` : ''}`, value: (current / total) * 100 });
+                    }
+                });
+                const parts = [];
+                if (r.songs) parts.push(`${r.songs} song${r.songs === 1 ? '' : 's'} restored`);
+                if (r.skippedSongs) parts.push(`${r.skippedSongs} already here, kept`);
+                if (r.soundFonts) parts.push(`${r.soundFonts} SoundFont${r.soundFonts === 1 ? '' : 's'}`);
+                if (r.setlists) parts.push(`${r.setlists} setlist${r.setlists === 1 ? '' : 's'}`);
+                if (r.failed.length) parts.push(`${r.failed.length} could not be restored`);
+                if (r.missing.length) parts.push(`${r.missing.length} missing from the file`);
+                showTaskResult(restoreStatusAlert, r.failed.length || r.missing.length ? 'warn' : 'done',
+                    `<strong>${mode === 'wipe' ? 'Restored, replacing what was here' : 'Restored and merged'}</strong><span class="task-status-detail">${escapeHtml(parts.join(' · ') || 'Everything was already up to date')}</span>`,
+                    { html: true });
+                try { const { renderLibraryModal } = await import('./libraryModal.js'); await renderLibraryModal(); } catch (e) { console.warn('Could not refresh library view:', e); }
+                restoreExecuteBtn.textContent = 'Restored';
+                setTimeout(() => { restoreExecuteBtn.disabled = false; restoreExecuteBtn.textContent = 'Restore backup'; }, 3000);
+                return;
+            }
             const results = await restoreBackup(currentBackupFile || currentParsedBackup, {
                 mode,
                 restoreAudio: restoreAudioChoice,

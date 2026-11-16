@@ -359,8 +359,8 @@ export function initSettingsPage() {
     panes.library.appendChild(group('Library', makeHideNoTabSongsRow()));
     panes.library.appendChild(group('Sync', ...syncTask));
     panes.library.appendChild(taskGroup('Back up and restore',
-        ...[taskRow('backup', 'Create a backup', 'Save everything to a file, a folder or your cloud.', 'Create'),
-            taskRow('restore', 'Restore from a backup', 'Bring a backup or snapshot back.', 'Restore')]));
+        ...[taskRow('backup', 'Create a backup', 'Save your library to one file you keep.', 'Create'),
+            taskRow('restore', 'Restore from a backup', 'Bring a backup file back.', 'Restore')]));
     panes.library.appendChild(taskGroup('Upkeep',
         ...[taskRow('reload', 'Reload library metadata', 'Refresh covers, durations and album details.', 'Reload'),
             taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Review', false, 'Review orphaned files')]));
