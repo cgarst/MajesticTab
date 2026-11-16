@@ -6,7 +6,8 @@
 import { getSongKey, getVideoInfo } from '../soundPlayer.js';
 import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
 import { loadRecord, listRecords, mediaKey, saveRecord, loadRestorePoint, samePoints, SYNC_CHANGED_EVENT } from './syncStore.js';
-import { loadRecordingPeaks, loadRecordingFlux } from './stemSet.js';
+import { loadRecordingPeaks, loadRecordingFlux, stemSetName } from './stemSet.js';
+import { getRecordingMeta } from './recordingMeta.js';
 import { refineOffset } from './refineOffset.js';
 import { measureAlignment, compareSyncs, conflictText } from './alignCheck.js';
 import { getScoreContext } from './audioSyncController.js';
@@ -397,7 +398,7 @@ export function initAudioSyncEditor() {
     });
 
     const describeMove = (ms) => (ms ? `moved ${Math.abs(ms)} ms ${ms > 0 ? 'later' : 'earlier'}` : 'not moved');
-    const recordingName = (m) => m.name || (m.kind === 'youtube' ? getVideoInfo(m.videoId)?.title || m.label || 'YouTube video' : 'another recording');
+    const recordingName = (m) => (m.kind === 'local' && stemSetName(getRecordingMeta(songKey(), m))) || m.name || (m.kind === 'youtube' ? getVideoInfo(m.videoId)?.title || m.label || 'YouTube video' : 'another recording');
 
     /** Replaces this recording's points with `other`'s, `laterMs` later (negative: earlier). One undo step. */
     function takeSyncFrom(other, laterMs, note = '') {

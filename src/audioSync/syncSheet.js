@@ -20,6 +20,8 @@ import { buildScoreTimeline, playedBarsFromLookup, TICKS_PER_QUARTER } from './s
 import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
 import { getAudioFile } from './audioFileStore.js';
 import { decodeOnsets } from './onsets.js';
+import { getRecordingMeta } from './recordingMeta.js';
+import { stemSetName } from './stemSet.js';
 
 const MODAL = 'syncSheetModal';
 const $ = (id) => document.getElementById(id);
@@ -57,7 +59,7 @@ export function describeSync(points) {
 }
 
 /** A recording's name for the sheet's title line. */
-export const recordingName = (media) => (media.kind === 'local' ? (media.name || 'Audio file') : (getVideoInfo(media.videoId)?.title || 'YouTube video'));
+export const recordingName = (media) => (media.kind === 'local' ? (stemSetName(getRecordingMeta(getSongKey(), media)) || media.name || 'Audio file') : (getVideoInfo(media.videoId)?.title || 'YouTube video'));
 
 /** What is wrong, as sentences, when something is: a point to check, or bars with no point. */
 function problemLines(summary) {
@@ -81,7 +83,7 @@ function handOff(fn) {
     if (reducedMotion()) fn(); else setTimeout(fn, 170);
 }
 
-const recordName = (r) => (r.media.kind === 'local' ? (r.media.name || 'Audio file') : (getVideoInfo(r.media.videoId)?.title || 'YouTube video'));
+const recordName = (r) => recordingName(r.media);
 
 function el(tag, className, text) {
     const e = document.createElement(tag);
@@ -211,7 +213,7 @@ function render() {
                 const isArmed = armedKey === key;
                 picker.append(row(
                     isArmed ? `Replace ${plural(points.length, 'sync point', 'sync points')}?` : recordName(r),
-                    `${r.media.kind === 'local' ? 'Audio file' : 'YouTube video'} · ${plural(r.points.length, 'point', 'points')}`,
+                    `${r.media.kind === 'local' ? (stemSetName(getRecordingMeta(getSongKey(), r.media)) ? 'Stem set' : 'Audio file') : 'YouTube video'} · ${plural(r.points.length, 'point', 'points')}`,
                     () => {
                         // Points that are already there take a second press: they would be replaced
                         if (has && armedKey !== key) { disarm(); armedKey = key; armTimer = setTimeout(() => { armedKey = null; render(); }, 4000); render(); return; }

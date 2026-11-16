@@ -107,6 +107,14 @@ export function stemsOfMeta(meta) {
     return Array.isArray(meta?.stems) && meta.stems.length > 1 ? meta.stems : null;
 }
 
+/** What a stem set is called where one name stands for it: "3 stems: Guitar, Bass, Drums", or '' when it is no set. */
+export function stemSetName(meta) {
+    const stems = stemsOfMeta(meta);
+    if (!stems) return '';
+    const labels = stems.map((s) => s.label).filter(Boolean);
+    return `${stems.length} stems${labels.length ? `: ${labels.join(', ')}` : ''}`;
+}
+
 /**
  * Loads the waveform peaks for a local recording, combining every stem when the recording is a stem set.
  * Returns null when no peaks are stored.
