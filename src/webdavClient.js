@@ -54,7 +54,8 @@ export function clearWebDavConfig() {
 export const webdavCorsHint = (origin = window.location.origin) => [
     `Access-Control-Allow-Origin: ${origin}`,
     'Access-Control-Allow-Methods: GET, PUT, DELETE, MKCOL, PROPFIND, OPTIONS',
-    'Access-Control-Allow-Headers: Authorization, Content-Type, Depth',
+    'Access-Control-Allow-Headers: Authorization, Content-Type, Depth, Range, If-Match, If-None-Match',
+    'Access-Control-Expose-Headers: ETag',
     'Access-Control-Max-Age: 3600'
 ].join('\n');
 
