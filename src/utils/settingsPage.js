@@ -67,7 +67,7 @@ function note(text) {
 // ---- Defaults for every song: notation, and the usual guitar ----
 function makeNotationDefault() {
     let current = getDefaultGpNotationMode();
-    const seg = el('div', 'hud-pill-group');
+    const seg = el('div', 'hud-pill-group defaults-pills');
     seg.setAttribute('role', 'radiogroup');
     seg.setAttribute('aria-label', 'Notation');
     [['Tab only', 'tab'], ['Tab and standard', 'scoreTab']].forEach(([label, val]) => {
@@ -121,7 +121,7 @@ function makeLeftHandedRow() {
 
 function makeStringingRow() {
     let flipped = readFlag(FLIP_KEY, false);
-    const seg = el('div', 'hud-pill-group');
+    const seg = el('div', 'hud-pill-group defaults-pills');
     seg.setAttribute('role', 'radiogroup');
     seg.setAttribute('aria-label', 'Stringing');
     [['Standard', false], ['Upside down', true]].forEach(([label, val]) => {
@@ -356,7 +356,7 @@ export function initSettingsPage() {
         if (resetBtn) {
             resetBtn.className = 'btn btn-sm srow-ghost';
             resetBtn.textContent = 'Reset';
-            panes.reading.appendChild(group('', row('Reset these defaults', 'Back to Scroll for score and text, Page for PDF, and default string counts from the file (in Player).', resetBtn)));
+            panes.reading.appendChild(group('', row('Reset these defaults', 'Back to Vertical for score and text, Page for PDF, and default string counts from the file (in Player).', resetBtn)));
         }
         defaultsBtn.remove();
         defaultsModal?.remove();
@@ -368,7 +368,7 @@ export function initSettingsPage() {
                 const stored = parseInt(localStorage.getItem('majestictab.sectionMinBars'), 10);
                 if ([1, 2, 4, 8].includes(stored)) current = stored;
             } catch (_) {}
-            const seg = el('div', 'hud-pill-group');
+            const seg = el('div', 'hud-pill-group defaults-pills');
             seg.setAttribute('role', 'radiogroup');
             seg.setAttribute('aria-label', 'Minimum section size');
             [1, 2, 4, 8].forEach(val => {

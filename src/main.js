@@ -12,11 +12,11 @@ import { setupSongPinButton } from './songPin.js';
 import { setupAddToSetlistButton } from './setlistUi.js';
 import { setupSetlistNav, refreshSetlistNav } from './setlistPlayer.js';
 import { showLoadingCard, setLoadingProgress, hideLoadingCard } from './utils/loadingCard.js';
-import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios } from './gpProcessor/gpHandler.js';
+import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios, setGpLayoutMode } from './gpProcessor/gpHandler.js';
 import { setGpDisplayScale, applySavedGpDisplayScale, setGpDensity, getGpDensity, applySavedGpDensity, updateAutoGpDensity, getGpNotationMode, getGpDisplayScalePercent, getDefaultGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
 import { initPageStrip } from './utils/pageStrip.js';
 import { initTextSync } from './textSync/textSync.js';
-import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
+import { loadText, renderTextPage, textState, nextTextPage, prevTextPage, setTextLayoutMode } from './textProcessor/textHandler.js';
 import { getTextMaxScalePercent } from './textProcessor/textProcessor.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
@@ -1540,7 +1540,8 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
         pageModeRadio.checked = false;
     } else if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
         const gpDefault = localStorage.getItem('gpDefaultView') || getDefaultView('gp');
-        if (gpDefault === 'continuous') {
+        setGpLayoutMode(gpDefault === 'horizontal' ? 'horizontal' : 'vertical');
+        if (gpDefault === 'continuous' || gpDefault === 'horizontal') {
             continuousModeRadio.checked = true;
             pageModeRadio.checked = false;
         } else {
@@ -1549,8 +1550,10 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
         }
     } else if (isFileType(file, ['txt'])) {
         const txtDefault = localStorage.getItem('txtDefaultView') || getDefaultView('txt');
-        continuousModeRadio.checked = txtDefault === 'continuous';
-        pageModeRadio.checked = txtDefault !== 'continuous';
+        const txtScroll = txtDefault === 'continuous' || txtDefault === 'horizontal';
+        setTextLayoutMode(txtDefault === 'horizontal' ? 'horizontal' : 'vertical');
+        continuousModeRadio.checked = txtScroll;
+        pageModeRadio.checked = !txtScroll;
     } else if (isFileType(file, ['pdf'])) {
         const pdfDefault = localStorage.getItem('pdfDefaultView') || getDefaultView('pdf');
         if (pdfDefault === 'continuous') {
