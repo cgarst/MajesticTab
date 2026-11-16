@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export async function startFakeDav({ caseInsensitive = false, etags = true, prefix = '/dav' } = {}) {
+export async function startFakeDav({ caseInsensitive = false, etags = true, prefix = '/dav', cors = false, port = 0 } = {}) {
     const files = new Map();   // key -> { bytes, etag, modified }
     const dirs = new Set(['']);
     const log = [];
@@ -17,6 +17,14 @@ export async function startFakeDav({ caseInsensitive = false, etags = true, pref
         const chunks = [];
         for await (const c of req) chunks.push(c);
         const body = Buffer.concat(chunks);
+        if (cors) {
+            // what a browser needs from a WebDAV server on another origin (see webdavCorsHint)
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, DELETE, MKCOL, PROPFIND, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, Depth, Range, If-Match, If-None-Match');
+            res.setHeader('Access-Control-Expose-Headers', 'ETag');
+            if (req.method === 'OPTIONS') { res.writeHead(204).end(); return; }
+        }
         const url = new URL(req.url, 'http://x');
         log.push(`${req.method} ${url.pathname}`);
         if (!url.pathname.startsWith(prefix)) { res.writeHead(404).end(); return; }
@@ -79,6 +87,6 @@ export async function startFakeDav({ caseInsensitive = false, etags = true, pref
         default: res.writeHead(405).end();
         }
     });
-    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    await new Promise((r) => server.listen(port, '127.0.0.1', r));
     return { url: `http://127.0.0.1:${server.address().port}${prefix}`, files, dirs, log, close: () => new Promise((r) => { server.closeAllConnections?.(); server.close(r); }) };
 }

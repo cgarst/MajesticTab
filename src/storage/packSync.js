@@ -48,7 +48,7 @@ const CLASSTAB_DIR = 'classtab';
 const PER_SONG_SETTINGS = new Set(['ytCache', 'audioSync']);
 
 export const packKey = (id) => `p:${id}`;
-const blobPath = (key) => `${key.startsWith('s:') ? SOUNDFONT_DIR : CLASSTAB_DIR}/${key.slice(2)}`;
+export const blobPath = (key) => `${key.startsWith('s:') ? SOUNDFONT_DIR : CLASSTAB_DIR}/${key.slice(2)}`;
 export const kindOfKey = (key) => (key.startsWith('p:') ? 'pack' : key.startsWith('s:') ? 'soundfont' : 'classtab');
 
 /** One item's decision. `time` is when the item was added here, for the tombstone rule. Returns null when nothing moves. */
@@ -360,4 +360,47 @@ async function differsFromStore(local, packs, item) {
     if ([...hashes(mine)].some((h) => !have.has(h))) return true;
     const syncs = (m) => JSON.stringify(Object.entries(m.entries || {}).map(([p, e]) => [p, e.sha256]).sort());
     return syncs(mine) !== syncs(theirs);
+}
+
+/**
+ * Writes everything on this device into `store` (all packs, SoundFonts, Classtab files) without comparing: the export half of
+ * an upgrade from the old layout. Files already in the store with the same size are not sent twice, so an interrupted
+ * upgrade resumes. Resolves to what upgradeLocation wants: { packIds, records, settings, soundFonts }.
+ */
+export async function exportLocalToStore(store, local, onProgress = () => {}) {
+    const packs = createPackStore(store);
+    const items = [...(await local.items()).values()];
+    const packIds = [], soundFonts = [];
+    let n = 0;
+    for (const item of items) {
+        onProgress({ current: ++n, total: items.length, name: item.name });
+        const key = item.kind === 'pack' ? packKey(item.id) : `${item.kind === 'soundfont' ? 's' : 'c'}:${item.id}`;
+        const data = await local.readItem(key);
+        if (item.kind === 'pack') {
+            await packs.write(item.id, Object.fromEntries(data.files), { skipSameSize: true });
+            packIds.push(item.id);
+        } else {
+            const existing = await store.stat(blobPath(key));
+            if (!existing || existing.size !== data.bytes.length) await store.write(blobPath(key), data.bytes);
+            if (item.kind === 'soundfont') soundFonts.push({ id: item.id, name: data.name, size: data.size ?? data.bytes.length, addedAt: data.addedAt ?? Date.now() });
+        }
+    }
+    const { library, settings } = await local.records();
+    return { packIds, records: library, settings, soundFonts };
+}
+
+/**
+ * Records, as the baseline for `location`, that this device and the store hold the same version of every item they both
+ * have. Called right after an upgrade, so the first sync does not read every pack back to compare it.
+ */
+export async function seedItemBaselines({ store, local, baselines, location }) {
+    const read = await readRemote(store);
+    if (!read) return;
+    const mine = await local.items();
+    const items = {};
+    for (const [key, m] of mine) {
+        const r = read.remote.get(key);
+        if (r) items[key] = { l: m.fp, r: r.version };
+    }
+    baselines.set(location, { syncedAt: Date.now(), items });
 }

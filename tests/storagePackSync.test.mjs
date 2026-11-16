@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createMemoryStore } from '../src/storage/memoryStore.js';
 import { createPackStore } from '../src/storage/packStore.js';
 import { writeStoreInfo } from '../src/storage/storeInfo.js';
-import { decideItem, planPackSync, applyPackSync, ITEM_ACTION as A } from '../src/storage/packSync.js';
+import { decideItem, planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, ITEM_ACTION as A } from '../src/storage/packSync.js';
 import { readLibrary } from '../src/storage/libraryDocs.js';
 import { fakeLocal, memoryBaselines } from './storage/fakeLocal.mjs';
 
@@ -268,4 +268,24 @@ test('a song a device has just taken in from a pack gets the store\'s record, an
     assert.deepEqual(got.tabOptions.map((t) => t.id), ['tab_mine']);
     const inStore = (await readLibrary(store)).songs[0];
     assert.deepEqual([inStore.pinned, inStore.collectionId], [true, 'col-9']);
+});
+
+test('an upgrade export writes every pack and font, and the seeded baseline makes the first sync move nothing', async () => {
+    const a = fakeLocal(), base = memoryBaselines();
+    a.addSong('one', 'One'); a.addSong('two', 'Two');
+    a.state.fonts.set('f1', { name: 'Font', bytes: new Uint8Array([1, 2, 3]), addedAt: 5 });
+    const store = createMemoryStore(); await store.open({ create: true });
+    const out = await exportLocalToStore(store, a);
+    assert.deepEqual(out.packIds.sort(), ['one', 'two']);
+    assert.deepEqual(out.soundFonts.map((f) => f.id), ['f1']);
+    assert.equal(out.records.songs.length, 2);
+    // the export again sends nothing twice: same sizes are skipped, so an interrupted upgrade resumes
+    const writes = []; const w = store.write.bind(store); store.write = async (p, ...r) => { writes.push(p); return w(p, ...r); };
+    await exportLocalToStore(store, a);
+    assert.deepEqual(writes.filter((p) => p.startsWith('soundfonts/') || p.includes('/score/')), []);
+    await writeStoreInfo(store);
+    await seedItemBaselines({ store, local: a, baselines: base, location: LOC });
+    const plan = await planPackSync({ store, local: a, baselines: base, location: LOC });
+    assert.deepEqual(plan.items, []);
+    assert.equal(plan.unchanged, 3);
 });

@@ -1,7 +1,12 @@
 // syncUi.js
 // The Sync task: a row in Settings (Library and backup) that opens in place under its row. One tap, then a single review of exactly what will change
 // (see syncEngine.js), one confirmation, and a short result. The sync location is remembered.
-import { planSync, applySync, planReplaceRemote, applyReplaceRemote, getSyncBase, clearSyncBase, SYNC_ACTION } from './syncEngine.js';
+import { planSync, applySync, clearSyncBase } from './syncEngine.js';
+import { planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, ITEM_ACTION } from './storage/packSync.js';
+import { probeLocation, needsUpgrade, upgradeLocation } from './storage/upgrade.js';
+import { writeStoreInfo, StoreTooNewError } from './storage/storeInfo.js';
+import { createProviderStore } from './storageProviders.js';
+import { createLocalAdapter, localBaselines } from './packSyncLocal.js';
 import { formatBytes, escapeHtml } from './backupRestore.js';
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported, ICLOUD_UNAVAILABLE_MESSAGE } from './icloudDrive.js';
@@ -31,6 +36,16 @@ const getTarget = getPreferredStorage;
 const setTarget = setPreferredStorage;
 // Set just before sending the user to Google, so a failed sign-in shows the Connect screen instead of looping
 const AUTO_AUTH_KEY = 'majestictab_sync_auto_auth';
+const LAST_LOCATION_KEY = 'majestictab_sync_location';
+const providerOf = (target) => (target === FOLDER ? 'local' : target);
+const rememberLocation = (location) => { try { localStorage.setItem(LAST_LOCATION_KEY, location); } catch (_) {} };
+const lastSyncedAt = () => { try { const l = localStorage.getItem(LAST_LOCATION_KEY); return l ? localBaselines.get(l)?.syncedAt || 0 : 0; } catch (_) { return 0; } };
+async function appVersion() {
+    try {
+        const [{ default: info }, { formatBuildVersion }] = await Promise.all([import('./build-info.js'), import('./updater.js')]);
+        return formatBuildVersion(info);
+    } catch (_) { return ''; }
+}
 const targetLabel = (target) => target === DRIVE ? 'Google Drive' : target === ICLOUD ? 'iCloud Drive' : target === S3 ? 'your S3 bucket' : target === WEBDAV ? 'your WebDAV server' : 'your backup folder';
 
 function relativeTime(ms) {
@@ -47,10 +62,10 @@ function relativeTime(ms) {
 export function refreshSyncStatus() {
     const el = document.getElementById('syncStatusLine');
     if (!el) return;
-    const base = getSyncBase();
+    const at = lastSyncedAt();
     const target = getTarget();
-    el.textContent = base && target
-        ? `Last synced ${relativeTime(base.syncedAt)} with ${targetLabel(target)}`
+    el.textContent = at && target
+        ? `Last synced ${relativeTime(at)} with ${targetLabel(target)}`
         : 'Not synced yet';
 }
 
@@ -281,40 +296,34 @@ function otherSection(items, { title }) {
         </details>`;
 }
 
-/** The one place the destructive option lives. The first press opens a confirmation screen; the second one does it. */
-function dangerZone(target) {
-    return `
-        <div class="sync-danger">
-            <h3>Danger zone</h3>
-            <div class="sync-danger-row">
-                <div class="min-w-0">
-                    <div class="sync-row-name">Replace ${where(target)} with this device</div>
-                    <div class="sync-row-note">Makes ${where(target)} an exact copy of this library. Anything only stored there is left out.</div>
-                </div>
-                <button type="button" class="btn btn-sm btn-theme-danger" data-sync-action="replace">Replace...</button>
-            </div>
-        </div>`;
-}
+const REASON = {
+    [ITEM_ACTION.DOWNLOAD]: () => 'new or changed there',
+    [ITEM_ACTION.UPLOAD]: () => 'new or changed here',
+    [ITEM_ACTION.MERGE]: () => 'changed on both sides, will be combined',
+    [ITEM_ACTION.DELETE_LOCAL]: () => 'removed on another device',
+    [ITEM_ACTION.DELETE_REMOTE]: () => 'removed here',
+};
+const asChange = (i) => ({ name: i.name, reason: REASON[i.action](i), size: i.size || 0, conflict: Boolean(i.conflict) });
 
-function showReview(target, backend, plan) {
-    const by = (action) => plan.changes.filter(c => c.action === action);
-    const down = by(SYNC_ACTION.DOWNLOAD);
-    const up = by(SYNC_ACTION.UPLOAD);
-    const removeHere = by(SYNC_ACTION.DELETE_LOCAL);
-    const removeThere = by(SYNC_ACTION.DELETE_REMOTE);
+function showReview(target, store, plan) {
+    const by = (action) => plan.items.filter(c => c.action === action).map(asChange);
+    const down = by(ITEM_ACTION.DOWNLOAD);
+    const merge = by(ITEM_ACTION.MERGE);
+    const up = by(ITEM_ACTION.UPLOAD);
+    const removeHere = by(ITEM_ACTION.DELETE_LOCAL);
+    const removeThere = by(ITEM_ACTION.DELETE_REMOTE);
     const place = where(target);
     const removals = removeHere.length + removeThere.length;
-    const total = plan.changes.length + plan.unchanged;
+    const total = plan.items.length + plan.unchanged;
     const unusual = removals >= MASS_REMOVAL_MIN && removals / Math.max(1, total) >= MASS_REMOVAL_SHARE;
-    const danger = dangerZone(target);
 
     const header = `
         <div class="sync-head">
             <div class="min-w-0">
                 <div class="sync-status">${plan.firstSync
-                    ? 'First sync with this location. Nothing will be removed.'
-                    : `Last synced ${escapeHtml(relativeTime(plan.lastSyncedAt))}`}</div>
-                <div class="sync-location" title="${escapeHtml(backend.location)}">${escapeHtml(backend.location)}</div>
+                    ? `First sync with this location.${removals ? '' : ' Nothing will be removed.'}`
+                    : `Last synced ${escapeHtml(relativeTime(lastSyncedAt()))}`}</div>
+                <div class="sync-location" title="${escapeHtml(store.location)}">${escapeHtml(store.location)}</div>
             </div>
             <div class="sync-head-actions">
                 ${target === FOLDER ? textAction('change-folder', 'Change folder') : ''}
@@ -324,70 +333,52 @@ function showReview(target, backend, plan) {
             </div>
         </div>`;
 
-    const other = plan.other || { receive: [], send: [] };
-    if (!plan.changes.length && !plan.needsPush && !other.receive.length) {
-        frame(`${header}<div class="task-status" role="status"><strong>Everything is in sync</strong><span class="task-status-detail">${plan.unchanged} tab${plan.unchanged === 1 ? '' : 's'} match ${place}.</span></div>${danger}`,
-            { subtitle: `Sync with ${place}`, footer: button('close', 'Done', { primary: true }) });
-        return;
-    }
-
     const parts = [
         down.length && `receive ${down.length}`,
         up.length && `send ${up.length}`,
+        merge.length && `combine ${merge.length}`,
         removals && `remove ${removals}`
     ].filter(Boolean);
 
     frame(`
         ${header}
-        ${unusual ? `<div class="task-status task-status-error" role="alert"><strong>This removes ${removals} of ${total} tabs</strong><span class="task-status-detail">If that isn't what you expect, cancel and check ${place} first.</span></div>` : ''}
-        ${counts([[down.length, 'to receive'], [up.length, 'to send'], [removeHere.length, 'removed here'], [removeThere.length, `removed from ${shortPlace(target)}`]])}
-        ${section(removeHere, { title: 'Removed from this device', open: true, note: `Removed from ${place} on another device. Older snapshots still hold a copy.` })}
-        ${section(removeThere, { title: `Removed from ${place}`, open: true, note: 'You removed these here. Older snapshots still hold a copy.' })}
+        ${unusual ? `<div class="task-status task-status-error" role="alert"><strong>This removes ${removals} of ${total} songs</strong><span class="task-status-detail">If that isn't what you expect, cancel and check ${place} first.</span></div>` : ''}
+        ${counts([[down.length, 'to receive'], [up.length, 'to send'], [merge.length, 'to combine'], [removeHere.length, 'removed here'], [removeThere.length, `removed from ${shortPlace(target)}`]])}
+        ${section(removeHere, { title: 'Removed from this device', open: true, note: `Removed from ${place} on another device.` })}
+        ${section(removeThere, { title: `Removed from ${place}`, open: true, note: 'You removed these here.' })}
         ${section(down, { title: 'Received on this device' })}
+        ${section(merge, { title: 'Combined with the copy there' })}
         ${section(up, { title: `Sent to ${place}` })}
-        ${otherSection(other.receive, { title: 'Library and settings received' })}
-        ${otherSection(other.send, { title: `Library and settings sent to ${place}` })}
         <p class="sync-hint">
-            Settings, songs, collections, recents and setlists follow the newest change on either side, and a removal on one side is carried to the other. A new snapshot is saved only when this device has something to send.
-        </p>
-        ${danger}`,
+            Songs, collections, recents, setlists and settings follow the newest change on either side, and a removal on one side is carried to the other. When both sides changed a song, its tabs and recordings are combined and none is dropped.
+        </p>`,
         {
             subtitle: `Sync with ${place}`,
             footer: button('close', 'Cancel') + button('apply', parts.length ? `Sync now (${parts.join(', ')})` : 'Sync now', { primary: true })
         });
 }
 
-/** Second step of the destructive option: says exactly what will be left out, and waits for the second press. */
-function showReplaceConfirm(target, replacePlan) {
+/** The old layout is here and the new one is not: say what the upgrade does and wait for the press. */
+function showUpgrade(target, store, probe) {
     const place = where(target);
-    const { lost } = replacePlan;
-    const lines = [
-        lost.tabs && `${lost.tabs} tab${lost.tabs === 1 ? '' : 's'}`,
-        lost.soundfonts && `${lost.soundfonts} SoundFont${lost.soundfonts === 1 ? '' : 's'}`,
-        lost.audio && `${lost.audio} audio file${lost.audio === 1 ? '' : 's'}`,
-        lost.records && `${lost.records} setting, song or setlist record${lost.records === 1 ? '' : 's'}`
-    ].filter(Boolean);
     frame(`
-        <div class="task-status task-status-error" role="alert">
-            <strong>Replace ${place} with this device?</strong>
-            <span class="task-status-detail">${place} will become an exact copy of this library. Nothing is received from it, and your other devices will follow this device the next time they sync.</span>
+        <div class="task-status" role="status">
+            <strong>${probe.partial ? 'Finish upgrading this backup location' : 'Upgrade this backup location'}</strong>
+            <span class="task-status-detail">${escapeHtml(place.charAt(0).toUpperCase() + place.slice(1))} holds a library saved by an earlier version of MajesticTab. Upgrading keeps it as one .mpak file per song, which syncs faster and can be opened by other music tools.</span>
         </div>
-        ${counts([[replacePlan.sending, 'to send'], [lines.length ? lost.tabs + lost.soundfonts + lost.audio : 0, `left out of ${shortPlace(target)}`], [replacePlan.unchanged, 'already there']])}
-        ${lines.length ? `<div class="sync-section"><div class="sync-row-name">Only in ${place}, left out of the new snapshot</div><ul class="sync-rows"><li><span class="sync-row-name">${escapeHtml(lines.join(', '))}</span></li></ul></div>` : `<p class="sync-hint">${place} holds nothing this device lacks.</p>`}
-        <p class="sync-hint">Older snapshots stay in ${place} until they age out, so a restore can still reach them. This cannot be undone from here.</p>`,
-        {
-            subtitle: `Replace ${place}`,
-            footer: button('replace-cancel', 'Cancel') + button('replace-confirm', `Replace ${place}`, { danger: true })
-        });
+        <p class="sync-hint">This device syncs with the existing copy one last time, so nothing is missed. The existing copy is not changed or removed.</p>
+        <p class="sync-hint">Update MajesticTab on your other devices before they sync again. Older versions keep using the existing copy and will not see changes made after the upgrade.</p>
+        <div class="sync-hint" title="${escapeHtml(store.location)}">${escapeHtml(store.location)}</div>`,
+        { subtitle: `Sync with ${place}`, footer: button('close', 'Not now') + button('upgrade', probe.partial ? 'Finish upgrade' : 'Upgrade', { primary: true }) });
 }
 
-function showProgress(target, { replace = false } = {}) {
+function showProgress(target, { upgrade = false } = {}) {
     frame(`
         <div class="task-progress" role="status" aria-live="polite">
             <div class="task-progress-text"><span class="task-progress-label" id="syncProgressPercent">0%</span><span class="task-progress-detail" id="syncProgressText">Starting...</span></div>
             ${progressTrack('syncProgressBar')}
         </div>
-        <p class="sync-hint">Keep this window open until it finishes.</p>`, { subtitle: `${replace ? 'Replacing' : 'Syncing with'} ${targetLabel(target)}` });
+        <p class="sync-hint">Keep this window open until it finishes.</p>`, { subtitle: `${upgrade ? 'Upgrading' : 'Syncing with'} ${targetLabel(target)}` });
 }
 
 function updateProgress({ phase, current, total, text }) {
@@ -403,16 +394,20 @@ function updateProgress({ phase, current, total, text }) {
     if (textEl) textEl.textContent = text;
 }
 
-function showDone(target, r, { replace = false } = {}) {
+function showDone(target, r, { title = 'Sync complete' } = {}) {
     const lines = [
-        r.downloaded && `Received ${r.downloaded} tab${r.downloaded === 1 ? '' : 's'}`,
-        r.uploaded && `Sent ${r.uploaded} (${formatBytes(r.bytesSent)})`,
-        r.removedLocal && `Removed ${r.removedLocal} from this device`,
-        r.removedRemote && `Removed ${r.removedRemote} from ${targetLabel(target)}`
+        r.downloaded && `Received ${r.downloaded} song${r.downloaded === 1 ? '' : 's'}`,
+        r.merged && `Combined ${r.merged} song${r.merged === 1 ? '' : 's'} with the copy there`,
+        r.uploaded && `Sent ${r.uploaded}`,
+        r.removedHere && `Removed ${r.removedHere} from this device`,
+        r.removedThere && `Removed ${r.removedThere} from ${targetLabel(target)}`,
+        r.records && (r.records.pulled || r.records.pushed) && 'Library and settings updated'
     ].filter(Boolean);
-    reloadOnClose = Boolean(r.downloaded || r.removedLocal || r.recordsChanged);
-    frame(`<div class="task-status" role="status"><strong>${replace ? `${escapeHtml(targetLabel(target))} now matches this device` : 'Sync complete'}</strong>
-        <span class="task-status-detail">${lines.length ? lines.map(escapeHtml).join('<br>') : 'Library and settings are up to date.'}</span></div>`,
+    const failed = r.failed || [];
+    reloadOnClose = Boolean(r.downloaded || r.merged || r.removedHere || r.records?.pulled || r.records?.removedHere);
+    frame(`<div class="task-status" role="status"><strong>${escapeHtml(title)}</strong>
+        <span class="task-status-detail">${lines.length ? lines.map(escapeHtml).join('<br>') : 'Library and settings are up to date.'}</span></div>
+        ${failed.length ? notice(`${failed.length} song${failed.length === 1 ? '' : 's'} could not be synced and will be tried again next time: ${escapeHtml(failed.map((f) => f.reason).filter((v, i, a) => a.indexOf(v) === i).join('; '))}`, { error: true }) : ''}`,
         { subtitle: `Synced with ${targetLabel(target)}`, footer: button('close', 'Done', { primary: true }) });
 }
 
@@ -423,13 +418,33 @@ function showError(message, note = '') {
 
 // --- flow ---
 
-/** What a failure left behind, by the last stage that reported progress. Receiving always runs before sending. */
-function failureNote(stage, target) {
-    const place = targetLabel(target);
-    if (stage === 'pull') return `Nothing was sent. Items already received were kept, and the snapshot in ${place} is unchanged. Try again to pick up the rest.`;
-    if (stage === 'push') return `The snapshot in ${place} is unchanged and nothing on this device was lost. Changes waiting to send will be offered again next sync.`;
-    return '';
+/** What a failure left behind. Items already moved stay moved; the rest is offered again. */
+function failureNote(target) {
+    return `Songs already received or sent were kept, and nothing was lost. Try again to pick up the rest.`;
 }
+
+/** Opens the chosen location, in both layouts. Resolves to what the screens need, or shows the setup screen and returns null. */
+async function openLocation(target, mine, setStep, interactive) {
+    setStep(target === DRIVE ? 'Signing in to Google Drive...' : target === ICLOUD ? 'Opening iCloud Drive...' : target === S3 ? 'Connecting to the bucket...' : target === WEBDAV ? 'Connecting to the server...' : 'Opening the sync folder...');
+    const resolved = await resolveBackend(target, { interactive });
+    if (mine !== session) return null;
+    // @googleDrive:begin
+    if (resolved.status === 'needs-auth' && !interactive && !sessionStorage.getItem(AUTO_AUTH_KEY)) {
+        // Google sign-ins last about an hour; go straight back instead of asking again
+        sessionStorage.setItem(AUTO_AUTH_KEY, '1');
+        const { redirectToGoogleAuth } = await import('./googleDrive.js');
+        await redirectToGoogleAuth('sync');
+        return null;
+    }
+    // @googleDrive:end
+    sessionStorage.removeItem(AUTO_AUTH_KEY);
+    if (resolved.status !== 'ready') { showNeedsSetup(resolved.status, resolved.folderName); return null; }
+    const store = await createProviderStore(providerOf(target));
+    if (!store) { showNeedsSetup(`needs-${target === FOLDER ? 'folder' : target}`); return null; }
+    return { legacy: resolved.backend, store };
+}
+
+const location = (target, store) => `${target}|${store.location}`;
 
 /** Compare and show the review screen. `interactive` calls come from a click, so folders may prompt. */
 async function start({ interactive = false } = {}) {
@@ -438,101 +453,98 @@ async function start({ interactive = false } = {}) {
     if (!target) return showChooseLocation();
     const setStep = showChecking(target);
     try {
-        setStep(target === DRIVE ? 'Signing in to Google Drive...' : target === ICLOUD ? 'Opening iCloud Drive...' : target === S3 ? 'Connecting to the bucket...' : target === WEBDAV ? 'Connecting to the server...' : 'Opening the sync folder...');
-        const resolved = await resolveBackend(target, { interactive });
-        if (mine !== session) return;
-        // @googleDrive:begin
-        if (resolved.status === 'needs-auth' && !interactive && !sessionStorage.getItem(AUTO_AUTH_KEY)) {
-            // Google sign-ins last about an hour; go straight back instead of asking again
-            sessionStorage.setItem(AUTO_AUTH_KEY, '1');
-            const { redirectToGoogleAuth } = await import('./googleDrive.js');
-            return redirectToGoogleAuth('sync');
-        }
-        // @googleDrive:end
-        sessionStorage.removeItem(AUTO_AUTH_KEY);
-        if (resolved.status !== 'ready') return showNeedsSetup(resolved.status, resolved.folderName);
+        const opened = await openLocation(target, mine, setStep, interactive);
+        if (!opened || mine !== session) return;
+        const { legacy, store } = opened;
 
-        setStep(target === DRIVE ? 'Listing snapshots on Google Drive...' : target === ICLOUD ? 'Listing snapshots in iCloud Drive...' : target === S3 ? 'Listing snapshots in the bucket...' : target === WEBDAV ? 'Listing snapshots on the server...' : 'Listing snapshots in the folder...');
-        const plan = await planSync(resolved.backend, (text) => { if (mine === session) setStep(text); });
+        setStep('Looking at what is stored there...');
+        const probe = await probeLocation({ legacy, current: store });
+        if (mine !== session) return;
+        if (needsUpgrade(probe)) {
+            stopChecking();
+            context = { target, legacy, store, probe };
+            return showUpgrade(target, store, probe);
+        }
+        // Nothing of ours there yet: this sync creates the library
+        if (probe.state === 'none') { await store.open({ create: true }); await writeStoreInfo(store, { appVersion: await appVersion() }); }
+
+        setStep('Comparing songs...');
+        const local = createLocalAdapter();
+        const plan = await planPackSync({ store, local, baselines: localBaselines, location: location(target, store) });
         stopChecking();
         if (mine !== session) return;
-        // Nothing to move yet: record the baseline now so later removals are understood
-        if (plan.firstSync && !plan.changes.length && !plan.needsPush) await applySync(resolved.backend, plan);
-        context = { target, backend: resolved.backend, plan };
-        showReview(target, resolved.backend, plan);
+        context = { target, legacy, store, local, plan };
+        // Nothing to review: still settle the library and settings, which have no review of their own
+        if (!plan.items.length) return apply({ quiet: true });
+        showReview(target, store, plan);
     } catch (err) {
         stopChecking();
         if (mine !== session) return;
         console.error('[Sync] Could not compare:', err);
-        showError(err.message);
+        showError(err instanceof StoreTooNewError ? 'This library was saved by a newer MajesticTab. Update MajesticTab on this device to sync with it.' : err.message);
     }
 }
 
-async function apply() {
-    if (!context) return;
-    const { target, backend, plan } = context;
+async function apply({ quiet = false } = {}) {
+    if (!context?.plan) return;
+    const { target, store, local } = context;
     const mine = ++session;
-    showProgress(target);
-    let stage = null;
+    if (!quiet) showProgress(target);
     try {
-        const result = await applySync(backend, plan, (p) => { stage = p.phase; updateProgress(p); });
+        const result = await applyPackSync({
+            store, local, baselines: localBaselines, location: location(target, store),
+            onProgress: (p) => {
+                if (quiet) return;
+                const push = p.action === ITEM_ACTION.UPLOAD || p.action === ITEM_ACTION.DELETE_REMOTE;
+                updateProgress({ phase: push ? 'push' : 'pull', current: p.current - 1, total: p.total, text: p.name });
+            },
+        });
         if (mine !== session) return;
+        rememberLocation(location(target, store));
         context = null;
-        showDone(target, result);
+        showDone(target, result, { title: quiet ? 'Everything is in sync' : 'Sync complete' });
         refreshSyncStatus();
     } catch (err) {
         if (mine !== session) return;
         console.error('[Sync] Failed:', err);
-        showError(err.message, failureNote(stage, target));
+        showError(err.message, failureNote(target));
     }
 }
 
-/** First press of the destructive option: compare, then show what would be left out. Nothing changes yet. */
-async function startReplace() {
-    if (!context) return;
-    const { target, backend } = context;
+/** Moves the location from the old layout to the new one, then goes on to a normal sync. */
+async function upgrade() {
+    if (!context?.probe) return;
+    const { target, legacy, store } = context;
     const mine = ++session;
-    const setStep = showChecking(target, { title: `Reading ${targetLabel(target)}`, subtitle: `Replace ${targetLabel(target)}` });
+    showProgress(target, { upgrade: true });
+    const local = createLocalAdapter();
+    const say = (text, info) => {
+        if (mine !== session) return;
+        if (info?.total) updateProgress({ phase: 'push', current: info.current, total: info.total, text: info.name || text });
+        else updateProgress({ phase: 'pull', current: 0, total: 1, text });
+    };
     try {
-        const replacePlan = await planReplaceRemote(backend, (text) => { if (mine === session) setStep(text); });
-        stopChecking();
+        await upgradeLocation({
+            legacy, current: store, appVersion: await appVersion(), onStatus: say,
+            // The existing sync, so this device holds everything the old copy holds before the new copy is written
+            syncWithLegacy: async () => { const plan = await planSync(legacy, (t) => say(t)); await applySync(legacy, plan, (p) => { if (mine === session) updateProgress(p); }); },
+            exportToStore: (to, onProgress) => exportLocalToStore(to, local, onProgress),
+        });
+        await seedItemBaselines({ store, local, baselines: localBaselines, location: location(target, store) });
         if (mine !== session) return;
-        context.replacePlan = replacePlan;
-        showReplaceConfirm(target, replacePlan);
-    } catch (err) {
-        stopChecking();
-        if (mine !== session) return;
-        console.error('[Sync] Could not read the sync location:', err);
-        showError(err.message);
-    }
-}
-
-/** Second press: this device's library becomes the new snapshot. */
-async function confirmReplace() {
-    if (!context?.replacePlan) return;
-    const { target, backend, replacePlan } = context;
-    const mine = ++session;
-    showProgress(target, { replace: true });
-    let stage = null;
-    try {
-        const result = await applyReplaceRemote(backend, replacePlan, (p) => { stage = p.phase; updateProgress(p); });
-        if (mine !== session) return;
-        context = null;
-        showDone(target, result, { replace: true });
-        refreshSyncStatus();
+        reloadOnClose = true;
+        return start();
     } catch (err) {
         if (mine !== session) return;
-        console.error('[Sync] Replace failed:', err);
-        showError(err.message, failureNote(stage, target));
+        console.error('[Sync] Upgrade failed:', err);
+        showError(err.message, 'The existing copy was not changed. Try the upgrade again; it picks up where it stopped.');
     }
 }
 
 async function handleAction(action) {
     try {
         if (action === 'close') return closeSyncModal();
-        if (action === 'replace') return startReplace();
-        if (action === 'replace-confirm') return confirmReplace();
-        if (action === 'replace-cancel') return context ? showReview(context.target, context.backend, context.plan) : start();
+        if (action === 'upgrade') return upgrade();
         if (action === 'retry') return start({ interactive: true });
         if (action === 'apply') return apply();
         if (action === 'switch') return showChooseLocation();
