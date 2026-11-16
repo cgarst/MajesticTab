@@ -77,7 +77,7 @@ export function createAutoSyncController(deps) {
         StoreTooNewErrorClass = StoreTooNewError,
     } = deps;
 
-    let state = { status: 'idle', reason: null, detail: null, lastAttemptAt: 0 };
+    let state = { status: 'idle', reason: null, detail: null, progress: null, lastAttemptAt: 0 };
     let inFlight = null;
     let pending = false;
     let dirtyTimer = null;
@@ -96,7 +96,7 @@ export function createAutoSyncController(deps) {
             dirtyTimer = null;
         }
         if (state.status !== 'syncing') {
-            setState({ status: 'idle', reason: null, detail: null });
+            setState({ status: 'idle', reason: null, detail: null, progress: null });
         }
     };
 
@@ -112,16 +112,16 @@ export function createAutoSyncController(deps) {
     const executeSync = async () => {
         const target = readTarget();
         if (!target) {
-            setState({ status: 'paused', reason: 'needs-setup', detail: null });
+            setState({ status: 'paused', reason: 'needs-setup', detail: null, progress: null });
             return { status: 'paused', reason: 'needs-setup' };
         }
         const lastAttemptAt = now();
-        setState({ status: 'syncing', reason: null, detail: null, lastAttemptAt });
+        setState({ status: 'syncing', reason: null, detail: null, progress: null, lastAttemptAt });
 
         try {
             const opened = await openStore(target);
             if (opened.status !== 'ready') {
-                setState({ status: 'paused', reason: opened.status, detail: opened.folderName || null });
+                setState({ status: 'paused', reason: opened.status, detail: opened.folderName || null, progress: null });
                 return { status: 'paused', reason: opened.status };
             }
             const { legacy, store } = opened;
@@ -129,7 +129,7 @@ export function createAutoSyncController(deps) {
 
             const probed = await probe({ legacy, current: store });
             if (checkUpgrade(probed) || probed.partial) {
-                setState({ status: 'paused', reason: 'needs-upgrade', detail: null });
+                setState({ status: 'paused', reason: 'needs-upgrade', detail: null, progress: null });
                 return { status: 'paused', reason: 'needs-upgrade' };
             }
             if (probed.state === 'none') {
@@ -143,27 +143,31 @@ export function createAutoSyncController(deps) {
 
             const mass = isMassRemovalPlan(plan);
             if (mass.unusual) {
-                setState({ status: 'paused', reason: 'needs-review', detail: `${mass.removals} of ${mass.total}` });
+                setState({ status: 'paused', reason: 'needs-review', detail: `${mass.removals} of ${mass.total}`, progress: null });
                 return { status: 'paused', reason: 'needs-review' };
             }
 
+            const onProgress = ({ current, total }) => {
+                if (total > 0) setState({ progress: { current, total } });
+            };
+
             let result;
             try {
-                result = await applySync({ store, local, baselines, location: loc, hybrid, plan });
+                result = await applySync({ store, local, baselines, location: loc, hybrid, plan, onProgress });
             } catch (err) {
                 if (!(err instanceof ConflictErrorClass)) throw err;
                 // Another device wrote while we were planning: re-plan once and retry.
                 plan = await planSync({ store, local, baselines, location: loc, hybrid });
                 const retryMass = isMassRemovalPlan(plan);
                 if (retryMass.unusual) {
-                    setState({ status: 'paused', reason: 'needs-review', detail: `${retryMass.removals} of ${retryMass.total}` });
+                    setState({ status: 'paused', reason: 'needs-review', detail: `${retryMass.removals} of ${retryMass.total}`, progress: null });
                     return { status: 'paused', reason: 'needs-review' };
                 }
-                result = await applySync({ store, local, baselines, location: loc, hybrid, plan });
+                result = await applySync({ store, local, baselines, location: loc, hybrid, plan, onProgress });
             }
 
             onRememberLocation?.(loc);
-            setState({ status: 'idle', reason: null, detail: null });
+            setState({ status: 'idle', reason: null, detail: null, progress: null });
 
             const pulled = (result?.downloaded || 0) + (result?.merged || 0) + (result?.deletedLocal || 0);
             if (pulled > 0 || result?.recordsChanged) {
@@ -172,10 +176,10 @@ export function createAutoSyncController(deps) {
             return { status: 'ok', result };
         } catch (err) {
             if (err instanceof StoreTooNewErrorClass) {
-                setState({ status: 'paused', reason: 'store-too-new', detail: null });
+                setState({ status: 'paused', reason: 'store-too-new', detail: null, progress: null });
                 return { status: 'paused', reason: 'store-too-new' };
             }
-            setState({ status: 'error', reason: 'error', detail: err?.message || 'Sync failed' });
+            setState({ status: 'error', reason: 'error', detail: err?.message || 'Sync failed', progress: null });
             return { status: 'error', error: err };
         }
     };
@@ -191,7 +195,7 @@ export function createAutoSyncController(deps) {
             return { status: 'deferred', reason: 'busy' };
         }
         if (!isOnline()) {
-            setState({ status: 'paused', reason: 'offline', detail: null });
+            setState({ status: 'paused', reason: 'offline', detail: null, progress: null });
             return { status: 'paused', reason: 'offline' };
         }
         if (!force && reason === 'visibility' && state.lastAttemptAt && (now() - state.lastAttemptAt) < visibilityCooldownMs) {
@@ -218,7 +222,7 @@ export function createAutoSyncController(deps) {
 
     const clearPause = () => {
         if (state.status === 'paused' || state.status === 'error') {
-            setState({ status: 'idle', reason: null, detail: null });
+            setState({ status: 'idle', reason: null, detail: null, progress: null });
         }
     };
 

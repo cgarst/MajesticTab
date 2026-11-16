@@ -1158,6 +1158,7 @@ export function updateGlobalAudioControls() {
             controlsContainer.style.display = 'inline-flex';
         } else {
             controlsContainer.style.display = 'none';
+            document.body.classList.toggle('is-playing', false);
             const mobileDock = document.getElementById('mobilePlaybackDock');
             if (mobileDock) mobileDock.style.display = 'none';
             return;
@@ -1181,6 +1182,7 @@ export function updateGlobalAudioControls() {
     }
 
     const isPlaying = isSynthPlaying() || isRealAudioPlaying();
+    document.body.classList.toggle('is-playing', isPlaying);
 
     if (playPauseBtn) {
         playPauseBtn.disabled = !canPlay;

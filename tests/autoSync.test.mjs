@@ -201,3 +201,24 @@ test('markDirty debounces multiple edits into one sync', async () => {
     await scheduledFn();
     assert.equal(calls.plan, 1);
 });
+
+test('forwards applyPackSync progress into state and clears on idle', async () => {
+    const snapshots = [];
+    const { deps } = makeDeps({
+        onStateChange: (s) => snapshots.push({ status: s.status, progress: s.progress }),
+        applyPackSync: async ({ onProgress }) => {
+            onProgress?.({ current: 1, total: 3 });
+            onProgress?.({ current: 2, total: 3 });
+            return { downloaded: 0, merged: 0, deletedLocal: 0 };
+        },
+    });
+    const ctrl = createAutoSyncController(deps);
+    const res = await ctrl.run({ force: true });
+    assert.equal(res.status, 'ok');
+    assert.deepEqual(snapshots, [
+        { status: 'syncing', progress: null },
+        { status: 'syncing', progress: { current: 1, total: 3 } },
+        { status: 'syncing', progress: { current: 2, total: 3 } },
+        { status: 'idle', progress: null },
+    ]);
+});

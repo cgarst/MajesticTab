@@ -174,7 +174,7 @@ function makeHideNoTabSongsRow() {
 function makeAutoSyncRow() {
     return makeSwitchRow({
         id: 'autoSyncSwitch',
-        title: 'Auto-sync',
+        title: 'Auto-sync cloud storage',
         help: 'Keep your library synced in the background when a location is connected.',
         checked: isAutoSyncEnabled(),
         onChange: (checked) => {
@@ -262,6 +262,7 @@ export function initSettingsPage() {
     const defaultsBtn = take('defaultsModalBtn');
     const syncBtn = take('syncDataBtn');
     const syncStatus = take('syncStatusLine');
+    if (syncStatus) syncStatus.remove();
     const backupBtn = take('backupDataBtn');
     const restoreBtn = take('restoreDataBtn');
     const moreData = body.querySelector('.settings-advanced-details');
@@ -416,6 +417,7 @@ export function initSettingsPage() {
         // The verb is the visible action; the button stretches over its row so the whole row is the target
         const btn = el('button', 'btn btn-sm srow-ghost srow-hit' + (danger ? ' is-danger' : ''), label);
         btn.type = 'button';
+        if (isSync) btn.id = 'syncTaskBtn';
         btn.dataset.label = label;
         btn.setAttribute('aria-label', name);
         btn.setAttribute('aria-expanded', 'false');
@@ -443,10 +445,9 @@ export function initSettingsPage() {
         const g = group(title, ...tasks.flat());
         return g;
     };
-    const syncTask = taskRow('sync', 'Sync', 'Keep this device and your backup location matching.', 'Sync');
-    if (syncStatus) syncTask[0].querySelector('.st').appendChild(syncStatus);
+    const syncTask = taskRow('sync', 'Sync with cloud storage', 'Keep this device and your backup location matching.', 'Not synced');
     panes.library.appendChild(group('Library', makeHideNoTabSongsRow()));
-    panes.library.appendChild(group('Sync', ...syncTask, makeAutoSyncRow(), makeHybridSyncRow(), makeEvictLocalFilesRow()));
+    panes.library.appendChild(group('Cloud storage', ...syncTask, makeAutoSyncRow(), makeHybridSyncRow(), makeEvictLocalFilesRow()));
     panes.library.appendChild(taskGroup('Back up and restore',
         ...[taskRow('backup', 'Create a backup', 'Save your library to one file you keep.', 'Create'),
             taskRow('restore', 'Restore from a backup', 'Bring a backup file back.', 'Restore')]));

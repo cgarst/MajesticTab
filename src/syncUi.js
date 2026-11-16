@@ -15,7 +15,7 @@ import { s3ConfigFormHtml, saveS3ConfigFromForm } from './s3Ui.js';
 import { webdavConfigFormHtml, saveWebDavConfigFromForm } from './webdavUi.js';
 import { getS3Config, clearS3Config } from './s3Client.js';
 import { getWebDavConfig, clearWebDavConfig } from './webdavClient.js';
-import { showToast } from './utils/toast.js';
+import { showToast, dismissToast } from './utils/toast.js';
 import {
     DRIVE, FOLDER, ICLOUD, S3, WEBDAV, MASS_REMOVAL_SHARE, MASS_REMOVAL_MIN,
     getTarget, setTarget, providerOf, rememberLocation, lastSyncedAt, appVersion,
@@ -53,26 +53,49 @@ const PAUSE_NOTE = {
     'offline': 'offline',
 };
 
-/** Fills the "Last synced" line under the Sync button in Settings. */
+const PAUSE_BUTTON = {
+    'needs-auth': 'Sign in',
+    'needs-permission': 'Allow folder',
+    'needs-review': 'Review',
+    'needs-upgrade': 'Upgrade',
+    'store-too-new': 'Update app',
+    'offline': 'Offline',
+};
+
+/** Fills the consolidated sync status button in Settings. */
 export function refreshSyncStatus() {
-    const el = document.getElementById('syncStatusLine');
-    if (!el) return;
+    const btn = document.getElementById('syncTaskBtn');
+    if (!btn) return;
     const at = lastSyncedAt();
     const target = getTarget();
     const auto = getAutoSyncState();
+
+    let shortText = 'Not synced';
+    let fullText = 'Not synced yet';
+
     if (auto.status === 'syncing' && target) {
-        el.textContent = `Syncing with ${targetLabel(target)}...`;
-        return;
-    }
-    const base = at && target
-        ? `Last synced ${relativeTime(at)} with ${targetLabel(target)}`
-        : 'Not synced yet';
-    if (auto.status === 'paused' && PAUSE_NOTE[auto.reason]) {
-        el.textContent = `${base} · ${PAUSE_NOTE[auto.reason]}`;
-    } else if (auto.status === 'error') {
-        el.textContent = `${base} · auto-sync failed`;
+        shortText = 'Syncing...';
+        fullText = `Syncing with ${targetLabel(target)}...`;
     } else {
-        el.textContent = base;
+        if (at && target) {
+            const rel = relativeTime(at);
+            shortText = rel === 'just now' ? 'Synced just now' : `Synced ${rel}`;
+            fullText = `Last synced ${rel} with ${targetLabel(target)}`;
+        }
+        if (auto.status === 'paused' && PAUSE_NOTE[auto.reason]) {
+            shortText = PAUSE_BUTTON[auto.reason] || shortText;
+            fullText = `${fullText} · ${PAUSE_NOTE[auto.reason]}`;
+        } else if (auto.status === 'error') {
+            shortText = 'Sync failed';
+            fullText = `${fullText} · auto-sync failed`;
+        }
+    }
+
+    btn.dataset.label = shortText;
+    btn.title = fullText;
+    btn.setAttribute('aria-label', `Sync with cloud storage: ${fullText}`);
+    if (btn.getAttribute('aria-expanded') !== 'true') {
+        btn.textContent = shortText;
     }
 }
 
@@ -777,6 +800,134 @@ export async function openSyncModal() {
     await start();
 }
 
+const AUTO_SYNC_TOAST_ID = 'auto-sync-status';
+let pendingAutoSyncToast = null;
+let lastAutoSyncToastKey = '';
+let lastAutoSyncStartAt = 0;
+let activeAutoSyncToastKind = null; // 'start' | 'action' | null
+let bodyStateObserver = null;
+
+function isPlayerBusyForAutoSyncToast() {
+    return document.body.classList.contains('is-playing') || document.body.classList.contains('reading-mode');
+}
+
+function getAutoSyncProgressBar() {
+    let bar = document.getElementById('autoSyncProgressBar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'autoSyncProgressBar';
+        bar.className = 'auto-sync-progress';
+        bar.setAttribute('aria-hidden', 'true');
+        bar.innerHTML = '<div class="auto-sync-progress-fill"></div>';
+        document.body.appendChild(bar);
+    }
+    return bar;
+}
+
+function describeAutoSyncToast(auto) {
+    if (!auto) return null;
+    if (auto.status === 'error') {
+        return { message: 'Auto-sync failed', type: 'error', actionLabel: 'Open Sync' };
+    }
+    if (auto.status !== 'paused') return null;
+    switch (auto.reason) {
+        case 'needs-auth':
+            return { message: 'Auto-sync paused: sign in to resume', type: 'warning', actionLabel: 'Sign in' };
+        case 'needs-permission':
+            return { message: 'Auto-sync paused: allow folder access', type: 'warning', actionLabel: 'Allow' };
+        case 'needs-review':
+            return {
+                message: auto.detail ? `Auto-sync paused: review changes (${auto.detail})` : 'Auto-sync paused: review changes',
+                type: 'warning',
+                actionLabel: 'Review',
+            };
+        case 'needs-upgrade':
+            return { message: 'Auto-sync paused: sync location needs upgrade', type: 'warning', actionLabel: 'Open Sync' };
+        case 'store-too-new':
+            return { message: 'Auto-sync paused: update MajesticTab to sync', type: 'warning', actionLabel: null };
+        default:
+            return null;
+    }
+}
+
+function presentAutoSyncToast(spec) {
+    if (!spec) return;
+    const action = spec.actionLabel ? { label: spec.actionLabel, onClick: () => openSyncModal() } : null;
+    activeAutoSyncToastKind = 'action';
+    showToast(spec.message, spec.type, 0, AUTO_SYNC_TOAST_ID, action);
+}
+
+function presentAutoSyncStartToast(auto) {
+    const attemptAt = auto?.lastAttemptAt || 0;
+    if (attemptAt && attemptAt === lastAutoSyncStartAt) return;
+    lastAutoSyncStartAt = attemptAt;
+    if (modal?.style.display === 'block' || isPlayerBusyForAutoSyncToast()) return;
+    const target = getTarget();
+    const message = target ? `Syncing with ${targetLabel(target)}...` : 'Syncing...';
+    activeAutoSyncToastKind = 'start';
+    showToast(message, 'info', 2500, AUTO_SYNC_TOAST_ID);
+}
+
+function flushPendingAutoSyncToast() {
+    if (!pendingAutoSyncToast || isPlayerBusyForAutoSyncToast()) return;
+    const spec = pendingAutoSyncToast;
+    pendingAutoSyncToast = null;
+    presentAutoSyncToast(spec);
+}
+
+function ensureBodyStateObserver() {
+    if (bodyStateObserver || typeof MutationObserver === 'undefined' || !document.body) return;
+    bodyStateObserver = new MutationObserver(flushPendingAutoSyncToast);
+    bodyStateObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+}
+
+function updateAutoSyncHud(state) {
+    const auto = state || getAutoSyncState();
+    const bar = getAutoSyncProgressBar();
+    if (auto.status === 'syncing') {
+        bar.classList.add('is-active');
+        if (auto.progress?.total > 0) {
+            const ratio = Math.min(1, Math.max(0.04, auto.progress.current / auto.progress.total));
+            bar.classList.remove('is-indeterminate');
+            bar.style.setProperty('--sync-progress', String(ratio));
+        } else {
+            bar.classList.add('is-indeterminate');
+            bar.style.removeProperty('--sync-progress');
+        }
+        pendingAutoSyncToast = null;
+        lastAutoSyncToastKey = '';
+        presentAutoSyncStartToast(auto);
+        return;
+    }
+
+    bar.classList.remove('is-active', 'is-indeterminate');
+    bar.style.removeProperty('--sync-progress');
+
+    const spec = describeAutoSyncToast(auto);
+    if (!spec) {
+        pendingAutoSyncToast = null;
+        lastAutoSyncToastKey = '';
+        if (activeAutoSyncToastKind === 'action') {
+            activeAutoSyncToastKind = null;
+            dismissToast(AUTO_SYNC_TOAST_ID);
+        }
+        return;
+    }
+
+    if (modal?.style.display === 'block') return;
+    const key = `${auto.status}:${auto.reason || ''}:${auto.detail || ''}:${auto.lastAttemptAt || 0}`;
+    if (key === lastAutoSyncToastKey) return;
+    lastAutoSyncToastKey = key;
+
+    if (isPlayerBusyForAutoSyncToast()) {
+        pendingAutoSyncToast = spec;
+        ensureBodyStateObserver();
+    } else {
+        pendingAutoSyncToast = null;
+        presentAutoSyncToast(spec);
+    }
+}
+
 export function initSync() {
     // The Sync row in Settings opens the task itself (settingsPage.js); another data task opening closes this one
     window.addEventListener('dataTaskOpened', () => { if (modal?.style.display === 'block') reset(); });
@@ -789,7 +940,11 @@ export function initSync() {
         sessionStorage.removeItem(AUTO_AUTH_KEY);
         start({ interactive: true });
     });
-    window.addEventListener(STATE_CHANGED_EVENT, refreshSyncStatus);
+    window.addEventListener(STATE_CHANGED_EVENT, (e) => {
+        refreshSyncStatus();
+        updateAutoSyncHud(e.detail);
+    });
     refreshSyncStatus();
+    updateAutoSyncHud(getAutoSyncState());
     initAutoSync();
 }
