@@ -276,10 +276,10 @@ const asChange = (i) => ({ name: i.name, reason: REASON[i.action](i), size: i.si
 function hybridControlsHtml(target) {
     const on = isHybridSyncEnabled();
     return `
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2">
-            <div class="form-check form-switch m-0">
+        <div class="sync-hybrid">
+            <div class="form-check form-switch sync-hybrid-toggle">
                 <input class="form-check-input theme-switch" type="checkbox" id="syncHybridToggle" ${on ? 'checked' : ''}>
-                <label class="form-check-label small" for="syncHybridToggle">Keep files in cloud until opened</label>
+                <label class="form-check-label" for="syncHybridToggle">Keep files in cloud until opened</label>
             </div>
             ${on ? textAction('evict-local-heavy', `Remove local files already in ${shortPlace(target)}`) : ''}
         </div>`;
