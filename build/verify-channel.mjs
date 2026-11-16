@@ -112,7 +112,7 @@ export async function verifyChannel(id, options = {}) {
       const found = containing(needle);
       if (found.length) errors.push(`${found.join(', ')} references ${needle} in a channel without Google Drive`);
     }
-    for (const local of ['googleDesktopClient.js', 'googleDrive.local.js', 'pickerKey.local.js']) {
+    for (const local of ['googleDesktopClient.js', 'googleDrive.local.js', 'pickerKey.local.js', 'storage/driveStore.js']) {
       if (shippedFiles.includes(local)) errors.push(`${local} ships in a channel without Google Drive`);
     }
     if (options.androidProject) {

@@ -9,7 +9,9 @@
 import { createBrowserFolderStore, createNativeFolderStore } from './storage/folderStore.js';
 import { createS3Store } from './storage/s3Store.js';
 import { createWebDavStore } from './storage/webdavStore.js';
+// @googleDrive:begin
 import { createDriveStore } from './storage/driveStore.js';
+// @googleDrive:end
 
 export const STORAGE_PROVIDERS = ['local', 'icloud', 'google-drive', 's3', 'webdav'];
 
@@ -34,11 +36,13 @@ async function icloudStore() {
     });
 }
 
+// @googleDrive:begin
 async function driveStore() {
     const drive = await import('./googleDrive.js');
     if (!(await drive.isGoogleDriveConnected())) return null;
     return createDriveStore({ fetch: drive.driveFetch, apiError: drive.driveApiErrorFromResponse });
 }
+// @googleDrive:end
 
 async function s3Store() {
     const { getS3Config } = await import('./s3Client.js');
@@ -52,7 +56,15 @@ async function webdavStore() {
     return config ? createWebDavStore(config) : null;
 }
 
-const BUILDERS = { local: localStore, icloud: icloudStore, 'google-drive': driveStore, s3: s3Store, webdav: webdavStore };
+const BUILDERS = {
+    local: localStore,
+    icloud: icloudStore,
+    // @googleDrive:begin
+    'google-drive': driveStore,
+    // @googleDrive:end
+    s3: s3Store,
+    webdav: webdavStore,
+};
 
 /** The store for `provider`, or null when it is not connected. Throws for a name that is not a provider. */
 export async function createProviderStore(provider) {

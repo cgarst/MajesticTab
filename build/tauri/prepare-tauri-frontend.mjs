@@ -280,6 +280,7 @@ async function stubOutGoogleDrive() {
   await rm(path.join(frontendDir, 'googleDesktopClient.js'), { force: true });
   await rm(path.join(frontendDir, 'googleDrive.local.js'), { force: true });
   await rm(path.join(frontendDir, 'pickerKey.local.js'), { force: true });
+  await rm(path.join(frontendDir, 'storage', 'driveStore.js'), { force: true });
   const stripped = await stripTaggedBlocks(frontendDir, 'googleDrive');
   console.log(`Google Drive stubbed out and stripped from ${stripped} files: channel has no googleDrive capability.`);
 }
