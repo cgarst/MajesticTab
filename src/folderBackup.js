@@ -3,7 +3,7 @@
 // Two ways to reach a folder, with the same interface:
 //   - browsers: the File System Access API (Chrome, Edge). The folder handle is kept in IndexedDB.
 //   - desktop app: Tauri's native folder dialog and fs plugin. The folder path is kept in localStorage.
-import { ROOT_FOLDER_NAME, BLOBS_FOLDER_NAME, MANIFESTS_FOLDER_NAME, isManifestName } from './incrementalBackup.js';
+import { ROOT_FOLDER_NAME, BLOBS_FOLDER_NAME, MANIFESTS_FOLDER_NAME, isManifestName, isUpgradeMarkerName } from './incrementalBackup.js';
 
 const DB_NAME = 'majestictab_backup_folder';
 const STORE_NAME = 'handles';
@@ -170,7 +170,9 @@ function createBrowserFolderBackend(rootHandle) {
 
         async listManifests() {
             const manifests = [];
+            manifests.upgraded = false;
             for await (const [name, handle] of manifestsDir.entries()) {
+                if (handle.kind === 'file' && isUpgradeMarkerName(name)) manifests.upgraded = true;
                 if (handle.kind !== 'file' || !isManifestName(name)) continue;
                 const file = await handle.getFile();
                 let counts = null;
@@ -253,9 +255,11 @@ function createNativeFolderBackend(root) {
         deleteBlob: (entry) => fs.remove(joinPath(blobsDir, entry.id)),
 
         async listManifests() {
-            const names = (await fs.readDir(manifestsDir)).filter(e => e.isFile && isManifestName(e.name)).map(e => e.name);
+            const dir = await fs.readDir(manifestsDir);
+            const upgraded = dir.some(e => e.isFile && isUpgradeMarkerName(e.name));
+            const names = dir.filter(e => e.isFile && isManifestName(e.name)).map(e => e.name);
             const stats = await statAll(manifestsDir, names);
-            return Promise.all(stats.map(async (entry) => {
+            const list = await Promise.all(stats.map(async (entry) => {
                 let counts = null;
                 try {
                     const summary = JSON.parse(await fs.readTextFile(joinPath(manifestsDir, entry.id))).summary;
@@ -263,6 +267,8 @@ function createNativeFolderBackend(root) {
                 } catch (_) {}
                 return { ...entry, counts };
             }));
+            list.upgraded = upgraded;
+            return list;
         },
 
         putManifest: (name, text) => writeAtomic(manifestsDir, name, path => fs.writeTextFile(path, text)),

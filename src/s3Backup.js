@@ -1,7 +1,7 @@
 // s3Backup.js
 // S3-compatible bucket storage backend for incremental backups (see incrementalBackup.js for the layout).
 // Backups live under "MajesticTab Backup/" inside the configured prefix of the bucket.
-import { ROOT_FOLDER_NAME, BLOBS_FOLDER_NAME, MANIFESTS_FOLDER_NAME, isManifestName, runPool } from './incrementalBackup.js';
+import { ROOT_FOLDER_NAME, BLOBS_FOLDER_NAME, MANIFESTS_FOLDER_NAME, isManifestName, isUpgradeMarkerName, runPool } from './incrementalBackup.js';
 import { getS3Config, s3List, s3Get, s3Put, s3Delete, s3BasePrefix } from './s3Client.js';
 
 const READ_CONCURRENCY = 6;
@@ -41,7 +41,9 @@ export function createS3Backend(config = getS3Config()) {
 
         async listManifests() {
             const { objects } = await s3List(config, manifestsPrefix);
-            const entries = objects.map(toEntry).filter(e => isManifestName(e.name));
+            const all = objects.map(toEntry);
+            const entries = all.filter(e => isManifestName(e.name));
+            entries.upgraded = all.some(e => isUpgradeMarkerName(e.name));
             // Object listings carry no custom properties, so the counts come from each manifest's summary
             await runPool(entries, READ_CONCURRENCY, async (entry) => {
                 try {

@@ -2,7 +2,7 @@
 // Google Drive storage backend for incremental backups (see incrementalBackup.js for the layout).
 // Backups live in a "MajesticTab Backup" folder at the root of My Drive, created by the app so the drive.file scope covers it.
 import { driveFetch, driveApiErrorFromResponse } from './googleDrive.js';
-import { ROOT_FOLDER_NAME, BLOBS_FOLDER_NAME, MANIFESTS_FOLDER_NAME, isManifestName } from './incrementalBackup.js';
+import { ROOT_FOLDER_NAME, BLOBS_FOLDER_NAME, MANIFESTS_FOLDER_NAME, isManifestName, isUpgradeMarkerName } from './incrementalBackup.js';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
 const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
@@ -146,7 +146,7 @@ export function createDriveBackend() {
 
         async listManifests() {
             const manifests = await listChildren(folders.manifestsId, " and name contains 'manifest-'");
-            return manifests.filter(f => isManifestName(f.name)).map(f => ({
+            const list = manifests.filter(f => isManifestName(f.name)).map(f => ({
                 ...f,
                 // Counts ride along as Drive properties, so listing needs no manifest downloads.
                 // Absent on snapshots written before they were recorded.
@@ -154,6 +154,8 @@ export function createDriveBackend() {
                     ? { tabs: Number(f.appProperties.tabs), soundFonts: Number(f.appProperties.soundFonts) || 0, audio: Number(f.appProperties.audio) || 0 }
                     : null
             }));
+            list.upgraded = manifests.some(f => isUpgradeMarkerName(f.name));
+            return list;
         },
 
         putManifest(name, text, counts) {

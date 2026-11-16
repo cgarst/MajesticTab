@@ -13,7 +13,7 @@
 //   putBlob(hash, buffer)
 //   readBlob(entry, label) -> ArrayBuffer
 //   deleteBlob(entry)
-//   listManifests() -> [{id, name, size, modifiedTime, counts?: {tabs, soundFonts}}]
+//   listManifests() -> [{id, name, size, modifiedTime, counts?: {tabs, soundFonts}}]   `.upgraded` is true on the array when UPGRADE_MARKER_NAME is there
 //   putManifest(name, text, counts)
 //   readManifest(entry) -> object
 //   deleteManifest(entry)
@@ -31,6 +31,22 @@ export const ROOT_FOLDER_NAME = 'MajesticTab Backup';
 export const BLOBS_FOLDER_NAME = 'blobs';
 export const MANIFESTS_FOLDER_NAME = 'manifests';
 const MANIFEST_PREFIX = 'manifest-';
+// A newer MajesticTab that moves a location to the one-file-per-song layout leaves this file in manifests/. It is not a
+// snapshot (isManifestName is false for it, so every version ignores it as one), but a version that knows it stops
+// syncing with the old layout instead of drifting away from the upgraded copy. Drive lists by "manifest-", so the name has it.
+export const UPGRADE_MARKER_NAME = 'manifest-UPGRADED.json';
+export const isUpgradeMarkerName = (name) => name === UPGRADE_MARKER_NAME;
+
+export class UpgradedLocationError extends Error {
+    constructor() {
+        super('This backup location was upgraded by a newer version of MajesticTab. Update MajesticTab on this device to keep syncing with it.');
+        this.name = 'UpgradedLocationError';
+    }
+}
+/** Throws UpgradedLocationError when the list of snapshots from listIncrementalBackups says the location was upgraded. */
+export function assertNotUpgraded(backups) {
+    if (backups?.upgraded) throw new UpgradedLocationError();
+}
 const MANIFEST_FORMAT_VERSION = 2;
 const UPLOAD_CONCURRENCY = 3;
 const DELETE_CONCURRENCY = 4;
@@ -426,10 +442,13 @@ export async function previewIncrementalRestore(bundle) {
 export async function listIncrementalBackups(backend) {
     if (!(await backend.open({ create: false }))) return [];
     const manifests = await backend.listManifests();
-    return manifests
+    const list = manifests
         .filter(f => isManifestName(f.name))
         .map(f => ({ ...f, size: Number(f.size) || 0, exportedAt: exportedAtFromManifestName(f.name), counts: f.counts || null }))
         .sort((a, b) => b.exportedAt.localeCompare(a.exportedAt));
+    // Backends report the marker on the list they return (see listManifests of each backend)
+    list.upgraded = Boolean(manifests.upgraded);
+    return list;
 }
 
 /** Delete manifests beyond the newest `keep`. Blobs are untouched; see findUnusedBlobs. */

@@ -22,7 +22,7 @@ import {
 } from './backupRestore.js';
 import { RECORD_ACTION, fingerprintValue, planRecords, describeRecords } from './recordSync.js';
 import {
-    listIncrementalBackups, loadIncrementalBundle, createIncrementalBackup, fileFingerprint, soundFontFingerprint, runPool, itemKey
+    listIncrementalBackups, assertNotUpgraded, loadIncrementalBundle, createIncrementalBackup, fileFingerprint, soundFontFingerprint, runPool, itemKey
 } from './incrementalBackup.js';
 
 const BASE_KEY = 'majestictab_sync_base';
@@ -322,6 +322,7 @@ export async function planSync(backend, onStatus) {
         listAudioForBackup(),
         listClasstab()
     ]);
+    assertNotUpgraded(backups);
     const local = localItems(fileMetas, soundFonts, audioMetas, classtabMetas);
     const downloadAudio = isAudioDownloadEnabled();
     const latest = backups[0] ? { name: backups[0].name, exportedAt: backups[0].exportedAt } : null;
@@ -432,7 +433,9 @@ export async function applySync(backend, plan, onProgress) {
     const report = (phase, current, total, text) => { if (typeof onProgress === 'function') onProgress({ phase, current, total, text }); };
 
     // Someone else may have synced while the plan was on screen
-    const newest = (await listIncrementalBackups(backend))[0] || null;
+    const current = await listIncrementalBackups(backend);
+    assertNotUpgraded(current);
+    const newest = current[0] || null;
     if ((newest?.name || null) !== (plan.latest?.name || null)) {
         throw new Error('The backup changed while you were reviewing. Sync again to see the updated changes.');
     }
@@ -540,6 +543,7 @@ export async function planReplaceRemote(backend, onStatus) {
     const [backups, fileMetas, soundFonts, audioMetas, classtabMetas] = await Promise.all([
         listIncrementalBackups(backend), getAllStoredFiles(), listSoundFonts(), listAudioForBackup(), listClasstab()
     ]);
+    assertNotUpgraded(backups);
     const local = localItems(fileMetas, soundFonts, audioMetas, classtabMetas);
     const latest = backups[0] ? { name: backups[0].name, exportedAt: backups[0].exportedAt } : null;
     say(latest ? 'Reading the latest snapshot...' : 'No snapshot found.');
@@ -586,7 +590,9 @@ export async function planReplaceRemote(backend, onStatus) {
  */
 export async function applyReplaceRemote(backend, plan, onProgress) {
     const report = (phase, current, total, text) => { if (typeof onProgress === 'function') onProgress({ phase, current, total, text }); };
-    const newest = (await listIncrementalBackups(backend))[0] || null;
+    const current = await listIncrementalBackups(backend);
+    assertNotUpgraded(current);
+    const newest = current[0] || null;
     if ((newest?.name || null) !== (plan.latest?.name || null)) {
         throw new Error('The backup changed while you were reviewing. Start again to see the updated changes.');
     }

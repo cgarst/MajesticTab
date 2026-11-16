@@ -1,7 +1,7 @@
 // webdavBackup.js
 // WebDAV storage backend for incremental backups and Sync (see incrementalBackup.js for the layout).
 // Backups live under "MajesticTab Backup/" inside the configured folder of the server.
-import { ROOT_FOLDER_NAME, BLOBS_FOLDER_NAME, MANIFESTS_FOLDER_NAME, isManifestName, runPool } from './incrementalBackup.js';
+import { ROOT_FOLDER_NAME, BLOBS_FOLDER_NAME, MANIFESTS_FOLDER_NAME, isManifestName, isUpgradeMarkerName, runPool } from './incrementalBackup.js';
 import { getWebDavConfig, davList, davGet, davPut, davDelete, davEnsureDir, davJoin } from './webdavClient.js';
 
 const READ_CONCURRENCY = 4;
@@ -42,7 +42,9 @@ export function createWebDavBackend(config = getWebDavConfig()) {
         deleteBlob: (entry) => davDelete(config, entry.id),
 
         async listManifests() {
-            const entries = (await files(manifestsDir)).map(toEntry).filter(e => isManifestName(e.name));
+            const all = (await files(manifestsDir)).map(toEntry);
+            const entries = all.filter(e => isManifestName(e.name));
+            entries.upgraded = all.some(e => isUpgradeMarkerName(e.name));
             // Listings carry no custom properties, so the counts come from each manifest's summary
             await runPool(entries, READ_CONCURRENCY, async (entry) => {
                 try {
