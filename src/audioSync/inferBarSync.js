@@ -5,6 +5,7 @@
 
 import { TICKS_PER_QUARTER } from './scorePositions.js';
 import { syncFit } from './pointCheck.js';
+import { nearestOnset } from './onsets.js';
 
 const CANDIDATE_UNITS = [
     { name: 'sixteenth', ticks: TICKS_PER_QUARTER / 4 },
@@ -16,10 +17,14 @@ const CANDIDATE_UNITS = [
 
 const MAX_INTERVAL_RATIO_DEVIATION = 0.35;
 const MIN_REGULAR_SHARE = 0.75;
-const SKIP_START_COST = 0.25;
+const SKIP_START_COST = 0.1;
 const SKIP_END_COST = 0.1;
 const SKIP_STEP_COST = 0.45;
+const SYS_BREAK_OFF_BAR_PENALTY = 0.75;
 const MAX_DP_BAND = 48;
+const MAX_FLAGGED_SHARE = 0.03;
+const ONSET_MATCH_WINDOW_MS = 120;
+const MAX_BAR_SHIFTS = 4;
 
 function tickToScoreMs(bar, tick) {
     let seg = bar.segments[0];
@@ -75,9 +80,10 @@ function isRegularGrid(times) {
 
 /**
  * Banded 1D dynamic programming alignment between PDF timestamps `times` (length N) and score grid `grid` (length M).
+ * When `isSysStart` is provided, penalizes matching a PDF system start to a non-bar-start in `grid`.
  * Returns an array `map[pIdx] = sIdx` (or -1 if skipped), or null if lengths are incompatible.
  */
-function alignSequences(times, grid) {
+function alignSequences(times, grid, isSysStart = null) {
     const N = times.length;
     const M = grid.length;
     if (N < 4 || M < 4) return null;
@@ -102,6 +108,10 @@ function alignSequences(times, grid) {
             const subBarPenalty = j > 0 && !grid[j].isBarStart ? 1.0 : 0;
             dp[idx] = j * SKIP_START_COST + subBarPenalty;
         }
+    }
+    for (let i = 1; i < Math.min(N, band + 1); i++) {
+        const idx = cellIdx(i, 0);
+        if (idx >= 0) dp[idx] = i * SKIP_START_COST;
     }
 
     for (let i = 1; i < N; i++) {
@@ -135,7 +145,8 @@ function alignSequences(times, grid) {
                     const ds = grid[j].scoreMs - grid[j - 1].scoreMs;
                     const err = ds > 0 && dt > 0 ? Math.abs(dt / ds - 1) : 1;
                     const stepCost = err <= MAX_INTERVAL_RATIO_DEVIATION ? err : MAX_INTERVAL_RATIO_DEVIATION + (err - MAX_INTERVAL_RATIO_DEVIATION) * 4;
-                    const cost = dp[diagIdx] + stepCost;
+                    const sysPen = isSysStart?.[i] && !grid[j].isBarStart ? SYS_BREAK_OFF_BAR_PENALTY : 0;
+                    const cost = dp[diagIdx] + stepCost + sysPen;
                     if (cost < best) { best = cost; bestOp = 1; }
                 }
             }
@@ -204,47 +215,146 @@ function extractBarPoints(timeline, times, grid, map) {
     return points;
 }
 
+/** Sorts valid PDF points and detects system-start indices when page/y layout is present. */
+function extractPdfFeatures(pdfPoints) {
+    const sorted = [...pdfPoints]
+        .filter(p => Number.isFinite(p?.timeMs) && p.timeMs >= 0)
+        .sort((a, b) => a.timeMs - b.timeMs);
+    const times = sorted.map(p => p.timeMs);
+    const hasLayout = sorted.some(p => Number.isFinite(p.page) || Number.isFinite(p.y));
+    const isSysStart = hasLayout
+        ? sorted.map((p, i) => i === 0 || p.page !== sorted[i - 1].page || Math.abs((p.y ?? 0) - (sorted[i - 1].y ?? 0)) > 0.01)
+        : null;
+    return { times, isSysStart };
+}
+
+function scoreMsToTimeMs(anchors, scoreMs) {
+    if (!anchors.length) return scoreMs;
+    if (scoreMs <= anchors[0].scoreMs) {
+        if (anchors.length >= 2) {
+            const rate = (anchors[1].timeMs - anchors[0].timeMs) / Math.max(1, anchors[1].scoreMs - anchors[0].scoreMs);
+            return anchors[0].timeMs + (scoreMs - anchors[0].scoreMs) * rate;
+        }
+        return anchors[0].timeMs + (scoreMs - anchors[0].scoreMs);
+    }
+    for (let i = 1; i < anchors.length; i++) {
+        if (scoreMs <= anchors[i].scoreMs) {
+            const a = anchors[i - 1];
+            const b = anchors[i];
+            const frac = (scoreMs - a.scoreMs) / Math.max(1, b.scoreMs - a.scoreMs);
+            return a.timeMs + frac * (b.timeMs - a.timeMs);
+        }
+    }
+    const last = anchors[anchors.length - 1];
+    return last.timeMs + (scoreMs - last.scoreMs);
+}
+
+/**
+ * Scores how well a candidate `points` alignment places the GP score's early notes against `audioOnsets`.
+ * Returns a value in roughly [-1, 1]; higher means better onset match and smaller initial silence mismatch.
+ */
+function scoreAudioOnsetAlignment(timeline, points, noteScoreTimesMs, audioOnsets) {
+    if (!audioOnsets?.times?.length || !noteScoreTimesMs?.length || !points.length) return 0;
+    const barByKey = new Map(timeline.bars.map(b => [`${b.barIndex}:${b.occurrence}`, b]));
+    const anchors = points
+        .map(p => ({ scoreMs: barByKey.get(`${p.barIndex}:${p.occurrence || 0}`)?.startMs, timeMs: p.timeMs }))
+        .filter(a => Number.isFinite(a.scoreMs))
+        .sort((a, b) => a.scoreMs - b.scoreMs);
+    if (!anchors.length) return 0;
+
+    const sample = noteScoreTimesMs.slice(0, 40);
+    let hits = 0;
+    for (const sMs of sample) {
+        const predMs = scoreMsToTimeMs(anchors, sMs);
+        if (predMs >= -ONSET_MATCH_WINDOW_MS && nearestOnset(audioOnsets, predMs, ONSET_MATCH_WINDOW_MS)) hits++;
+    }
+    const hitRate = hits / sample.length;
+
+    const predFirstMs = scoreMsToTimeMs(anchors, sample[0]);
+    const firstAudioMs = audioOnsets.times[0];
+    const firstGapMs = Math.abs(firstAudioMs - predFirstMs);
+    const gapPenalty = firstGapMs > 250 ? Math.min(1, (firstGapMs - 250) / 1500) : 0;
+
+    return hitRate - gapPenalty;
+}
+
+function evaluateAlignment(timeline, times, grid, isSysStart, unitName, totalSteps) {
+    const map = alignSequences(times, grid, isSysStart);
+    if (!map) return null;
+
+    const points = extractBarPoints(timeline, times, grid, map);
+    if (points.length < timeline.bars.length * 0.8) return null;
+
+    const fit = syncFit(timeline, points);
+    const maxFlagged = Math.max(1, Math.floor(timeline.bars.length * MAX_FLAGGED_SHARE));
+    if (!fit || fit.flagged > maxFlagged || fit.tempoSpread > 0.2) return null;
+
+    let matchedSteps = 0;
+    for (let k = 0; k < map.length; k++) {
+        if (map[k] >= 0) matchedSteps++;
+    }
+
+    const score = fit.placed * 10 - fit.flagged * 30 - fit.tempoSpread * 100 - Math.abs(times.length - grid.length) * 0.05;
+    return {
+        score,
+        result: { points, fit, unit: unitName, matchedSteps, totalSteps },
+    };
+}
+
 /**
  * Infers GP bar sync points from PDF sync points against a score `timeline`.
  *
  * @param {object} timeline result of `buildScoreTimeline(playedBars)`
- * @param {Array<{timeMs:number}>} pdfPoints PDF sync points (will be sorted by `timeMs`)
+ * @param {Array<{timeMs:number, page?:number, x?:number, y?:number}>} pdfPoints PDF sync points (will be sorted by `timeMs`)
+ * @param {{ audioOnsets?: { times: number[] } | null, noteScoreTimesMs?: number[] | null }} [options]
  * @returns {{ points: Array, fit: object, unit: string, matchedSteps: number, totalSteps: number } | null}
  */
-export function inferBarSyncFromPdf(timeline, pdfPoints) {
+export function inferBarSyncFromPdf(timeline, pdfPoints, options = {}) {
     if (!timeline?.bars?.length || !Array.isArray(pdfPoints) || pdfPoints.length < 4) return null;
-    const times = [...pdfPoints]
-        .map(p => p?.timeMs)
-        .filter(t => Number.isFinite(t) && t >= 0)
-        .sort((a, b) => a - b);
-
+    const { times, isSysStart } = extractPdfFeatures(pdfPoints);
     if (!isRegularGrid(times)) return null;
 
     let best = null;
+    let bestGrid = null;
+    let bestUnit = null;
     for (const unit of CANDIDATE_UNITS) {
         const grid = buildScoreGrid(timeline, unit.ticks);
-        const map = alignSequences(times, grid);
-        if (!map) continue;
-
-        const points = extractBarPoints(timeline, times, grid, map);
-        if (points.length < timeline.bars.length * 0.8) continue;
-
-        const fit = syncFit(timeline, points);
-        if (!fit || fit.flagged > 0 || fit.tempoSpread > 0.2) continue;
-
-        let matchedSteps = 0;
-        for (let k = 0; k < map.length; k++) {
-            if (map[k] >= 0) matchedSteps++;
-        }
-
-        const score = fit.placed * 10 - fit.tempoSpread * 100 - Math.abs(times.length - grid.length) * 0.05;
-        if (!best || score > best.score) {
-            best = {
-                score,
-                result: { points, fit, unit: unit.name, matchedSteps, totalSteps: grid.length },
-            };
+        const candidate = evaluateAlignment(timeline, times, grid, isSysStart, unit.name, grid.length);
+        if (!candidate) continue;
+        if (!best || candidate.score > best.score) {
+            best = candidate;
+            bestGrid = grid;
+            bestUnit = unit;
         }
     }
 
-    return best ? best.result : null;
+    if (!best) return null;
+
+    const { audioOnsets = null, noteScoreTimesMs = null } = options || {};
+    if (audioOnsets?.times?.length && noteScoreTimesMs?.length && bestGrid) {
+        const stepsPerBar0 = bestUnit.ticks === null
+            ? 1
+            : Math.max(1, Math.round((timeline.bars[0].endTick - timeline.bars[0].startTick) / bestUnit.ticks));
+
+        let bestAudioScore = best.score + scoreAudioOnsetAlignment(timeline, best.result.points, noteScoreTimesMs, audioOnsets) * 150;
+        let bestResult = best.result;
+
+        for (let shiftBars = -MAX_BAR_SHIFTS; shiftBars <= MAX_BAR_SHIFTS; shiftBars++) {
+            if (shiftBars === 0) continue;
+            const stepShift = Math.abs(shiftBars) * stepsPerBar0;
+            const shiftedTimes = shiftBars > 0 ? times.slice(stepShift) : times;
+            const shiftedSys = shiftBars > 0 && isSysStart ? isSysStart.slice(stepShift) : isSysStart;
+            const shiftedGrid = shiftBars < 0 ? bestGrid.slice(stepShift) : bestGrid;
+            const cand = evaluateAlignment(timeline, shiftedTimes, shiftedGrid, shiftedSys, bestUnit.name, bestGrid.length);
+            if (!cand) continue;
+            const totalScore = cand.score + scoreAudioOnsetAlignment(timeline, cand.result.points, noteScoreTimesMs, audioOnsets) * 150;
+            if (totalScore > bestAudioScore) {
+                bestAudioScore = totalScore;
+                bestResult = cand.result;
+            }
+        }
+        return bestResult;
+    }
+
+    return best.result;
 }

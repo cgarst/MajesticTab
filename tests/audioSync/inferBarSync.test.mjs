@@ -87,3 +87,53 @@ test('listPdfRecordsForMedia finds PDF records for the same song and media', () 
     assert.equal(found.length, 2);
     assert.deepEqual(found.map(r => r.points[0].id), ['p2', 'p1']);
 });
+
+test('detects leading PDF count-in bar using system-break layout on mixed-time score', () => {
+    const tl = makeMixedTimeline();
+    // PDF has 1 extra 4/4 bar (4 beats) at t=0..1500, then the 8 GP bars (4,4,4,2,4,4,4,4 = 30 beats).
+    // Systems break at PDF bar 0+1 (8 beats), bar 2+3+4 (4+4+2 = 10 beats -> wait: GP bars 1,2,3), etc.
+    // Specifically: Sys 0 = PDF bar 0 + GP bar 0 (8 beats), Sys 1 = GP bars 1,2,3 (10 beats), Sys 2 = GP bars 4..7 (16 beats).
+    const sysSizes = [8, 10, 16];
+    const pdfPoints = [];
+    let idx = 0;
+    sysSizes.forEach((count, sysIdx) => {
+        for (let k = 0; k < count; k++) {
+            pdfPoints.push({ page: 1, y: 0.1 + sysIdx * 0.2, x: 0.1 + k * 0.08, timeMs: idx * 500 });
+            idx++;
+        }
+    });
+    const res = inferBarSyncFromPdf(tl, pdfPoints);
+    assert.ok(res);
+    assert.equal(res.points[0].barIndex, 0);
+    assert.equal(res.points[0].timeMs, 2000);
+});
+
+test('detects leading PDF count-in bar on uniform 4/4 score using audio onsets', () => {
+    const bars = Array.from({ length: 8 }, (_, i) => bar(i, i * 3840, (i + 1) * 3840, i === 0 ? [{ tick: 0, tempo: 120 }] : []));
+    const tl = buildScoreTimeline(bars);
+    // PDF has 1 extra 4/4 count-in bar (t=0..1500) before GP bar 0 (t=2000)
+    const pdfPoints = Array.from({ length: 36 }, (_, i) => ({ page: 1, y: 0.1 + Math.floor(i / 8) * 0.2, timeMs: i * 500 }));
+    // GP notes start at 500ms into bar 0 (beat 2) and repeat every beat; audio is silent until 2500ms
+    const noteScoreTimesMs = Array.from({ length: 16 }, (_, i) => 500 + i * 500);
+    const audioOnsets = { times: Array.from({ length: 16 }, (_, i) => 2500 + i * 500) };
+
+    const res = inferBarSyncFromPdf(tl, pdfPoints, { audioOnsets, noteScoreTimesMs });
+    assert.ok(res);
+    assert.equal(res.points[0].barIndex, 0);
+    assert.equal(res.points[0].timeMs, 2000);
+});
+
+test('detects leading GP rest bar when audio/PDF start at bar 1 using audio onsets', () => {
+    const bars = Array.from({ length: 8 }, (_, i) => bar(i, i * 3840, (i + 1) * 3840, i === 0 ? [{ tick: 0, tempo: 120 }] : []));
+    const tl = buildScoreTimeline(bars);
+    // GP has a leading rest bar (bar 0: 0..2000ms), first note is at scoreMs=2000 (bar 1 beat 1).
+    // PDF/audio omitted bar 0 and start at t=0 for GP bar 1.
+    const pdfPoints = Array.from({ length: 28 }, (_, i) => ({ page: 1, y: 0.1 + Math.floor(i / 8) * 0.2, timeMs: i * 500 }));
+    const noteScoreTimesMs = Array.from({ length: 16 }, (_, i) => 2000 + i * 500);
+    const audioOnsets = { times: Array.from({ length: 16 }, (_, i) => i * 500) };
+
+    const res = inferBarSyncFromPdf(tl, pdfPoints, { audioOnsets, noteScoreTimesMs });
+    assert.ok(res);
+    assert.equal(res.points[0].barIndex, 1);
+    assert.equal(res.points[0].timeMs, 0);
+});

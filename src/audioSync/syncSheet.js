@@ -16,8 +16,10 @@ import { getActiveSlot } from './realAudioController.js';
 import { openCopySyncedVideoModal } from './syncedVideosModal.js';
 import { PROBLEM_TEXT } from './audioSyncEditor.js';
 import { buildTimelineModel } from './timelineModel.js';
-import { buildScoreTimeline, playedBarsFromLookup } from './scorePositions.js';
+import { buildScoreTimeline, playedBarsFromLookup, TICKS_PER_QUARTER } from './scorePositions.js';
 import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
+import { getAudioFile } from './audioFileStore.js';
+import { decodeOnsets } from './onsets.js';
 
 const MODAL = 'syncSheetModal';
 const $ = (id) => document.getElementById(id);
@@ -26,8 +28,8 @@ const reducedMotion = () => Boolean(window.matchMedia?.('(prefers-reduced-motion
 
 /** The sync state in words; the dock bar and the sheet say the same thing. */
 export function syncStateText(count, summary, fromHost = false) {
-    if (!count) return 'Not synced';
-    const state = summary.flaggedBar ? `Check bar ${summary.flaggedBar}` : summary.full ? 'Synced' : 'Partly synced';
+    if (!count) return 'Not mapped';
+    const state = summary.flaggedBar ? `Check bar ${summary.flaggedBar}` : summary.full ? 'Mapped' : 'Partly mapped';
     return fromHost ? `${state} · from the host` : state;
 }
 
@@ -98,6 +100,35 @@ function row(label, sub, onPress, { pressed = null, armed = false } = {}) {
     return b;
 }
 
+function collectScoreNoteTimes(score, timeline, maxBars = 16) {
+    const times = [];
+    const tracks = score?.tracks;
+    if (!Array.isArray(tracks) || !timeline?.bars?.length) return times;
+    for (const bar of timeline.bars.slice(0, maxBars)) {
+        for (const track of tracks) {
+            const staffBar = track?.staves?.[0]?.bars?.[bar.barIndex];
+            if (!staffBar?.voices?.length) continue;
+            for (const voice of staffBar.voices) {
+                for (const beat of voice.beats || []) {
+                    if (beat.isRest) continue;
+                    const tick = bar.startTick + (beat.playbackStart || 0);
+                    let seg = bar.segments[0];
+                    for (const s of bar.segments) {
+                        if (s.tick <= tick) seg = s;
+                    }
+                    times.push(seg.ms + (tick - seg.tick) * 60000 / (seg.tempo * TICKS_PER_QUARTER));
+                }
+            }
+        }
+    }
+    times.sort((a, b) => a - b);
+    const deduped = [];
+    for (const t of times) {
+        if (!deduped.length || t - deduped[deduped.length - 1] >= 30) deduped.push(t);
+    }
+    return deduped;
+}
+
 function findPdfInference(songKey, media) {
     try {
         const pdfRecords = listPdfRecordsForMedia(songKey, media);
@@ -109,7 +140,7 @@ function findPdfInference(songKey, media) {
         const timeline = buildScoreTimeline(played);
         for (const rec of pdfRecords) {
             const inferred = inferBarSyncFromPdf(timeline, rec.points);
-            if (inferred) return inferred;
+            if (inferred) return { inferred, timeline, pdfPoints: rec.points, score: api.score };
         }
     } catch { /* ignore */ }
     return null;
@@ -145,24 +176,36 @@ function render() {
 
     const songKey = getSongKey();
     if (!has && media && songKey) {
-        const inferred = findPdfInference(songKey, media);
-        if (inferred) {
-            list.append(row('Infer from PDF sync', inferred.fit.text, () => {
-                const saved = saveRecord(songKey, media, inferred.points, undefined, undefined, 'bar');
-                if (!saved) { showToast('Could not save the inferred sync points', 'error'); return; }
+        const found = findPdfInference(songKey, media);
+        if (found) {
+            list.append(row('Infer from PDF map', found.inferred.fit.text, async () => {
+                let result = found.inferred;
+                if (media.kind === 'local' && media.audioId) {
+                    try {
+                        const file = await getAudioFile(media.audioId);
+                        const buf = file ? await file.arrayBuffer() : null;
+                        const audioOnsets = buf ? await decodeOnsets(buf) : null;
+                        const noteScoreTimesMs = collectScoreNoteTimes(found.score, found.timeline);
+                        if (audioOnsets?.times?.length && noteScoreTimesMs.length) {
+                            result = inferBarSyncFromPdf(found.timeline, found.pdfPoints, { audioOnsets, noteScoreTimesMs }) || result;
+                        }
+                    } catch { /* fall back to layout/tempo inference */ }
+                }
+                const saved = saveRecord(songKey, media, result.points, undefined, undefined, 'bar');
+                if (!saved) { showToast('Could not save the inferred map points', 'error'); return; }
                 window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
                 closeModal(MODAL);
-                showToast(`Inferred ${inferred.fit.placed} of ${inferred.fit.total} bars from PDF sync`, 'success');
+                showToast(`Inferred ${result.fit.placed} of ${result.fit.total} bars from PDF map`, 'success');
             }));
         }
     }
     const others = media ? borrowableRecords(songKey, media) : [];
     if (others.length) {
-        list.append(row('Use another recording’s sync', 'Another video or file of this song', () => { pickerOpen = !pickerOpen; disarm(); render(); $('syncSheetBody')?.querySelector('[aria-expanded]')?.focus(); }, { pressed: pickerOpen }));
+        list.append(row('Use another recording’s map', 'Another video or file of this song', () => { pickerOpen = !pickerOpen; disarm(); render(); $('syncSheetBody')?.querySelector('[aria-expanded]')?.focus(); }, { pressed: pickerOpen }));
         if (pickerOpen) {
             const picker = el('div', 'sync-sheet-picker');
             picker.setAttribute('role', 'group');
-            picker.setAttribute('aria-label', 'Use the sync of');
+            picker.setAttribute('aria-label', 'Use the map of');
             for (const r of others) {
                 const key = `${r.media.kind}:${r.media.audioId || r.media.videoId}`;
                 const isArmed = armedKey === key;
@@ -181,11 +224,11 @@ function render() {
             list.append(picker);
         }
     }
-    if (siblings.length) list.append(row('Use another tab’s sync', 'A video synced in another tab of this song', () => handOff(() => openCopySyncedVideoModal())));
+    if (siblings.length) list.append(row('Use another tab’s map', 'A video mapped in another tab of this song', () => handOff(() => openCopySyncedVideoModal())));
 
     if (getActiveSlot() === 'backing' && songKey) {
         const shared = isSyncSharedFromOriginal(songKey);
-        const sw = row('Use the original recording’s sync', shared ? 'On: the backing track follows the original’s points' : 'Off', () => {
+        const sw = row('Use the original recording’s map', shared ? 'On: the backing track follows the original’s points' : 'Off', () => {
             setSyncSharedFromOriginal(songKey, !shared);
             window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
         });
