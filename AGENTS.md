@@ -29,6 +29,10 @@ This file holds only what applies to every task. Domain guides hold the rest: **
 - **Never distribute iOS or iPadOS builds outside Apple's channels:** The Apple Developer Program License Agreement (section 7.6) allows only the App Store, Custom App Distribution, Ad Hoc to registered devices and TestFlight. Do not attach an `.ipa` to a GitHub release or workflow artifact, build a SideStore, AltStore or LiveContainer source, or write sideloading instructions. The alternatives we offer are build-it-yourself (`CONTRIBUTING.md`) and the web app at `majestictab.zathu.net/app`. Do not link to TestFlight. macOS `.dmg` downloads are not affected.
 - **Never name tab sites in the code:** Do not identify any tab site or tab service by name anywhere in the repository: not in UI text, defaults, seeds, comments, tests, docs or commit messages. Describe it generically ("tab sites", "search the web"). General search engines (DuckDuckGo, Google) are not tab sites and may be named.
 
+### The mpak standard
+
+The mpak format is specified in the [MusicPackSpec repository](https://github.com/cgarst/MusicPackSpec) (`SPEC.md`, `schema/`, `CHANGELOG.md`), which we maintain. Read it before changing how `src/mpak.js` reads or writes a pack. **Never change anything in that repository, or in a local checkout of it, without the user's explicit approval**: not the spec text, the schema, the examples, the conformance files or the changelog. That includes a new optional field. When a feature needs a format change, describe the change and ask first. Until it is approved, keep the data in app-internal storage and do not write it into exported packs.
+
 ### Attribution
 
 When code, data or design is ported or adapted from another project (not merely used as a dependency you didn't modify), credit it in all three places in the same change:

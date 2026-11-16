@@ -5,7 +5,9 @@
 
 import { getSongKey } from '../youtubePlayer.js';
 import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
-import { loadRecord, saveRecord, loadRestorePoint, samePoints, SYNC_CHANGED_EVENT } from './syncStore.js';
+import { loadRecord, listRecords, saveRecord, loadRestorePoint, samePoints, SYNC_CHANGED_EVENT } from './syncStore.js';
+import { getAudioMeta } from './audioFileStore.js';
+import { measureAlignment, compareSyncs, conflictText } from './alignCheck.js';
 import { getScoreContext } from './audioSyncController.js';
 import { pointProblems, syncFit } from './pointCheck.js';
 import { buildBeatMap } from './beatMap.js';
@@ -250,7 +252,38 @@ export function initAudioSyncEditor() {
             const originName = currentRecord.media.origin.fromTabName || currentRecord.media.origin.fromSongKey;
             infoHtml += ` <span class="small text-muted ms-auto">Copied from tab: <b>${escapeHtml(originName)}</b></span>`;
         }
+        infoHtml += ` <span class="chip warn" id="syncAlignNote"${alignText ? '' : ' hidden'}>${escapeHtml(alignText)}</span>`;
         $('syncEditorInfo').innerHTML = infoHtml;
+        checkAlignment();
+    }
+
+    // Does another recording of this song have a sync that disagrees with how the two recordings line up? The audio
+    // offsets and the other recordings' peaks are kept for as long as the page is open, so an edit costs one comparison.
+    const alignments = new Map();
+    const otherPeaks = new Map();
+    let alignText = '';
+    async function checkAlignment() {
+        const cur = current;
+        const has = (r) => r.points.some((p) => Number.isInteger(p.barIndex));
+        const others = cur?.media?.kind === 'local' && cur.peaks && points.some((p) => Number.isInteger(p.barIndex))
+            ? listRecords(songKey()).filter((r) => r.media?.kind === 'local' && r.media.audioId !== cur.media.audioId && has(r)).slice(0, 6)
+            : [];
+        let text = '';
+        for (const other of others) {
+            const id = other.media.audioId;
+            if (!otherPeaks.has(id)) otherPeaks.set(id, (await getAudioMeta(id).catch(() => null))?.peaks || null);
+            const peaks = otherPeaks.get(id);
+            if (!peaks) continue;
+            const key = `${cur.media.audioId}|${id}|${peaks.length}`;
+            if (!alignments.has(key)) alignments.set(key, measureAlignment(cur.peaks, peaks));
+            const alignment = alignments.get(key);
+            text = conflictText(compareSyncs(points, other.points, alignment), alignment, other.media.name || 'another recording');
+            if (text) break;
+        }
+        if (current !== cur) return;
+        alignText = text || '';
+        const el = $('syncAlignNote');
+        if (el) { el.textContent = alignText; el.hidden = !alignText; }
     }
 
     /** Seek the recording, and the cursor with it when the score can place the time. */
