@@ -2,7 +2,7 @@
 // An in-memory store that follows the contract exactly, including versions, conditional writes and range reads.
 // It is the reference the conformance suite runs against first, the stand-in for a backend in the tests of the sync
 // engine, and a place to inject failures (`failNext`) to test retries and interrupted writes.
-import { CAPABILITIES, NotFoundError, ConflictError, checkStorePath, checkStorePrefix } from './contract.js';
+import { CAPABILITIES, NotFoundError, ConflictError, checkStorePath, checkStorePrefix, toBytes } from './contract.js';
 
 export function createMemoryStore({ label = 'memory', capabilities = {} } = {}) {
     const files = new Map();      // path -> { bytes, version, modifiedTime }
@@ -64,7 +64,7 @@ export function createMemoryStore({ label = 'memory', capabilities = {} } = {}) 
                 const current = f ? f.version : null;
                 if (current !== ifVersion) throw new ConflictError(`Version mismatch writing ${path}`, current);
             }
-            const stored = { bytes: new Uint8Array(bytes), version: `v${++counter}`, modifiedTime: new Date().toISOString() };
+            const stored = { bytes: new Uint8Array(await toBytes(bytes)), version: `v${++counter}`, modifiedTime: new Date().toISOString() };
             files.set(path, stored);
             return { version: stored.version };
         },

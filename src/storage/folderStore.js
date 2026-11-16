@@ -9,7 +9,7 @@
 // Folder file systems are usually case-insensitive (macOS, Windows). Writing "case/file" next to "Case/File" would
 // silently replace it, so a write whose name differs from an existing sibling only in case or unicode form throws
 // ConflictError instead. A directory is checked once per store, then remembered.
-import { CAPABILITIES, NotFoundError, ConflictError, StorageError, checkStorePath, checkStorePrefix } from './contract.js';
+import { CAPABILITIES, NotFoundError, ConflictError, StorageError, checkStorePath, checkStorePrefix, toBytes } from './contract.js';
 
 const STAT_CONCURRENCY = 16;
 const PART_SUFFIX = '.part';
@@ -323,7 +323,7 @@ export function createNativeFolderStore(rootPath, { fs, rootName = 'MajesticTab 
             // Written under a temporary name and renamed, so an interrupted write never leaves a partial file
             const partial = `${abs(path)}${PART_SUFFIX}`;
             try {
-                await api().writeFile(partial, bytes);
+                await api().writeFile(partial, await toBytes(bytes));
                 await api().rename(partial, abs(path));
             } catch (err) {
                 try { await api().remove(partial); } catch (_) {}

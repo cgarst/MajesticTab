@@ -15,7 +15,7 @@
 import {
     openMpak, buildMpak, zipParts, concatParts, bytesSource, readDirectory, readEntry, sha256, validateManifest, MpakError, checkEntryName,
 } from '../mpak/core/index.js';
-import { writePackDir, deletePackDir, readIfExists, NotFoundError, StorageError } from './contract.js';
+import { writePackDir, deletePackDir, readIfExists, NotFoundError, StorageError, byteLengthOf } from './contract.js';
 
 const PACK_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const MANIFEST_RE = /^([^/]+)\/manifest\.json$/;
@@ -131,8 +131,8 @@ export function createPackStore(store, { root = 'packs' } = {}) {
         for (const [path, want] of expectedFiles(manifest)) {
             const bytes = map.get(path);
             if (!bytes) { if (!isAudio(path) || !manifest.recordings) throw new MpakError(`manifest names ${path} but it is not in the pack`); continue; }
-            if (want.size !== undefined && want.size !== bytes.length) throw new MpakError(`${path}: size differs from the manifest`);
-            if (want.sha256 !== undefined && want.sha256 !== await sha256(bytes)) throw new MpakError(`${path}: sha256 differs from the manifest`);
+            if (want.size !== undefined && want.size !== byteLengthOf(bytes)) throw new MpakError(`${path}: size differs from the manifest`);
+            if (want.sha256 !== undefined && !(typeof Blob !== 'undefined' && bytes instanceof Blob) && want.sha256 !== await sha256(bytes)) throw new MpakError(`${path}: sha256 differs from the manifest`);
         }
         await writePackDir(store, dir, Object.fromEntries(map), { skipSameSize, onProgress, manifestIfVersion });
     }

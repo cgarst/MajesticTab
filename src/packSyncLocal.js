@@ -165,7 +165,15 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
             if (!pack || pack.packId !== packId) throw new Error(`Could not build the pack of ${song.title}`);
             const source = blobSource(pack.blob);
             const files = new Map();
-            for (const e of await readDirectory(source)) if (e.name !== 'mimetype') files.set(e.name, await readEntry(source, e, {}));
+            for (const e of await readDirectory(source)) {
+                if (e.name === 'mimetype') continue;
+                // Slice Stored audio entries as Blobs so large audio files stream instead of buffering in JS memory
+                if (e.method === 0 && e.name.startsWith('audio/')) {
+                    files.set(e.name, pack.blob.slice(e.dataStart, e.dataStart + e.csize));
+                } else {
+                    files.set(e.name, await readEntry(source, e, {}));
+                }
+            }
             return { files };
         },
 

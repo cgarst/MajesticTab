@@ -110,7 +110,8 @@ async function signedFetch(config, method, key, { query, body, headers = {} } = 
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
     const date = amzDate.slice(0, 8);
-    const payloadHash = body ? await sha256Hex(body) : EMPTY_SHA256;
+    const isBlob = typeof Blob !== 'undefined' && body instanceof Blob;
+    const payloadHash = body ? (isBlob ? 'UNSIGNED-PAYLOAD' : await sha256Hex(body)) : EMPTY_SHA256;
 
     const signed = { host, 'x-amz-content-sha256': payloadHash, 'x-amz-date': amzDate };
     const signedNames = Object.keys(signed).sort();
@@ -125,9 +126,10 @@ async function signedFetch(config, method, key, { query, body, headers = {} } = 
     for (const part of [date, config.region, 's3', 'aws4_request']) signingKey = await hmac(signingKey, part);
     const signature = hex(await hmac(signingKey, stringToSign));
 
+    const sendBody = isBlob && hasNativeHttp() ? new Uint8Array(await body.arrayBuffer()) : body;
     return (hasNativeHttp() ? window.__TAURI__.http.fetch : fetch)(url, {
         method,
-        body,
+        body: sendBody,
         headers: {
             ...headers,
             'x-amz-content-sha256': payloadHash,

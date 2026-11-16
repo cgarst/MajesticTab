@@ -13,7 +13,7 @@
 //   list(prefix = '') -> [{ path, size, version, modifiedTime }]   every file under prefix, recursively, in no set order
 //   stat(path) -> { path, size, version, modifiedTime } | null
 //   read(path, { range: { start, end } }?) -> Uint8Array          end is exclusive; throws NotFoundError
-//   write(path, bytes, { ifVersion }?) -> { version }             creates folders; replaces atomically; see below
+//   write(path, bytes, { ifVersion }?) -> { version }             bytes may be Uint8Array or Blob; creates folders; replaces atomically
 //   delete(path, { ifVersion }?) -> boolean                       true when a file was removed; absent is not an error
 //
 // Versions are opaque strings (an ETag, a generation, "mtime:size"). Only equality means anything. A write with
@@ -110,9 +110,12 @@ export async function updateJson(store, path, change, { attempts = 5 } = {}) {
     }
 }
 
+export const byteLengthOf = (data) => (typeof Blob !== 'undefined' && data instanceof Blob ? data.size : data.byteLength);
+export const toBytes = async (data) => (typeof Blob !== 'undefined' && data instanceof Blob ? new Uint8Array(await data.arrayBuffer()) : data);
+
 /**
  * Writes the files of one pack in directory form (SPEC section 3.2) under `dir` ("packs/<id>"): every file except
- * manifest.json first, manifest.json last, so a pack with a manifest is a complete pack. `files` maps relative path to bytes.
+ * manifest.json first, manifest.json last, so a pack with a manifest is a complete pack. `files` maps relative path to bytes (Uint8Array or Blob).
  * Files that are already in the store with the same size are skipped when `skipSameSize` (audio, which is Stored and large).
  */
 export async function writePackDir(store, dir, files, { skipSameSize = false, onProgress, manifestIfVersion } = {}) {
@@ -123,7 +126,7 @@ export async function writePackDir(store, dir, files, { skipSameSize = false, on
         const full = `${dir}/${rel}`;
         const bytes = files[rel];
         const existing = skipSameSize ? await store.stat(full) : null;
-        if (!existing || existing.size !== bytes.length) await store.write(full, bytes);
+        if (!existing || existing.size !== byteLengthOf(bytes)) await store.write(full, bytes);
         onProgress?.(++done, paths.length + 1);
     }
     if (!files['manifest.json']) throw new StorageError('A pack needs a manifest.json');

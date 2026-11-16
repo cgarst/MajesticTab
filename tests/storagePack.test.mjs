@@ -122,3 +122,20 @@ test('remove deletes the whole pack', async () => {
     await packs.remove(id);
     assert.deepEqual([...s.dump().keys()], []);
 });
+
+test('write accepts a Blob for audio entries and streams it into the store', async () => {
+    const { packs } = await fresh();
+    const { id, bytes } = await makeMpak();
+    const { readDirectory, readEntry } = await import('../src/mpak/core/index.js');
+    const src = bytesSource(bytes);
+    const blobFiles = new Map();
+    for (const e of await readDirectory(src)) {
+        if (e.name === 'mimetype') continue;
+        blobFiles.set(e.name, e.name === 'audio/a.bin' ? new Blob([AUDIO]) : await readEntry(src, e, {}));
+    }
+    await packs.write(id, blobFiles);
+    const opened = await packs.open(id);
+    assert.deepEqual(opened.warnings, []);
+    assert.deepEqual(await opened.audio('audio/a.bin'), AUDIO);
+    assert.deepEqual(await opened.audioRange('audio/a.bin', { start: 10, end: 50 }), AUDIO.slice(10, 50));
+});
