@@ -1,7 +1,7 @@
 // tests/audioSync/stemSet.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultMutedIds, getMutedIds, setMutedIds, resetMutedIds, stemsOfMeta, createStemSource, applyMutes } from '../../src/audioSync/stemSet.js';
+import { defaultMutedIds, getMutedIds, setMutedIds, resetMutedIds, stemsOfMeta, createStemSource, applyMutes, loadRecordingPeaks, loadRecordingFlux } from '../../src/audioSync/stemSet.js';
 import { stemSetOf } from '../../src/mpak.js';
 import { metaOfPackRecording, setRecordingMeta, listRecordingMeta, tracksNote } from '../../src/audioSync/recordingMeta.js';
 
@@ -62,4 +62,38 @@ test('every part of a stem source can be muted, and the mutes are applied togeth
     await applyMutes(src, []);
     assert.deepEqual(src.parts().map((p) => p.enabled), [true, true, true]);
     src.destroy();
+});
+
+test('loadRecordingPeaks and loadRecordingFlux combine every stem in a set', async () => {
+    const s = store();
+    setRecordingMeta('Song', { kind: 'local', audioId: 'g1' }, { role: 'original', label: 'All stems', stems }, s);
+    const peaksById = { g1: new Uint8Array([10, 0]), g2: new Uint8Array([0, 20]), b: new Uint8Array([30, 40]) };
+    const combinedPeaks = await loadRecordingPeaks('Song', { kind: 'local', audioId: 'g1' }, {
+        storage: s,
+        getMeta: async (id) => (peaksById[id] ? { peaks: peaksById[id] } : null),
+    });
+    assert.deepEqual([...combinedPeaks], [40, 60]);
+
+    const standalonePeaks = await loadRecordingPeaks('Song', { kind: 'local', audioId: 'solo' }, {
+        storage: s,
+        getMeta: async () => ({ peaks: new Uint8Array([7, 8]) }),
+    });
+    assert.deepEqual([...standalonePeaks], [7, 8]);
+
+    let activeDecodes = 0;
+    let maxConcurrent = 0;
+    const fluxById = { g1: Float32Array.from([1, 0]), b: Float32Array.from([0, 2]), d: Float32Array.from([3, 4]) };
+    const combinedFlux = await loadRecordingFlux('Song', { kind: 'local', audioId: 'g1' }, {
+        storage: s,
+        getFile: async (id) => (fluxById[id] ? { data: id } : null),
+        decode: async (id) => {
+            activeDecodes += 1;
+            maxConcurrent = Math.max(maxConcurrent, activeDecodes);
+            await Promise.resolve();
+            activeDecodes -= 1;
+            return fluxById[id];
+        },
+    });
+    assert.equal(maxConcurrent, 1); // decodes one stem at a time
+    assert.deepEqual([...combinedFlux], [4, 6]);
 });

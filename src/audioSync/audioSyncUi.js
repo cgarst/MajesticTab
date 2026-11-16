@@ -5,7 +5,7 @@
 
 import { getSongKey, onYouTubeEvent, jamYouTubeControl, toggleYouTubePanel } from '../youtubePlayer.js';
 import { onTransportEvent, isSynthPlaying } from '../gpProcessor/gpPlayer.js';
-import { getAudioMeta } from './audioFileStore.js';
+import { loadRecordingPeaks } from './stemSet.js';
 import { loadRecord } from './syncStore.js';
 import { borrowRecord, estimateOffsetMs, isConfident } from './borrowSync.js';
 import { showToast } from '../utils/toast.js';
@@ -101,7 +101,7 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
         let offsetMs = 0;
         let lined = false;
         try {
-            const otherPeaks = from.media.kind === 'local' ? (await getAudioMeta(from.media.audioId))?.peaks : null;
+            const otherPeaks = from.media.kind === 'local' ? await loadRecordingPeaks(getSongKey(), from.media) : null;
             const est = estimateOffsetMs(otherPeaks, getPeaks?.() || null);
             if (isConfident(est)) { offsetMs = est.offsetMs; lined = true; }
         } catch { /* copy without a shift */ }

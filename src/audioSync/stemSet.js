@@ -11,6 +11,11 @@
 // without the guitar (without the bass in bass mode). The person's own choice, once made, is kept per sound.
 
 import { createDecodedMixSource } from './decodedMixSource.js';
+import { getAudioMeta, getAudioFile } from './audioFileStore.js';
+import { combinePeaks } from './peaks.js';
+import { decodeFlux, combineFlux } from './refineOffset.js';
+import { listRecordingMeta } from './recordingMeta.js';
+import { mediaKey } from './syncStore.js';
 
 const MUTES_PREFIX = 'stem_mutes_';
 const mutesKey = (songKey, slot) => `${MUTES_PREFIX}${encodeURIComponent(String(songKey).toLowerCase())}_${slot}`;
@@ -91,4 +96,36 @@ export async function applyMutes(source, mutedIds) {
 /** The set a recording meta describes, or null when it is not a set of two or more parts. */
 export function stemsOfMeta(meta) {
     return Array.isArray(meta?.stems) && meta.stems.length > 1 ? meta.stems : null;
+}
+
+/**
+ * Loads the waveform peaks for a local recording, combining every stem when the recording is a stem set.
+ * Returns null when no peaks are stored.
+ */
+export async function loadRecordingPeaks(songKey, media, { getMeta = getAudioMeta, storage } = {}) {
+    if (media?.kind !== 'local' || !media.audioId) return null;
+    const stems = songKey ? stemsOfMeta(listRecordingMeta(songKey, storage)[mediaKey(media)]) : null;
+    if (!stems) return (await getMeta(media.audioId).catch(() => null))?.peaks || null;
+    const metas = await Promise.all(stems.map((s) => getMeta(s.audioId).catch(() => null)));
+    return combinePeaks(metas.map((m) => m?.peaks));
+}
+
+/**
+ * Decodes the 1 ms onset flux for a local recording, decoding one stem at a time and summing when it is a stem set
+ * so only one decoded PCM buffer is held in memory at once.
+ */
+export async function loadRecordingFlux(songKey, media, { getFile = getAudioFile, decode = decodeFlux, storage } = {}) {
+    if (media?.kind !== 'local' || !media.audioId) return null;
+    const stems = songKey ? stemsOfMeta(listRecordingMeta(songKey, storage)[mediaKey(media)]) : null;
+    if (!stems) {
+        const file = await getFile(media.audioId).catch(() => null);
+        return file?.data ? decode(file.data) : null;
+    }
+    const fluxes = [];
+    for (const s of stems) {
+        const file = await getFile(s.audioId).catch(() => null);
+        const flux = file?.data ? await decode(file.data) : null;
+        if (flux) fluxes.push(flux);
+    }
+    return combineFlux(fluxes);
 }

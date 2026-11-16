@@ -31,6 +31,36 @@ export function computePeaks(channels, sampleRate, peaksPerSecond = PEAKS_PER_SE
     return out;
 }
 
+/**
+ * Combines several time-aligned peak arrays (such as a set of stems) into one Uint8Array of the same scale.
+ * Sums bin-wise and scales down only when the peak exceeds 255 so loud sections do not clip flat.
+ * Returns null when no non-empty peak array is given.
+ */
+export function combinePeaks(peaksList) {
+    const valid = (peaksList || []).filter((p) => p?.length);
+    if (!valid.length) return null;
+    if (valid.length === 1) return valid[0];
+    let maxLen = 0;
+    for (const p of valid) if (p.length > maxLen) maxLen = p.length;
+    const sum = new Uint32Array(maxLen);
+    let maxSum = 0;
+    for (const p of valid) {
+        for (let i = 0; i < p.length; i++) {
+            const v = sum[i] + p[i];
+            sum[i] = v;
+            if (v > maxSum) maxSum = v;
+        }
+    }
+    const out = new Uint8Array(maxLen);
+    if (maxSum <= 255) {
+        for (let i = 0; i < maxLen; i++) out[i] = sum[i];
+    } else {
+        const scale = 255 / maxSum;
+        for (let i = 0; i < maxLen; i++) out[i] = Math.round(sum[i] * scale);
+    }
+    return out;
+}
+
 /** Decodes `arrayBuffer` and returns `{ peaks, durationMs }`, or null when the platform can't decode this format. */
 export async function decodePeaks(arrayBuffer, peaksPerSecond = PEAKS_PER_SECOND) {
     const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;

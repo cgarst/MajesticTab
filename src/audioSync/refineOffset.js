@@ -99,6 +99,18 @@ export function refineOffset(fluxA, fluxB, coarseMs, { rangeMs = RANGE_MS } = {}
     return { offsetMs: Math.round(coarse - rangeMs + best + frac) || 0, confidence };
 }
 
+/** Combines time-aligned flux arrays (such as a set of stems) by summing each millisecond's onset rise. */
+export function combineFlux(fluxList) {
+    const valid = (fluxList || []).filter((f) => f?.length);
+    if (!valid.length) return null;
+    if (valid.length === 1) return valid[0];
+    let maxLen = 0;
+    for (const f of valid) if (f.length > maxLen) maxLen = f.length;
+    const out = new Float32Array(maxLen);
+    for (const f of valid) for (let i = 0; i < f.length; i++) out[i] += f[i];
+    return out;
+}
+
 /** Decodes `arrayBuffer` and returns its flux, or null when the platform can't decode this format. */
 export async function decodeFlux(arrayBuffer) {
     const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;

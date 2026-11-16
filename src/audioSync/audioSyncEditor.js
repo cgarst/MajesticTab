@@ -6,8 +6,8 @@
 import { getSongKey, getVideoInfo } from '../youtubePlayer.js';
 import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
 import { loadRecord, listRecords, mediaKey, saveRecord, loadRestorePoint, samePoints, SYNC_CHANGED_EVENT } from './syncStore.js';
-import { getAudioMeta, getAudioFile } from './audioFileStore.js';
-import { decodeFlux, refineOffset } from './refineOffset.js';
+import { loadRecordingPeaks, loadRecordingFlux } from './stemSet.js';
+import { refineOffset } from './refineOffset.js';
 import { measureAlignment, compareSyncs, conflictText } from './alignCheck.js';
 import { getScoreContext } from './audioSyncController.js';
 import { pointProblems, syncFit } from './pointCheck.js';
@@ -277,7 +277,7 @@ export function initAudioSyncEditor() {
         conflict = null;
         for (const other of others) {
             const id = other.media.audioId;
-            if (!otherPeaks.has(id)) otherPeaks.set(id, (await getAudioMeta(id).catch(() => null))?.peaks || null);
+            if (!otherPeaks.has(id)) otherPeaks.set(id, await loadRecordingPeaks(songKey(), other.media));
             const peaks = otherPeaks.get(id);
             if (!peaks) continue;
             const key = `${cur.media.audioId}|${id}|${peaks.length}`;
@@ -459,14 +459,11 @@ export function initAudioSyncEditor() {
         try {
             let offsetMs = found.alignment.offsetMs;
             let exact = false;
-            const [mine, theirs] = await Promise.all([getAudioFile(current.media.audioId), getAudioFile(found.other.media.audioId)]);
-            if (mine?.data && theirs?.data) {
-                // One at a time: each decode holds the whole recording in memory
-                const fluxA = await decodeFlux(mine.data);
-                const fluxB = fluxA && await decodeFlux(theirs.data);
-                const r = fluxB && refineOffset(fluxA, fluxB, offsetMs);
-                if (r && r.confidence >= 0.5) { offsetMs = r.offsetMs; exact = true; }
-            }
+            // One at a time: each decode holds the whole recording in memory
+            const fluxA = await loadRecordingFlux(songKey(), current.media);
+            const fluxB = fluxA && await loadRecordingFlux(songKey(), found.other.media);
+            const r = fluxB && refineOffset(fluxA, fluxB, offsetMs);
+            if (r && r.confidence >= 0.5) { offsetMs = r.offsetMs; exact = true; }
             // offsetMs maps a time here to the other recording's time, so this recording is `-offsetMs` later than the other
             takeSyncFrom(found.other, -offsetMs, exact ? '' : ' (roughly: the audio could not be compared more closely)');
         } finally {

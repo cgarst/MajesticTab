@@ -21,7 +21,7 @@ import { isRemoveMode, setRecordingsPresent, REC_REMOVE_MODE_EVENT } from './rem
 import { listRecords, loadRecord, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { listRecordingMeta, forgetRecordingMeta, orderRecordings, roleLabel, tracksNote } from './recordingMeta.js';
 import { mountSyncRow } from './audioSyncUi.js';
-import { createStemSource, applyMutes, applyLevels, getMutedIds, setMutedIds, resetMutedIds, defaultMutedIds, getLevels, setLevel, resetLevels, stemsOfMeta } from './stemSet.js';
+import { createStemSource, applyMutes, applyLevels, getMutedIds, setMutedIds, resetMutedIds, defaultMutedIds, getLevels, setLevel, resetLevels, stemsOfMeta, loadRecordingPeaks } from './stemSet.js';
 import { getInstrumentMode } from '../utils/tuningUtils.js';
 
 const LAST_FILE_KEY = (songKey) => `audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`;
@@ -181,7 +181,8 @@ async function rebuildPeaks(id, data) {
     if (!analysed) return;
     await setAudioPeaks(id, analysed.peaks, analysed.durationMs);
     if (state.currentId === id) {
-        state.peaks = analysed.peaks;
+        const stems = stemsOfFile(id);
+        state.peaks = (stems && await loadRecordingPeaks(getSongKey(), { kind: 'local', audioId: id })) || analysed.peaks;
         drawWave();
     }
 }
@@ -264,14 +265,15 @@ function ensureSource() {
                 { onError: setStatus }
             );
             if (!source) return false;
+            const { data, ...meta } = rec;
+            const peaks = (stems && await loadRecordingPeaks(getSongKey(), mediaOf(meta))) || rec.peaks || null;
             if (state.currentId !== id) {
                 source.destroy();
                 return false;
             }
-            const { data, ...meta } = rec;
             state.source = source;
             state.meta = meta;
-            state.peaks = rec.peaks || null;
+            state.peaks = peaks;
             // A file restored from a backup comes without its waveform; build it once
             if (!rec.peaks && !peaksTried.has(id)) {
                 peaksTried.add(id);

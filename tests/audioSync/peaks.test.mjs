@@ -1,7 +1,7 @@
 // Run with: node --test tests/audioSync/peaks.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computePeaks } from '../../src/audioSync/peaks.js';
+import { computePeaks, combinePeaks } from '../../src/audioSync/peaks.js';
 import { fingerprintOf } from '../../src/audioSync/audioFileStore.js';
 
 test('peaks are the loudest absolute sample per bin, across channels', () => {
@@ -27,4 +27,14 @@ test('fingerprint depends on content and size, not on anything else', async () =
     assert.notEqual(await fingerprintOf(a), await fingerprintOf(c));
     assert.notEqual(await fingerprintOf(a), await fingerprintOf(d));
     assert.match(await fingerprintOf(a), /^[0-9a-f]{64}$/);
+});
+
+test('combinePeaks sums stems without clipping and scales down only above 255', () => {
+    assert.equal(combinePeaks([]), null);
+    assert.equal(combinePeaks([null, new Uint8Array(0)]), null);
+    const single = new Uint8Array([10, 20]);
+    assert.equal(combinePeaks([single]), single);
+    assert.deepEqual([...combinePeaks([new Uint8Array([100, 50]), new Uint8Array([100, 80, 30])])], [200, 130, 30]);
+    // Sum of 255 + 255 = 510 scales by 255/510 = 0.5, preserving relative shape
+    assert.deepEqual([...combinePeaks([new Uint8Array([255, 100]), new Uint8Array([255, 0])])], [255, 50]);
 });

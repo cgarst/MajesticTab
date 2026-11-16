@@ -1,7 +1,7 @@
 // Run with: node --test tests/audioSync/refineOffset.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computeFlux, refineOffset } from '../../src/audioSync/refineOffset.js';
+import { computeFlux, refineOffset, combineFlux } from '../../src/audioSync/refineOffset.js';
 
 const SR = 8000;
 // Bursts of noise at pseudo-random times, each decaying over ~120 ms
@@ -43,4 +43,11 @@ test('a negative offset works as well', () => {
 
 test('nothing to compare returns null', () => {
     assert.equal(refineOffset(new Float32Array(100), new Float32Array(100), 0), null);
+});
+
+test('combineFlux sums aligned stem fluxes and handles empty/single inputs', () => {
+    assert.equal(combineFlux([]), null);
+    const a = Float32Array.from([1, 2]);
+    assert.equal(combineFlux([a]), a);
+    assert.deepEqual([...combineFlux([Float32Array.from([1, 2]), Float32Array.from([3, 4, 5])])], [4, 6, 5]);
 });
