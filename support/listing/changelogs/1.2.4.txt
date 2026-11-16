@@ -1,1 +1,4 @@
-- Bug fixes and stability improvements
+- Sync your library across devices with background auto-sync and optional remote-first storage
+- Add horizontal scroll layout for Guitar Pro tabs and a stems mixer for multi-track packs
+- Play a synced playhead on PDFs and derive audio sync offsets from another recording
+- Resume your last position in PDF and text tabs, and copy albums to setlists
