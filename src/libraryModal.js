@@ -154,7 +154,13 @@ function initLibraryTopBar() {
         // The Tools page shows no library data, and drawing it again would close the tool that caused the change
         // (an import, a tab saved from the web search walk)
         if (isLibraryOpen() && activeView !== 'tools') {
-            renderLibraryModal();
+            // Draw the same view again where it was scrolled; a data change is not a navigation
+            const body = document.getElementById('libraryModalContent');
+            const scroll = body ? body.scrollTop : 0;
+            Promise.resolve(renderLibraryModal()).finally(() => {
+                const now = document.getElementById('libraryModalContent');
+                if (now && scroll) now.scrollTop = scroll;
+            });
         }
     });
 }
