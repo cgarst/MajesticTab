@@ -84,11 +84,11 @@ const PACK_AUDIO_RE = /^packs\/([^/]+)\/audio\/.+/;
 const preparedPlans = new WeakMap();
 const PREPARED_MAX_AGE_MS = 30_000;
 
-async function readRemote(store, { hybrid = false, includeLibrary = hybrid } = {}) {
+async function readRemote(store, { hybrid = false, includeLibrary = hybrid, base = null } = {}) {
     const info = await readStoreInfo(store);
     if (!info) return null;
-    const [packEntries, sfEntries, ctEntries, profileDoc, tombstonesDoc, libraryDoc] = await Promise.all([
-        store.list('packs/'),
+    const [listedPacks, sfEntries, ctEntries, profileDoc, tombstonesDoc, libraryDoc] = await Promise.all([
+        hybrid ? Promise.resolve(null) : store.list('packs/'),
         store.list(`${SOUNDFONT_DIR}/`),
         store.list(`${CLASSTAB_DIR}/`),
         readJsonIfExists(store, PROFILE_PATH),
@@ -96,16 +96,29 @@ async function readRemote(store, { hybrid = false, includeLibrary = hybrid } = {
         includeLibrary ? readJsonIfExists(store, LIBRARY_PATH) : Promise.resolve(null),
     ]);
     const remote = new Map();
-    const packsWithAudio = new Set();
-    if (hybrid) {
-        for (const e of packEntries) {
-            const m = PACK_AUDIO_RE.exec(e.path);
-            if (m) packsWithAudio.add(m[1]);
+    const remoteLibrary = libraryDoc ? fromLibraryDoc(libraryDoc) : null;
+    const usedLibraryIndex = Boolean(hybrid && remoteLibrary);
+    if (usedLibraryIndex) {
+        // Hybrid mode uses library.json as the remote pack index instead of walking every folder in packs/.
+        for (const s of remoteLibrary.songs || []) {
+            const id = s.packId || s.id;
+            if (!id) continue;
+            const key = packKey(id);
+            remote.set(key, { kind: 'pack', id, version: base?.items?.[key]?.r ?? '__hybrid__', size: 0, hasAudio: false });
         }
-    }
-    for (const e of packEntries) {
-        const m = PACK_MANIFEST_RE.exec(e.path);
-        if (m) remote.set(packKey(m[1]), { kind: 'pack', id: m[1], version: e.version, size: e.size, hasAudio: packsWithAudio.has(m[1]) });
+    } else {
+        const packEntries = listedPacks ?? await store.list('packs/');
+        const packsWithAudio = new Set();
+        if (hybrid) {
+            for (const e of packEntries) {
+                const m = PACK_AUDIO_RE.exec(e.path);
+                if (m) packsWithAudio.add(m[1]);
+            }
+        }
+        for (const e of packEntries) {
+            const m = PACK_MANIFEST_RE.exec(e.path);
+            if (m) remote.set(packKey(m[1]), { kind: 'pack', id: m[1], version: e.version, size: e.size, hasAudio: packsWithAudio.has(m[1]) });
+        }
     }
     const profile = profileDoc ? fromProfileDoc(profileDoc) : { settings: {}, soundFonts: [] };
     const fontMeta = new Map(profile.soundFonts.map((f) => [f.id, f]));
@@ -117,8 +130,7 @@ async function readRemote(store, { hybrid = false, includeLibrary = hybrid } = {
         }
     }
     const tombstones = tombstonesDoc || { version: 1, items: {} };
-    const remoteLibrary = libraryDoc ? fromLibraryDoc(libraryDoc) : null;
-    return { remote, tombstones, profile, remoteLibrary };
+    return { remote, tombstones, profile, remoteLibrary, usedLibraryIndex };
 }
 
 function addLocalAudioPacks(target, library) {
@@ -146,7 +158,7 @@ function resolveKeepLocalPacks(read, localRecords, hybrid) {
 
 async function readAndPlan({ store, local, baselines, location, hybrid = false }) {
     const base = baselines.get(location);
-    const read = await readRemote(store, { hybrid, includeLibrary: hybrid || !base });
+    const read = await readRemote(store, { hybrid, includeLibrary: hybrid || !base, base });
     if (!read) return { read: null };
     if (!base && read.remoteLibrary && local.adoptPackIds) {
         const map = new Map();
@@ -160,6 +172,26 @@ async function readAndPlan({ store, local, baselines, location, hybrid = false }
         hybrid ? local.records() : Promise.resolve(null),
     ]);
     const keepLocalPacks = resolveKeepLocalPacks(read, localRecords, hybrid);
+    if (read.usedLibraryIndex) {
+        const checkIds = new Set(keepLocalPacks);
+        for (const [key, m] of mine) {
+            if (key.startsWith('p:') && !m.remoteOnly) checkIds.add(m.id);
+        }
+        await pool([...checkIds], 8, async (id) => {
+            const key = packKey(id);
+            const st = await store.stat(`packs/${id}/manifest.json`);
+            if (!st) {
+                read.remote.delete(key);
+                return;
+            }
+            const m = mine.get(key);
+            const needAudioCheck = keepLocalPacks.has(id) && !m?.hasAudio;
+            const hasAudio = needAudioCheck
+                ? (await store.list(`packs/${id}/audio/`)).length > 0
+                : Boolean(m?.hasAudio);
+            read.remote.set(key, { kind: 'pack', id, version: st.version, size: st.size, hasAudio });
+        });
+    }
     return { read, base, mine, keepLocalPacks, localRecords, plan: planFrom(read, mine, base, { hybrid, keepLocalPacks }) };
 }
 
@@ -194,8 +226,8 @@ function planFrom(read, mine, base, { hybrid = false, keepLocalPacks = new Set()
             unchanged++;
             continue;
         }
-        // In hybrid mode, SoundFonts that have never been downloaded stay remote-only until requested on demand
-        if (hybrid && key.startsWith('s:') && d.action === ITEM_ACTION.DOWNLOAD) continue;
+        // In hybrid mode, SoundFonts and the Classtab archive stay remote-only until requested on demand (or hybrid is turned off)
+        if (hybrid && (key.startsWith('s:') || key.startsWith('c:')) && d.action === ITEM_ACTION.DOWNLOAD) continue;
         items.push({ key, kind: (m || r).kind, id: (m || r).id, name: (m || r).name || (m || r).id, size: (m || r).size || 0, ...d });
     }
     return { firstSync: !base, items, unchanged };
@@ -431,7 +463,7 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
     const order = [ITEM_ACTION.DOWNLOAD, ITEM_ACTION.MERGE, ITEM_ACTION.UPLOAD, ITEM_ACTION.DELETE_LOCAL, ITEM_ACTION.DELETE_REMOTE];
     const sorted = [...plan].sort((a, b) => order.indexOf(a.action) - order.indexOf(b.action));
     let n = 0;
-    await pool(sorted, 5, async (item) => {
+    const runItem = async (item) => {
         onProgress({ current: ++n, total: sorted.length, name: item.name, action: item.action });
         const rVersion = read.remote.get(item.key)?.version;
         try {
@@ -474,16 +506,26 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
             // A conflict means another device wrote this pack since the plan: leave it for the next sync, which will merge
             out.failed.push({ key: item.key, reason: err instanceof ConflictError ? 'changed elsewhere during the sync' : err.message });
         }
-    });
+    };
+    // Run heavy whole-file blobs (SoundFonts, Classtab archive) one at a time after packs so iOS WKWebView doesn't OOM.
+    await pool(sorted.filter((item) => item.kind === 'pack'), 5, runItem);
+    await pool(sorted.filter((item) => item.kind !== 'pack'), 1, runItem);
     if (tombstonesChanged) await updateJson(store, TOMBSTONES_PATH, (cur) => ({ version: 1, items: { ...(cur?.items || {}), ...tombstones.items } }));
 
     // Records go first: taking in a song's record changes the song here (tab names, hashes), and the baseline must be the
     // fingerprint of the item as it stands when this sync ends, or the next sync would see its own work as a change.
     const reuseLocalRecords = (out.downloaded === 0 && out.merged === 0 && out.removedHere === 0) ? localRecords : null;
     const records = await syncRecords({ store, local, base, freshPackIds, remoteLibrary: read.remoteLibrary, localRecords: reuseLocalRecords });
-    const mineNow = await local.items();
+    const localItemsChanged = out.downloaded > 0 || out.merged > 0 || out.removedHere > 0 || records.pulled > 0 || records.removedHere > 0 || records.conflicts > 0;
+    const mineNow = localItemsChanged ? await local.items() : mine;
     const hasRemote = (k) => !deletedRemote.has(k) && read.remote.has(k);
-    for (const key of needsFp) if (nextItems[key]) nextItems[key].l = mineNow.get(key)?.fp;
+    for (const key of needsFp) {
+        if (nextItems[key]) {
+            const l = mineNow.get(key)?.fp;
+            if (l === undefined) delete nextItems[key];
+            else nextItems[key].l = l;
+        }
+    }
     for (const key of Object.keys(nextItems)) if (!mineNow.has(key) && !hasRemote(key)) delete nextItems[key];
     // Items on both sides that were never mentioned (unchanged, or first seen as equal) keep or get a baseline
     for (const key of mineNow.keys()) if (!nextItems[key] && hasRemote(key) && !out.failed.some((f) => f.key === key)) {

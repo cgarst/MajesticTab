@@ -471,19 +471,22 @@ test('a second device adopts remote packIds for matching legacy song ids instead
     assert.equal((await planPackSync({ store, local: b, baselines: baseB, location: LOC })).items.length, 0);
 });
 
-test('plan + apply in hybrid mode lists packs once and skips redundant JSON reads and no-op writes', async () => {
+test('plan + apply in hybrid mode skips listing packs/ and skips redundant JSON reads and no-op writes', async () => {
     const store = await newStore();
     const a = fakeLocal(), baseA = memoryBaselines();
     a.addSong('s1', 'Song One');
+    a.addSong('s2', 'Song Two');
+    a.state.records.songs[1].pinned = true;
     await sync(store, a, baseA);
 
     const b = fakeLocal(), baseB = memoryBaselines();
     await applyPackSync({ store, local: b, baselines: baseB, location: LOC, hybrid: true });
 
-    const counts = { listPacks: 0, reads: new Map(), writes: new Map() };
+    const counts = { listPacks: 0, stats: [], reads: new Map(), writes: new Map() };
     const counted = {
         ...store,
         list: (prefix) => { if (prefix === 'packs/') counts.listPacks++; return store.list(prefix); },
+        stat: (path) => { if (path.startsWith('packs/')) counts.stats.push(path); return store.stat(path); },
         read: (path, opts) => { counts.reads.set(path, (counts.reads.get(path) || 0) + 1); return store.read(path, opts); },
         write: (path, bytes, opts) => { counts.writes.set(path, (counts.writes.get(path) || 0) + 1); return store.write(path, bytes, opts); },
     };
@@ -492,7 +495,8 @@ test('plan + apply in hybrid mode lists packs once and skips redundant JSON read
     assert.equal(plan.items.length, 0);
     await applyPackSync({ store: counted, local: b, baselines: baseB, location: LOC, hybrid: true, plan });
 
-    assert.equal(counts.listPacks, 1);
+    assert.equal(counts.listPacks, 0);
+    assert.deepEqual(counts.stats, ['packs/s2/manifest.json']);
     assert.equal(counts.reads.get('profile.json'), 2);
     assert.equal(counts.reads.get('library.json'), 2);
     assert.equal(counts.writes.get('library.json') || 0, 0);
