@@ -74,9 +74,9 @@ jobs:
       - name: Upload to Google Play
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/play-sa.json
-          # The release is uploaded to PLAY_TRACK, then copied to PLAY_PROMOTE_TO (production by default, which sends it to Google's
-          # review). Set the PLAY_PROMOTE_TO repo variable to alpha to hold stable releases in closed testing, or to none to stop at internal.
-          PLAY_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
+          # Target track for stable releases (production by default, which sends it to Google's review).
+          # Set the PLAY_PROMOTE_TO repo variable to alpha to hold stable releases in closed testing.
+          PLAY_TRACK: ${{ vars.PLAY_TRACK }}
           PLAY_PROMOTE_TO: ${{ vars.PLAY_PROMOTE_TO || 'production' }}
           PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
           PIN_PLAY: ${{ vars.PIN_PLAY }}
@@ -85,8 +85,8 @@ jobs:
           pinned="${PIN_PLAY#v}"
           pinned="$(printf '%s' "$pinned" | tr -d '[:space:]')"
           if [ -n "$pinned" ] && [ "$pinned" != "$version" ]; then
-            echo "::notice::play is pinned to $pinned; uploading to $PLAY_TRACK only and skipping promotion for $version"
-            export PLAY_PROMOTE_TO=none
+            echo "::notice::play is pinned to $pinned; skipping upload for $version"
+            exit 0
           fi
           # Fastlane reads the changelog named after the AAB's versionCode, which is the Play code (build/play-version-code.mjs).
           versionCode=$(node build/play-version-code.mjs)
