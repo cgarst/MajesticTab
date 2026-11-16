@@ -244,44 +244,77 @@ export async function openSaveToLibraryModal(file) {
                 song = resolved.song;
                 merged = resolved.merged;
             }
-            const { tabOption } = await mapOpenFileToSong(file, song.id, isClassical && file.songTitle ? file.songTitle : file.name);
-            file.librarySongId = song.id;
-            file.tabId = tabOption.id;
-
-            // Link any audio files and sync points attached to the open tab's key to the saved/merged library song
-            try {
-                const { getSongKey, rememberSongKey } = await import('./youtubePlayer.js');
-                const { linkAudioFile } = await import('./audioSync/audioFileStore.js');
-                const { attachLibraryAudio } = await import('./audioSync/libraryAudio.js');
-                const { isPackKey } = await import('./mpakSession.js');
-                const { listRecords, saveRecord, isSyncSharedFromOriginal, setSyncSharedFromOriginal } = await import('./audioSync/syncStore.js');
-                const openKey = getSongKey();
-                const libKey = (song.artist && song.title) ? `${song.artist} - ${song.title}` : song.title;
-                const enc = (s) => encodeURIComponent(String(s).toLowerCase());
-                if (openKey && !isPackKey(openKey)) rememberSongKey(song.id, openKey, { filename: file.name, tabName: tabOption.name });
-                if (libKey) rememberSongKey(song.id, libKey, { filename: file.name, tabName: tabOption.name });
-                if (openKey && libKey) {
-                    for (const slot of ['original', 'backing']) {
-                        const audioId = localStorage.getItem(`audio_file_${enc(openKey)}_${slot}`);
-                        if (audioId) {
-                            localStorage.setItem(`audio_file_${enc(libKey)}_${slot}`, audioId);
-                            localStorage.setItem(`real_audio_source_${enc(libKey)}_${slot}`, 'local');
-                            await linkAudioFile(audioId, libKey).catch(() => {});
-                            try { attachLibraryAudio(song, audioId, slot); } catch {}
-                        }
-                        const ytId = localStorage.getItem(`yt_track_${enc(openKey)}_${slot}`);
-                        if (ytId) {
-                            localStorage.setItem(`yt_track_${enc(libKey)}_${slot}`, ytId);
-                        }
-                    }
-                    if (openKey.toLowerCase() !== libKey.toLowerCase()) {
-                        for (const rec of listRecords(openKey)) {
-                            if (rec?.media && Array.isArray(rec.points)) saveRecord(libKey, rec.media, rec.points);
-                        }
-                        if (isSyncSharedFromOriginal(openKey)) setSyncSharedFromOriginal(libKey, true);
-                    }
+            const { getOpenedMpak, saveMpakToLibrary } = await import('./mpak.js');
+            const unpacked = getOpenedMpak(file);
+            if (unpacked) {
+                const oldPackId = file.mpakPackId || null;
+                const saved = await saveMpakToLibrary(unpacked, {
+                    targetSongId: song.id,
+                    keepExistingSlots: merged,
+                    queryMusicBrainz: false,
+                });
+                const matchedTab = saved?.tabOptions?.get(file) || saved?.tabOption;
+                file.librarySongId = song.id;
+                if (matchedTab?.id) file.tabId = matchedTab.id;
+                delete file.mpakStandalone;
+                delete file.mpakPackId;
+                for (const other of unpacked.otherScores || []) {
+                    if (!other?.file) continue;
+                    other.file.librarySongId = song.id;
+                    const otherTab = saved?.tabOptions?.get(other.file);
+                    if (otherTab?.id) other.file.tabId = otherTab.id;
+                    delete other.file.mpakStandalone;
+                    delete other.file.mpakPackId;
                 }
-            } catch (_) {}
+                const { promotePackToLibrary } = await import('./youtubePlayer.js');
+                promotePackToLibrary(song);
+                if (oldPackId) {
+                    const { clearPackStorage } = await import('./mpakSession.js');
+                    await clearPackStorage(oldPackId).catch(() => {});
+                }
+                if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+                    window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                }
+            } else {
+                const { tabOption } = await mapOpenFileToSong(file, song.id, isClassical && file.songTitle ? file.songTitle : file.name);
+                file.librarySongId = song.id;
+                file.tabId = tabOption.id;
+
+                // Link any audio files and sync points attached to the open tab's key to the saved/merged library song
+                try {
+                    const { getSongKey, rememberSongKey } = await import('./youtubePlayer.js');
+                    const { linkAudioFile } = await import('./audioSync/audioFileStore.js');
+                    const { attachLibraryAudio } = await import('./audioSync/libraryAudio.js');
+                    const { isPackKey } = await import('./mpakSession.js');
+                    const { listRecords, saveRecord, isSyncSharedFromOriginal, setSyncSharedFromOriginal } = await import('./audioSync/syncStore.js');
+                    const openKey = getSongKey();
+                    const libKey = (song.artist && song.title) ? `${song.artist} - ${song.title}` : song.title;
+                    const enc = (s) => encodeURIComponent(String(s).toLowerCase());
+                    if (openKey && !isPackKey(openKey)) rememberSongKey(song.id, openKey, { filename: file.name, tabName: tabOption.name });
+                    if (libKey) rememberSongKey(song.id, libKey, { filename: file.name, tabName: tabOption.name });
+                    if (openKey && libKey) {
+                        for (const slot of ['original', 'backing']) {
+                            const audioId = localStorage.getItem(`audio_file_${enc(openKey)}_${slot}`);
+                            if (audioId) {
+                                localStorage.setItem(`audio_file_${enc(libKey)}_${slot}`, audioId);
+                                localStorage.setItem(`real_audio_source_${enc(libKey)}_${slot}`, 'local');
+                                await linkAudioFile(audioId, libKey).catch(() => {});
+                                try { attachLibraryAudio(song, audioId, slot); } catch {}
+                            }
+                            const ytId = localStorage.getItem(`yt_track_${enc(openKey)}_${slot}`);
+                            if (ytId) {
+                                localStorage.setItem(`yt_track_${enc(libKey)}_${slot}`, ytId);
+                            }
+                        }
+                        if (openKey.toLowerCase() !== libKey.toLowerCase()) {
+                            for (const rec of listRecords(openKey)) {
+                                if (rec?.media && Array.isArray(rec.points)) saveRecord(libKey, rec.media, rec.points);
+                            }
+                            if (isSyncSharedFromOriginal(openKey)) setSyncSharedFromOriginal(libKey, true);
+                        }
+                    }
+                } catch (_) {}
+            }
 
             closeModal();
             refreshSaveToLibraryBtn();

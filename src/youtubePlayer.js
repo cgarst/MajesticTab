@@ -393,6 +393,15 @@ export function getSongKey() {
     return playerState.packId ? packSongKey(playerState.packId, base) : base;
 }
 
+/** Moves the active reader from an opened .mpak's temporary key to a saved library song's key. */
+export function promotePackToLibrary(song) {
+    if (!song?.id) return;
+    playerState.packId = null;
+    playerState.librarySongId = song.id;
+    if (song.artist) playerState.artist = song.artist;
+    if (song.title) playerState.title = song.title;
+}
+
 /**
  * Get default automated query string for the current song and mode
  */

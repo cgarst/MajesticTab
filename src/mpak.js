@@ -790,6 +790,7 @@ export async function openMpak(file, options = {}) {
         if (!tabFile.librarySongId) {
             tabFile.mpakStandalone = true;
             tabFile.mpakPackId = newPackId(); // the pack's audio and sync data are kept under its own key, until it closes
+            rememberOpenedMpak(unpacked);
             rememberPackScores(unpacked);
         }
 
@@ -809,6 +810,20 @@ export async function openMpak(file, options = {}) {
 
 // The open pack's scores, by the file the reader has open. Only for a pack opened from a file: a library song lists its own tabs.
 const packScores = new WeakMap();
+const openedMpaks = new WeakMap();
+
+function rememberOpenedMpak(unpacked) {
+    if (!unpacked?.tabFile) return;
+    openedMpaks.set(unpacked.tabFile, unpacked);
+    for (const other of unpacked.otherScores || []) {
+        if (other?.file) openedMpaks.set(other.file, unpacked);
+    }
+}
+
+/** Returns the unpacked bundle an open standalone .mpak score came from, or null. */
+export function getOpenedMpak(file) {
+    return (file && openedMpaks.get(file)) || null;
+}
 
 function rememberPackScores(unpacked) {
     const { header, opened, tabFile, score, otherScores } = unpacked;
@@ -1308,6 +1323,7 @@ export async function saveMpakToLibrary(input, options = {}) {
         relativePath = '',
         queryMusicBrainz = true,
         allowTextFallback = false,
+        keepExistingSlots = undefined,
     } = options;
 
     const unpacked = (input && input.header && input.part && input.tabFile)
@@ -1377,12 +1393,15 @@ export async function saveMpakToLibrary(input, options = {}) {
     const mapped = await addScore(tabFile, unpacked.score, tabName);
     song = mapped.song || song;
     const tabOption = mapped.tabOption;
+    const tabOptions = new Map();
+    if (tabOption) tabOptions.set(tabFile, tabOption);
 
     // The pack's other scores (a PDF beside a Guitar Pro file, say) become more tabs of the song
     for (const other of unpacked.otherScores || []) {
         try {
             const added = await addScore(other.file, other.score, null);
             song = added.song || song;
+            if (added.tabOption) tabOptions.set(other.file, added.tabOption);
         } catch (e) {
             console.warn('[mpak] could not add the', other.score.id, 'score to the song:', e);
         }
@@ -1418,12 +1437,13 @@ export async function saveMpakToLibrary(input, options = {}) {
         song,
         applyToActiveReader: false,
         // A song that already had audio keeps it: the pack's recording is stored beside it, with its sync points
-        keepExistingSlots: merged,
+        keepExistingSlots: keepExistingSlots !== undefined ? keepExistingSlots : merged,
     });
 
     return {
         song,
         tabOption,
+        tabOptions,
         stored: mapped.stored,
         merged,
         created,
