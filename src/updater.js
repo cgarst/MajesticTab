@@ -9,6 +9,16 @@ const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const CHANNELS = ['none', 'canary', 'stable'];
 let defaultChannel = 'stable';
 
+// A dismissal hides one release's banner for one throttle interval, then it shows again.
+function isDismissed(label) {
+    try {
+        const saved = JSON.parse(localStorage.getItem(DISMISSED_KEY) || 'null');
+        return saved?.label === label && Date.now() - saved.at < CHECK_INTERVAL_MS;
+    } catch {
+        return false;
+    }
+}
+
 export function getUpdateChannel() {
     let saved = localStorage.getItem(CHANNEL_KEY);
     if (saved === 'nightly') saved = 'canary';
@@ -200,7 +210,7 @@ async function showUpdateBanner(update) {
     const mode = await getInstallMode();
     wireInstallButton(button, update, mode, status);
     document.getElementById('updateDismissBtn').onclick = () => {
-        localStorage.setItem(DISMISSED_KEY, update.label);
+        localStorage.setItem(DISMISSED_KEY, JSON.stringify({ label: update.label, at: Date.now() }));
         banner.hidden = true;
     };
 }
@@ -223,7 +233,7 @@ async function runCheck(buildInfo, { manual }) {
             // The answer lives in the check row; the banner is only for unprompted notices.
             if (banner) banner.hidden = true;
             showInlineUpdate(update, status);
-        } else if (update && localStorage.getItem(DISMISSED_KEY) !== update.label) {
+        } else if (update && !isDismissed(update.label)) {
             showUpdateBanner(update);
             if (status) status.textContent = `Update available: ${update.label}`;
         } else {

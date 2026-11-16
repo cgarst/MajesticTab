@@ -397,12 +397,15 @@ export function updateRealAudioPanelView() {
     const ytPill = $('realAudioSourceYt');
     const localPill = $('realAudioSourceLocal');
     const embeddedPill = $('realAudioSourceEmbedded');
-    if (ytPill) ytPill.classList.toggle('active', !isLocal && !isEmbedded);
-    if (localPill) localPill.classList.toggle('active', isLocal);
+    // The sources not in use are offered; the one in use is the section below (the 'active' class stays for the video code)
+    if (ytPill) { ytPill.classList.toggle('active', !isLocal && !isEmbedded); ytPill.hidden = !isLocal && !isEmbedded; }
+    if (localPill) { localPill.classList.toggle('active', isLocal); localPill.hidden = isLocal; }
     if (embeddedPill) {
-        embeddedPill.hidden = !(hasEmbeddedAudio() && state.slot === 'original');
         embeddedPill.classList.toggle('active', isEmbedded);
+        embeddedPill.hidden = isEmbedded || !(hasEmbeddedAudio() && state.slot === 'original');
     }
+    const embeddedNote = $('realAudioEmbeddedNote');
+    if (embeddedNote) embeddedNote.hidden = !isEmbedded;
 
     // Update track mode radio checks
     const origRadio = $('ytTrackOriginal');

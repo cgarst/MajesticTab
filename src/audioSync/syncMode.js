@@ -168,6 +168,7 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
     wireToolbar(s);
     document.body.classList.add('sync-mode');
     $('syncModeBar').hidden = false;
+    setMoreOpen(false);
     // The toolbar docks over the bottom of the score: pad the score by the overlap so every system can be scrolled clear of it
     const padForBar = () => {
         const barRect = $('syncModeBar')?.getBoundingClientRect();
@@ -620,6 +621,14 @@ function flash(beat, message) {
 
 // --- Toolbar -------------------------------------------------------------------------------------------------------
 
+/** The less used tools (fix a stretch, tap offset, snap, redo, timeline, edit points) sit behind More. */
+function setMoreOpen(open) {
+    const more = $('smMore');
+    if (more) more.hidden = !open;
+    const btn = $('smMoreBtn');
+    if (btn) { btn.setAttribute('aria-expanded', open ? 'true' : 'false'); btn.classList.toggle('active', open); }
+}
+
 function wireToolbar(s) {
     const on = (id, handler) => {
         const el = $(id);
@@ -630,6 +639,7 @@ function wireToolbar(s) {
     on('smBack5Btn', () => s.source.seek(Math.max(0, s.source.getTimeMs() - 5000)));
     on('smBack10Btn', () => s.source.seek(Math.max(0, s.source.getTimeMs() - 10000)));
     on('smUndoBtn', undo);
+    on('smMoreBtn', () => setMoreOpen($('smMore').hidden));
     on('smRedoBtn', redo);
     on('smAuditionBtn', audition);
     on('smCalibrateBtn', () => {

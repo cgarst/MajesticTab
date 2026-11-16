@@ -780,21 +780,13 @@
 
     <p class="small text-white-50 mb-3" id="realAudioEmptyHint" hidden>Nothing is attached to this tab yet. Search for a recording below or choose an audio file, then sync it to the score.</p>
 
-    <!-- Source Selector: YouTube vs Local Audio -->
-    <div class="rec-row">
-      <span class="rec-label">Source</span>
-      <div class="hud-pill-group" role="group" aria-label="Audio Source" id="realAudioSourcePills">
-        <button type="button" class="btn btn-sm active" id="realAudioSourceYt" data-source="youtube" title="Stream audio from YouTube">
-          YouTube
-        </button>
-        <button type="button" class="btn btn-sm" id="realAudioSourceLocal" data-source="local" title="Play local recording from this device">
-          Local audio
-        </button>
-        <button type="button" class="btn btn-sm" id="realAudioSourceEmbedded" data-source="embedded" hidden title="Play the audio stored in this Guitar Pro file">
-          In the file
-        </button>
-      </div>
+    <!-- Where the sound comes from: the sources not in use are offered as plain actions -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3" id="realAudioSourceSwitch">
+      <button type="button" class="btn btn-sm rec-text-btn" id="realAudioSourceYt" data-source="youtube" title="Stream audio from YouTube">Use a YouTube video</button>
+      <button type="button" class="btn btn-sm rec-text-btn" id="realAudioSourceLocal" data-source="local" title="Play a recording from this device">Use an audio file</button>
+      <button type="button" class="btn btn-sm rec-text-btn" id="realAudioSourceEmbedded" data-source="embedded" hidden title="Play the audio stored in this Guitar Pro file">Use the audio in the file</button>
     </div>
+    <p class="small text-white-50 mb-3" id="realAudioEmbeddedNote" hidden>Playing the audio stored in this Guitar Pro file.</p>
 
     <!-- Shared Playback Speed -->
     <div class="d-flex align-items-center justify-content-between mb-3 px-1" hidden>
@@ -1295,15 +1287,18 @@
       <button type="button" class="btn btn-sm" data-sm-rate="0.75">0.75x</button>
       <button type="button" class="btn btn-sm" data-sm-rate="1">1x</button>
     </div>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smUndoBtn" title="Undo (Ctrl+Z)">Undo</button>
+    <span class="small text-white-50 sync-mode-count" id="smCount"></span>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smMoreBtn" aria-expanded="false" aria-controls="smMore" title="Fix a stretch, set the tap offset, snap, redo, timeline">More</button>
+  </div>
+  <div id="smMore" class="sync-mode-controls sync-mode-more" hidden>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smRangeBtn" title="Tap the start and the end of a bad stretch to redo everything between them">Fix range</button>
     <label class="sync-mode-offset small text-white-50" title="Subtracted from every tap, for a reaction delay. Raise it if your taps land late.">
       Offset <input type="number" class="form-control form-control-sm" id="smOffset" value="0" step="10" min="0" max="500" aria-label="Tap offset in milliseconds"> ms
     </label>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smCalibrateBtn" title="Measure how long after a sound your taps land, and take it off every tap">Calibrate</button>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smSnapBtn" title="Move each tap to the nearest sound in the recording, up to 80 ms away" hidden>Snap</button>
-    <button type="button" class="btn btn-sm btn-theme-outline" id="smUndoBtn" title="Undo (Ctrl+Z)">Undo</button>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smRedoBtn" title="Redo (Ctrl+Shift+Z)">Redo</button>
-    <span class="small text-white-50 sync-mode-count" id="smCount"></span>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smTimelineBtn" title="Show or hide the timeline of all the points">Timeline</button>
     <button type="button" class="sm-link" id="smAdjustBtn" title="Leave tapping and edit the points one by one">Edit points</button>
   </div>

@@ -5344,7 +5344,6 @@ body.phone-reader #screenRow { display: none !important; }
 
 /* Original audio panel: the Source switch reads as a switch (its own darker track), not one filled word beside bright text,
    and in portrait the sheet keeps one height whichever source is shown, so it does not jump when you switch. */
-#ytDropdownPanel #realAudioSourcePills { background: var(--s1) !important; }
 @media (orientation: portrait) { body.phone-reader #ytDropdownPanel { height: min(60vh, calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - 12px)) !important; } }
 /* Text pages are scaled to the page width, so they never scroll sideways */
 /* Text pages: a line wider than the page at the smallest legible size scrolls sideways instead of being cut off */
@@ -6218,3 +6217,7 @@ body.theme-sheet-active .txt-ribbon-gutter {
 .sync-sheet-picker { display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px 12px; }
 .sync-sheet-picker .sync-sheet-row { background: var(--s1); }
 .sync-sheet-picker .sync-sheet-row:hover, .sync-sheet-picker .sync-sheet-row:focus-visible, .sync-sheet-picker .sync-sheet-row.is-armed { background: var(--s2); }
+
+/* Tap bar: the controls for tapping stay in one row; the rest sit behind More */
+.sync-mode-bar .sync-mode-more { margin-top: 8px; }
+.sync-mode-bar .sync-mode-more[hidden] { display: none; }
