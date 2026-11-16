@@ -21,7 +21,7 @@ import { isRemoveMode, setRecordingsPresent, REC_REMOVE_MODE_EVENT } from './rem
 import { listRecords, loadRecord, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { listRecordingMeta, forgetRecordingMeta, orderRecordings, roleLabel, tracksNote } from './recordingMeta.js';
 import { mountSyncRow } from './audioSyncUi.js';
-import { createStemSource, applyMutes, applyLevels, getMutedIds, setMutedIds, resetMutedIds, defaultMutedIds, getLevels, setLevel, resetLevels, stemsOfMeta, loadRecordingPeaks } from './stemSet.js';
+import { createStemSource, createStreamingStemSource, applyMutes, applyLevels, getMutedIds, setMutedIds, resetMutedIds, defaultMutedIds, getLevels, setLevel, resetLevels, stemsOfMeta, loadRecordingPeaks } from './stemSet.js';
 import { getInstrumentMode } from '../utils/tuningUtils.js';
 
 const LAST_FILE_KEY = (songKey) => `audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`;
@@ -36,6 +36,7 @@ const state = {
     currentId: null,
     meta: null,         // metadata of the loaded file
     source: null,       // the MediaSource of the loaded file
+    stemFallback: false, // true when a stem set fell back to playing the lead file alone
     peaks: null,
     rate: 1,
     relinkTarget: null, // media descriptor being relinked, or null when choosing a new file
@@ -126,48 +127,62 @@ function destroySource() {
         state.source = null;
     }
     state.meta = null;
+    state.stemFallback = false;
     state.peaks = null;
     cancelAnimationFrame(state.uiTimer);
 }
 
-async function refreshFiles() {
-    const songKey = getSongKey();
-    let files;
-    try {
-        files = await listAudioFilesForSong(songKey);
-    } catch (e) {
-        console.warn('[Audio File] could not list files:', e);
-        files = [];
-    }
-    // A song's identity changes once its score has been read; drop a listing made for the earlier one
-    if (songKey !== getSongKey()) return;
-    state.files = files;
-    // Files the song has but no slot uses (for example from a backup made before slots were saved) fill the empty slots
-    const adopted = adoptUnassignedAudio(songKey, files);
-    if (adopted) window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
-    const stored = new Set(state.files.map(f => f.id));
-    state.missing = listRecords(songKey)
-        .filter(r => r.media.kind === 'local' && !stored.has(r.media.audioId))
-        .map(r => r.media);
-    if (!state.currentId || !stored.has(state.currentId)) {
-        let slotFileId = null;
-        const slot = state.currentSlot || 'original';
+let pendingRefresh = null;
+
+function refreshFiles() {
+    const run = (async () => {
+        const songKey = getSongKey();
+        let files;
         try {
-            slotFileId = localStorage.getItem(SLOT_FILE_KEY(songKey, slot));
-            if (!slotFileId && slot === 'original') {
-                slotFileId = localStorage.getItem(LAST_FILE_KEY(songKey));
-            }
-        } catch { /* optional */ }
-        const next = state.files.find(f => f.id === slotFileId) || (slot === 'original' ? state.files[0] : null) || null;
-        if (state.currentId !== (next?.id ?? null)) destroySource();
-        state.currentId = next?.id ?? null;
-    }
-    render();
-    updateGlobalAudioControls();
-    // The panel can be open before the list arrives (right after the song loads): load the selection then
-    if (state.isOpen && state.currentId && !state.source) ensureSource();
-    // A song whose Original is a local file loads it when it opens, so its recording bar is there before the first Play
-    else if (state.currentId && !state.source && usesLocalOriginal(songKey)) ensureSource();
+            files = await listAudioFilesForSong(songKey);
+        } catch (e) {
+            console.warn('[Audio File] could not list files:', e);
+            files = [];
+        }
+        // A song's identity changes once its score has been read; drop a listing made for the earlier one
+        if (songKey !== getSongKey()) return;
+        state.files = files;
+        // Files the song has but no slot uses (for example from a backup made before slots were saved) fill the empty slots
+        const adopted = adoptUnassignedAudio(songKey, files);
+        if (adopted) window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+        const stored = new Set(state.files.map(f => f.id));
+        state.missing = listRecords(songKey)
+            .filter(r => r.media.kind === 'local' && !stored.has(r.media.audioId))
+            .map(r => r.media);
+        if (!state.currentId || !stored.has(state.currentId)) {
+            let slotFileId = null;
+            const slot = state.currentSlot || 'original';
+            try {
+                slotFileId = localStorage.getItem(SLOT_FILE_KEY(songKey, slot));
+                if (!slotFileId && slot === 'original') {
+                    slotFileId = localStorage.getItem(LAST_FILE_KEY(songKey));
+                }
+            } catch { /* optional */ }
+            const next = state.files.find(f => f.id === slotFileId) || (slot === 'original' ? state.files[0] : null) || null;
+            if (state.currentId !== (next?.id ?? null)) destroySource();
+            state.currentId = next?.id ?? null;
+        }
+        render();
+        updateGlobalAudioControls();
+        // The panel can be open before the list arrives (right after the song loads): load the selection then
+        if (state.isOpen && state.currentId && !state.source) await ensureSource();
+        // A song whose Original is a local file loads it when it opens, so its recording bar is there before the first Play
+        else if (state.currentId && !state.source && usesLocalOriginal(songKey)) await ensureSource();
+    })();
+    pendingRefresh = run;
+    run.finally(() => { if (pendingRefresh === run) pendingRefresh = null; });
+    return run;
+}
+
+/** Resolves once any in-flight file list refresh and initial source load have finished. */
+export async function awaitAudioFilesReady() {
+    if (pendingRefresh) await pendingRefresh;
+    if (loading) await loading;
 }
 
 function usesLocalOriginal(songKey) {
@@ -223,7 +238,6 @@ function stemsOfFile(id) {
 
 /** The mixing source of a stem set, with the parts the current sound mutes switched off; null to fall back to the lead file alone. */
 async function openStemSet(rec, stems) {
-    if (!decodedPlaybackSupported()) return null;
     const nameOf = (audioId) => stems.find((m) => m.audioId === audioId)?.label || 'Stem';
     const others = [];
     for (const m of stems) {
@@ -232,15 +246,34 @@ async function openStemSet(rec, stems) {
         if (r) others.push({ id: m.audioId, name: nameOf(m.audioId), type: r.type, data: r.data, durationMs: r.durationMs });
     }
     if (!others.length) return null;
-    const source = createStemSource({ lead: { id: rec.id, name: nameOf(rec.id), type: rec.type, data: rec.data, durationMs: rec.durationMs }, others });
-    try {
+    const spec = { lead: { id: rec.id, name: nameOf(rec.id), type: rec.type, data: rec.data, durationMs: rec.durationMs }, others };
+    const slot = state.currentSlot || 'original';
+    const applyState = async (source) => {
         await source.ready();
-        applyLevels(source, getLevels(getSongKey(), state.currentSlot || 'original'));
-        await applyMutes(source, getMutedIds(getSongKey(), state.currentSlot || 'original', stems, getInstrumentMode()));
-        return source;
+        applyLevels(source, getLevels(getSongKey(), slot));
+        await applyMutes(source, getMutedIds(getSongKey(), slot, stems, getInstrumentMode()));
+    };
+
+    let forceElement = false;
+    try { forceElement = localStorage.getItem('mt_decoded_audio') === 'off'; } catch { /* optional */ }
+    if (!forceElement && decodedPlaybackSupported()) {
+        const decoded = createStemSource(spec);
+        try {
+            await applyState(decoded);
+            return decoded;
+        } catch (e) {
+            console.warn('[Audio File] decoded stems unavailable, using streaming elements:', e.message);
+            decoded.destroy();
+        }
+    }
+
+    const streaming = createStreamingStemSource(spec);
+    try {
+        await applyState(streaming);
+        return streaming;
     } catch (e) {
         console.warn('[Audio File] could not open the stems:', e);
-        source.destroy();
+        streaming.destroy();
         setStatus(e.message);
         return null;
     }
@@ -272,6 +305,7 @@ function ensureSource() {
                 return false;
             }
             state.source = source;
+            state.stemFallback = Boolean(stems && !source.parts);
             state.meta = meta;
             state.peaks = peaks;
             // A file restored from a backup comes without its waveform; build it once
@@ -481,7 +515,7 @@ function render() {
     // The parts of a stem set are chosen in the Stems list below, not listed as recordings of their own
     const inSet = new Set(Object.values(metas).flatMap((m) => (stemsOfMeta(m) || []).map((s) => s.audioId)));
     const leads = new Set(Object.entries(metas).filter(([, m]) => stemsOfMeta(m)).map(([k]) => k));
-    const isPart = (f) => inSet.has(f.id) && !leads.has(mediaKey({ kind: 'local', audioId: f.id }));
+    const isPart = (f) => !state.stemFallback && inSet.has(f.id) && !leads.has(mediaKey({ kind: 'local', audioId: f.id }));
     const ordered = orderRecordings(state.files.filter((f) => !isPart(f)), (f) => mediaKey({ kind: 'local', audioId: f.id }), metas);
     const rows = ordered.map(({ item: f, meta, nested }) => {
         const count = countOf(f.id);

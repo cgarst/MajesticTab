@@ -11,6 +11,7 @@
 // without the guitar (without the bass in bass mode). The person's own choice, once made, is kept per sound.
 
 import { createDecodedMixSource } from './decodedMixSource.js';
+import { createLocalMixSource } from './localMixSource.js';
 import { getAudioMeta, getAudioFile } from './audioFileStore.js';
 import { combinePeaks } from './peaks.js';
 import { decodeFlux, combineFlux } from './refineOffset.js';
@@ -78,6 +79,14 @@ export const isStemMutesKey = (key) => typeof key === 'string' && (key.startsWit
  */
 export function createStemSource({ lead, others }, options = {}) {
     return createDecodedMixSource({ id: lead.id, base: lead, stems: others, mutableBase: true, ...options });
+}
+
+/**
+ * Streaming HTMLAudioElement fallback for `createStemSource` when a recording is too long to decode into memory
+ * or WebAudio decoding is unavailable.
+ */
+export function createStreamingStemSource({ lead, others }, options = {}) {
+    return createLocalMixSource({ id: lead.id, base: lead, stems: others, mutableBase: true, ...options });
 }
 
 /** Sets each part's level from `levels` (`{ audioId: level }`, 1 when absent). */

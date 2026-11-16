@@ -748,47 +748,63 @@ function takeMatchingPendingBrowserTarget(songInfo = {}) {
  * knows it (its song key is only settled once the score is loaded).
  */
 export async function openMpak(file, options = {}) {
-    const unpacked = await unpackMpak(file, options);
-    const { header, opened, tabFile } = unpacked;
-    if (opened.warnings?.length) {
-        console.warn('[mpak] warnings while opening bundle:', opened.warnings);
-    }
-
+    const { beginLoadingHold, endLoadingHold, setCurrentLoadingProgress, setLoadingProgressRange } = await import('./utils/loadingCard.js');
+    const output = typeof document !== 'undefined' ? document.getElementById('output') : null;
+    beginLoadingHold(output, {
+        title: (file?.name || '').replace(/\.[^/.]+$/, '') || 'Loading pack',
+        stage: 'Opening pack…',
+    });
     try {
-        const songInfo = header.song || {};
-        const pending = takeMatchingPendingBrowserTarget(songInfo);
-        let targetSongId = pending?.songId || null;
-        const collectionId = pending?.collectionId || undefined;
+        const unpacked = await unpackMpak(file, options);
+        const { header, opened, tabFile } = unpacked;
+        if (opened.warnings?.length) {
+            console.warn('[mpak] warnings while opening bundle:', opened.warnings);
+        }
 
-        // Only a download the user started from the in-app browser into a chosen song is saved here. Opening a file (from
-        // the OS, a picker or a drop) never adds to the library: the user saves it with Save to library.
-        if (targetSongId) {
-            const saved = await saveMpakToLibrary(unpacked, {
-                targetSongId,
-                collectionId,
-                queryMusicBrainz: true,
-            });
-            if (saved?.song?.id) {
-                tabFile.librarySongId = saved.song.id;
-                if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-                    window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+        try {
+            const songInfo = header.song || {};
+            const pending = takeMatchingPendingBrowserTarget(songInfo);
+            let targetSongId = pending?.songId || null;
+            const collectionId = pending?.collectionId || undefined;
+
+            // Only a download the user started from the in-app browser into a chosen song is saved here. Opening a file (from
+            // the OS, a picker or a drop) never adds to the library: the user saves it with Save to library.
+            if (targetSongId) {
+                const saved = await saveMpakToLibrary(unpacked, {
+                    targetSongId,
+                    collectionId,
+                    queryMusicBrainz: true,
+                });
+                if (saved?.song?.id) {
+                    tabFile.librarySongId = saved.song.id;
+                    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+                        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                    }
                 }
             }
+        } catch (e) {
+            console.warn('[mpak] auto-merge on openMpak failed:', e);
         }
-    } catch (e) {
-        console.warn('[mpak] auto-merge on openMpak failed:', e);
-    }
 
-    // A pack that was not saved to the library keeps its scores in the Song menu, so the other scores open from the pack
-    if (!tabFile.librarySongId) {
-        tabFile.mpakStandalone = true;
-        tabFile.mpakPackId = newPackId(); // the pack's audio and sync data are kept under its own key, until it closes
-        rememberPackScores(unpacked);
-    }
+        // A pack that was not saved to the library keeps its scores in the Song menu, so the other scores open from the pack
+        if (!tabFile.librarySongId) {
+            tabFile.mpakStandalone = true;
+            tabFile.mpakPackId = newPackId(); // the pack's audio and sync data are kept under its own key, until it closes
+            rememberPackScores(unpacked);
+        }
 
-    const { loadFile } = await import('./main.js');
-    await loadFile(tabFile);
-    await applyMpakExtras(header, opened);
+        const hasAudio = (header?.recordings || []).some((r) => (r.sources || []).some((s) => s.type === 'file' && s.path && opened?.entries?.includes(s.path)));
+        if (hasAudio) setLoadingProgressRange(5, 50);
+        const { loadFile } = await import('./main.js');
+        await loadFile(tabFile);
+        if (hasAudio) setLoadingProgressRange(50, 100);
+        await applyMpakExtras(header, opened, {
+            onProgress: (pct, stage) => setCurrentLoadingProgress(pct, stage),
+        });
+        setCurrentLoadingProgress(100, 'Ready');
+    } finally {
+        endLoadingHold(output);
+    }
 }
 
 // The open pack's scores, by the file the reader has open. Only for a pack opened from a file: a library song lists its own tabs.
@@ -827,9 +843,25 @@ export async function openPackScore(file, id) {
     const pack = packScores.get(file);
     const entry = pack?.entries.find((e) => e.id === id);
     if (!entry) return;
-    const { loadFile } = await import('./main.js');
-    await loadFile(entry.file);
-    await applyMpakExtras(pack.header, pack.opened);
+    const { beginLoadingHold, endLoadingHold, setCurrentLoadingProgress, setLoadingProgressRange } = await import('./utils/loadingCard.js');
+    const output = typeof document !== 'undefined' ? document.getElementById('output') : null;
+    beginLoadingHold(output, {
+        title: entry.name || 'Loading score',
+        stage: 'Loading score…',
+    });
+    try {
+        const hasAudio = (pack.header?.recordings || []).some((r) => (r.sources || []).some((s) => s.type === 'file' && s.path && pack.opened?.entries?.includes(s.path)));
+        if (hasAudio) setLoadingProgressRange(0, 50);
+        const { loadFile } = await import('./main.js');
+        await loadFile(entry.file);
+        if (hasAudio) setLoadingProgressRange(50, 100);
+        await applyMpakExtras(pack.header, pack.opened, {
+            onProgress: (pct, stage) => setCurrentLoadingProgress(pct, stage),
+        });
+        setCurrentLoadingProgress(100, 'Ready');
+    } finally {
+        endLoadingHold(output);
+    }
 }
 
 const hasFile = (r) => (r?.sources || []).some((src) => src.type === 'file' && src.path);
@@ -886,6 +918,15 @@ export async function applyMpakExtras(data, opened, options = {}) {
     const { attachLibraryAudio, attachLibraryAudioAlternate } = await import('./audioSync/libraryAudio.js');
     const { saveRecord, loadRecord, samePoints, setSyncSharedFromOriginal, mediaKey, SYNC_CHANGED_EVENT } = await import('./audioSync/syncStore.js');
     const { setRecordingMeta, metaOfPackRecording } = await import('./audioSync/recordingMeta.js');
+    const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+    const totalAudioFiles = (data?.recordings || []).filter((r) => (r.sources || []).some((s) => s.type === 'file' && s.path && opened?.entries?.includes(s.path))).length;
+    let savedAudioCount = 0;
+    const reportAudioProgress = () => {
+        if (!onProgress || !totalAudioFiles) return;
+        savedAudioCount++;
+        const pct = Math.min(85, Math.round((savedAudioCount / totalAudioFiles) * 85));
+        onProgress(pct, `Loading audio (${Math.min(savedAudioCount, totalAudioFiles)}/${totalAudioFiles})…`);
+    };
 
     let activeReaderKey = null;
     if (!options.songKey || options.applyToActiveReader === undefined) {
@@ -1062,6 +1103,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
                     resolvedMedia.set(rec.id, {
                         kind: 'local', audioId: meta.id, name: meta.name, durationMs: meta.durationMs ?? null, fingerprint: meta.fingerprint,
                     });
+                    reportAudioProgress();
                     handled = true;
                     break;
                 }
@@ -1129,6 +1171,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
                     .catch(() => {});
                 const media = { kind: 'local', audioId: meta.id, name: meta.name, durationMs: meta.durationMs ?? null, fingerprint: meta.fingerprint };
                 resolvedMedia.set(rec.id, media);
+                reportAudioProgress();
                 const docs = syncDocsOf(rec);
                 if (docs.length) await saveSyncs(docs, media);
                 continue;
@@ -1189,11 +1232,14 @@ export async function applyMpakExtras(data, opened, options = {}) {
     }
 
     if (applyToActiveReader) {
+        if (onProgress && totalAudioFiles) onProgress(90, 'Preparing mixer…');
         // The audio player listed the song's files when the score loaded, before they were stored here. Without a library
         // song (attachLibraryAudio sends this event) it would keep an empty list: Synth audio, no file to play.
         try {
             const { AUDIO_FILES_CHANGED_EVENT } = await import('./audioSync/audioBackup.js');
             window.dispatchEvent(new CustomEvent(AUDIO_FILES_CHANGED_EVENT));
+            const { awaitAudioFilesReady } = await import('./audioSync/audioFilePlayer.js');
+            await awaitAudioFilesReady();
         } catch { /* headless environment */ }
         try {
             if (getSlotSource('original') === 'embedded') (await import('./utils/navigationUtils.js')).setActiveAudioMode('real');

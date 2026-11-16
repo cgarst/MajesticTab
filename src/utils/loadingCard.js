@@ -12,8 +12,11 @@ let currentToken = 0;
 let hideTimer = 0;
 let shownAt = 0;
 let activeCoverUrl = null;
+let holdCount = 0;
+let rangeMin = 0;
+let rangeMax = 100;
 
-const byId = (id) => document.getElementById(id);
+const byId = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
 
 function applyCover(token, coverEl, rawCoverUrl) {
     if (!rawCoverUrl) {
@@ -116,15 +119,49 @@ export function setLoadingProgress(token, percent, stage) {
     if (token !== currentToken) return;
     const fill = byId('loadingCardFill');
     if (!fill) return;
-    const pct = Math.max(0, Math.min(100, Math.round(percent)));
+    const raw = Math.max(0, Math.min(100, Number(percent) || 0));
+    const pct = Math.round(rangeMin + (raw / 100) * (rangeMax - rangeMin));
     fill.style.width = `${pct}%`;
     byId('loadingCardTrack')?.setAttribute('aria-valuenow', String(pct));
     const stageEl = byId('loadingCardStage');
-    if (stage !== undefined && stageEl) stageEl.textContent = stage;
+    if (stage !== undefined && stageEl && !(rangeMax < 100 && stage === 'Ready')) {
+        stageEl.textContent = stage;
+    }
+}
+
+export function setLoadingProgressRange(min = 0, max = 100) {
+    rangeMin = Math.max(0, Math.min(100, min));
+    rangeMax = Math.max(rangeMin, Math.min(100, max));
+}
+
+export function setCurrentLoadingProgress(percent, stage) {
+    setLoadingProgress(currentToken, percent, stage);
+}
+
+/**
+ * Keeps the loading card visible across multi-step loads (e.g. a score followed by its .mpak audio stems)
+ * until the matching `endLoadingHold` is called.
+ */
+export function beginLoadingHold(output, identity = {}) {
+    holdCount++;
+    const card = byId('loadingCard');
+    if (!card || !card.classList.contains('is-visible')) {
+        return showLoadingCard(output, identity);
+    }
+    return currentToken;
+}
+
+export function endLoadingHold(output) {
+    holdCount = Math.max(0, holdCount - 1);
+    if (holdCount === 0) {
+        rangeMin = 0;
+        rangeMax = 100;
+        hideLoadingCard(currentToken, output);
+    }
 }
 
 export function hideLoadingCard(token, output) {
-    if (token !== currentToken) return;
+    if (holdCount > 0 || token !== currentToken) return;
     const card = byId('loadingCard');
     const finish = () => {
         if (token !== currentToken) return;
