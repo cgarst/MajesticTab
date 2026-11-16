@@ -16,6 +16,7 @@ import {
 import { decodeText } from './utils/decodeText.js';
 import { newPackId } from './mpakSession.js';
 import { toSyncPoints, fromSyncPoints } from './audioSync/syncStore.js';
+import { fitBarPoints } from './audioSync/fitBarPoints.js';
 import { unitsToPoints, scoreSyncKey, legacyScoreSyncKey, textBlocksOf } from './audioSync/anchors.js';
 
 export const MPAK_FORMAT = 'mpak';
@@ -857,7 +858,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
             const rac = await import('./audioSync/realAudioController.js');
             setSlotSource = rac.setSlotSource;
             getSlotSource = rac.getSlotSource;
-            updateRecordingSlots = rac.updateRecordingSlots;
+            updateRecordingSlots = rac.updateRealAudioPanelView; // the whole panel: source switch, sections and the slot rows
             hasEmbeddedAudio = rac.hasEmbeddedAudio;
         } catch { /* headless environment */ }
     }
@@ -885,9 +886,36 @@ export async function applyMpakExtras(data, opened, options = {}) {
     const syncDocsOf = (rec) => syncTargets
         .map((sc) => ({ sc, doc: typeof opened?.sync === 'function' ? opened.sync(rec.id, sc.id) : null }))
         .filter((x) => x.doc?.points?.length);
-    const saveSyncs = (docs, media) => {
+    // The bars a score plays, repeats included, read from its file; null when it cannot be read
+    const playedBarsCache = new Map();
+    const playedBarsOf = async (sc) => {
+        if (!playedBarsCache.has(sc.id)) {
+            let bars = null;
+            try {
+                if (sc.path && opened?.entries?.includes(sc.path)) {
+                    const { extractPlayedBarsFromFile } = await import('./urlImport/attachSync.js');
+                    bars = (await extractPlayedBarsFromFile(await opened.file(sc.path))) || null;
+                }
+            } catch { /* the points are kept as they are */ }
+            playedBarsCache.set(sc.id, bars?.length ? bars : null);
+        }
+        return playedBarsCache.get(sc.id);
+    };
+    const saveSyncs = async (docs, media) => {
         for (const { sc, doc } of docs) {
-            const points = fromSyncPoints(doc.points, doc.anchorType);
+            let points = fromSyncPoints(doc.points, doc.anchorType);
+            if (doc.anchorType === 'bar') {
+                // Bar points are kept by song, so a pack can hold them from a score laid out differently (a repeat written
+                // out, or played by a repeat sign). They go onto this score's own played bars, in time order.
+                const played = await playedBarsOf(sc);
+                if (played) {
+                    const fit = fitBarPoints(points, played);
+                    if (fit.moved) {
+                        console.info(`[mpak] sync points fitted to the bars "${sc.name || sc.id}" plays` + (fit.dropped ? ` (${fit.dropped} left out)` : ''));
+                        points = fit.points;
+                    }
+                }
+            }
             for (const k of allKeys) saveRecord(syncKeyFor(doc.anchorType, k, sc.sha256), media, points, undefined, undefined, doc.anchorType);
         }
     };
@@ -984,7 +1012,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
 
             if (handled && syncDocs.length) {
                 const media = resolvedMedia.get(rec.id);
-                if (media) saveSyncs(syncDocs, media);
+                if (media) await saveSyncs(syncDocs, media);
             }
         } catch (e) {
             console.warn('[mpak] could not attach the', slot, 'recording:', e);
@@ -1020,7 +1048,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
                 const media = { kind: 'local', audioId: meta.id, name: meta.name, durationMs: meta.durationMs ?? null, fingerprint: meta.fingerprint };
                 resolvedMedia.set(rec.id, media);
                 const docs = syncDocsOf(rec);
-                if (docs.length) saveSyncs(docs, media);
+                if (docs.length) await saveSyncs(docs, media);
                 continue;
             }
             const ytSrc = (rec.sources || []).find((s) => s.type === 'youtube' && s.videoId);
@@ -1031,7 +1059,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
             const key = mediaKey(media);
             if (!key || taken.has(key)) continue;
             taken.add(key);
-            saveSyncs(syncDocs, media);
+            await saveSyncs(syncDocs, media);
         } catch (e) {
             console.warn('[mpak] could not attach the', rec?.id, 'recording:', e);
         }
@@ -1046,6 +1074,12 @@ export async function applyMpakExtras(data, opened, options = {}) {
     }
 
     if (applyToActiveReader) {
+        // The audio player listed the song's files when the score loaded, before they were stored here. Without a library
+        // song (attachLibraryAudio sends this event) it would keep an empty list: Synth audio, no file to play.
+        try {
+            const { AUDIO_FILES_CHANGED_EVENT } = await import('./audioSync/audioBackup.js');
+            window.dispatchEvent(new CustomEvent(AUDIO_FILES_CHANGED_EVENT));
+        } catch { /* headless environment */ }
         try {
             if (getSlotSource('original') === 'embedded') (await import('./utils/navigationUtils.js')).setActiveAudioMode('real');
         } catch { /* optional */ }
