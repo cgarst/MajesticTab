@@ -119,6 +119,10 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
             const [{ songs }, files, audio, fonts, classtab] = await Promise.all([getAllLibraryData(), getAllStoredFiles(), listAudioFiles(), listSoundFonts(), listClasstab()]);
             const fileById = new Map(files.map((f) => [f.id, f]));
             const audioById = new Map(audio.map((a) => [a.id, a]));
+            const songsWithAudio = new Set();
+            for (const a of audio) {
+                for (const k of a.songKeys || []) songsWithAudio.add(k);
+            }
             const recording = indexRecordingKeys();
             const out = new Map();
             songOfPack = new Map();
@@ -127,7 +131,8 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
                 if (!tabs.length) continue;
                 const packId = await packIdOfSong(song);
                 songOfPack.set(packId, song.id);
-                const signals = recording.forSong(enc(songKeyOf(song))).map((e) => {
+                const songKey = enc(songKeyOf(song));
+                const signals = recording.forSong(songKey).map((e) => {
                     const a = e.key.startsWith('audio_file_') ? audioById.get(e.value) : null;
                     return [e.key, e.value, a ? `${a.size || 0}:${a.fingerprint || ''}` : ''];
                 });
@@ -136,7 +141,7 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
                     tabs: tabs.map((t) => [t.id, t.name, t.startPage, t.endPage, t.tuning, fileFp(fileById.get(t.fileStoreId))]),
                     signals,
                 });
-                out.set(`p:${packId}`, { kind: 'pack', id: packId, name: song.title, fp, time: song.addedAt || 0 });
+                out.set(`p:${packId}`, { kind: 'pack', id: packId, name: song.title, fp, time: song.addedAt || 0, hasAudio: songsWithAudio.has(songKey) });
             }
             for (const f of fonts) out.set(`s:${f.id}`, { kind: 'soundfont', id: f.id, name: f.name, fp: `${f.size || 0}:${f.addedAt || 0}`, time: f.addedAt || 0, size: f.size || 0 });
             for (const c of classtab) out.set(`c:${c.id}`, { kind: 'classtab', id: c.id, name: c.name, fp: classtabFingerprint(c), time: c.addedAt || 0, size: c.size || 0 });
@@ -250,7 +255,7 @@ export async function evictLocalHeavyAssets({ store, baselines = localBaselines,
         freedBytes += f.size || 0;
     }
 
-    const [audioFiles, { songs }, remotePackEntries] = await Promise.all([
+    const [audioFiles, { songs, setlists }, remotePackEntries] = await Promise.all([
         listAudioFiles(), getAllLibraryData(), store.list('packs/'),
     ]);
     if (audioFiles.length) {
@@ -259,16 +264,25 @@ export async function evictLocalHeavyAssets({ store, baselines = localBaselines,
             const m = /^packs\/([^/]+)\/audio\/.+/.exec(e.path);
             if (m) packsWithAudio.add(m[1]);
         }
+        const setlistSongIds = new Set();
+        for (const sl of setlists || []) {
+            for (const item of sl.items || []) {
+                if (item?.songId) setlistSongIds.add(item.songId);
+            }
+        }
         const packBySongKey = new Map();
+        const protectedSongKeys = new Set();
         for (const song of songs) {
             const k = enc(songKeyOf(song));
             const pid = isPackId(song.id) ? song.id : (isPackId(song.packId) ? song.packId : null);
             if (k && pid) packBySongKey.set(k, pid);
+            if (k && (song.pinned || setlistSongIds.has(song.id))) protectedSongKeys.add(k);
         }
         const evictedPackIds = new Set();
         for (const a of audioFiles) {
             const keys = a.songKeys || [];
             if (!keys.length) continue;
+            if (keys.some((k) => protectedSongKeys.has(k))) continue;
             const packIds = keys.map((k) => packBySongKey.get(k));
             if (packIds.some((pid) => !pid || !packsWithAudio.has(pid))) continue;
             await deleteAudioFile(a.id);

@@ -26,7 +26,7 @@ export function fakeLocal() {
 
         async items() {
             const out = new Map();
-            for (const s of state.songs.values()) out.set(`p:${s.id}`, { kind: 'pack', id: s.id, name: s.title, fp: fpOf(s), time: s.added });
+            for (const s of state.songs.values()) out.set(`p:${s.id}`, { kind: 'pack', id: s.id, name: s.title, fp: fpOf(s), time: s.added, hasAudio: Boolean(s.audio) });
             for (const [id, f] of state.fonts) out.set(`s:${id}`, { kind: 'soundfont', id, name: f.name, fp: `${f.bytes.length}:${f.addedAt}`, time: f.addedAt, size: f.bytes.length });
             return out;
         },

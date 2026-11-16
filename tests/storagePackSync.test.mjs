@@ -379,3 +379,51 @@ test('sync merges tab sources by id, updatedAt, and deletion tombstones instead 
     assert.equal(aById.get('src-shared').name, 'Shared New');
     assert.equal(a.state.settings[D]['src-deleted'], 250);
 });
+
+test('hybrid mode keeps audio local for pinned songs and songs in any setlist', async () => {
+    const store = await newStore();
+    const a = fakeLocal(), baseA = memoryBaselines(), b = fakeLocal(), baseB = memoryBaselines();
+    const audioPinned = new Uint8Array([1, 2, 3, 4]);
+    const audioSetlist = new Uint8Array([5, 6, 7, 8]);
+    const audioPlain = new Uint8Array([9, 10, 11, 12]);
+    const audioLaterSetlist = new Uint8Array([13, 14, 15, 16]);
+
+    a.addSong('pinned-song', 'Pinned', undefined, { audio: audioPinned });
+    a.state.records.songs.find((s) => s.id === 'pinned-song').pinned = true;
+
+    a.addSong('setlist-song', 'Setlist', undefined, { audio: audioSetlist });
+    a.state.records.setlists.push({ id: 'sl1', name: 'Gig', items: [{ id: 'i1', songId: 'setlist-song', tabId: null }] });
+
+    a.addSong('plain-song', 'Plain', undefined, { audio: audioPlain });
+    a.addSong('later-song', 'Later', undefined, { audio: audioLaterSetlist });
+    await sync(store, a, baseA);
+
+    // Hybrid device B downloads pinned and setlist songs WITH audio, but leaves plain/later songs without audio
+    const rb = await applyPackSync({ store, local: b, baselines: baseB, location: LOC, hybrid: true });
+    assert.equal(rb.downloaded, 4);
+    assert.deepEqual(b.state.songs.get('pinned-song').audio, audioPinned);
+    assert.deepEqual(b.state.songs.get('setlist-song').audio, audioSetlist);
+    assert.equal(b.state.songs.get('plain-song').audio, null);
+    assert.equal(b.state.songs.get('later-song').audio, null);
+
+    // Next hybrid sync changes nothing
+    const again = await applyPackSync({ store, local: b, baselines: baseB, location: LOC, hybrid: true });
+    assert.deepEqual([again.uploaded, again.downloaded, again.merged], [0, 0, 0]);
+
+    // When a song is later added to a setlist on device A, device B's next hybrid sync downloads its audio
+    a.state.records.setlists[0].items.push({ id: 'i2', songId: 'later-song', tabId: null });
+    await sync(store, a, baseA);
+
+    const planB2 = await planPackSync({ store, local: b, baselines: baseB, location: LOC, hybrid: true });
+    assert.deepEqual(planB2.items.map((i) => [i.key, i.action]), [['p:later-song', A.DOWNLOAD]]);
+    const rb2 = await applyPackSync({ store, local: b, baselines: baseB, location: LOC, hybrid: true });
+    assert.equal(rb2.downloaded, 1);
+    assert.deepEqual(b.state.songs.get('later-song').audio, audioLaterSetlist);
+    assert.equal(b.state.songs.get('plain-song').audio, null);
+
+    // When a song is pinned locally on hybrid device B, its next hybrid sync downloads its audio
+    b.state.records.songs.find((s) => s.id === 'plain-song').pinned = true;
+    const rb3 = await applyPackSync({ store, local: b, baselines: baseB, location: LOC, hybrid: true });
+    assert.equal(rb3.downloaded, 1);
+    assert.deepEqual(b.state.songs.get('plain-song').audio, audioPlain);
+});
