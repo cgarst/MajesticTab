@@ -8,7 +8,7 @@ import { isAudioChoiceKey, assignRestoredAudioSlot } from './audioSync/libraryAu
 import { isRecordingMetaKey } from './audioSync/recordingMeta.js';
 import {
     AUDIO_BACKUP_STORE, iterateAudioBackupEntries, audioBackupPlan, audioBackupOverview, restoreAudioEntry,
-    isAudioDownloadEnabled, LARGE_AUDIO_UPLOAD_BYTES, SINGLE_FILE_AUDIO_LIMIT
+    LARGE_AUDIO_UPLOAD_BYTES, SINGLE_FILE_AUDIO_LIMIT
 } from './audioSync/audioBackup.js';
 import {
     getDB, STORE_NAME, getAllStoredFiles, getStoredFileRecord, clearAllStoredFiles,
@@ -585,27 +585,27 @@ export function applyRestoredSettings(settings, { wipe }) {
  * Supports File/Blob for ultra-low-memory streaming restore, or parsed object.
  * @param {object|Blob|File} bundleOrFile - Backup File/Blob or parsed bundle object
  * @param {object} options - { mode: 'merge' | 'wipe', onProgress?: function(current: number, total: number): void,
- *   restoreAudio?: boolean } `restoreAudio` false leaves audio files out of the restore (and out of a wipe)
+ *   } Audio is always restored with the rest
  * @returns {Promise<object>} Results of the restore operation
  */
-export async function restoreBackup(bundleOrFile, { mode = 'merge', onProgress, restoreAudio = isAudioDownloadEnabled() } = {}) {
+export async function restoreBackup(bundleOrFile, { mode = 'merge', onProgress } = {}) {
     if (!bundleOrFile) {
         throw new Error('Invalid backup bundle provided.');
     }
 
     if (bundleOrFile instanceof Blob || (typeof File !== 'undefined' && bundleOrFile instanceof File)) {
-        return await restoreBackupStream(bundleOrFile, { mode, onProgress, restoreAudio });
+        return await restoreBackupStream(bundleOrFile, { mode, onProgress });
     }
 
     const bundle = bundleOrFile.data || bundleOrFile;
-    return await restoreBackupObject(bundle, { mode, onProgress, restoreAudio });
+    return await restoreBackupObject(bundle, { mode, onProgress });
 }
 
-export async function restoreBackupStream(file, { mode = 'merge', onProgress, restoreAudio = true } = {}) {
+export async function restoreBackupStream(file, { mode = 'merge', onProgress } = {}) {
     const wipe = mode === 'wipe';
     const db = await getDB();
 
-    if (wipe) await wipeLibraryData({ restoreAudio });
+    if (wipe) await wipeLibraryData();
 
     let filesImported = 0;
     let filesSkipped = 0;
@@ -699,7 +699,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress, re
                     const item = JSON.parse(fileJson);
 
                     if (item && item.store === AUDIO_BACKUP_STORE) {
-                        if (restoreAudio && item.id && item.name && item.dataBase64 && await restoreAudioEntry(item, { wipe })) audioImported++;
+                        if (item.id && item.name && item.dataBase64 && await restoreAudioEntry(item, { wipe })) audioImported++;
                         else audioSkipped++;
                         if (typeof onProgress === 'function') {
                             onProgress(filesImported + filesSkipped + soundFontsImported + audioImported + audioSkipped, totalFilesExpected);
@@ -821,11 +821,11 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress, re
     };
 }
 
-/** Empties tabs, SoundFonts, (optionally) audio, the library and the backed-up settings, ready for a restore in wipe mode. */
-export async function wipeLibraryData({ restoreAudio = true } = {}) {
+/** Empties tabs, SoundFonts, audio, the library and the backed-up settings, ready for a restore in wipe mode. */
+export async function wipeLibraryData() {
     await clearAllStoredFiles();
     await clearAllSoundFonts();
-    if (restoreAudio) await clearAllAudioFiles();
+    await clearAllAudioFiles();
     await clearAllLibraryData();
 
     for (const key of BACKUP_SETTINGS_KEYS) {
@@ -842,14 +842,14 @@ export async function wipeLibraryData({ restoreAudio = true } = {}) {
     clearAudioSync();
 }
 
-async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restoreAudio = true } = {}) {
+async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) {
     const wipe = mode === 'wipe';
     const db = await getDB();
 
     if (wipe) {
         await clearAllStoredFiles();
         await clearAllSoundFonts();
-        if (restoreAudio) await clearAllAudioFiles();
+        await clearAllAudioFiles();
         await clearAllLibraryData();
 
         for (const key of BACKUP_SETTINGS_KEYS) {
@@ -891,9 +891,9 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restore
 
         if (item.store === AUDIO_BACKUP_STORE) {
             // The slot choices come with the settings below; only a backup without them is guessed from the names
-            if (restoreAudio && await restoreAudioEntry(item, { wipe, guessSlot: false })) audioImported++;
+            if (await restoreAudioEntry(item, { wipe, guessSlot: false })) audioImported++;
             else audioSkipped++;
-            if (restoreAudio) restoredAudio.push(item);
+            restoredAudio.push(item);
             continue;
         }
 
@@ -1496,7 +1496,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                     <span class="fw-semibold text-danger small">Replace all data</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
-                    Erases all current local stored tabs, library entries, settings and audio files<span id="restoreAudioNote" style="display:none;"> (unless you leave audio out above)</span>, and replaces them cleanly with this backup.
+                    Erases all current local stored tabs, library entries, settings and audio files, and replaces them cleanly with this backup.
                   </div>
                 </div>
               </label>
@@ -2582,39 +2582,19 @@ function attachModalHandlers(modal, options = {}) {
     // For snapshot restores, show what this device would gain or lose; follows the Merge / Wipe choice
     const restoreIncrementalPreview = modal.querySelector('#restoreIncrementalPreview');
     let restorePreviewData = null;
-    // Audio can be left out of a restore (for example when the device is short of space): sync points are kept
-    // either way, and the files can be relinked later
-    let restoreAudioChoice = isAudioDownloadEnabled();
     let restoreInspection = null;
     let restoreIsZip = false;   // the file is the ZIP format (mtbackup.js), not the older single JSON document
-    let restoreAudioInfo = null;
     const restoreAudioBox = modal.querySelector('#restoreAudioBox');
+    // What the backup holds in audio, for the older snapshot formats whose summary does not show it. Audio is always restored.
     const renderRestoreAudioBox = (info) => {
-        restoreAudioInfo = info;
         if (!restoreAudioBox) return;
-        const audioNote = modal.querySelector('#restoreAudioNote');
-        if (audioNote) audioNote.style.display = info?.count ? 'inline' : 'none';
         if (!info || !info.count) { restoreAudioBox.style.display = 'none'; return; }
         restoreAudioBox.style.display = 'block';
         const detail = `${plural(info.count, 'audio file')}, ${formatBytes(info.bytes)}${info.onDevice ? ` (${info.onDevice} already on this device)` : ''}`;
         restoreAudioBox.innerHTML = `
-            <div class="d-flex align-items-start justify-content-between gap-2">
-                <div class="min-w-0">
-                    <div class="small fw-semibold text-white"><i class="bi-file-earmark-music text-info me-1"></i> Restore audio files</div>
-                    <div class="small text-white-50 mt-1" style="font-size:0.75rem;">${escapeHtml(detail)}. ${restoreAudioChoice
-                        ? 'They are downloaded with the rest.'
-                        : 'They are left out. Sync points are kept, and you can choose the files again later from the Audio File panel.'}</div>
-                </div>
-                <div class="form-check form-switch mb-0 flex-shrink-0">
-                    <input class="form-check-input theme-switch" type="checkbox" id="restoreAudioSwitch" ${restoreAudioChoice ? 'checked' : ''} aria-label="Restore audio files">
-                </div>
-            </div>`;
+            <div class="small fw-semibold text-white"><i class="bi-file-earmark-music text-info me-1"></i> Audio files</div>
+            <div class="small text-white-50 mt-1" style="font-size:0.75rem;">${escapeHtml(detail)}. They are restored with the rest.</div>`;
     };
-    restoreAudioBox?.addEventListener('change', (e) => {
-        if (e.target.id !== 'restoreAudioSwitch') return;
-        restoreAudioChoice = e.target.checked;
-        renderRestoreAudioBox(restoreAudioInfo);
-    });
     const renderRestorePreview = async () => {
         if (!restoreIncrementalPreview) return;
         const bundle = currentBackupFile;
@@ -2841,7 +2821,6 @@ function attachModalHandlers(modal, options = {}) {
             }
             const results = await restoreBackup(currentBackupFile || currentParsedBackup, {
                 mode,
-                restoreAudio: restoreAudioChoice,
                 onProgress: (current, total) => {
                     if (total > 0) {
                         showTaskProgress(restoreStatusAlert, { label: 'Restoring files…', detail: `${current} of ${total}`, value: (current / total) * 100 });
@@ -2855,7 +2834,6 @@ function attachModalHandlers(modal, options = {}) {
             if (results.filesImported > 0) details.push(`${results.filesImported} tabs imported`);
             if (results.soundFontsImported > 0) details.push(`${results.soundFontsImported} SoundFonts imported`);
             if (results.audioImported > 0) details.push(`${results.audioImported} audio files imported`);
-            if (results.audioSkipped > 0 && !restoreAudioChoice) details.push(`${results.audioSkipped} audio files left out`);
             if (results.filesSkipped > 0) details.push(`${results.filesSkipped} existing tabs kept`);
             if (results.songsImported > 0) details.push(`${results.songsImported} library songs added/merged`);
             if (results.settingsApplied > 0) details.push('settings restored');

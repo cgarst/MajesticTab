@@ -128,7 +128,7 @@ export async function restoreMtBackup(file, { mode = 'merge', onProgress = () =>
     const b = await openBackup(blobSource(file));
     const library = fromLibraryDoc(b.header.library);
     const profile = b.header.profile ? fromProfileDoc(b.header.profile) : { settings: {}, soundFonts: [] };
-    if (wipe) await wipeLibraryData({ restoreAudio: true });
+    if (wipe) await wipeLibraryData();
 
     const result = { mode, songs: 0, skippedSongs: 0, collections: 0, recents: 0, setlists: 0, soundFonts: 0, missing: b.missing, failed: [] };
 
