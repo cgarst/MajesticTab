@@ -118,3 +118,41 @@ test('BOTH state surfaces pre-upgrade snapshots and deletes blobs and manifests 
     assert.equal(after.state, LOCATION.CURRENT);
     assert.equal(after.items.length, 0);
 });
+
+test('finds and prunes dangling file references in active pack manifests', async () => {
+    const store = createMemoryStore();
+    await store.open({ create: true });
+    await writeStoreInfo(store, { appVersion: '1.2.4' });
+
+    await writeJson(store, LIBRARY_PATH, toLibraryDoc({
+        songs: [{ id: 'song-a', title: 'Another Day', artist: 'Dream Theater', tabOptions: [{ id: 't1', name: 'tab.gp5' }] }],
+    }));
+    await writeJson(store, PROFILE_PATH, toProfileDoc({ soundFonts: [] }));
+
+    await writeJson(store, 'packs/song-a/manifest.json', {
+        song: { title: 'Another Day', artist: 'Dream Theater' },
+        scores: [{ id: 'gp', path: 'score/tab.gp5', format: 'gp' }],
+        recordings: [
+            { id: 'original', role: 'original', sources: [{ type: 'file', path: 'audio/guitar-1.m4a', mime: 'audio/mp4' }] },
+            { id: 'audio-1', role: 'alternate', sources: [{ type: 'file', path: 'audio/deleted.flac', mime: 'audio/flac' }] },
+            { id: 'audio-2', role: 'stem', stemOf: 'audio-1', sources: [{ type: 'file', path: 'audio/also-deleted.flac', mime: 'audio/flac' }] },
+        ],
+    });
+    await store.write('packs/song-a/score/tab.gp5', bytes(100));
+    await store.write('packs/song-a/audio/guitar-1.m4a', bytes(200));
+
+    const found = await findRemoteOrphans({ store });
+    assert.equal(found.items.length, 2);
+    assert.deepEqual(found.items.map((i) => i.key).sort(), [
+        'manifest-ref:song-a/audio/also-deleted.flac',
+        'manifest-ref:song-a/audio/deleted.flac',
+    ]);
+    assert.equal(found.items[0].detail, 'Missing file referenced in Another Day — Dream Theater');
+
+    await deleteRemoteOrphans({ store }, found.items);
+
+    const after = await findRemoteOrphans({ store });
+    assert.equal(after.items.length, 0);
+    const updated = JSON.parse(new TextDecoder().decode(await store.read('packs/song-a/manifest.json')));
+    assert.deepEqual(updated.recordings.map((r) => r.id), ['original']);
+});

@@ -2,9 +2,10 @@
 // Finds and removes unused files in a pack-sync storage location (contract.js):
 //   - unreferenced packs under packs/<id>/ (not listed in library.json)
 //   - incomplete pack directories under packs/<id>/ (missing manifest.json)
+//   - dangling file references in active pack manifests (missing from packs/<id>/)
 //   - unreferenced SoundFonts under soundfonts/<id> (not listed in profile.json)
 //   - leftover pre-upgrade snapshot files (blobs/ and manifests/) when the location has already been upgraded
-import { readJsonIfExists, deletePackDir, pool } from './contract.js';
+import { readJsonIfExists, writeJson, deletePackDir, pool } from './contract.js';
 import { expectedFiles } from './packStore.js';
 import { fromLibraryDoc, fromProfileDoc, LIBRARY_PATH, PROFILE_PATH } from './libraryDocs.js';
 import { probeLocation, LOCATION } from './upgrade.js';
@@ -111,6 +112,7 @@ export async function findRemoteOrphans({ store, legacy = null } = {}) {
             const manifest = await readJsonIfExists(store, `packs/${packId}/manifest.json`).catch(() => null);
             if (!manifest) return;
             const expected = expectedFiles(manifest);
+            const present = new Set(info.files.map((f) => f.rel));
             const packLabel = labelFromManifest(packId, manifest);
             for (const f of info.files) {
                 if (f.rel === 'manifest.json' || expected.has(f.rel)) continue;
@@ -122,6 +124,19 @@ export async function findRemoteOrphans({ store, legacy = null } = {}) {
                     detail: `Unused file in ${packLabel}`,
                     size: f.size,
                     path: f.path,
+                });
+            }
+            for (const rel of expected.keys()) {
+                if (present.has(rel)) continue;
+                items.push({
+                    kind: 'manifest-ref',
+                    packId,
+                    rel,
+                    id: `${packId}/${rel}`,
+                    key: `manifest-ref:${packId}/${rel}`,
+                    label: rel,
+                    detail: `Missing file referenced in ${packLabel}`,
+                    size: 0,
                 });
             }
         });
@@ -169,18 +184,74 @@ export async function findRemoteOrphans({ store, legacy = null } = {}) {
     return { state: probe.state, items, totalBytes };
 }
 
+function pruneManifestRefs(manifest, missing) {
+    if (manifest.entries) {
+        for (const rel of missing) delete manifest.entries[rel];
+    }
+    if (Array.isArray(manifest.scores)) {
+        manifest.scores = manifest.scores
+            .filter((sc) => !(sc?.path && missing.has(sc.path)))
+            .map((sc) => {
+                if (!Array.isArray(sc.alternates)) return sc;
+                const alts = sc.alternates.filter((a) => !(a?.path && missing.has(a.path)));
+                return alts.length ? { ...sc, alternates: alts } : (({ alternates: _, ...rest }) => rest)(sc);
+            });
+    }
+    const scoreIds = new Set((manifest.scores || []).map((s) => s.id));
+    if (Array.isArray(manifest.recordings)) {
+        manifest.recordings = manifest.recordings
+            .map((rec) => {
+                const sources = (rec.sources || []).filter((s) => !(s.type === 'file' && s.path && missing.has(s.path)));
+                if (!sources.length) return null;
+                const next = { ...rec, sources };
+                if (next.beats && missing.has(next.beats)) delete next.beats;
+                if (next.sync) {
+                    const kept = Object.fromEntries(Object.entries(next.sync).filter(([sid, p]) => scoreIds.has(sid) && !missing.has(p)));
+                    if (Object.keys(kept).length) next.sync = kept; else delete next.sync;
+                }
+                if (next.scoreTracks) {
+                    const kept = Object.fromEntries(Object.entries(next.scoreTracks).filter(([sid]) => scoreIds.has(sid)));
+                    if (Object.keys(kept).length) next.scoreTracks = kept; else delete next.scoreTracks;
+                }
+                return next;
+            })
+            .filter(Boolean);
+        const recIds = new Set(manifest.recordings.map((r) => r.id));
+        for (const r of manifest.recordings) {
+            if ('syncFrom' in r && !recIds.has(r.syncFrom)) delete r.syncFrom;
+            if ('stemOf' in r && !recIds.has(r.stemOf)) delete r.stemOf;
+            if (Array.isArray(r.without)) {
+                r.without = r.without.filter((w) => recIds.has(w) && w !== r.id);
+                if (!r.without.length) delete r.without;
+            }
+        }
+    }
+    return manifest;
+}
+
 /**
  * Delete selected orphan items returned by `findRemoteOrphans`.
  */
 export async function deleteRemoteOrphans({ store, legacy = null }, items = []) {
+    const missingByPack = new Map();
     for (const item of items) {
         if (item.kind === 'pack') {
             await deletePackDir(store, `packs/${item.id}`);
         } else if (item.kind === 'pack-file' || item.kind === 'soundfont') {
             await store.delete(item.path);
+        } else if (item.kind === 'manifest-ref' && item.packId && item.rel) {
+            let set = missingByPack.get(item.packId);
+            if (!set) { set = new Set(); missingByPack.set(item.packId, set); }
+            set.add(item.rel);
         } else if (item.kind === 'legacy' && legacy) {
             await pool(item.blobs || [], DELETE_CONCURRENCY, (b) => legacy.deleteBlob(b));
             await pool(item.manifests || [], DELETE_CONCURRENCY, (m) => legacy.deleteManifest(m));
         }
+    }
+    for (const [packId, missing] of missingByPack) {
+        const manifestPath = `packs/${packId}/manifest.json`;
+        const manifest = await readJsonIfExists(store, manifestPath).catch(() => null);
+        if (!manifest) continue;
+        await writeJson(store, manifestPath, pruneManifestRefs(manifest, missing));
     }
 }
