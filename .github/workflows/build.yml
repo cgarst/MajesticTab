@@ -56,7 +56,51 @@ jobs:
         with:
           workspaces: build/tauri/src-tauri -> ../target
           key: ${{ matrix.artifact }}
+      - name: Set up macOS Developer ID signing
+        if: matrix.target == 'macos'
+        env:
+          DEVELOPER_ID_CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          if [ -z "$DEVELOPER_ID_CERTIFICATE_P12" ] || [ -z "$DEVELOPER_ID_CERTIFICATE_PASSWORD" ]; then
+            echo "::warning::DEVELOPER_ID_CERTIFICATE_* secrets are not set; building ad-hoc signed macOS bundle"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/devid.keychain-db"
+          password=$(uuidgen)
+          echo "DEVID_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          echo "$DEVELOPER_ID_CERTIFICATE_P12" | base64 -d > "$RUNNER_TEMP/devid.p12"
+          security import "$RUNNER_TEMP/devid.p12" -k "$keychain" -P "$DEVELOPER_ID_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/devid.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" > /dev/null
+          identity=$(security find-identity -v -p codesigning "$keychain" | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -n1)
+          test -n "$identity" || { echo "::error::No Developer ID Application identity in the imported certificate"; exit 1; }
+          echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+          if [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_KEY_CONTENT" ]; then
+            key_path="$RUNNER_TEMP/AuthKey.p8"
+            printf '%s\n' "$ASC_KEY_CONTENT" > "$key_path"
+            chmod 600 "$key_path"
+            echo "APPLE_API_KEY=$ASC_KEY_ID" >> "$GITHUB_ENV"
+            echo "APPLE_API_ISSUER=$ASC_ISSUER_ID" >> "$GITHUB_ENV"
+            echo "APPLE_API_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+          else
+            echo "::warning::ASC_* secrets are not set; skipping macOS notarization"
+          fi
       - run: node build/build-tauri.mjs ${{ matrix.target }} ${{ matrix.args }}
+      - name: Remove macOS signing material
+        if: always() && matrix.target == 'macos'
+        run: |
+          if [ -n "${DEVID_KEYCHAIN:-}" ]; then
+            security delete-keychain "$DEVID_KEYCHAIN" || true
+          fi
+          rm -f "$RUNNER_TEMP/devid.p12" "$RUNNER_TEMP/AuthKey.p8"
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}

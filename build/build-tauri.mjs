@@ -802,6 +802,21 @@ if (target === 'android') {
       await writeFile(appstoreEnv, JSON.stringify({ bundle: { macOS } }));
       buildArgs.push('--config', appstoreEnv);
     }
+  } else if (target === 'macos') {
+    const devIdIdentity = (process.env.MACOS_DEVELOPER_ID_IDENTITY ?? '').trim()
+      || ((process.env.APPLE_SIGNING_IDENTITY ?? '').trim().startsWith('Developer ID Application:')
+        ? process.env.APPLE_SIGNING_IDENTITY.trim()
+        : '');
+    if (devIdIdentity) {
+      buildEnv.APPLE_SIGNING_IDENTITY = devIdIdentity;
+      // tauri.macos.conf.json defaults signingIdentity to "-" for unsigned local builds; clear it so APPLE_SIGNING_IDENTITY applies.
+      const macosSigningConfig = path.join(tauriDir, 'target', 'macos-signing-config.json');
+      await mkdir(path.dirname(macosSigningConfig), { recursive: true });
+      await writeFile(macosSigningConfig, JSON.stringify({ bundle: { macOS: { signingIdentity: null } } }));
+      buildArgs.push('--config', macosSigningConfig);
+    } else {
+      delete buildEnv.APPLE_SIGNING_IDENTITY;
+    }
   }
   if (debugTools) buildArgs.push('--features', 'debug-tools');
   if (macosX64) buildArgs.push('--target', 'x86_64-apple-darwin');
