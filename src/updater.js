@@ -62,7 +62,7 @@ async function fetchRelease(channel) {
     const headers = { Accept: 'application/vnd.github+json' };
     const token = await getAuthToken();
     if (token) headers.Authorization = `Bearer ${token}`;
-    const response = await fetch(`https://api.github.com/repos/${REPO}/${path}`, { headers });
+    const response = await fetch(`https://api.github.com/repos/${REPO}/${path}`, { headers, cache: 'no-store' });
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
     return response.json();
@@ -188,15 +188,24 @@ function wireInstallButton(button, update, mode, status) {
     };
 }
 
-/** A manual check answers in the Settings row it was started from: the Check button becomes the install action. */
+function removeInlineInstall() {
+    document.getElementById('updateInstallBtn')?.remove();
+}
+
+/** A manual check answers in the Settings row it was started from. Check stays a check; install is its own button. */
 async function showInlineUpdate(update, status) {
     status.textContent = `Update available: ${update.label}`;
-    const button = document.getElementById('updateCheckBtn');
-    if (!button) return;
+    const checkBtn = document.getElementById('updateCheckBtn');
+    if (!checkBtn) return;
     const mode = await getInstallMode();
+    removeInlineInstall();
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.id = 'updateInstallBtn';
+    button.className = checkBtn.className;
     wireInstallButton(button, update, mode, status);
-    button.dataset.updateReady = '1';
     button.setAttribute('aria-label', `${button.textContent} ${update.label}`);
+    status.insertAdjacentElement('afterend', button);
 }
 
 async function showUpdateBanner(update) {
@@ -219,13 +228,7 @@ async function runCheck(buildInfo, { manual }) {
     const status = document.getElementById('updateStatus');
     const banner = document.getElementById('updateBanner');
     if (manual && status) status.textContent = 'Checking...';
-    const checkBtn = document.getElementById('updateCheckBtn');
-    if (manual && checkBtn?.dataset.updateReady) {
-        delete checkBtn.dataset.updateReady;
-        checkBtn.onclick = null;
-        checkBtn.textContent = 'Check';
-        checkBtn.setAttribute('aria-label', 'Check for updates');
-    }
+    if (manual) removeInlineInstall();
     try {
         const update = await checkForUpdate(buildInfo);
         localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
@@ -285,11 +288,7 @@ export async function initUpdater() {
             runCheck(buildInfo, { manual: true });
         });
     });
-    document.getElementById('updateCheckBtn')?.addEventListener('click', (e) => {
-        // Once an update is found the same button installs it (see showInlineUpdate).
-        if (e.currentTarget.dataset.updateReady) return;
-        runCheck(buildInfo, { manual: true });
-    });
+    document.getElementById('updateCheckBtn')?.addEventListener('click', () => runCheck(buildInfo, { manual: true }));
 
     const last = Number(localStorage.getItem(LAST_CHECK_KEY)) || 0;
     if (getUpdateChannel() !== 'none' && Date.now() - last > CHECK_INTERVAL_MS) {
