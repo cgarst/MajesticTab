@@ -8,7 +8,7 @@
 import { readStoreInfo, writeStoreInfo } from './storeInfo.js';
 import { createPackStore } from './packStore.js';
 import { toLibraryDoc, toProfileDoc, LIBRARY_PATH, PROFILE_PATH } from './libraryDocs.js';
-import { writeJson } from './contract.js';
+import { writeJson, pool } from './contract.js';
 
 export const LOCATION = Object.freeze({
     NONE: 'none',        // nothing of ours here
@@ -95,12 +95,15 @@ export async function verifyStore(store, { packIds, songs = [] }, onProgress = (
     const problems = [];
     const packs = createPackStore(store);
     const listed = new Set((await packs.listPacks()).map((p) => p.packId));
-    for (let i = 0; i < packIds.length; i++) {
-        const id = packIds[i];
-        onProgress({ current: i + 1, total: packIds.length });
-        if (!listed.has(id)) { problems.push(`${id}: pack is not in the store`); continue; }
-        try { for (const w of (await packs.open(id)).warnings) problems.push(`${id}: ${w}`); } catch (e) { problems.push(`${id}: ${e.message}`); }
-    }
+    let done = 0;
+    await pool(packIds, 5, async (id) => {
+        if (!listed.has(id)) {
+            problems.push(`${id}: pack is not in the store`);
+        } else {
+            try { for (const w of (await packs.open(id)).warnings) problems.push(`${id}: ${w}`); } catch (e) { problems.push(`${id}: ${e.message}`); }
+        }
+        onProgress({ current: ++done, total: packIds.length });
+    });
     const have = new Set(packIds);
     for (const s of songs) {
         if (s.noPack || !(s.tabOptions || []).length) continue;

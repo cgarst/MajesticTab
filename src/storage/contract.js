@@ -142,4 +142,14 @@ export async function deletePackDir(store, dir) {
     for (const entry of await store.list(`${dir}/`)) await store.delete(entry.path);
 }
 
+/** Runs `fn` over `items` with at most `limit` in flight. */
+export async function pool(items, limit, fn) {
+    const out = [];
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+        while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); }
+    }));
+    return out;
+}
+
 export { encoder as textEncoder, decoder as textDecoder };

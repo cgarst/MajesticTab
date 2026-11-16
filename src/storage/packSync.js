@@ -18,7 +18,7 @@
 // `local` is the adapter for this device's data (see LocalAdapter below); `baselines` is { get(location), set(location, value), clear(location) }.
 import { createPackStore } from './packStore.js';
 import { readStoreInfo } from './storeInfo.js';
-import { readIfExists, readJson, writeJson, updateJson, ConflictError, NotFoundError } from './contract.js';
+import { readIfExists, readJson, writeJson, updateJson, pool, ConflictError, NotFoundError } from './contract.js';
 import { toLibraryDoc, fromLibraryDoc, toProfileDoc, fromProfileDoc, portableSong, mergeSong, applyIndexToSong, LIBRARY_PATH, PROFILE_PATH } from './libraryDocs.js';
 import { RECORD_ACTION, fingerprintValue, stableStringify, planRecords, TAB_SOURCES_KEY, TAB_SOURCES_DELETED_KEY, readSourceList, readTombstones, mergeSourceLists } from '../recordSync.js';
 
@@ -363,7 +363,7 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
     const order = [ITEM_ACTION.DOWNLOAD, ITEM_ACTION.MERGE, ITEM_ACTION.UPLOAD, ITEM_ACTION.DELETE_LOCAL, ITEM_ACTION.DELETE_REMOTE];
     const sorted = [...plan].sort((a, b) => order.indexOf(a.action) - order.indexOf(b.action));
     let n = 0;
-    for (const item of sorted) {
+    await pool(sorted, 5, async (item) => {
         onProgress({ current: ++n, total: sorted.length, name: item.name, action: item.action });
         const rVersion = read.remote.get(item.key)?.version;
         try {
@@ -401,7 +401,7 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
             // A conflict means another device wrote this pack since the plan: leave it for the next sync, which will merge
             out.failed.push({ key: item.key, reason: err instanceof ConflictError ? 'changed elsewhere during the sync' : err.message });
         }
-    }
+    });
     if (tombstonesChanged) await updateJson(store, TOMBSTONES_PATH, (cur) => ({ version: 1, items: { ...(cur?.items || {}), ...tombstones.items } }));
 
     // Records go first: taking in a song's record changes the song here (tab names, hashes), and the baseline must be the
@@ -472,8 +472,7 @@ export async function exportLocalToStore(store, local, onProgress = () => {}) {
     const items = [...(await local.items()).values()];
     const packIds = [], soundFonts = [];
     let n = 0;
-    for (const item of items) {
-        onProgress({ current: ++n, total: items.length, name: item.name });
+    await pool(items, 5, async (item) => {
         const key = item.kind === 'pack' ? packKey(item.id) : `${item.kind === 'soundfont' ? 's' : 'c'}:${item.id}`;
         const data = await local.readItem(key);
         if (item.kind === 'pack') {
@@ -484,7 +483,8 @@ export async function exportLocalToStore(store, local, onProgress = () => {}) {
             if (!existing || existing.size !== data.bytes.length) await store.write(blobPath(key), data.bytes);
             if (item.kind === 'soundfont') soundFonts.push({ id: item.id, name: data.name, size: data.size ?? data.bytes.length, addedAt: data.addedAt ?? Date.now() });
         }
-    }
+        onProgress({ current: ++n, total: items.length, name: item.name });
+    });
     const { library, settings } = await local.records();
     return { packIds, records: library, settings, soundFonts };
 }
