@@ -147,7 +147,7 @@ async function failure(res, action) {
 }
 
 /** Wraps fetch's opaque network error, which for a bucket without CORS rules is the usual cause. */
-async function request(config, method, key, options) {
+export async function request(config, method, key, options) {
     try {
         return await signedFetch(config, method, key, options);
     } catch (err) {

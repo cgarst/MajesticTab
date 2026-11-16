@@ -83,7 +83,7 @@ function authHeader(config) {
     return { Authorization: `Basic ${btoa(binary)}` };
 }
 
-async function request(config, method, path, { body, headers = {} } = {}) {
+export async function request(config, method, path, { body, headers = {} } = {}) {
     if (config.username && !config.password) {
         config = { ...config, password: await loadSecret(WEBDAV_SECRET_NAME) || '' };
         if (!config.password) throw new Error('The WebDAV password is missing. Re-enter it in the WebDAV settings.');
