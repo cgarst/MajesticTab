@@ -377,17 +377,25 @@ function showProgress(target, { upgrade = false } = {}) {
         <p class="sync-hint">Keep this window open until it finishes.</p>`, { subtitle: `${upgrade ? 'Upgrading' : 'Syncing with'} ${targetLabel(target)}` });
 }
 
+function setProgressText(text) {
+    const textEl = modal.querySelector('#syncProgressText');
+    if (textEl) textEl.textContent = text;
+}
+
+function setProgress(pct, text) {
+    const clamped = Math.max(0, Math.min(99, Math.round(pct)));
+    const bar = modal.querySelector('#syncProgressBarFill');
+    if (bar) bar.style.transform = `scaleX(${clamped / 100})`;
+    modal.querySelector('#syncProgressBar')?.setAttribute('aria-valuenow', String(clamped));
+    const pctEl = modal.querySelector('#syncProgressPercent');
+    if (pctEl) pctEl.textContent = `${clamped}%`;
+    if (text !== undefined) setProgressText(text);
+}
+
 function updateProgress({ phase, current, total, text }) {
     const share = total > 0 ? current / total : 0;
     // Receiving takes the first half of the bar and sending the second
-    const pct = Math.min(99, Math.round(phase === 'pull' ? share * 50 : 50 + share * 49));
-    const bar = modal.querySelector('#syncProgressBarFill');
-    if (bar) bar.style.transform = `scaleX(${pct / 100})`;
-    modal.querySelector('#syncProgressBar')?.setAttribute('aria-valuenow', String(pct));
-    const pctEl = modal.querySelector('#syncProgressPercent');
-    if (pctEl) pctEl.textContent = `${pct}%`;
-    const textEl = modal.querySelector('#syncProgressText');
-    if (textEl) textEl.textContent = text;
+    setProgress(phase === 'pull' ? share * 50 : 50 + share * 49, text);
 }
 
 function showDone(target, r, { title = 'Sync complete' } = {}) {
@@ -544,16 +552,30 @@ async function upgrade() {
     const mine = ++session;
     showProgress(target, { upgrade: true });
     const local = createLocalAdapter();
+    let maxPct = 0;
+    const advance = (pct, text) => {
+        maxPct = Math.max(maxPct, pct);
+        setProgress(maxPct, text);
+    };
     const say = (text, info) => {
         if (mine !== session) return;
-        if (info?.total) updateProgress({ phase: 'push', current: info.current, total: info.total, text: info.name || text });
-        else updateProgress({ phase: 'pull', current: 0, total: 1, text });
+        if (!info?.total) return setProgressText(text);
+        const share = info.current / info.total;
+        if (text === 'Checking') advance(85 + share * 14, `Checking (${info.current} of ${info.total})`);
+        else advance(30 + share * 55, info.name || text);
     };
     try {
         await upgradeLocation({
             legacy, current: store, appVersion: await appVersion(), onStatus: say,
             // The existing sync, so this device holds everything the old copy holds before the new copy is written
-            syncWithLegacy: async () => { const plan = await planSync(legacy, (t) => say(t)); await applySync(legacy, plan, (p) => { if (mine === session) updateProgress(p); }); },
+            syncWithLegacy: async () => {
+                const plan = await planSync(legacy, (t) => say(t));
+                await applySync(legacy, plan, (p) => {
+                    if (mine !== session) return;
+                    const share = p.total > 0 ? p.current / p.total : 0;
+                    advance(p.phase === 'pull' ? share * 15 : 15 + share * 15, p.text);
+                });
+            },
             exportToStore: (to, onProgress) => exportLocalToStore(to, local, onProgress),
             // Versions that still sync with the old copy find this and stop, with a note to update
             markLegacy: () => legacy.putManifest(UPGRADE_MARKER_NAME, JSON.stringify({ app: 'MajesticTab', upgradedTo: 'MajesticTab Library', at: new Date().toISOString() }), { tabs: 0, soundFonts: 0, audio: 0 }),

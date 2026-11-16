@@ -75,7 +75,7 @@ export async function upgradeLocation({ legacy, current, syncWithLegacy, exportT
     await writeJson(current, PROFILE_PATH, toProfileDoc({ settings, soundFonts }));
 
     onStatus('Checking');
-    const problems = await verifyStore(current, { packIds, songs: records.songs || [] });
+    const problems = await verifyStore(current, { packIds, songs: records.songs || [] }, (info) => onStatus('Checking', info));
     if (problems.length) throw new UpgradeError(`The new copy did not check out (${problems.length} problem${problems.length === 1 ? '' : 's'}). The existing backup was not changed.`, problems);
 
     if (!(await writeStoreInfo(current, { appVersion }))) return { state: 'already-upgraded' };
@@ -91,11 +91,13 @@ export async function upgradeLocation({ legacy, current, syncWithLegacy, exportT
  * Compares what is in the store with what the upgrade meant to write. Returns a list of problems, empty when it is right.
  * Every pack must open without warnings; every song must have its pack (a song with no tab has none by design: `noPack`).
  */
-export async function verifyStore(store, { packIds, songs = [] }) {
+export async function verifyStore(store, { packIds, songs = [] }, onProgress = () => {}) {
     const problems = [];
     const packs = createPackStore(store);
     const listed = new Set((await packs.listPacks()).map((p) => p.packId));
-    for (const id of packIds) {
+    for (let i = 0; i < packIds.length; i++) {
+        const id = packIds[i];
+        onProgress({ current: i + 1, total: packIds.length });
         if (!listed.has(id)) { problems.push(`${id}: pack is not in the store`); continue; }
         try { for (const w of (await packs.open(id)).warnings) problems.push(`${id}: ${w}`); } catch (e) { problems.push(`${id}: ${e.message}`); }
     }
