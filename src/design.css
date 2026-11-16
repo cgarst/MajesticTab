@@ -5660,6 +5660,8 @@ body.library-view-active .yt-sheet { display: none !important; }
 .vrow-remove.is-armed { font-weight: 600; }
 .vrow-copy.is-armed .t b { color: var(--danger); }
 .vrow.is-missing .slot { opacity: 0.7; }
+/* A stem sits under the recording it was split from */
+.vrow-nested { margin-left: 20px; }
 .yt-danger-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .yt-danger-row .rec-text-btn { color: var(--danger) !important; }
 

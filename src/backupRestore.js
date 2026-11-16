@@ -5,6 +5,7 @@
 import { collectAudioSync, mergeAudioSync, clearAudioSync } from './audioSync/syncStore.js';
 import { clearAllAudioFiles } from './audioSync/audioFileStore.js';
 import { isAudioChoiceKey, assignRestoredAudioSlot } from './audioSync/libraryAudio.js';
+import { isRecordingMetaKey } from './audioSync/recordingMeta.js';
 import {
     AUDIO_BACKUP_STORE, iterateAudioBackupEntries, audioBackupPlan, audioBackupOverview, restoreAudioEntry,
     isAudioDownloadEnabled, LARGE_AUDIO_UPLOAD_BYTES, SINGLE_FILE_AUDIO_LIMIT
@@ -142,7 +143,7 @@ export function collectAllSettings() {
     const gpTabStrings = {};
     for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isAudioChoiceKey(k))) {
+        if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isRecordingMetaKey(k) || isAudioChoiceKey(k))) {
             ytCache[k] = localStorage.getItem(k);
         } else if (k && k.startsWith('gp_tab_strings_')) {
             gpTabStrings[k] = localStorage.getItem(k);
@@ -616,7 +617,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress, re
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isAudioChoiceKey(k))) keysToRemove.push(k);
+            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isRecordingMetaKey(k) || isAudioChoiceKey(k))) keysToRemove.push(k);
         }
         for (const k of keysToRemove) localStorage.removeItem(k);
         clearAudioSync();
@@ -865,7 +866,7 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restore
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isAudioChoiceKey(k))) keysToRemove.push(k);
+            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isRecordingMetaKey(k) || isAudioChoiceKey(k))) keysToRemove.push(k);
         }
         for (const k of keysToRemove) localStorage.removeItem(k);
         clearAudioSync();
@@ -1008,7 +1009,7 @@ export async function deleteAllAppData() {
     const keysToRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && ((k.startsWith('yt_track_') || k.startsWith('yt_videos_')) || k.startsWith('tab_downloader_') || isAudioChoiceKey(k))) {
+        if (k && ((k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isRecordingMetaKey(k)) || k.startsWith('tab_downloader_') || isAudioChoiceKey(k))) {
             keysToRemove.push(k);
         }
     }

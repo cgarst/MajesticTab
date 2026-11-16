@@ -7,6 +7,7 @@ import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, mediaKey, SYN
 import { songHasLocalAudio, songHasLocalSlot, preferredSlot } from './audioSync/libraryAudio.js';
 import { slotSourceKey } from './stemdeck/backingCandidates.js';
 import { listHistory, rememberVideo, forgetVideo } from './audioSync/videoHistory.js';
+import { listRecordingMeta, forgetRecordingMeta, orderRecordings, roleLabel, tracksNote } from './audioSync/recordingMeta.js';
 import { showToast } from './utils/toast.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 import { packSongKey, plainSongKey } from './mpakSession.js';
@@ -1175,8 +1176,9 @@ function rememberCurrentVideo() {
 }
 
 /**
- * The videos to offer for a slot, most recently used first: the ones remembered, the saved one, and the ones with sync
- * points for this tab. Each carries its own sync points (count).
+ * The videos to offer for a slot: the ones remembered, the saved one, and the ones with sync points for this tab. Each
+ * carries its own sync points (count) and, when a pack described it, its `meta` (role, label, tracks). Ordered by role
+ * first (see recordingMeta.js orderRecordings), then the pack's order, then most recently used.
  */
 export function getVideoChoices(slot = playerState.trackMode) {
     const songKey = getSongKey();
@@ -1190,11 +1192,13 @@ export function getVideoChoices(slot = playerState.trackMode) {
     const saved = localStorage.getItem(getStorageKey(slot));
     if (saved) add(saved, 1);
     getSyncedVideos().filter((v) => slotOfKind(v.kind) === slot).forEach((v) => add(v.videoId, v.updatedAt, { count: v.count, origin: v.origin }));
-    return [...byId.values()].sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+    const metas = listRecordingMeta(songKey);
+    return orderRecordings([...byId.values()], (c) => mediaKey({ kind: 'youtube', videoId: c.videoId }), metas, (a, b) => b.lastUsedAt - a.lastUsedAt)
+        .map(({ item, meta, nested }) => ({ ...item, ...(meta ? { meta } : {}), ...(nested ? { nested: true } : {}) }));
 }
 
 const videoTitle = (id) => getVideoInfo(id)?.title || 'Loading…';
-const videoSubline = (id, count) => ['YouTube', getVideoInfo(id)?.author, count ? `Synced · ${count} ${count === 1 ? 'point' : 'points'}` : 'Not synced'].filter(Boolean).join(' · ');
+const videoSubline = (id, count, meta) => [roleLabel(meta), 'YouTube', getVideoInfo(id)?.author, tracksNote(meta), count ? `Synced · ${count} ${count === 1 ? 'point' : 'points'}` : 'Not synced'].filter(Boolean).join(' · ');
 
 function disarm() { clearTimeout(armTimer); armedRemoval = null; }
 function arm(kind, id) {
@@ -1203,9 +1207,9 @@ function arm(kind, id) {
     armTimer = setTimeout(() => { disarm(); renderSyncedVideos(); }, 4000);
 }
 
-function videoRow({ videoId, count }, current, { remove = false, active = true } = {}) {
+function videoRow({ videoId, count, meta, nested }, current, { remove = false, active = true } = {}) {
     const row = document.createElement('div');
-    row.className = 'vrow';
+    row.className = nested ? 'vrow vrow-nested' : 'vrow';
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'slot';
@@ -1214,8 +1218,8 @@ function videoRow({ videoId, count }, current, { remove = false, active = true }
     btn.dataset.videoId = videoId;
     const rd = document.createElement('span'); rd.className = 'rd'; rd.setAttribute('aria-hidden', 'true');
     const t = document.createElement('span'); t.className = 't';
-    const b = document.createElement('b'); b.textContent = videoTitle(videoId);
-    const sub = document.createElement('span'); sub.textContent = videoSubline(videoId, count);
+    const b = document.createElement('b'); b.textContent = meta?.label || videoTitle(videoId);
+    const sub = document.createElement('span'); sub.textContent = videoSubline(videoId, count, meta);
     t.append(b, sub);
     btn.append(rd, t);
     row.append(btn);
@@ -1259,6 +1263,7 @@ function removeVideoChoice(videoId) {
     const wasCurrent = playerState.currentVideoId === videoId || localStorage.getItem(getStorageKey()) === videoId;
     for (const slot of ['original', 'backing']) {
         forgetVideo(songKey, slot, videoId);
+        forgetRecordingMeta(songKey, { kind: 'youtube', videoId });
         if (localStorage.getItem(getStorageKey(slot)) === videoId) localStorage.removeItem(getStorageKey(slot));
     }
     deleteRecord(songKey, { kind: 'youtube', videoId });

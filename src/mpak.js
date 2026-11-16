@@ -859,6 +859,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
     const { decodePeaks } = await import('./audioSync/peaks.js');
     const { attachLibraryAudio, attachLibraryAudioAlternate } = await import('./audioSync/libraryAudio.js');
     const { saveRecord, loadRecord, samePoints, setSyncSharedFromOriginal, mediaKey, SYNC_CHANGED_EVENT } = await import('./audioSync/syncStore.js');
+    const { setRecordingMeta, metaOfPackRecording } = await import('./audioSync/recordingMeta.js');
 
     let activeReaderKey = null;
     if (!options.songKey || options.applyToActiveReader === undefined) {
@@ -1100,10 +1101,20 @@ export async function applyMpakExtras(data, opened, options = {}) {
             if (!key || taken.has(key)) continue;
             taken.add(key);
             await saveSyncs(syncDocs, media);
+            resolvedMedia.set(rec.id, media);
         } catch (e) {
             console.warn('[mpak] could not attach the', rec?.id, 'recording:', e);
         }
     }
+
+    // What the pack says about each recording the player now has (role, label, place in the pack, tracks, stem parent) is kept
+    // for the Original panel's list. It stays inside the app: nothing of it is written back into an exported pack.
+    const keyOfId = (id) => (resolvedMedia.has(id) ? mediaKey(resolvedMedia.get(id)) : null);
+    (data?.recordings || []).forEach((rec, index) => {
+        const media = resolvedMedia.get(rec.id);
+        const meta = media && metaOfPackRecording(rec, index, keyOfId, scores[0]?.id);
+        if (meta) for (const k of allKeys) setRecordingMeta(k, media, meta);
+    });
 
     if (slots.backing && slots.backing.syncFrom && slots.backing.syncFrom === slots.original?.id && !slots.backing.syncOffsetMs) {
         // syncFrom covers the scores the backing track has no sync file of its own for

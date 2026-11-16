@@ -18,7 +18,8 @@ import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
 import { adoptUnassignedAudio, detachLibraryAudio } from './libraryAudio.js';
 import { isJamHosting, JAM_BRIDGE_EVENT } from './jamBridge.js';
 import { isRemoveMode, setRecordingsPresent, REC_REMOVE_MODE_EVENT } from './removeMode.js';
-import { listRecords, loadRecord, saveRecord, deleteRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
+import { listRecords, loadRecord, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './syncStore.js';
+import { listRecordingMeta, forgetRecordingMeta, orderRecordings, roleLabel, tracksNote } from './recordingMeta.js';
 import { mountSyncRow } from './audioSyncUi.js';
 
 const LAST_FILE_KEY = (songKey) => `audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`;
@@ -378,6 +379,7 @@ async function removeFile(id) {
     detachLibraryAudio(id);
     await unlinkAudioFile(id, songKey);
     deleteRecord(songKey, { kind: 'local', audioId: id, name: meta?.name || '' });
+    forgetRecordingMeta(songKey, { kind: 'local', audioId: id });
     disarm();
     if (state.currentId === id) state.currentId = null;
     window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
@@ -437,9 +439,11 @@ function render() {
     const synced = syncedFiles();
     const countOf = (id) => synced.find(s => s.audioId === id)?.count || 0;
     const removeMode = isRemoveMode();
-    const rows = state.files.map(f => {
+    // By role first, then the pack's order, then as the store lists them (see recordingMeta.js)
+    const ordered = orderRecordings(state.files, (f) => mediaKey({ kind: 'local', audioId: f.id }), listRecordingMeta(getSongKey()));
+    const rows = ordered.map(({ item: f, meta, nested }) => {
         const count = countOf(f.id);
-        const detail = ['Audio file', f.durationMs ? clock(f.durationMs) : 'Unknown length', megabytes(f.size), pointsLabel(count)].join(' · ');
+        const detail = [roleLabel(meta), 'Audio file', tracksNote(meta), f.durationMs ? clock(f.durationMs) : 'Unknown length', megabytes(f.size), pointsLabel(count)].filter(Boolean).join(' · ');
         let actions;
         if (removeMode) {
             const rm = actionButton('Remove this file', state.armedRemoval === f.id ? `Delete ${count} sync points too?` : 'Remove', () => {
@@ -452,7 +456,9 @@ function render() {
         } else {
             actions = [];
         }
-        return fileRow({ title: f.name, detail, selected: f.id === state.currentId && fileSourceActive(), onSelect: removeMode ? null : () => selectFile(f.id), actions });
+        const row = fileRow({ title: meta?.label || f.name, detail, selected: f.id === state.currentId && fileSourceActive(), onSelect: removeMode ? null : () => selectFile(f.id), actions });
+        if (nested) row.classList.add('vrow-nested');
+        return row;
     });
     for (const m of state.missing) {
         rows.push(fileRow({
