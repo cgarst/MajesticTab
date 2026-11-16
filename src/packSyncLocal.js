@@ -10,7 +10,7 @@ import { getAllLibraryData, getSongById, putLibraryRecord, deleteLibraryRecord, 
 import { getAllStoredFiles, getStoredFile, deleteStoredFile } from './fileStore.js';
 import { listSoundFonts, getSoundFontData, restoreSoundFontEntry, deleteSoundFont } from './soundFontStore.js';
 import { listClasstab, getClasstabData, restoreClasstabEntry, deleteClasstab, classtabFingerprint } from './classtab/backup.js';
-import { listAudioFiles, deleteAudioFile } from './audioSync/audioFileStore.js';
+import { listAudioFiles, deleteAudioFile, getRemovedAudio, clearRemovedAudio } from './audioSync/audioFileStore.js';
 import { collectAllSettings, applyRestoredSettings } from './backupRestore.js';
 import { buildSongPack } from './mtbackup.js';
 import { isPackId, saveMpakToLibrary } from './mpak.js';
@@ -165,6 +165,7 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
                     meta: [song.title, song.artist, song.album, song.year, song.length, song.trackNumber, song.mediumNumber, song.recordingMbid, song.artistMbid, song.albumMbid],
                     tabs: tabs.map((t) => [t.id, t.name, t.startPage, t.endPage, t.tuning, fileFp(fileById.get(t.fileStoreId))]),
                     signals,
+                    removedAudio: getRemovedAudio(songKeyOf(song)),
                 });
                 out.set(`p:${packId}`, { kind: 'pack', id: packId, name: song.title, fp, time: song.addedAt || 0, hasAudio: songsWithAudio.has(songKey) });
             }
@@ -204,7 +205,15 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
                     files.set(e.name, await readEntry(source, e, {}));
                 }
             }
-            return { files };
+            return { files, removedAudio: getRemovedAudio(songKeyOf(song)) };
+        },
+
+        async clearRemovedAudio(key) {
+            if (!key.startsWith('p:')) return;
+            const packId = key.slice(2);
+            const songId = songOfPack.get(packId);
+            const song = songId ? await getSongById(songId) : null;
+            if (song) clearRemovedAudio(songKeyOf(song));
         },
 
         /** Takes the store's pack in, additively. Hybrid mode omits audio so heavy assets stay remote until requested. */

@@ -490,6 +490,7 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
                 out.merged++;
             } else if (item.action === ITEM_ACTION.UPLOAD) {
                 await upload(item, rVersion);
+                await local.clearRemovedAudio?.(item.key);
                 nextItems[item.key] = { l: undefined, r: await remoteVersion(item.key) }; needsFp.add(item.key);
                 out.uploaded++;
             } else if (item.action === ITEM_ACTION.DELETE_LOCAL) {
@@ -545,16 +546,45 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
 async function preserveRemoteAudio(packs, packId, data) {
     let remote;
     try { remote = await packs.open(packId); } catch (_) { return; }
-    const missing = remote.audioInfo().filter((a) => a.present && !data.files.has(a.path));
+    const removed = Array.isArray(data.removedAudio) ? data.removedAudio : [];
+    const isRemoved = (a) => {
+        const base = a.path.split('/').pop();
+        return removed.some((r) => r.name === base || (r.size && r.size === a.size && base?.endsWith(r.name)));
+    };
+    const missing = remote.audioInfo().filter((a) => a.present && !data.files.has(a.path) && !isRemoved(a));
     if (!missing.length) return;
     const manifest = JSON.parse(new TextDecoder().decode(data.files.get('manifest.json')));
     manifest.entries = manifest.entries || {};
     manifest.recordings = manifest.recordings || [];
+    const scoreIds = new Set((manifest.scores || []).map((s) => s.id));
     for (const a of missing) {
         data.files.set(a.path, await remote.audio(a.path));
         if (remote.manifest.entries?.[a.path]) manifest.entries[a.path] = remote.manifest.entries[a.path];
         const rec = (remote.manifest.recordings || []).find((r) => (r.sources || []).some((s) => s.path === a.path));
-        if (rec && !manifest.recordings.some((r) => r.id === rec.id)) manifest.recordings.push(rec);
+        if (rec && !manifest.recordings.some((r) => r.id === rec.id)) {
+            const copy = structuredClone(rec);
+            if (copy.sync) {
+                const keptSync = Object.fromEntries(Object.entries(copy.sync).filter(([sid, p]) => scoreIds.has(sid) && data.files.has(p)));
+                if (Object.keys(keptSync).length) copy.sync = keptSync; else delete copy.sync;
+            }
+            if (copy.scoreTracks) {
+                const keptTracks = Object.fromEntries(Object.entries(copy.scoreTracks).filter(([sid]) => scoreIds.has(sid)));
+                if (Object.keys(keptTracks).length) copy.scoreTracks = keptTracks; else delete copy.scoreTracks;
+            }
+            if (Array.isArray(copy.sources)) {
+                copy.sources = copy.sources.map((s) => (s.type === 'embedded' && 'score' in s && !scoreIds.has(s.score) ? (({ score: _, ...rest }) => rest)(s) : s));
+            }
+            manifest.recordings.push(copy);
+        }
+    }
+    const recIds = new Set(manifest.recordings.map((r) => r.id));
+    for (const r of manifest.recordings) {
+        if ('syncFrom' in r && !recIds.has(r.syncFrom)) delete r.syncFrom;
+        if ('stemOf' in r && !recIds.has(r.stemOf)) delete r.stemOf;
+        if (Array.isArray(r.without)) {
+            r.without = r.without.filter((w) => recIds.has(w) && w !== r.id);
+            if (!r.without.length) delete r.without;
+        }
     }
     data.files.set('manifest.json', new TextEncoder().encode(JSON.stringify(manifest)));
 }

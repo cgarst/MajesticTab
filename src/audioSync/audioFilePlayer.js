@@ -12,7 +12,7 @@ import { createDecodedAudioSource, decodedPlaybackSupported } from './decodedAud
 import { decodePeaks } from './peaks.js';
 import {
     saveAudioFile, listAudioFilesForSong, getAudioFile, unlinkAudioFile, fingerprintOf, MAX_AUDIO_BYTES,
-    setAudioPeaks, relinkAudioFile
+    setAudioPeaks, relinkAudioFile, recordRemovedAudio
 } from './audioFileStore.js';
 import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
 import { adoptUnassignedAudio, detachLibraryAudio } from './libraryAudio.js';
@@ -449,6 +449,7 @@ async function removeFile(id) {
     if (id === state.currentId) destroySource();
     detachLibraryAudio(id);
     await unlinkAudioFile(id, songKey);
+    if (meta?.name) recordRemovedAudio(songKey, { name: meta.name, size: meta.size || 0 });
     deleteRecord(songKey, { kind: 'local', audioId: id, name: meta?.name || '' });
     forgetRecordingMeta(songKey, { kind: 'local', audioId: id });
     disarm();

@@ -168,3 +168,45 @@ export async function clearAllAudioFiles() {
 
 /** Cheap change detector for a file: its fingerprint covers the content, the size guards against truncation. */
 export const audioFingerprint = (meta) => `${meta.size || 0}:${meta.fingerprint || ''}`;
+
+const REMOVED_AUDIO_KEY = 'majestictab_removed_audio';
+
+function readRemovedAudioMap() {
+    try { return JSON.parse(localStorage.getItem(REMOVED_AUDIO_KEY) || '{}') || {}; } catch { return {}; }
+}
+
+function writeRemovedAudioMap(map) {
+    try {
+        if (Object.keys(map).length) localStorage.setItem(REMOVED_AUDIO_KEY, JSON.stringify(map));
+        else localStorage.removeItem(REMOVED_AUDIO_KEY);
+    } catch { /* storage unavailable */ }
+}
+
+/** Remember that the user explicitly removed an audio file from `songKey`, so hybrid sync removes it remotely instead of restoring it. */
+export function recordRemovedAudio(songKey, { name, size = 0 } = {}) {
+    if (!songKey || !name) return;
+    const k = String(songKey).toLowerCase();
+    const map = readRemovedAudioMap();
+    const list = Array.isArray(map[k]) ? map[k] : [];
+    if (!list.some((x) => x.name === name && (x.size || 0) === (size || 0))) {
+        list.push({ name, size: size || 0 });
+        map[k] = list;
+        writeRemovedAudioMap(map);
+    }
+}
+
+export function getRemovedAudio(songKey) {
+    if (!songKey) return [];
+    const list = readRemovedAudioMap()[String(songKey).toLowerCase()];
+    return Array.isArray(list) ? list : [];
+}
+
+export function clearRemovedAudio(songKey) {
+    if (!songKey) return;
+    const k = String(songKey).toLowerCase();
+    const map = readRemovedAudioMap();
+    if (k in map) {
+        delete map[k];
+        writeRemovedAudioMap(map);
+    }
+}

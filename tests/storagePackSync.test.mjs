@@ -5,7 +5,9 @@ import { createMemoryStore } from '../src/storage/memoryStore.js';
 import { createPackStore } from '../src/storage/packStore.js';
 import { writeStoreInfo } from '../src/storage/storeInfo.js';
 import { decideItem, planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, replaceRemoteFromLocal, ITEM_ACTION as A } from '../src/storage/packSync.js';
-import { readLibrary } from '../src/storage/libraryDocs.js';
+import { readLibrary, toLibraryDoc } from '../src/storage/libraryDocs.js';
+import { writeJson } from '../src/storage/contract.js';
+import { sha256 } from '../src/mpak/core/index.js';
 import { fakeLocal, memoryBaselines } from './storage/fakeLocal.mjs';
 
 const LOC = 'test|store';
@@ -501,4 +503,118 @@ test('plan + apply in hybrid mode skips listing packs/ and skips redundant JSON 
     assert.equal(counts.reads.get('library.json'), 2);
     assert.equal(counts.writes.get('library.json') || 0, 0);
     assert.equal(counts.writes.get('profile.json') || 0, 0);
+});
+
+test('preserveRemoteAudio strips sync keys for removed scores so uploading in hybrid mode stays valid', async () => {
+    const store = await newStore();
+    const gpBytes = new TextEncoder().encode('gp-data');
+    const pdfBytes = new TextEncoder().encode('pdf-data');
+    const audioBytes = new TextEncoder().encode('flac-data');
+    const syncDoc = { format: 'majestictab_sync', version: 1, points: [{ atMs: 0, bar: 1 }] };
+    const syncBytes = new TextEncoder().encode(JSON.stringify(syncDoc));
+    const gpHash = await sha256(gpBytes);
+    const pdfHash = await sha256(pdfBytes);
+    const audioHash = await sha256(audioBytes);
+    const syncHash = await sha256(syncBytes);
+    const manifest = {
+        format: 'mpak', version: 1, id: 's1', createdAt: new Date().toISOString(),
+        scores: [
+            { id: 'gp', path: 'score/song.gp', format: 'gp', size: gpBytes.length, sha256: gpHash },
+            { id: 'pdf', path: 'score/song.pdf', format: 'pdf', size: pdfBytes.length, sha256: pdfHash },
+        ],
+        recordings: [{
+            id: 'backing', role: 'backing',
+            sources: [{ type: 'file', path: 'audio/stem.flac', mime: 'audio/flac', size: audioBytes.length, sha256: audioHash }],
+            sync: { gp: 'sync/backing-gp.json', pdf: 'sync/backing-pdf.json' },
+        }],
+        entries: {
+            'sync/backing-gp.json': { size: syncBytes.length, sha256: syncHash },
+            'sync/backing-pdf.json': { size: syncBytes.length, sha256: syncHash },
+        },
+    };
+    const packs = createPackStore(store);
+    await packs.write('s1', new Map([
+        ['manifest.json', new TextEncoder().encode(JSON.stringify(manifest))],
+        ['score/song.gp', gpBytes],
+        ['score/song.pdf', pdfBytes],
+        ['audio/stem.flac', audioBytes],
+        ['sync/backing-gp.json', syncBytes],
+        ['sync/backing-pdf.json', syncBytes],
+    ]));
+    await writeJson(store, 'library.json', toLibraryDoc({
+        songs: [{ id: 's1', title: 'Song One', tabOptions: [{ id: 'gp', name: 'song.gp' }, { id: 'pdf', name: 'song.pdf' }] }],
+    }));
+
+    const local = fakeLocal(), baselines = memoryBaselines();
+    local.state.songs.set('s1', {
+        id: 's1', title: 'Song One',
+        scores: new Map([['song.gp', 'gp-data'], ['song.pdf', 'pdf-data']]),
+        audio: null, sync: null, added: Date.now(),
+    });
+    local.state.records.songs.push({ id: 's1', title: 'Song One', collectionId: 'default', pinned: false, addedAt: Date.now(), tabOptions: [{ id: 'gp', name: 'song.gp' }, { id: 'pdf', name: 'song.pdf' }], packId: null });
+    await applyPackSync({ store, local, baselines, location: LOC, hybrid: true });
+
+    // Remove pdf locally and sync again in hybrid mode
+    local.editSong('s1', (s) => s.scores.delete('song.pdf'));
+    local.state.records.songs[0].tabOptions = [{ id: 'gp', name: 'song.gp' }];
+
+    const res = await applyPackSync({ store, local, baselines, location: LOC, hybrid: true });
+    assert.equal(res.failed.length, 0);
+    assert.equal(res.uploaded, 1);
+    const updated = await packs.open('s1');
+    assert.equal(updated.manifest.recordings[0].id, 'backing');
+    assert.equal(updated.manifest.recordings[0].sync, undefined);
+});
+
+test('preserveRemoteAudio drops audio files explicitly removed by the user while keeping other remote audio', async () => {
+    const store = await newStore();
+    const gpBytes = new TextEncoder().encode('gp-data');
+    const flacBytes = new TextEncoder().encode('flac-data');
+    const mp3Bytes = new TextEncoder().encode('mp3-data');
+    const manifest = {
+        format: 'mpak', version: 1, id: 's1', createdAt: new Date().toISOString(),
+        scores: [{ id: 'gp', path: 'score/song.gp', format: 'gp', size: gpBytes.length, sha256: await sha256(gpBytes) }],
+        recordings: [
+            { id: 'backing', role: 'backing', sources: [{ type: 'file', path: 'audio/stem.flac', mime: 'audio/flac', size: flacBytes.length, sha256: await sha256(flacBytes) }] },
+            { id: 'audio-2', role: 'alternate', sources: [{ type: 'file', path: 'audio/keep.mp3', mime: 'audio/mpeg', size: mp3Bytes.length, sha256: await sha256(mp3Bytes) }] },
+        ],
+    };
+    const packs = createPackStore(store);
+    await packs.write('s1', new Map([
+        ['manifest.json', new TextEncoder().encode(JSON.stringify(manifest))],
+        ['score/song.gp', gpBytes],
+        ['audio/stem.flac', flacBytes],
+        ['audio/keep.mp3', mp3Bytes],
+    ]));
+    await writeJson(store, 'library.json', toLibraryDoc({
+        songs: [{ id: 's1', title: 'Song One', tabOptions: [{ id: 'gp', name: 'song.gp' }] }],
+    }));
+
+    const local = fakeLocal(), baselines = memoryBaselines();
+    local.state.songs.set('s1', {
+        id: 's1', title: 'Song One',
+        scores: new Map([['song.gp', 'gp-data']]),
+        audio: null, sync: null, added: Date.now(),
+    });
+    local.state.records.songs.push({ id: 's1', title: 'Song One', collectionId: 'default', pinned: false, addedAt: Date.now(), tabOptions: [{ id: 'gp', name: 'song.gp' }], packId: null });
+    await applyPackSync({ store, local, baselines, location: LOC, hybrid: true });
+
+    // Simulate user deleting stem.flac locally (without touching keep.mp3)
+    const origReadItem = local.readItem.bind(local);
+    let cleared = false;
+    local.readItem = async (key) => {
+        const res = await origReadItem(key);
+        return key === 'p:s1' ? { ...res, removedAudio: [{ name: 'stem.flac', size: flacBytes.length }] } : res;
+    };
+    local.clearRemovedAudio = async (key) => { if (key === 'p:s1') cleared = true; };
+    local.editSong('s1', (s) => { s.sync = 'deleted-stem'; });
+
+    const res = await applyPackSync({ store, local, baselines, location: LOC, hybrid: true });
+    assert.equal(res.failed.length, 0);
+    assert.equal(res.uploaded, 1);
+    assert.equal(cleared, true);
+
+    const updated = await packs.open('s1');
+    assert.deepEqual(updated.audioInfo().map((a) => a.path), ['audio/keep.mp3']);
+    assert.deepEqual(updated.manifest.recordings.map((r) => r.id), ['audio-2']);
 });

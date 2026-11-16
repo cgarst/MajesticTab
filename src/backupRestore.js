@@ -1592,34 +1592,24 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           </div>
 
           <div class="backup-summary-box p-3 rounded-3 mt-3">
-            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
-              <i class="bi-clock-history text-warning"></i> Unused files in snapshots
+            <div class="small fw-semibold text-white mb-2">
+              Unused files in cloud storage
             </div>
             <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
-              Saved tabs and SoundFonts in a Google Drive or folder backup that you can remove to free space. Files newer than 24 hours are kept.
-            </div>
-            <div class="d-flex flex-column gap-2 mb-3">
-              <label class="d-flex align-items-start gap-2 text-white small mb-0" style="cursor: pointer;">
-                <input class="form-check-input theme-radio mt-1 flex-shrink-0" type="radio" name="snapshotOrphanScope" value="all" checked>
-                <span>Not used by any snapshot<br><span class="text-white-50" style="font-size: 0.73rem;">Left over from deleted or pruned snapshots. Safe to remove.</span></span>
-              </label>
-              <label class="d-flex align-items-start gap-2 text-white small mb-0" style="cursor: pointer;">
-                <input class="form-check-input theme-radio mt-1 flex-shrink-0" type="radio" name="snapshotOrphanScope" value="latest">
-                <span>Not used by the most recent snapshot<br><span class="text-white-50" style="font-size: 0.73rem;">Older snapshots may still use these, so they can no longer restore them in full.</span></span>
-              </label>
+              Orphaned packs, SoundFonts, or unused application data in a sync location that you can remove to free space.
             </div>
             <div class="d-flex flex-wrap gap-2 mb-2">
               <!-- @googleDrive:begin -->
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="google-drive"><i class="icon-gdrive"></i> Scan Google Drive</button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3" data-remote-orphan-scan="google-drive">Scan Google Drive</button>
               <!-- @googleDrive:end -->
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="s3"><i class="bi-hdd-network text-warning"></i> Scan S3 Bucket</button>
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="webdav"><i class="bi-hdd-rack text-info"></i> Scan WebDAV</button>
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="local"><i class="bi-folder2-open text-primary"></i> Scan Backup Folder</button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3" data-remote-orphan-scan="s3">Scan S3 bucket</button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3" data-remote-orphan-scan="webdav">Scan WebDAV</button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3" data-remote-orphan-scan="folder">Scan backup folder</button>
             </div>
-            <div id="snapshotOrphansList"></div>
-            <div id="snapshotOrphansStatus" class="small mt-2" style="display:none;" role="status"></div>
+            <div id="remoteOrphansList"></div>
+            <div id="remoteOrphansStatus" class="small mt-2" style="display:none;" role="status"></div>
             <div class="d-flex justify-content-end pt-2">
-              <button type="button" class="btn btn-sm btn-theme-danger px-4 d-flex align-items-center gap-2" id="snapshotOrphansDeleteBtn" disabled>
+              <button type="button" class="btn btn-sm btn-theme-danger px-4 d-flex align-items-center gap-2" id="remoteOrphansDeleteBtn" disabled>
                 Delete selected
               </button>
             </div>
@@ -1820,106 +1810,107 @@ function attachModalHandlers(modal, options = {}) {
     });
     renderOrphans();
 
-    // --- ORPHANED FILES IN INCREMENTAL BACKUPS ---
-    const snapOrphansList = modal.querySelector('#snapshotOrphansList');
-    const snapOrphansStatus = modal.querySelector('#snapshotOrphansStatus');
-    const snapOrphansDeleteBtn = modal.querySelector('#snapshotOrphansDeleteBtn');
-    let snapOrphanBackend = null;
-    let snapOrphanFiles = [];
-    let snapOrphanScope = 'all';
-    const getSnapScope = () => modal.querySelector('input[name="snapshotOrphanScope"]:checked')?.value || 'all';
-    const setSnapStatus = (cls, html) => {
-        if (!html) return clearTaskStatus(snapOrphansStatus);
-        const kind = cls.includes('danger') ? 'error' : cls.includes('success') ? 'done' : 'info';
-        // Messages are built from our own strings and escaped values; icons are not part of the design
-        showTaskResult(snapOrphansStatus, kind, html.replace(/<i class="[^"]*"><\/i>\s*/g, ''), { html: true });
+    // --- ORPHANED FILES IN CLOUD STORAGE ---
+    const remoteOrphansList = modal.querySelector('#remoteOrphansList');
+    const remoteOrphansStatus = modal.querySelector('#remoteOrphansStatus');
+    const remoteOrphansDeleteBtn = modal.querySelector('#remoteOrphansDeleteBtn');
+    let remoteOrphanTarget = null;
+    let remoteOrphanItems = [];
+    const setRemoteStatus = (kind, text) => {
+        if (!text) return clearTaskStatus(remoteOrphansStatus);
+        showTaskResult(remoteOrphansStatus, kind, text);
     };
-    const updateSnapOrphansDeleteBtn = () => {
-        const n = snapOrphansList.querySelectorAll('.snapshot-orphan-check:checked').length;
-        snapOrphansDeleteBtn.disabled = n === 0;
-        snapOrphansDeleteBtn.textContent = `Delete selected${n ? ` · ${n}` : ''}`;
+    const updateRemoteOrphansDeleteBtn = () => {
+        const n = remoteOrphansList.querySelectorAll('.remote-orphan-check:checked').length;
+        remoteOrphansDeleteBtn.disabled = n === 0;
+        remoteOrphansDeleteBtn.textContent = `Delete selected${n ? ` · ${n}` : ''}`;
     };
-    const renderSnapOrphans = (found) => {
-        snapOrphanFiles = found.unused;
-        const recentNote = found.recent ? ` ${found.recent} newer file${found.recent === 1 ? ' is' : 's are'} kept for now.` : '';
-        if (!found.unused.length) {
-            snapOrphansList.innerHTML = `<div class="text-success small"><i class="bi-check-circle-fill me-1"></i> ${snapOrphanScope === 'latest' ? 'Every file is used by your most recent snapshot.' : 'Every file is used by at least one snapshot.'}${recentNote}</div>`;
-            return updateSnapOrphansDeleteBtn();
+    const renderRemoteOrphans = (found) => {
+        remoteOrphanItems = found.items;
+        if (!found.items.length) {
+            remoteOrphansList.innerHTML = '<div class="text-success small">Everything in this location is in use.</div>';
+            return updateRemoteOrphansDeleteBtn();
         }
-        const sorted = [...found.unused].sort((a, b) => b.size - a.size);
-        snapOrphansList.innerHTML = `
+        remoteOrphansList.innerHTML = `
           <div class="d-flex align-items-center justify-content-between mb-2 small">
             <label class="d-flex align-items-center gap-2 text-white mb-0">
-              <input type="checkbox" class="form-check-input theme-switch" id="snapshotOrphansSelectAll">
-              Select all (${sorted.length} files, ${formatBytes(found.freedBytes)})
+              <input type="checkbox" class="form-check-input theme-switch" id="remoteOrphansSelectAll">
+              Select all (${found.items.length} ${found.items.length === 1 ? 'item' : 'items'}, ${formatBytes(found.totalBytes)})
             </label>
           </div>
           <div class="d-flex flex-column gap-2" style="max-height: 35vh; overflow-y: auto;">
-            ${sorted.map(f => {
-                const title = f.label || `${f.name.replace(/\.bin$/, '').slice(0, 12)}…`;
-                const used = f.snapshots ? `${f.snapshots} older snapshot${f.snapshots === 1 ? '' : 's'}` : 'no snapshot';
-                return `
+            ${found.items.map(item => `
               <label class="d-flex align-items-center gap-3 p-2 rounded-2 backup-stat-card mb-0" style="cursor: pointer;">
-                <input type="checkbox" class="form-check-input snapshot-orphan-check flex-shrink-0" data-name="${escapeHtml(f.name)}">
-                <span class="flex-grow-1 text-truncate text-white small" title="${escapeHtml(title)}">${escapeHtml(title)}<span class="text-white-50"> · used by ${used}</span></span>
-                <span class="flex-shrink-0 text-white-50 small">${formatBytes(f.size)}</span>
-              </label>`;
-            }).join('')}
-          </div>
-          <div class="text-white-50 mt-2" style="font-size:0.72rem;">${recentNote.trim()}</div>`;
-        snapOrphansList.querySelector('#snapshotOrphansSelectAll').addEventListener('change', (e) => {
-            snapOrphansList.querySelectorAll('.snapshot-orphan-check').forEach(cb => { cb.checked = e.target.checked; });
-            updateSnapOrphansDeleteBtn();
+                <input type="checkbox" class="form-check-input remote-orphan-check flex-shrink-0" data-key="${escapeHtml(item.key)}">
+                <span class="flex-grow-1 text-truncate text-white small" title="${escapeHtml(item.label)}">${escapeHtml(item.label)}<span class="text-white-50"> · ${escapeHtml(item.detail)}</span></span>
+                <span class="flex-shrink-0 text-white-50 small">${formatBytes(item.size)}</span>
+              </label>`).join('')}
+          </div>`;
+        remoteOrphansList.querySelector('#remoteOrphansSelectAll').addEventListener('change', (e) => {
+            remoteOrphansList.querySelectorAll('.remote-orphan-check').forEach(cb => { cb.checked = e.target.checked; });
+            updateRemoteOrphansDeleteBtn();
         });
-        snapOrphansList.querySelectorAll('.snapshot-orphan-check').forEach(cb => cb.addEventListener('change', updateSnapOrphansDeleteBtn));
-        updateSnapOrphansDeleteBtn();
+        remoteOrphansList.querySelectorAll('.remote-orphan-check').forEach(cb => cb.addEventListener('change', updateRemoteOrphansDeleteBtn));
+        updateRemoteOrphansDeleteBtn();
     };
-    modal.querySelectorAll('[data-snapshot-orphan-scan]').forEach(btn => btn.addEventListener('click', async () => {
-        const provider = btn.dataset.snapshotOrphanScan;
-        setSnapStatus('', '');
-        snapOrphansList.innerHTML = '';
-        showTaskProgress(snapOrphansStatus, { label: 'Scanning snapshots…' });
-        snapOrphanBackend = null;
-        snapOrphanFiles = [];
-        updateSnapOrphansDeleteBtn();
+    modal.querySelectorAll('[data-remote-orphan-scan]').forEach(btn => btn.addEventListener('click', async () => {
+        const provider = btn.dataset.remoteOrphanScan;
+        setRemoteStatus('', '');
+        remoteOrphansList.innerHTML = '';
+        showTaskProgress(remoteOrphansStatus, { label: 'Scanning cloud storage…' });
+        remoteOrphanTarget = null;
+        remoteOrphanItems = [];
+        updateRemoteOrphansDeleteBtn();
         try {
-            const target = await resolveIncrementalTarget({ interactive: true, provider });
-            if (target.status !== 'ready') {
-                snapOrphansList.innerHTML = '';
-                return setSnapStatus('text-white-50', `<i class="bi-info-circle me-1"></i> ${target.status === 'needs-auth' ? 'Connect Google Drive from the Create Backup tab first.' : target.status === 'needs-s3' ? 'Connect an S3 bucket from the Create Backup tab first.' : target.status === 'needs-webdav' ? 'Connect a WebDAV server from the Create Backup tab first.' : 'Choose a backup folder and allow access to scan it.'}`);
+            const [{ openSyncStore }, { findRemoteOrphans }, { LOCATION }] = await Promise.all([
+                import('./syncBackend.js'),
+                import('./storage/orphans.js'),
+                import('./storage/upgrade.js'),
+            ]);
+            const opened = await openSyncStore(provider, { interactive: true });
+            if (opened.status !== 'ready') {
+                remoteOrphansList.innerHTML = '';
+                const msg = opened.status === 'needs-auth' ? 'Connect Google Drive in Sync first.'
+                    : opened.status === 'needs-s3' ? 'Connect an S3 bucket in Sync first.'
+                        : opened.status === 'needs-webdav' ? 'Connect a WebDAV server in Sync first.'
+                            : opened.status === 'needs-icloud' ? 'Choose an iCloud Drive folder in Sync first.'
+                                : 'Choose a backup folder and allow access to scan it.';
+                return setRemoteStatus('info', msg);
             }
-            const { findUnusedBlobs } = await import('./incrementalBackup.js');
-            snapOrphanScope = getSnapScope();
-            const found = await findUnusedBlobs(target.backend, { scope: snapOrphanScope });
-            snapOrphanBackend = target.backend;
-            if (!found.snapshotCount) {
-                snapOrphansList.innerHTML = '';
-                return setSnapStatus('text-white-50', 'No incremental snapshots found there.');
+            const found = await findRemoteOrphans({ store: opened.store, legacy: opened.legacy });
+            remoteOrphanTarget = { store: opened.store, legacy: opened.legacy };
+            if (found.state === LOCATION.NONE) {
+                remoteOrphansList.innerHTML = '';
+                return setRemoteStatus('info', 'No synced library found there.');
             }
-            setSnapStatus('', '');
-            renderSnapOrphans(found);
+            if (found.state === LOCATION.LEGACY) {
+                remoteOrphansList.innerHTML = '';
+                return setRemoteStatus('info', 'This location uses the older backup format. Upgrade it in Sync before cleaning up.');
+            }
+            setRemoteStatus('', '');
+            renderRemoteOrphans(found);
         } catch (err) {
-            console.error('Snapshot orphan scan failed:', err);
-            snapOrphansList.innerHTML = '';
-            setSnapStatus('text-danger', `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to scan: ${escapeHtml(err.message)}`);
+            console.error('Cloud storage orphan scan failed:', err);
+            remoteOrphansList.innerHTML = '';
+            setRemoteStatus('error', `Failed to scan: ${err.message}`);
         }
     }));
-    snapOrphansDeleteBtn?.addEventListener('click', async () => {
-        const names = new Set([...snapOrphansList.querySelectorAll('.snapshot-orphan-check:checked')].map(cb => cb.dataset.name));
-        const chosen = snapOrphanFiles.filter(f => names.has(f.name));
-        if (!chosen.length || !snapOrphanBackend) return;
-        snapOrphansDeleteBtn.disabled = true;
-        snapOrphansDeleteBtn.textContent = 'Deleting…';
-        showTaskProgress(snapOrphansStatus, { label: 'Deleting backup files…', detail: `${chosen.length} selected` });
+    remoteOrphansDeleteBtn?.addEventListener('click', async () => {
+        const keys = new Set([...remoteOrphansList.querySelectorAll('.remote-orphan-check:checked')].map(cb => cb.dataset.key));
+        const chosen = remoteOrphanItems.filter(it => keys.has(it.key));
+        if (!chosen.length || !remoteOrphanTarget) return;
+        remoteOrphansDeleteBtn.disabled = true;
+        remoteOrphansDeleteBtn.textContent = 'Deleting…';
+        showTaskProgress(remoteOrphansStatus, { label: 'Deleting unused files…', detail: `${chosen.length} selected` });
         try {
-            const { deleteBlobs, findUnusedBlobs } = await import('./incrementalBackup.js');
-            await deleteBlobs(snapOrphanBackend, chosen);
-            setSnapStatus('text-success fw-semibold', `<i class="bi-check-circle-fill me-1"></i> Removed ${chosen.length} ${chosen.length === 1 ? 'file' : 'files'} from incremental backups.`);
-            renderSnapOrphans(await findUnusedBlobs(snapOrphanBackend, { scope: snapOrphanScope }));
+            const { findRemoteOrphans, deleteRemoteOrphans } = await import('./storage/orphans.js');
+            await deleteRemoteOrphans(remoteOrphanTarget, chosen);
+            setRemoteStatus('done', `Removed ${chosen.length} ${chosen.length === 1 ? 'item' : 'items'} from cloud storage.`);
+            renderRemoteOrphans(await findRemoteOrphans(remoteOrphanTarget));
         } catch (err) {
-            console.error('Failed to delete snapshot orphans:', err);
-            setSnapStatus('text-danger fw-semibold', `<i class="bi-exclamation-triangle-fill me-1"></i> Failed: ${escapeHtml(err.message)}`);
-            updateSnapOrphansDeleteBtn();
+            console.error('Failed to delete cloud storage orphans:', err);
+            setRemoteStatus('error', `Failed: ${err.message}`);
+            updateRemoteOrphansDeleteBtn();
         }
     });
 
