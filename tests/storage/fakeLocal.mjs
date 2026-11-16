@@ -54,12 +54,12 @@ export function fakeLocal() {
             for (const e of await readDirectory(src)) map.set(e.name, await readEntry(src, e, {}));
             return { files: map };
         },
-        async applyPack(packId, pack) {
+        async applyPack(packId, pack, { includeAudio = true } = {}) {
             let s = state.songs.get(packId);
             if (!s) { s = { id: packId, title: pack.manifest.song?.title || packId, scores: new Map(), audio: null, sync: null, added: Date.now() }; state.songs.set(packId, s); state.records.songs.push({ id: packId, title: s.title, collectionId: 'default', pinned: false, addedAt: s.added, tabOptions: [], packId: null }); }
             for (const sc of pack.manifest.scores) { const name = sc.path.split('/').pop(); if (![...s.scores.values()].includes(dec.decode(pack.scoreBytes(sc.id)))) s.scores.set(name, dec.decode(pack.scoreBytes(sc.id))); }
             const src = (pack.manifest.recordings || []).flatMap((r) => r.sources).find((x) => x.type === 'file');
-            if (src && !s.audio) s.audio = await pack.audio(src.path);
+            if (includeAudio && src && !s.audio) s.audio = await pack.audio(src.path);
         },
         async applyBlob(key, bytes, meta) { state.fonts.set(key.slice(2), { name: meta.name, bytes, addedAt: meta.addedAt || 1 }); },
         async deleteItem(key) {

@@ -289,3 +289,35 @@ test('an upgrade export writes every pack and font, and the seeded baseline make
     assert.deepEqual(plan.items, []);
     assert.equal(plan.unchanged, 3);
 });
+
+test('hybrid mode keeps audio and SoundFonts remote, settles on repeat sync, and preserves remote audio on edit', async () => {
+    const store = await newStore();
+    const a = fakeLocal(), baseA = memoryBaselines(), b = fakeLocal(), baseB = memoryBaselines();
+    const audioBytes = new Uint8Array([9, 8, 7, 6]);
+    a.addSong('one', 'One', undefined, { audio: audioBytes });
+    a.state.fonts.set('f1', { name: 'Font', bytes: new Uint8Array([1, 2, 3]), addedAt: 5 });
+    await sync(store, a, baseA);
+
+    // Hybrid device B receives the song's tab/metadata without audio or SoundFont
+    const planB = await planPackSync({ store, local: b, baselines: baseB, location: LOC, hybrid: true });
+    assert.deepEqual(planB.items.map((i) => i.key), ['p:one']);
+    const rb = await applyPackSync({ store, local: b, baselines: baseB, location: LOC, hybrid: true });
+    assert.equal(rb.downloaded, 1);
+    assert.equal(b.state.songs.get('one').audio, null);
+    assert.equal(b.state.fonts.size, 0);
+
+    // Second sync on hybrid device changes nothing
+    const again = await applyPackSync({ store, local: b, baselines: baseB, location: LOC, hybrid: true });
+    assert.deepEqual([again.uploaded, again.downloaded, again.merged, again.removedHere, again.removedThere], [0, 0, 0, 0, 0]);
+
+    // Editing a tab on hybrid device B uploads the edit without wiping remote audio
+    b.editSong('one', (s) => s.scores.set('b.gp5', 'edited on hybrid'));
+    const up = await applyPackSync({ store, local: b, baselines: baseB, location: LOC, hybrid: true });
+    assert.equal(up.uploaded, 1);
+
+    // Full device A receives the tab edit and still has the audio
+    const ra = await sync(store, a, baseA);
+    assert.equal(ra.downloaded, 1);
+    assert.equal(a.state.songs.get('one').scores.get('b.gp5'), 'edited on hybrid');
+    assert.ok(await store.stat('packs/one/audio/a.bin'));
+});

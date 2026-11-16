@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export async function startFakeS3({ bucket = 'bkt', pageSize = 2, conditional = true } = {}) {
+export async function startFakeS3({ bucket = 'bkt', pageSize = 2, conditional = true, cors = false, port = 0 } = {}) {
     const objects = new Map(); // key -> { bytes, etag, modified }
     const log = [];
     const server = http.createServer(async (req, res) => {
@@ -14,6 +14,13 @@ export async function startFakeS3({ bucket = 'bkt', pageSize = 2, conditional = 
         const chunks = [];
         for await (const c of req) chunks.push(c);
         const body = Buffer.concat(chunks);
+        if (cors) {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, PUT, DELETE, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', req.headers['access-control-request-headers'] || '*');
+            res.setHeader('Access-Control-Expose-Headers', 'ETag');
+            if (req.method === 'OPTIONS') { res.writeHead(204).end(); return; }
+        }
         log.push(`${req.method} ${url.pathname}${url.search}`);
         if (!/^AWS4-HMAC-SHA256 /.test(req.headers.authorization || '')) { res.writeHead(403).end('<Error><Code>AccessDenied</Code></Error>'); return; }
         const parts = decodeURIComponent(url.pathname).split('/').filter(Boolean);
@@ -60,6 +67,6 @@ export async function startFakeS3({ bucket = 'bkt', pageSize = 2, conditional = 
         }
         res.writeHead(200, headers).end(obj.bytes);
     });
-    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    await new Promise((r) => server.listen(port, '127.0.0.1', r));
     return { endpoint: `http://127.0.0.1:${server.address().port}`, bucket, objects, log, close: () => new Promise((r) => { server.closeAllConnections?.(); server.close(r); }) };
 }

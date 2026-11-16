@@ -7,7 +7,7 @@ import { planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, ITE
 import { probeLocation, needsUpgrade, upgradeLocation } from './storage/upgrade.js';
 import { writeStoreInfo, StoreTooNewError } from './storage/storeInfo.js';
 import { createProviderStore } from './storageProviders.js';
-import { createLocalAdapter, localBaselines } from './packSyncLocal.js';
+import { createLocalAdapter, localBaselines, isHybridSyncEnabled, setHybridSyncEnabled } from './packSyncLocal.js';
 import { formatBytes, escapeHtml } from './backupRestore.js';
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported, ICLOUD_UNAVAILABLE_MESSAGE } from './icloudDrive.js';
@@ -352,7 +352,11 @@ function showReview(target, store, plan) {
         ${section(up, { title: `Sent to ${place}` })}
         <p class="sync-hint">
             Songs, collections, recents, setlists and settings follow the newest change on either side, and a removal on one side is carried to the other. When both sides changed a song, its tabs and recordings are combined and none is dropped.
-        </p>`,
+        </p>
+        <div class="form-check form-switch mt-2">
+            <input class="form-check-input theme-switch" type="checkbox" id="syncHybridToggle" ${isHybridSyncEnabled() ? 'checked' : ''}>
+            <label class="form-check-label small" for="syncHybridToggle">Keep audio and SoundFonts remote</label>
+        </div>`,
         {
             subtitle: `Sync with ${place}`,
             footer: button('close', 'Cancel') + button('apply', parts.length ? `Sync now (${parts.join(', ')})` : 'Sync now', { primary: true })
@@ -471,7 +475,7 @@ async function start({ interactive = false } = {}) {
 
         setStep('Comparing songs...');
         const local = createLocalAdapter();
-        const plan = await planPackSync({ store, local, baselines: localBaselines, location: location(target, store) });
+        const plan = await planPackSync({ store, local, baselines: localBaselines, location: location(target, store), hybrid: isHybridSyncEnabled() });
         stopChecking();
         if (mine !== session) return;
         context = { target, legacy, store, local, plan };
@@ -493,7 +497,7 @@ async function apply({ quiet = false } = {}) {
     if (!quiet) showProgress(target);
     try {
         const result = await applyPackSync({
-            store, local, baselines: localBaselines, location: location(target, store),
+            store, local, baselines: localBaselines, location: location(target, store), hybrid: isHybridSyncEnabled(),
             onProgress: (p) => {
                 if (quiet) return;
                 const push = p.action === ITEM_ACTION.UPLOAD || p.action === ITEM_ACTION.DELETE_REMOTE;
@@ -636,6 +640,12 @@ export async function openSyncModal() {
         modal.addEventListener('click', (e) => {
             const action = e.target.closest('[data-sync-action]')?.dataset.syncAction;
             if (action) handleAction(action);
+        });
+        modal.addEventListener('change', (e) => {
+            if (e.target.id === 'syncHybridToggle') {
+                setHybridSyncEnabled(e.target.checked);
+                start();
+            }
         });
     }
     await start();

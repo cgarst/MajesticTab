@@ -100,19 +100,21 @@ async function readRemote(store) {
  * What a sync would do, without changing anything.
  * @returns {Promise<{ firstSync: boolean, items: Array<{key, kind, id, name, action, conflict?: boolean, size: number}>, unchanged: number, notAStore?: boolean }>}
  */
-export async function planPackSync({ store, local, baselines, location }) {
+export async function planPackSync({ store, local, baselines, location, hybrid = false }) {
     const read = await readRemote(store);
     if (!read) return { notAStore: true, firstSync: true, items: [], unchanged: 0 };
-    return planFrom(read, await local.items(), baselines.get(location));
+    return planFrom(read, await local.items(), baselines.get(location), { hybrid });
 }
 
-function planFrom(read, mine, base) {
+function planFrom(read, mine, base, { hybrid = false } = {}) {
     const items = [];
     let unchanged = 0;
     for (const key of new Set([...mine.keys(), ...read.remote.keys()])) {
         const m = mine.get(key), r = read.remote.get(key);
         const d = decideItem({ l: m?.fp, r: r?.version, base: base?.items?.[key], tombstoneAt: read.tombstones.items?.[key]?.at || 0, time: m?.time || 0 });
         if (!d) { unchanged++; continue; }
+        // In hybrid mode, SoundFonts that have never been downloaded stay remote-only until requested on demand
+        if (hybrid && key.startsWith('s:') && d.action === ITEM_ACTION.DOWNLOAD) continue;
         items.push({ key, kind: (m || r).kind, id: (m || r).id, name: (m || r).name || (m || r).id, size: (m || r).size || 0, ...d });
     }
     return { firstSync: !base, items, unchanged };
@@ -241,13 +243,13 @@ async function renameImportedSongs({ store, local }) {
  * Resolves to { uploaded, downloaded, merged, removedHere, removedThere, skipped, records, failed: [{key, reason}] }.
  * An item that fails is left as it was and not recorded in the baseline, so the next sync tries it again.
  */
-export async function applyPackSync({ store, local, baselines, location, onProgress = () => {} }) {
+export async function applyPackSync({ store, local, baselines, location, hybrid = false, onProgress = () => {} }) {
     const read = await readRemote(store);
     if (!read) throw new Error('This location is not a MajesticTab library');
     const base = baselines.get(location);
     const packs = createPackStore(store);
     const mine = await local.items();
-    const plan = planFrom(read, mine, base).items;
+    const plan = planFrom(read, mine, base, { hybrid }).items;
     const nextItems = { ...(base?.items || {}) };
     const out = { uploaded: 0, downloaded: 0, merged: 0, removedHere: 0, removedThere: 0, conflicts: 0, failed: [] };
     const tombstones = { version: 1, items: { ...(read.tombstones.items || {}) } };
@@ -263,6 +265,7 @@ export async function applyPackSync({ store, local, baselines, location, onProgr
     const upload = async (item, expectRemote) => {
         const data = await local.readItem(item.key);
         if (item.kind === 'pack') {
+            if (hybrid && expectRemote !== undefined) await preserveRemoteAudio(packs, item.id, data);
             await packs.write(item.id, Object.fromEntries(data.files), { manifestIfVersion: expectRemote ?? null });
         } else {
             await store.write(blobPath(item.key), data.bytes, expectRemote === undefined ? { ifVersion: null } : { ifVersion: expectRemote });
@@ -278,8 +281,8 @@ export async function applyPackSync({ store, local, baselines, location, onProgr
     const download = async (item) => {
         if (item.kind === 'pack') {
             if (!mine.has(item.key)) freshPackIds.add(item.id);
-            await local.applyPack(item.id, await packs.open(item.id));
-        } else {
+            await local.applyPack(item.id, await packs.open(item.id), { includeAudio: !hybrid });
+        } else if (!hybrid) {
             const meta = read.remote.get(item.key);
             await local.applyBlob(item.key, await store.read(blobPath(item.key)), { name: meta.name, size: meta.size, addedAt: meta.addedAt });
         }
@@ -300,7 +303,7 @@ export async function applyPackSync({ store, local, baselines, location, onProgr
             } else if (item.action === ITEM_ACTION.MERGE) {
                 await download(item);
                 // The store's copy is in here now; send the result back only if it holds something the store's copy lacks
-                if (item.kind === 'pack' && await differsFromStore(local, packs, item)) {
+                if (item.kind === 'pack' && await differsFromStore(local, packs, item, { hybrid })) {
                     await upload(item, rVersion);
                     nextItems[item.key] = { l: undefined, r: await remoteVersion(item.key) };
                 } else nextItems[item.key] = { l: undefined, r: rVersion };
@@ -346,19 +349,43 @@ export async function applyPackSync({ store, local, baselines, location, onProgr
 }
 
 /**
+ * Preserves remote-only audio files when a hybrid device uploads an edited pack whose audio it never downloaded.
+ */
+async function preserveRemoteAudio(packs, packId, data) {
+    let remote;
+    try { remote = await packs.open(packId); } catch (_) { return; }
+    const missing = remote.audioInfo().filter((a) => a.present && !data.files.has(a.path));
+    if (!missing.length) return;
+    const manifest = JSON.parse(new TextDecoder().decode(data.files.get('manifest.json')));
+    manifest.entries = manifest.entries || {};
+    manifest.recordings = manifest.recordings || [];
+    for (const a of missing) {
+        data.files.set(a.path, await remote.audio(a.path));
+        if (remote.manifest.entries?.[a.path]) manifest.entries[a.path] = remote.manifest.entries[a.path];
+        const rec = (remote.manifest.recordings || []).find((r) => (r.sources || []).some((s) => s.path === a.path));
+        if (rec && !manifest.recordings.some((r) => r.id === rec.id)) manifest.recordings.push(rec);
+    }
+    data.files.set('manifest.json', new TextEncoder().encode(JSON.stringify(manifest)));
+}
+
+/**
  * Whether this device's version of a pack holds something the store's copy lacks: a score or recording source with a hash the
  * store's copy does not have, or a different set of sync files.
  */
-async function differsFromStore(local, packs, item) {
+async function differsFromStore(local, packs, item, { hybrid = false } = {}) {
     const mine = JSON.parse(new TextDecoder().decode((await local.readItem(item.key)).files.get('manifest.json')));
     const theirs = (await packs.open(item.id)).manifest;
     const hashes = (m) => new Set([
         ...(m.scores || []).flatMap((s) => [s, ...(s.alternates || [])]).map((s) => s.sha256),
-        ...(m.recordings || []).flatMap((r) => (r.sources || []).map((x) => x.sha256 || x.videoId || x.type)),
+        ...(m.recordings || []).flatMap((r) => (r.sources || [])
+            .filter((x) => !(hybrid && x.type === 'file'))
+            .map((x) => x.sha256 || x.videoId || x.type)),
     ]);
     const have = hashes(theirs);
     if ([...hashes(mine)].some((h) => !have.has(h))) return true;
-    const syncs = (m) => JSON.stringify(Object.entries(m.entries || {}).map(([p, e]) => [p, e.sha256]).sort());
+    const syncs = (m) => JSON.stringify(Object.entries(m.entries || {})
+        .filter(([p]) => !(hybrid && p.startsWith('audio/')))
+        .map(([p, e]) => [p, e.sha256]).sort());
     return syncs(mine) !== syncs(theirs);
 }
 

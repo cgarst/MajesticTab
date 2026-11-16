@@ -5,7 +5,7 @@
 // and bumps a per-file `version` on every content change.
 import http from 'node:http';
 
-export async function startFakeDrive({ pageSize = 2 } = {}) {
+export async function startFakeDrive({ pageSize = 2, port = 0 } = {}) {
     const items = new Map();   // id -> { id, name, mimeType, parents:[id], bytes, version, createdTime, modifiedTime }
     const log = [];
     let n = 0;
@@ -81,10 +81,10 @@ export async function startFakeDrive({ pageSize = 2 } = {}) {
         }
         return send(400, { error: { code: 400 } });
     });
-    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    await new Promise((r) => server.listen(port, '127.0.0.1', r));
     const base = `http://127.0.0.1:${server.address().port}`;
     return {
-        items, log, make,
+        url: base, items, log, make,
         // the adapter calls the real Google hosts; the test rewrites them to this server
         fetch: (url, options = {}) => fetch(url.replace('https://www.googleapis.com', base), { ...options, headers: { ...(options.headers || {}), Authorization: 'Bearer t' } }),
         close: () => new Promise((r) => { server.closeAllConnections?.(); server.close(r); }),

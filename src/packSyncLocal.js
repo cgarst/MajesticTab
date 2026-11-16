@@ -11,13 +11,17 @@ import { getAllStoredFiles } from './fileStore.js';
 import { listSoundFonts, getSoundFontData, restoreSoundFontEntry, deleteSoundFont } from './soundFontStore.js';
 import { listClasstab, getClasstabData, restoreClasstabEntry, deleteClasstab, classtabFingerprint } from './classtab/backup.js';
 import { listAudioFiles } from './audioSync/audioFileStore.js';
-import { isAudioDownloadEnabled } from './audioSync/audioBackup.js';
 import { collectAllSettings, applyRestoredSettings } from './backupRestore.js';
 import { buildSongPack } from './mtbackup.js';
 import { isPackId, saveMpakToLibrary } from './mpak.js';
 import { readDirectory, readEntry } from './mpak/core/index.js';
 import { blobSource } from './storage/mtbackup.js';
+import { createPackStore } from './storage/packStore.js';
 import { recordStorage } from './audioSync/syncRecordStore.js';
+
+const HYBRID_SYNC_KEY = 'majestictab_sync_hybrid';
+export const isHybridSyncEnabled = () => { try { return localStorage.getItem(HYBRID_SYNC_KEY) === '1'; } catch { return false; } };
+export const setHybridSyncEnabled = (on) => { try { localStorage.setItem(HYBRID_SYNC_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ } };
 import { fingerprintValue } from './recordSync.js';
 import { sha256 } from './mpak/core/index.js';
 import { getStoredFile } from './fileStore.js';
@@ -165,9 +169,9 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
             return { files };
         },
 
-        /** Takes the store's pack in, additively. Audio is left out where this device has turned audio downloads off. */
-        async applyPack(packId, pack) {
-            const blob = await pack.toMpak({ includeAudio: isAudioDownloadEnabled() });
+        /** Takes the store's pack in, additively. Hybrid mode omits audio so heavy assets stay remote until requested. */
+        async applyPack(packId, pack, { includeAudio = true } = {}) {
+            const blob = await pack.toMpak({ includeAudio });
             await saveMpakToLibrary(blob, { queryMusicBrainz: false });
         },
 
@@ -204,3 +208,17 @@ export const localBaselines = {
     set(location, value) { try { localStorage.setItem(this.key(location), JSON.stringify(value)); } catch { /* quota: next sync starts without a baseline and merges */ } },
     clear(location) { try { localStorage.removeItem(this.key(location)); } catch { /* storage unavailable */ } },
 };
+
+/** Downloads a remote pack's audio on demand (used when hybrid mode skipped audio during sync). */
+export async function fetchPackAudioOnDemand(store, packId) {
+    const pack = await createPackStore(store).open(packId);
+    const blob = await pack.toMpak({ includeAudio: true });
+    await saveMpakToLibrary(blob, { queryMusicBrainz: false });
+}
+
+/** Downloads a remote SoundFont on demand (used when hybrid mode kept it remote during sync). */
+export async function fetchSoundFontOnDemand(store, id, meta = {}) {
+    const bytes = await store.read(`soundfonts/${id}.sf2`);
+    const item = { id, name: meta.name || id, size: meta.size || bytes.length, addedAt: meta.addedAt || Date.now(), fetchData: async () => asBuffer(bytes) };
+    await restoreSoundFontEntry(item, { wipe: true });
+}
