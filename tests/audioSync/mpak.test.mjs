@@ -1176,3 +1176,61 @@ test('saveMpakToLibrary attaches fileStoreId and sha256 to an existing remote-on
     assert.ok(refreshed.tabOptions[0].fileStoreId);
     assert.ok(refreshed.tabOptions[0].sha256);
 });
+
+test('saveMpakToLibrary and buildMpak roundtrip a stem-only pack with all stems and instruments', async () => {
+    lsMap.clear();
+    await clearAllLibraryData();
+    const { buildMpak: coreBuildMpak, sha256 } = await import('../../src/mpak/core/index.js');
+    const { listRecordingMeta } = await import('../../src/audioSync/recordingMeta.js');
+    const { stemsOfMeta } = await import('../../src/audioSync/stemSet.js');
+    const { stemSetOf } = await import('../../src/mpak.js');
+    const { getStoredFile } = await import('../../src/fileStore.js');
+
+    const pdfBytes = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n');
+    const g1 = new Uint8Array([1, 2, 3, 4]);
+    const g2 = new Uint8Array([5, 6, 7, 8]);
+    const bass = new Uint8Array([9, 10, 11, 12]);
+    const syncDoc = {
+        format: 'mpak-sync', version: 1, recording: 'guitar-1', score: 'tab', anchorType: 'pdf',
+        points: [{ page: 1, x: 0.1, y: 0.2, timeMs: 1000, source: 'tap' }],
+    };
+    const syncBytes = new TextEncoder().encode(JSON.stringify(syncDoc));
+    const manifest = {
+        format: 'mpak',
+        version: 1,
+        id: '3772d0e5-a572-54ef-b25e-96c13915b456',
+        song: { title: 'Limelight', artist: 'Rush' },
+        scores: [{ id: 'tab', label: 'Guitar 1', path: 'score/tab.pdf', format: 'pdf', sha256: await sha256(pdfBytes), size: pdfBytes.length, name: 'tab.pdf', pages: 1 }],
+        recordings: [
+            { id: 'guitar-1', role: 'stem', label: 'Guitar 1', stem: { instrument: 'guitar' }, sources: [{ type: 'file', path: 'audio/guitar-1.m4a', mime: 'audio/mp4', sha256: await sha256(g1), size: g1.length }], sync: { tab: 'sync/guitar-1-tab.json' } },
+            { id: 'guitar-2', role: 'stem', label: 'Guitar 2', stem: { instrument: 'guitar' }, sources: [{ type: 'file', path: 'audio/guitar-2.m4a', mime: 'audio/mp4', sha256: await sha256(g2), size: g2.length }], syncFrom: 'guitar-1' },
+            { id: 'bass', role: 'stem', label: 'Bass', stem: { instrument: 'bass' }, sources: [{ type: 'file', path: 'audio/bass.m4a', mime: 'audio/mp4', sha256: await sha256(bass), size: bass.length }], syncFrom: 'guitar-1' },
+        ],
+    };
+    const { parts } = await coreBuildMpak(manifest, new Map([
+        ['score/tab.pdf', pdfBytes],
+        ['audio/guitar-1.m4a', g1],
+        ['audio/guitar-2.m4a', g2],
+        ['audio/bass.m4a', bass],
+        ['sync/guitar-1-tab.json', syncBytes],
+    ]));
+    const saved = await saveMpakToLibrary(new Blob(parts), { queryMusicBrainz: false, allowTextFallback: true });
+    const songKey = 'Rush - Limelight';
+    const metas = listRecordingMeta(songKey);
+    const leadMeta = Object.values(metas).find((m) => stemsOfMeta(m));
+    assert.ok(leadMeta, 'stems meta should be stored for the library song');
+    assert.deepEqual(leadMeta.stems.map((s) => [s.label, s.instrument]), [['Guitar 1', 'guitar'], ['Guitar 2', 'guitar'], ['Bass', 'bass']]);
+
+    const stored = await getStoredFile(saved.song.tabOptions[0].fileStoreId);
+    stored.file.librarySongId = saved.song.id;
+    stored.file.tabId = saved.song.tabOptions[0].id;
+    const exported = await buildMpak(stored.file, { song: saved.song, songKey });
+    const { header } = await readMpak(exported.blob);
+    const exportedSet = stemSetOf(header);
+    assert.ok(exportedSet, 'exported pack should remain a stem-only set');
+    assert.equal(exportedSet.members.length, 3);
+    assert.deepEqual(exportedSet.members.map((m) => [m.label, m.stem?.instrument]), [['Guitar 1', 'guitar'], ['Guitar 2', 'guitar'], ['Bass', 'bass']]);
+    assert.ok(exportedSet.lead.sync && Object.keys(exportedSet.lead.sync).length > 0);
+    assert.ok(exportedSet.members[1].sync || exportedSet.members[1].syncFrom === exportedSet.lead.id);
+    assert.ok(exportedSet.members[2].sync || exportedSet.members[2].syncFrom === exportedSet.lead.id);
+});

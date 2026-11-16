@@ -272,6 +272,12 @@ export async function openSaveToLibraryModal(file) {
                     const { clearPackStorage } = await import('./mpakSession.js');
                     await clearPackStorage(oldPackId).catch(() => {});
                 }
+                try {
+                    const { updateSongForAudioFile } = await import('./audioSync/audioFilePlayer.js');
+                    const { updateSongForRealAudio } = await import('./audioSync/realAudioController.js');
+                    updateSongForAudioFile();
+                    updateSongForRealAudio();
+                } catch { /* optional */ }
                 if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
                     window.dispatchEvent(new CustomEvent('libraryDataChanged'));
                 }

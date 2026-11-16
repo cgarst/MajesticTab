@@ -427,7 +427,95 @@ export async function buildMpak(file, options = {}) {
     const usedNames = new Set();
     const packedAudio = new Set(); // ids of the audio files already in the pack
     const packedHashes = new Set(); // and their hashes: the same bytes stored twice go in once
-    for (const slot of SLOTS) {
+    const attachSyncs = (recording, mediaId, syncRecsMap = null) => {
+        for (const run of scoreRuns) {
+            const syncRec = syncRecsMap ? syncRecsMap.get(run) : run.recordsByMedia.get(mediaId);
+            if (!syncRec) continue;
+            const syncPath = `sync/${recording.id}-${run.entry.id}.json`;
+            const syncDoc = toV1SyncFile(syncRec, recording.id, run.entry.id, run.anchorType, {
+                firstPage: run.entry.startPage || 1,
+                lastPage: run.entry.endPage || run.entry.pages || null,
+                blocks: run.anchorType === 'text' ? textBlocksOf(run.bytes) : null,
+            });
+            if (syncDoc?.points.length) {
+                files.set(syncPath, new TextEncoder().encode(JSON.stringify(syncDoc, null, 2) + '\n'));
+                (recording.sync ||= {})[run.entry.id] = syncPath;
+            }
+        }
+    };
+    const packAudioBytes = async (rec, fallbackName) => {
+        const audioBytes = new Uint8Array(rec.data);
+        const hash = await sha256(audioBytes);
+        let audioName = sanitizeSegment(rec.name, fallbackName);
+        if (usedNames.has(audioName.toLowerCase())) audioName = `${rec.id.slice(0, 8)}-${audioName}`;
+        usedNames.add(audioName.toLowerCase());
+        const audioPath = `audio/${audioName}`;
+        files.set(audioPath, audioBytes);
+        const fileSrc = { type: 'file', path: audioPath, mime: rec.type || 'audio/mpeg', sha256: hash };
+        if (Number.isFinite(rec.durationMs) && rec.durationMs >= 0) fileSrc.durationMs = rec.durationMs;
+        packedAudio.add(rec.id);
+        packedHashes.add(hash);
+        return fileSrc;
+    };
+
+    // A stem-only song (SPEC section 8): both slots share the lead stem, and recordingMeta holds the stem list.
+    let packedStemSet = false;
+    try {
+        if (getSlotSourceFn('original') === 'local') {
+            const origId = localStorage.getItem(`audio_file_${enc(songKey)}_original`)
+                || localStorage.getItem(`audio_file_last_${enc(songKey)}`);
+            const backSource = getSlotSourceFn('backing');
+            const backId = backSource === 'local' ? localStorage.getItem(`audio_file_${enc(songKey)}_backing`) : null;
+            if (origId && (!backId || backId === origId)) {
+                const { listRecordingMeta } = await import('./audioSync/recordingMeta.js');
+                const { stemsOfMeta } = await import('./audioSync/stemSet.js');
+                const stems = stemsOfMeta(listRecordingMeta(songKey)[mediaKey({ kind: 'local', audioId: origId })]);
+                if (stems) {
+                    const loadedStems = [];
+                    for (const s of stems) {
+                        const rec = await getAudioFile(s.audioId);
+                        if (rec?.data) loadedStems.push({ stem: s, rec });
+                    }
+                    if (loadedStems.length >= 2) {
+                        packedStemSet = true;
+                        let leadRecId = null;
+                        let leadHasSync = false;
+                        const stemEntries = [];
+                        for (let i = 0; i < loadedStems.length; i++) {
+                            const { stem: s, rec } = loadedStems[i];
+                            const fileSrc = await packAudioBytes(rec, `stem-${i + 1}.audio`);
+                            const recId = `stem-${i + 1}`;
+                            const recording = {
+                                id: recId,
+                                role: 'stem',
+                                label: s.label || String(rec.name || '').replace(/\.[^.]+$/, '') || `Stem ${i + 1}`,
+                                sources: [fileSrc],
+                                ...(s.instrument ? { stem: { instrument: s.instrument } } : {}),
+                            };
+                            attachSyncs(recording, mediaKey({ kind: 'local', audioId: rec.id }));
+                            if (rec.id === origId || (!leadRecId && recording.sync)) {
+                                leadRecId = recId;
+                                leadHasSync = Boolean(recording.sync);
+                            }
+                            stemEntries.push({ recording, isLead: rec.id === origId });
+                        }
+                        if (leadRecId && leadHasSync) {
+                            for (const entry of stemEntries) {
+                                if (entry.recording.id !== leadRecId && !entry.recording.sync) {
+                                    entry.recording.syncFrom = leadRecId;
+                                }
+                            }
+                        }
+                        for (const entry of stemEntries) manifest.recordings.push(entry.recording);
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[mpak] could not pack stem set:', e);
+    }
+
+    for (const slot of (packedStemSet ? [] : SLOTS)) {
         const source = getSlotSourceFn(slot);
         const sources = [];
         const syncRecs = new Map(); // score run -> the record of this recording for that score
@@ -438,22 +526,7 @@ export async function buildMpak(file, options = {}) {
                 if (!id && slot === 'original') id = localStorage.getItem(`audio_file_last_${enc(songKey)}`);
                 const rec = id ? await getAudioFile(id) : null;
                 if (rec?.data) {
-                    const audioBytes = new Uint8Array(rec.data);
-                    let audioName = sanitizeSegment(rec.name, `${slot}.audio`);
-                    if (usedNames.has(audioName.toLowerCase())) audioName = `${slot}-${audioName}`;
-                    usedNames.add(audioName.toLowerCase());
-                    const audioPath = `audio/${audioName}`;
-                    files.set(audioPath, audioBytes);
-                    const fileSrc = {
-                        type: 'file',
-                        path: audioPath,
-                        mime: rec.type || 'audio/mpeg',
-                        sha256: await sha256(audioBytes),
-                    };
-                    if (Number.isFinite(rec.durationMs) && rec.durationMs >= 0) fileSrc.durationMs = rec.durationMs;
-                    sources.push(fileSrc);
-                    packedAudio.add(id);
-                    packedHashes.add(fileSrc.sha256);
+                    sources.push(await packAudioBytes(rec, `${slot}.audio`));
                     findRecords({ kind: 'local', audioId: id });
                 }
             } else if (source === 'embedded' && tabFormat === 'gp') {
@@ -476,18 +549,7 @@ export async function buildMpak(file, options = {}) {
             role: slot,
             sources,
         };
-        for (const [run, syncRec] of syncRecs) {
-            const syncPath = `sync/${slot}-${run.entry.id}.json`;
-            const syncDoc = toV1SyncFile(syncRec, slot, run.entry.id, run.anchorType, {
-                firstPage: run.entry.startPage || 1,
-                lastPage: run.entry.endPage || run.entry.pages || null,
-                blocks: run.anchorType === 'text' ? textBlocksOf(run.bytes) : null,
-            });
-            if (syncDoc?.points.length) {
-                files.set(syncPath, new TextEncoder().encode(JSON.stringify(syncDoc, null, 2) + '\n'));
-                (recording.sync ||= {})[run.entry.id] = syncPath;
-            }
-        }
+        attachSyncs(recording, null, syncRecs);
         manifest.recordings.push(recording);
     }
 
