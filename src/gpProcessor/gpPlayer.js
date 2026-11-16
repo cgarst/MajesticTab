@@ -1095,7 +1095,7 @@ export function applyCursorPositionFromBeat(beat) {
  * repaint of the score it sits over.
  */
 function setCursorX(cursor, x) {
-    cursor.style.transform = `translateX(calc(${x}px - 50%))`;
+    cursor.style.transform = `translate3d(${x}px, 0, 0)`;
 }
 
 /**
@@ -1400,8 +1400,10 @@ export function createCustomCursorHandler(api) {
                     reader.style.display = 'block';
                     lastReaderTop = cursorY;
                     // Forcing layout every beat is costly on a dense score; it is only needed when the cursor jumps to
-                    // another system (or appears), so the glide that follows starts from the new spot.
+                    // another system (or appears). Otherwise, flush style on the cursor so WebKit commits transition:none
+                    // and startBeatX before the next transition begins.
                     if (moved) void reader.offsetWidth;
+                    else void getComputedStyle(reader).transform;
                 }
 
                 if (beatCursor) {
