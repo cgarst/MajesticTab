@@ -605,34 +605,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress, re
     const wipe = mode === 'wipe';
     const db = await getDB();
 
-    if (wipe) {
-        await clearAllStoredFiles();
-        await clearAllSoundFonts();
-        if (restoreAudio) await clearAllAudioFiles();
-        await clearAllLibraryData();
-        for (const key of BACKUP_SETTINGS_KEYS) {
-            localStorage.removeItem(key);
-        }
-        localStorage.removeItem('customExtensions');
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isRecordingMetaKey(k) || isAudioChoiceKey(k))) keysToRemove.push(k);
-        }
-        for (const k of keysToRemove) localStorage.removeItem(k);
-        clearAudioSync();
-    }
-
-    const fflateObj = (typeof window !== 'undefined' && window.fflate)
-        ? window.fflate
-        : (typeof globalThis !== 'undefined' && globalThis.fflate)
-            ? globalThis.fflate
-            : null;
-
-    const slice2 = file.slice(0, 2);
-    const headerBuf = await slice2.arrayBuffer();
-    const headerBytes = new Uint8Array(headerBuf);
-    const isGzip = headerBytes.length >= 2 && headerBytes[0] === 0x1F && headerBytes[1] === 0x8B;
+    if (wipe) await wipeLibraryData({ restoreAudio });
 
     let filesImported = 0;
     let filesSkipped = 0;
@@ -846,6 +819,27 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress, re
         recentsCount: libraryResults.recentsCount,
         settingsApplied
     };
+}
+
+/** Empties tabs, SoundFonts, (optionally) audio, the library and the backed-up settings, ready for a restore in wipe mode. */
+export async function wipeLibraryData({ restoreAudio = true } = {}) {
+    await clearAllStoredFiles();
+    await clearAllSoundFonts();
+    if (restoreAudio) await clearAllAudioFiles();
+    await clearAllLibraryData();
+
+    for (const key of BACKUP_SETTINGS_KEYS) {
+        localStorage.removeItem(key);
+    }
+    localStorage.removeItem('customExtensions');
+
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isRecordingMetaKey(k) || isAudioChoiceKey(k))) keysToRemove.push(k);
+    }
+    for (const k of keysToRemove) localStorage.removeItem(k);
+    clearAudioSync();
 }
 
 async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restoreAudio = true } = {}) {

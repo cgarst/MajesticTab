@@ -156,6 +156,25 @@ export function reconcileLibrary(doc, packs, { now = Date.now() } = {}) {
     return { doc: toLibraryDoc({ ...base, songs }, { now }), added, orphaned };
 }
 
+/**
+ * A song the app made from a pack (saveMpakToLibrary) with what library.json says about it laid over it: the index's
+ * fields win, the tabs are the index's tabs, each given the stored file the imported tab of the same score has. Tabs the
+ * pack has and the index lacks are kept. Tabs match by score hash, then by id, then by name.
+ * @param imported  the song record as the import left it (its tabs carry this device's fileStoreId)
+ * @param indexed   the song record from library.json
+ */
+export function applyIndexToSong(imported, indexed) {
+    const have = [...(imported.tabOptions || [])];
+    const take = (pred) => { const i = have.findIndex(pred); return i < 0 ? null : have.splice(i, 1)[0]; };
+    const tabs = (indexed.tabOptions || []).map((t) => {
+        const match = (t.sha256 && take((h) => h.sha256 === t.sha256)) || take((h) => h.id === t.id) || take((h) => h.name === t.name);
+        return { ...t, fileStoreId: match?.fileStoreId ?? null, driveFileId: null };
+    });
+    const out = { ...imported, ...indexed, id: imported.id, tabOptions: [...tabs, ...have] };
+    if (!out.tabOptions.some((t) => t.id === out.defaultTabId)) out.defaultTabId = out.tabOptions[0]?.id ?? null;
+    return out;
+}
+
 // --- profile.json ---
 
 /**

@@ -578,6 +578,7 @@ export async function buildMpak(file, options = {}) {
     return {
         blob: new Blob(parts, { type: MEDIA_TYPE }),
         filename: `${base}.${MPAK_EXTENSION}`,
+        packId,
     };
 }
 

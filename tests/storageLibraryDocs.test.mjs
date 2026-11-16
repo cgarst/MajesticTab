@@ -113,3 +113,30 @@ test('two devices adding songs at the same moment both end up in library.json', 
     });
     assert.deepEqual((await readLibrary(s)).songs.map((x) => x.id).sort(), ['from_a', 'from_b']);
 });
+
+import { applyIndexToSong } from '../src/storage/libraryDocs.js';
+
+test('the index laid over an imported song keeps the index fields and gives each tab the stored file of the same score', () => {
+    const imported = { id: 'pack-1', title: 'T', pinned: false, collectionId: 'default', tabOptions: [
+        { id: 'main', name: 'lead.gp5', sha256: 'a'.repeat(64), fileStoreId: 'file-A' },
+        { id: 'alt', name: 'b.pdf', sha256: 'b'.repeat(64), fileStoreId: 'file-B' },
+        { id: 'extra', name: 'c.txt', sha256: 'c'.repeat(64), fileStoreId: 'file-C' },
+    ] };
+    const indexed = { id: 'song_old', title: 'T', pinned: true, collectionId: 'col-2', defaultTabId: 'tab_x', lastOpenedAt: 9, tabOptions: [
+        { id: 'tab_x', name: 'My lead', sha256: 'a'.repeat(64), sourceUrl: 'u', fileStoreId: 'foreign', driveFileId: 'drv' },
+        { id: 'tab_y', name: 'b.pdf', sha256: null },
+    ] };
+    const out = applyIndexToSong(imported, indexed);
+    assert.equal(out.id, 'pack-1');
+    assert.equal(out.pinned, true);
+    assert.equal(out.collectionId, 'col-2');
+    assert.deepEqual(out.tabOptions.map((t) => [t.id, t.fileStoreId]), [['tab_x', 'file-A'], ['tab_y', 'file-B'], ['extra', 'file-C']]);
+    assert.equal(out.tabOptions[0].driveFileId, null);
+    assert.equal(out.tabOptions[0].sourceUrl, 'u');
+    assert.equal(out.defaultTabId, 'tab_x');
+});
+
+test('an index default tab that matches nothing falls back to the first tab', () => {
+    const out = applyIndexToSong({ id: 'p', tabOptions: [] }, { id: 'x', defaultTabId: 'gone', tabOptions: [{ id: 't1', sha256: null, name: 'n' }] });
+    assert.equal(out.defaultTabId, 't1');
+});
