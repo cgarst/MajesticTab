@@ -42,7 +42,7 @@ import { initSyncRecordStore } from './audioSync/syncRecordStore.js';
 import { migrateS3Secret } from './s3Client.js';
 import { openLibraryModal, closeLibraryModal, isLibraryOpen } from './libraryModal.js';
 import { initTauriDownloadListener } from './tabDownloader.js';
-import { addRecentOpened, migrateCorruptedCustomContainers } from './libraryStore.js';
+import { addRecentOpened, updateRecentPosition, migrateCorruptedCustomContainers } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setInstrumentMode, getDefaultGpStringCount, setDefaultGpStringCount } from './utils/tuningUtils.js';
 import { initBackupRestore } from './backupRestore.js';
 import { initSync } from './syncUi.js';
@@ -1400,6 +1400,30 @@ async function loadPDF(file) {
         const scrollPercent = (output.scrollTop / (output.scrollHeight - output.clientHeight) * 100) || 0;
         pageIndicator.textContent = `${Math.round(scrollPercent)}%`;
     }
+    if (pendingPdfResume) {
+        const resume = pendingPdfResume;
+        pendingPdfResume = null;
+        if (pageModeRadio.checked) {
+            if (pages.length > 0) {
+                currentPageIndex = Math.max(0, Math.min(pages.length - 1, (resume.page || 1) - 1));
+                renderCurrentPage();
+                output.focus();
+            }
+        } else {
+            const maxScroll = output.scrollHeight - output.clientHeight;
+            if (typeof resume.scrollRatio === 'number' && maxScroll > 0) {
+                output.scrollTop = Math.max(0, Math.min(1, resume.scrollRatio)) * maxScroll;
+            } else if (resume.page > 1 && condensedCanvases.length > 0) {
+                scrollToPage(output, condensedCanvases, resume.page - 1);
+            }
+            if (condensedCanvases.length > 0) {
+                currentPageIndex = Math.max(0, Math.min(condensedCanvases.length - 1, (resume.page || 1) - 1));
+            }
+        }
+        updatePageDisplay();
+    } else if (pages.length > 0 || condensedCanvases.length > 0) {
+        savePdfReadingPosition(true);
+    }
     setLoadingProgress(loadingToken, 100, 'Ready');
     } finally {
         // Let the freshly laid-out pages paint before the card fades out
@@ -1572,6 +1596,8 @@ function resetView() {
     condensedCanvases.length = 0;
     pages.length = 0;
     currentPageIndex = 0;
+    lastSavedPdfKey = '';
+    lastPdfSaveAt = 0;
     gpState.reset();
     textState.reset();
     clearPdfBookmarks();
@@ -1669,6 +1695,40 @@ function appendContinuousCanvas(canvas) {
     output.appendChild(wrapper);
 }
 
+let pendingPdfResume = null;
+let lastSavedPdfKey = '';
+let lastPdfSaveAt = 0;
+
+/** Records a page/scroll target to restore once the next PDF finishes loading. */
+export function setPendingPdfResume(pos) {
+    pendingPdfResume = pos ? { page: Number(pos.page) || 1, scrollRatio: typeof pos.scrollRatio === 'number' ? pos.scrollRatio : null } : null;
+}
+
+/** Clears any unconsumed PDF resume target. */
+export function clearPendingPdfResume() {
+    pendingPdfResume = null;
+}
+
+/** Saves the current PDF page/scroll position to the newest recent (throttled unless `force`). */
+export function savePdfReadingPosition(force = false) {
+    if (pdfLoadingProcessing && !pdfLoadingProcessing.aborted) return;
+    if (!currentFile || !isFileType(currentFile, ['pdf'])) return;
+    const total = pageModeRadio.checked ? pages.length : condensedCanvases.length;
+    if (!total) return;
+    const page = Math.max(1, Math.min(total, currentPageIndex + 1));
+    const maxScroll = output.scrollHeight - output.clientHeight;
+    const scrollRatio = !pageModeRadio.checked && maxScroll > 0
+        ? Math.max(0, Math.min(1, output.scrollTop / maxScroll))
+        : null;
+    const key = `${page}/${total}/${scrollRatio !== null ? scrollRatio.toFixed(3) : ''}`;
+    const now = Date.now();
+    if (!force && (key === lastSavedPdfKey || now - lastPdfSaveAt < 1500)) return;
+    if (force && key === lastSavedPdfKey) return;
+    lastSavedPdfKey = key;
+    lastPdfSaveAt = now;
+    updateRecentPosition(page, total, { positionUnit: 'page', scrollRatio }).catch(() => {});
+}
+
 // --- PAGE INDICATOR ---
 function updatePageDisplay() {
     if (pdfLoadingProcessing && !pdfLoadingProcessing.aborted) {
@@ -1690,6 +1750,7 @@ function updatePageDisplay() {
             );
         }
         setBookmarkCurrentPageIndex(currentPageIndex);
+        savePdfReadingPosition();
     }
 }
 

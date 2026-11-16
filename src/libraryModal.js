@@ -465,6 +465,8 @@ export async function openLibraryModal(initialView = 'library') {
     if (document.documentElement.classList.contains('jam-web-guest')) return;
     // Leaving a tab keeps where you were in it, for Resume
     import('./gpProcessor/gpPlayer.js').then((m) => m.savePlaybackPosition(true)).catch(() => {});
+    import('./main.js').then((m) => m.savePdfReadingPosition?.(true)).catch(() => {});
+    import('./textProcessor/textHandler.js').then((m) => m.saveTextReadingPosition?.(true)).catch(() => {});
     // Going back to the library stops whatever song is playing
     pauseSynthPlayer();
     pauseRealAudio();
@@ -1133,6 +1135,8 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
             const name = last.songTitle || last.name || 'Untitled';
             const lastBar = Number(last.lastBar) || 1;
             const totalBars = Number(last.totalBars) || 32;
+            const isPageUnit = last.positionUnit === 'page' || /\.(pdf|txt)$/i.test(last.fileName || last.name || '');
+            const unitLabel = isPageUnit ? 'Page' : 'Bar';
             const subParts = [last.artist, last.album].filter(Boolean);
             const subText = subParts.length > 0 ? `${subParts.join(', ')}. ` : '';
             const rulerHtml = renderMiniBarRulerHtml(lastBar, totalBars);
@@ -1140,7 +1144,7 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
               <img class="resume-cover" alt="" src="${getSynchronousCachedArtUrl(last.coverUrl) || last.coverUrl || getPlaceholderCoverSvg(last.artist || name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(last.artist || name)}'">
               <div class="resume-meta">
                 <h2 class="resume-title">${escapeHtml(name)}</h2>
-                <div class="resume-sub tnum">${escapeHtml(subText)}Bar <span data-bar>${lastBar}</span> of ${totalBars}</div>
+                <div class="resume-sub tnum">${escapeHtml(subText)}${unitLabel} <span data-bar>${lastBar}</span> of ${totalBars}</div>
               </div>
               <button type="button" class="btn btn-theme-primary resume-btn" id="libResumeBtn">Resume</button>
               ${rulerHtml}
@@ -1803,13 +1807,26 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
         const [latest] = await getRecents(1);
         if (!latest) return;
         const targetBar = Number(latest.lastBar) || 1;
-        const gpPlayer = targetBar > 1 ? await import('./gpProcessor/gpPlayer.js') : null;
+        const scrollRatio = typeof latest.scrollRatio === 'number' ? latest.scrollRatio : null;
+        const extName = latest.fileName || latest.name || '';
+        const isPdf = /\.pdf$/i.test(extName);
+        const isTxt = /\.txt$/i.test(extName);
+        const hasNonZeroTarget = targetBar > 1 || (scrollRatio !== null && scrollRatio > 0);
+
+        const gpPlayer = (!isPdf && !isTxt && targetBar > 1) ? await import('./gpProcessor/gpPlayer.js') : null;
+        const pdfMod = (isPdf && hasNonZeroTarget) ? await import('./main.js') : null;
+        const txtMod = (isTxt && hasNonZeroTarget) ? await import('./textProcessor/textHandler.js') : null;
+
         gpPlayer?.setPendingResumeBar(targetBar);
+        pdfMod?.setPendingPdfResume({ page: targetBar, scrollRatio });
+        txtMod?.setPendingTextResume({ page: targetBar, scrollRatio });
         try {
-            // Straight into the tab, then to the bar it was left at
+            // Straight into the tab, then to the bar/page it was left at
             await openRecentItem(latest);
         } catch (e) {
             gpPlayer?.clearPendingResumeBar();
+            pdfMod?.clearPendingPdfResume();
+            txtMod?.clearPendingTextResume();
             throw e;
         }
         if (gpPlayer) {
@@ -1821,6 +1838,16 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
             } else {
                 gpPlayer.clearPendingResumeBar();
             }
+        }
+        if (pdfMod) {
+            pdfMod.clearPendingPdfResume();
+            const totalBars = Number(latest.totalBars) || 0;
+            if (totalBars) updateRecentPosition(Math.min(targetBar, totalBars), totalBars, { positionUnit: 'page', scrollRatio }).catch(() => {});
+        }
+        if (txtMod) {
+            txtMod.clearPendingTextResume();
+            const totalBars = Number(latest.totalBars) || 0;
+            if (totalBars) updateRecentPosition(Math.min(targetBar, totalBars), totalBars, { positionUnit: 'page', scrollRatio }).catch(() => {});
         }
     });
 
@@ -5129,7 +5156,7 @@ function recentRowHtml(r) {
             // One quiet line: who, where you stopped, what tuning, how long ago. The file name lives in the tooltip.
             const meta = [
                 [r.artist || 'Unknown artist', r.album].filter(Boolean).join(', '),
-                r.lastBar && r.totalBars ? `bar ${r.lastBar} of ${r.totalBars}` : '',
+                r.lastBar && r.totalBars ? `${(r.positionUnit === 'page' || /\.(pdf|txt)$/i.test(r.fileName || r.name || '')) ? 'page' : 'bar'} ${r.lastBar} of ${r.totalBars}` : '',
                 ...tunings.map(t => getTuningInfo(t)?.displayName || t),
                 timeAgo
             ].filter(Boolean).join(' \u00b7 ');

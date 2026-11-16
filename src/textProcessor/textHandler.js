@@ -5,6 +5,51 @@ import { showLoadingCard, setLoadingProgress, hideLoadingCard } from '../utils/l
 import { clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { enableContinuousScrollTracking } from '../utils/scrollUtils.js';
+import { updateRecentPosition } from '../libraryStore.js';
+
+let pendingTextResume = null;
+let lastSavedTextKey = '';
+let lastTextSaveAt = 0;
+
+/** Records a page/scroll target to restore once the next TXT file finishes loading. */
+export function setPendingTextResume(pos) {
+    pendingTextResume = pos ? { page: Number(pos.page) || 1, scrollRatio: typeof pos.scrollRatio === 'number' ? pos.scrollRatio : null } : null;
+}
+
+/** Clears any unconsumed TXT resume target. */
+export function clearPendingTextResume() {
+    pendingTextResume = null;
+}
+
+/** Saves the current TXT page/scroll position to the newest recent (throttled unless `force`). */
+export function saveTextReadingPosition(force = false) {
+    if (!textState.pages.length && !textState.fullContent && !textState.lines.length) return;
+    const output = document.getElementById('output');
+    const total = Math.max(1, textState.pages.length || 100);
+    let page = 1;
+    let scrollRatio = null;
+
+    if (textState.layoutMode === 'page') {
+        page = Math.max(1, Math.min(total, textState.currentPageIndex + 1));
+    } else if (textState.layoutMode === 'horizontal') {
+        const scrollEl = output?.querySelector('.txt-ribbon-scroll');
+        const maxScroll = scrollEl ? scrollEl.scrollWidth - scrollEl.clientWidth : 0;
+        scrollRatio = maxScroll > 0 ? Math.max(0, Math.min(1, scrollEl.scrollLeft / maxScroll)) : 0;
+        page = total > 1 ? Math.max(1, Math.min(total, Math.round(scrollRatio * (total - 1)) + 1)) : 1;
+    } else if (output) {
+        const maxScroll = output.scrollHeight - output.clientHeight;
+        scrollRatio = maxScroll > 0 ? Math.max(0, Math.min(1, output.scrollTop / maxScroll)) : 0;
+        page = total > 1 ? Math.max(1, Math.min(total, Math.round(scrollRatio * (total - 1)) + 1)) : 1;
+    }
+
+    const key = `${page}/${total}/${scrollRatio !== null ? scrollRatio.toFixed(3) : ''}`;
+    const now = Date.now();
+    if (!force && (key === lastSavedTextKey || now - lastTextSaveAt < 1500)) return;
+    if (force && key === lastSavedTextKey) return;
+    lastSavedTextKey = key;
+    lastTextSaveAt = now;
+    updateRecentPosition(page, total, { positionUnit: 'page', scrollRatio }).catch(() => {});
+}
 
 // State management for text files
 export const textState = {
@@ -114,6 +159,7 @@ export function renderTextPage(output, pageModeChecked) {
             textState.pages.length,
             pagesPerView
         );
+        saveTextReadingPosition();
     } else if (isHorizontal) {
         // Horizontal ribbon mode
         output.className = 'continuous-mode txt-ribbon-output';
@@ -128,6 +174,7 @@ export function renderTextPage(output, pageModeChecked) {
                 const maxScroll = Math.max(1, scrollEl.scrollWidth - scrollEl.clientWidth);
                 const pct = Math.min(100, Math.max(0, Math.round((scrollEl.scrollLeft / maxScroll) * 100)));
                 pageIndicator.textContent = `${pct}%`;
+                saveTextReadingPosition();
             };
             scrollEl.addEventListener('scroll', updatePct, { passive: true });
             updatePct();
@@ -151,6 +198,7 @@ export function renderTextPage(output, pageModeChecked) {
                 textState.currentPageIndex = newPage;
                 const scrollPercent = (output.scrollTop / (output.scrollHeight - output.clientHeight) * 100) || 0;
                 if (pageIndicator) pageIndicator.textContent = `${Math.round(scrollPercent)}%`;
+                saveTextReadingPosition();
             });
         }
     }
@@ -162,6 +210,8 @@ export function renderTextPage(output, pageModeChecked) {
 export async function loadText(file, output, pageModeRadio, continuousModeRadio) {
     const prevLayout = textState.layoutMode;
     textState.reset();
+    lastSavedTextKey = '';
+    lastTextSaveAt = 0;
     clearOutput(output);
 
     const loadingToken = showLoadingCard(output, {
@@ -203,11 +253,39 @@ export async function loadText(file, output, pageModeRadio, continuousModeRadio)
             textState.layoutMode = 'vertical';
         }
         renderTextPage(output, pageModeChecked);
-        
+
         // Initialize page indicator
         const pageIndicator = document.getElementById('pageIndicator');
         if (!pageModeChecked && pageIndicator) {
             pageIndicator.textContent = '0%';
+        }
+
+        if (pendingTextResume) {
+            const resume = pendingTextResume;
+            pendingTextResume = null;
+            if (pageModeChecked) {
+                if (textState.pages.length > 0) {
+                    textState.currentPageIndex = Math.max(0, Math.min(textState.pages.length - 1, (resume.page || 1) - 1));
+                    renderTextPage(output, true);
+                }
+            } else {
+                const total = textState.pages.length || 1;
+                const ratio = typeof resume.scrollRatio === 'number'
+                    ? Math.max(0, Math.min(1, resume.scrollRatio))
+                    : (total > 1 ? Math.max(0, Math.min(1, ((resume.page || 1) - 1) / (total - 1))) : 0);
+                if (textState.layoutMode === 'horizontal') {
+                    const scrollEl = output.querySelector('.txt-ribbon-scroll');
+                    const maxScroll = scrollEl ? scrollEl.scrollWidth - scrollEl.clientWidth : 0;
+                    if (scrollEl && maxScroll > 0) scrollEl.scrollLeft = ratio * maxScroll;
+                } else {
+                    const maxScroll = output.scrollHeight - output.clientHeight;
+                    if (maxScroll > 0) output.scrollTop = ratio * maxScroll;
+                    if (pageIndicator) pageIndicator.textContent = `${Math.round(ratio * 100)}%`;
+                }
+            }
+            saveTextReadingPosition(true);
+        } else {
+            saveTextReadingPosition(true);
         }
     } catch (err) {
         console.error('Error loading text file:', err);

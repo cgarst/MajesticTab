@@ -1583,9 +1583,10 @@ export async function getRecents(limit = MAX_RECENTS_LIMIT) {
 }
 
 /**
- * Update the last playback position (lastBar, totalBars) on the newest recent tab
+ * Update the last playback/reading position (lastBar, totalBars) on the newest recent tab.
+ * For PDF and TXT files, positionUnit is 'page' and scrollRatio (0..1) preserves continuous scroll.
  */
-export async function updateRecentPosition(lastBar, totalBars) {
+export async function updateRecentPosition(lastBar, totalBars, { positionUnit = null, scrollRatio = null } = {}) {
     if (!lastBar && !totalBars) return;
     try {
         const db = await getDB();
@@ -1600,6 +1601,12 @@ export async function updateRecentPosition(lastBar, totalBars) {
                     const item = cursor.value;
                     if (lastBar) item.lastBar = lastBar;
                     if (totalBars) item.totalBars = totalBars;
+                    if (positionUnit) item.positionUnit = positionUnit;
+                    if (typeof scrollRatio === 'number' && !Number.isNaN(scrollRatio)) {
+                        item.scrollRatio = scrollRatio;
+                    } else if (positionUnit === 'page' && scrollRatio === null) {
+                        delete item.scrollRatio;
+                    }
                     cursor.update(item);
                 }
                 resolve();
