@@ -103,8 +103,10 @@ async function readRemote(store) {
 export async function planPackSync({ store, local, baselines, location }) {
     const read = await readRemote(store);
     if (!read) return { notAStore: true, firstSync: true, items: [], unchanged: 0 };
-    const base = baselines.get(location);
-    const mine = await local.items();
+    return planFrom(read, await local.items(), baselines.get(location));
+}
+
+function planFrom(read, mine, base) {
     const items = [];
     let unchanged = 0;
     for (const key of new Set([...mine.keys(), ...read.remote.keys()])) {
@@ -134,10 +136,14 @@ function recordMap(library, settings) {
  * version check, so another device writing at the same moment is re-read and merged, not overwritten.
  * @returns {Promise<{ pulled: number, pushed: number, removedHere: number, removedThere: number, conflicts: number, fps: object }>}
  */
-async function syncRecords({ store, local, base }) {
+async function syncRecords({ store, local, base, freshPackIds = new Set() }) {
     const stats = { pulled: 0, pushed: 0, removedHere: 0, removedThere: 0, conflicts: 0 };
+    await renameImportedSongs({ store, local });
     const mine = await local.records();
-    const mineMap = recordMap(mine.library, mine.settings);
+    // A song this sync has just created from a pack has only what the pack holds. Its record here is not an edit: the store's
+    // record, which carries what the pack cannot (pinned, collection, tab names), is taken instead and laid over it.
+    const isFresh = (s) => freshPackIds.has(s.packId || s.id);
+    const mineMap = recordMap({ ...mine.library, songs: (mine.library.songs || []).filter((s) => !isFresh(s)) }, mine.settings);
     let decisions = [], theirMap = new Map();
     const baseRecords = base?.records;
 
@@ -209,6 +215,25 @@ async function syncRecords({ store, local, base }) {
     return { ...stats, fps };
 }
 
+/**
+ * A pack that came from a song whose id is not a valid pack id is imported under the pack id (mpak.js). The store's library
+ * still knows that song by its own id, with the pack id beside it, so the imported song takes that id back: otherwise the
+ * library would hold the song twice and sync would send the duplicate on.
+ */
+async function renameImportedSongs({ store, local }) {
+    if (!(await readIfExists(store, LIBRARY_PATH))) return;
+    const remote = fromLibraryDoc(await readJson(store, LIBRARY_PATH));
+    const here = (await local.records()).library.songs || [];
+    const byId = new Map(here.map((s) => [s.id, s]));
+    for (const theirs of remote.songs) {
+        if (!theirs.packId || theirs.packId === theirs.id || byId.has(theirs.id)) continue;
+        const imported = byId.get(theirs.packId);
+        if (!imported) continue;
+        await local.deleteRecord('song', imported.id);
+        await local.putRecord('song', { ...imported, id: theirs.id, packId: theirs.packId });
+    }
+}
+
 // --- apply ---
 
 /**
@@ -222,7 +247,7 @@ export async function applyPackSync({ store, local, baselines, location, onProgr
     const base = baselines.get(location);
     const packs = createPackStore(store);
     const mine = await local.items();
-    const plan = (await planPackSync({ store, local, baselines, location })).items;
+    const plan = planFrom(read, mine, base).items;
     const nextItems = { ...(base?.items || {}) };
     const out = { uploaded: 0, downloaded: 0, merged: 0, removedHere: 0, removedThere: 0, conflicts: 0, failed: [] };
     const tombstones = { version: 1, items: { ...(read.tombstones.items || {}) } };
@@ -232,7 +257,8 @@ export async function applyPackSync({ store, local, baselines, location, onProgr
         if (key.startsWith('p:')) return (await store.stat(`packs/${key.slice(2)}/manifest.json`))?.version;
         return (await store.stat(blobPath(key)))?.version;
     };
-    const fpNow = async (key) => (await local.items()).get(key)?.fp;
+    const freshPackIds = new Set();   // packs taken in for a song this device did not have
+    const needsFp = new Set();   // keys whose local fingerprint is read once, after all the work, from a single scan
 
     const upload = async (item, expectRemote) => {
         const data = await local.readItem(item.key);
@@ -250,8 +276,10 @@ export async function applyPackSync({ store, local, baselines, location, onProgr
     };
 
     const download = async (item) => {
-        if (item.kind === 'pack') await local.applyPack(item.id, await packs.open(item.id));
-        else {
+        if (item.kind === 'pack') {
+            if (!mine.has(item.key)) freshPackIds.add(item.id);
+            await local.applyPack(item.id, await packs.open(item.id));
+        } else {
             const meta = read.remote.get(item.key);
             await local.applyBlob(item.key, await store.read(blobPath(item.key)), { name: meta.name, size: meta.size, addedAt: meta.addedAt });
         }
@@ -267,20 +295,20 @@ export async function applyPackSync({ store, local, baselines, location, onProgr
             if (item.conflict) out.conflicts++;
             if (item.action === ITEM_ACTION.DOWNLOAD) {
                 await download(item);
-                nextItems[item.key] = { l: await fpNow(item.key), r: rVersion };
+                nextItems[item.key] = { l: undefined, r: rVersion }; needsFp.add(item.key);
                 out.downloaded++;
             } else if (item.action === ITEM_ACTION.MERGE) {
                 await download(item);
                 // The store's copy is in here now; send the result back only if it holds something the store's copy lacks
-                const l = await fpNow(item.key);
                 if (item.kind === 'pack' && await differsFromStore(local, packs, item)) {
                     await upload(item, rVersion);
-                    nextItems[item.key] = { l: await fpNow(item.key), r: await remoteVersion(item.key) };
-                } else nextItems[item.key] = { l, r: rVersion };
+                    nextItems[item.key] = { l: undefined, r: await remoteVersion(item.key) };
+                } else nextItems[item.key] = { l: undefined, r: rVersion };
+                needsFp.add(item.key);
                 out.merged++;
             } else if (item.action === ITEM_ACTION.UPLOAD) {
                 await upload(item, rVersion);
-                nextItems[item.key] = { l: await fpNow(item.key), r: await remoteVersion(item.key) };
+                nextItems[item.key] = { l: undefined, r: await remoteVersion(item.key) }; needsFp.add(item.key);
                 out.uploaded++;
             } else if (item.action === ITEM_ACTION.DELETE_LOCAL) {
                 await local.deleteItem(item.key);
@@ -300,15 +328,18 @@ export async function applyPackSync({ store, local, baselines, location, onProgr
     }
     if (tombstonesChanged) await updateJson(store, TOMBSTONES_PATH, (cur) => ({ version: 1, items: { ...(cur?.items || {}), ...tombstones.items } }));
 
-    // Items that are on both sides now and were never mentioned (unchanged) keep their baseline; ones on neither are dropped
+    // Records go first: taking in a song's record changes the song here (tab names, hashes), and the baseline must be the
+    // fingerprint of the item as it stands when this sync ends, or the next sync would see its own work as a change.
+    const records = await syncRecords({ store, local, base, freshPackIds });
     const remoteNow = await readRemote(store);
     const mineNow = await local.items();
+    for (const key of needsFp) if (nextItems[key]) nextItems[key].l = mineNow.get(key)?.fp;
     for (const key of Object.keys(nextItems)) if (!mineNow.has(key) && !remoteNow.remote.has(key)) delete nextItems[key];
+    // Items on both sides that were never mentioned (unchanged, or first seen as equal) keep or get a baseline
     for (const key of mineNow.keys()) if (!nextItems[key] && remoteNow.remote.has(key) && !out.failed.some((f) => f.key === key)) {
         nextItems[key] = { l: mineNow.get(key).fp, r: remoteNow.remote.get(key).version };
     }
 
-    const records = await syncRecords({ store, local, base });
     baselines.set(location, { syncedAt: Date.now(), items: nextItems, records: records.fps });
     const { fps, ...recordStats } = records;
     return { ...out, records: recordStats };

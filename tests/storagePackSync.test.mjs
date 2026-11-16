@@ -231,3 +231,41 @@ test('a store from a newer layout stops the sync', async () => {
     await s.write('store.json', new TextEncoder().encode(JSON.stringify({ format: 99 })));
     await assert.rejects(() => sync(s, fakeLocal(), memoryBaselines()), /newer MajesticTab/);
 });
+
+test('a song whose id is not a pack id comes back under its own id, not twice', async () => {
+    const store = await newStore();
+    const a = fakeLocal(), baseA = memoryBaselines(), b = fakeLocal(), baseB = memoryBaselines();
+    a.addSong('P', 'Long id song');
+    a.state.records.songs[0].id = 'X'; a.state.records.songs[0].packId = 'P';
+    await sync(store, a, baseA);
+    assert.deepEqual((await readLibrary(store)).songs.map((s) => [s.id, s.packId]), [['X', 'P']]);
+    await sync(store, b, baseB);
+    assert.deepEqual(b.state.records.songs.map((s) => [s.id, s.packId]), [['X', 'P']]);
+    await sync(store, b, baseB);
+    assert.deepEqual((await readLibrary(store)).songs.map((s) => s.id), ['X']);
+});
+
+test('the local fingerprint is read from one scan, not once per item', async () => {
+    const store = await newStore();
+    const a = fakeLocal(), baseA = memoryBaselines();
+    for (let i = 0; i < 20; i++) a.addSong(`s${i}`, `S${i}`);
+    let scans = 0;
+    const items = a.items.bind(a); a.items = async () => { scans++; return items(); };
+    await sync(store, a, baseA);
+    assert.ok(scans <= 4, `items() scanned ${scans} times for 20 songs`);
+});
+
+test('a song a device has just taken in from a pack gets the store\'s record, and the store\'s record is not overwritten by the bare one', async () => {
+    const store = await newStore();
+    const a = fakeLocal(), baseA = memoryBaselines(), b = fakeLocal(), baseB = memoryBaselines();
+    a.addSong('one', 'One');
+    Object.assign(a.state.records.songs[0], { pinned: true, collectionId: 'col-9', mediumTitle: 'Disc two', tabOptions: [{ id: 'tab_mine', name: 'My lead', sha256: 'a'.repeat(64) }] });
+    await sync(store, a, baseA);
+    const rb = await sync(store, b, baseB);
+    assert.equal(rb.records.pushed, 0);
+    const got = b.state.records.songs[0];
+    assert.deepEqual([got.pinned, got.collectionId, got.mediumTitle], [true, 'col-9', 'Disc two']);
+    assert.deepEqual(got.tabOptions.map((t) => t.id), ['tab_mine']);
+    const inStore = (await readLibrary(store)).songs[0];
+    assert.deepEqual([inStore.pinned, inStore.collectionId], [true, 'col-9']);
+});

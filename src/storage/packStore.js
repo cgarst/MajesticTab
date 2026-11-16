@@ -100,6 +100,8 @@ export function createPackStore(store, { root = 'packs' } = {}) {
             packId, manifest, version, warnings,
             score: opened.score, scoreBytes: opened.scoreBytes, sync: opened.sync, beats: opened.beats, defaultRecording: opened.defaultRecording,
             file: (path) => opened.file(path),
+            /** This pack as a .mpak Blob, with its audio or without (a song whose audio stays in the store). */
+            toMpak: (options) => exportMpak(packId, options),
             /** Whole audio file. */
             audio: async (path) => { audioEntry(path); return store.read(`${dir}/${path}`); },
             /** Bytes [start, end) of an audio file. */
