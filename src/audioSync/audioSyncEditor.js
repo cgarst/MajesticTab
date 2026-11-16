@@ -6,7 +6,8 @@
 import { getSongKey } from '../youtubePlayer.js';
 import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
 import { loadRecord, listRecords, saveRecord, loadRestorePoint, samePoints, SYNC_CHANGED_EVENT } from './syncStore.js';
-import { getAudioMeta } from './audioFileStore.js';
+import { getAudioMeta, getAudioFile } from './audioFileStore.js';
+import { decodeFlux, refineOffset } from './refineOffset.js';
 import { measureAlignment, compareSyncs, conflictText } from './alignCheck.js';
 import { getScoreContext } from './audioSyncController.js';
 import { pointProblems, syncFit } from './pointCheck.js';
@@ -237,7 +238,8 @@ export function initAudioSyncEditor() {
         $('syncEmpty').hidden = points.length > 0;
         updateRestoreButtons();
         const totalBars = ctx?.timeline?.bars?.length || 0;
-        const syncedBars = new Set(points.map(p => p.barIndex)).size;
+        // The score's bars are the ones it plays, so a repeated bar counts once per pass
+        const syncedBars = new Set(points.map(p => `${p.barIndex}:${p.occurrence || 0}`)).size;
         const flagged = Object.keys(info.flags).length;
         // Plain text separated by middle dots, as everywhere else: statuses are not pills. What needs a look is in ink.
         const parts = [`<span class="tnum">${points.length} point${points.length === 1 ? '' : 's'}, ${syncedBars} of ${totalBars} bars synced</span>`];
@@ -260,6 +262,7 @@ export function initAudioSyncEditor() {
     const alignments = new Map();
     const otherPeaks = new Map();
     let alignText = '';
+    let conflict = null; // { other: record, alignment } while another recording's sync disagrees with this one
     async function checkAlignment() {
         const cur = current;
         const has = (r) => r.points.some((p) => Number.isInteger(p.barIndex));
@@ -267,6 +270,7 @@ export function initAudioSyncEditor() {
             ? listRecords(songKey()).filter((r) => r.media?.kind === 'local' && r.media.audioId !== cur.media.audioId && has(r)).slice(0, 6)
             : [];
         let text = '';
+        conflict = null;
         for (const other of others) {
             const id = other.media.audioId;
             if (!otherPeaks.has(id)) otherPeaks.set(id, (await getAudioMeta(id).catch(() => null))?.peaks || null);
@@ -276,10 +280,12 @@ export function initAudioSyncEditor() {
             if (!alignments.has(key)) alignments.set(key, measureAlignment(cur.peaks, peaks));
             const alignment = alignments.get(key);
             text = conflictText(compareSyncs(points, other.points, alignment), alignment, other.media.name || 'another recording');
-            if (text) break;
+            if (text) { conflict = { other, alignment }; break; }
         }
         if (current !== cur) return;
         alignText = text || '';
+        $('syncRederiveBtn').hidden = !conflict;
+        if (conflict) $('syncRederiveBtn').title = `Replace these points with the ones of ${conflict.other.media.name || 'the other recording'}, moved by how far the two recordings are apart`;
         const el = $('syncAlignNote');
         if (el) { el.textContent = alignText; el.hidden = !alignText; }
     }
@@ -382,6 +388,35 @@ export function initAudioSyncEditor() {
         saveRecord(songKey(), media(), points, undefined, undefined, undefined, { restoreTo: points });
         $('syncEditorInfo').textContent = `Kept these ${points.length} points as the restore point`;
         updateRestoreButtons();
+    });
+    // Use the other recording's sync for this one, moved by the exact offset between the two audio files
+    $('syncRederiveBtn').addEventListener('click', async () => {
+        const found = conflict;
+        const btn = $('syncRederiveBtn');
+        if (!found || btn.disabled) return;
+        btn.disabled = true;
+        const label = btn.textContent;
+        btn.textContent = 'Measuring…';
+        try {
+            let offsetMs = found.alignment.offsetMs;
+            let exact = false;
+            const [mine, theirs] = await Promise.all([getAudioFile(current.media.audioId), getAudioFile(found.other.media.audioId)]);
+            if (mine?.data && theirs?.data) {
+                // One at a time: each decode holds the whole recording in memory
+                const fluxA = await decodeFlux(mine.data);
+                const fluxB = fluxA && await decodeFlux(theirs.data);
+                const r = fluxB && refineOffset(fluxA, fluxB, offsetMs);
+                if (r && r.confidence >= 0.5) { offsetMs = r.offsetMs; exact = true; }
+            }
+            // offsetMs maps a time here to the other recording's time, so the other's times come back by subtracting it
+            const next = found.other.points.map((p) => ({ ...p, timeMs: p.timeMs - offsetMs })).filter((p) => p.timeMs >= 0);
+            const name = found.other.media.name || 'the other recording';
+            const ask = `Replace the ${points.length} current points with the ${next.length} of ${name}, moved by ${offsetMs} ms${exact ? '' : ' (roughly: the audio could not be compared more closely)'}? Undo brings the current ones back while this window is open.`;
+            if (next.length && confirm(ask)) persist(next);
+        } finally {
+            btn.textContent = label;
+            btn.disabled = false;
+        }
     });
     $('syncUndoBtn').addEventListener('click', undo);
     $('syncRedoBtn').addEventListener('click', redo);
