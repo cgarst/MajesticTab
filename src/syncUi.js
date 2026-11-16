@@ -498,7 +498,7 @@ async function apply({ quiet = false } = {}) {
     if (!quiet) showProgress(target);
     try {
         const result = await runWithSyncLock(() => applyPackSync({
-            store, local, baselines: localBaselines, location: location(target, store), hybrid: isHybridSyncEnabled(),
+            store, local, baselines: localBaselines, location: location(target, store), hybrid: isHybridSyncEnabled(), plan: context.plan,
             onProgress: (p) => {
                 if (quiet) return;
                 const push = p.action === ITEM_ACTION.UPLOAD || p.action === ITEM_ACTION.DELETE_REMOTE;

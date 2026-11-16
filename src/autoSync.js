@@ -149,7 +149,7 @@ export function createAutoSyncController(deps) {
 
             let result;
             try {
-                result = await applySync({ store, local, baselines, location: loc, hybrid });
+                result = await applySync({ store, local, baselines, location: loc, hybrid, plan });
             } catch (err) {
                 if (!(err instanceof ConflictErrorClass)) throw err;
                 // Another device wrote while we were planning: re-plan once and retry.
@@ -159,7 +159,7 @@ export function createAutoSyncController(deps) {
                     setState({ status: 'paused', reason: 'needs-review', detail: `${retryMass.removals} of ${retryMass.total}` });
                     return { status: 'paused', reason: 'needs-review' };
                 }
-                result = await applySync({ store, local, baselines, location: loc, hybrid });
+                result = await applySync({ store, local, baselines, location: loc, hybrid, plan });
             }
 
             onRememberLocation?.(loc);

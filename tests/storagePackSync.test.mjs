@@ -470,3 +470,31 @@ test('a second device adopts remote packIds for matching legacy song ids instead
     assert.deepEqual(await packIds(store), ['pack-a-uuid']);
     assert.equal((await planPackSync({ store, local: b, baselines: baseB, location: LOC })).items.length, 0);
 });
+
+test('plan + apply in hybrid mode lists packs once and skips redundant JSON reads and no-op writes', async () => {
+    const store = await newStore();
+    const a = fakeLocal(), baseA = memoryBaselines();
+    a.addSong('s1', 'Song One');
+    await sync(store, a, baseA);
+
+    const b = fakeLocal(), baseB = memoryBaselines();
+    await applyPackSync({ store, local: b, baselines: baseB, location: LOC, hybrid: true });
+
+    const counts = { listPacks: 0, reads: new Map(), writes: new Map() };
+    const counted = {
+        ...store,
+        list: (prefix) => { if (prefix === 'packs/') counts.listPacks++; return store.list(prefix); },
+        read: (path, opts) => { counts.reads.set(path, (counts.reads.get(path) || 0) + 1); return store.read(path, opts); },
+        write: (path, bytes, opts) => { counts.writes.set(path, (counts.writes.get(path) || 0) + 1); return store.write(path, bytes, opts); },
+    };
+
+    const plan = await planPackSync({ store: counted, local: b, baselines: baseB, location: LOC, hybrid: true });
+    assert.equal(plan.items.length, 0);
+    await applyPackSync({ store: counted, local: b, baselines: baseB, location: LOC, hybrid: true, plan });
+
+    assert.equal(counts.listPacks, 1);
+    assert.equal(counts.reads.get('profile.json'), 2);
+    assert.equal(counts.reads.get('library.json'), 2);
+    assert.equal(counts.writes.get('library.json') || 0, 0);
+    assert.equal(counts.writes.get('profile.json') || 0, 0);
+});

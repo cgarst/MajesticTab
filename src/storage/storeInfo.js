@@ -1,7 +1,7 @@
 // storage/storeInfo.js
 // store.json: the file that makes a location a MajesticTab Library store. It is written last, so a location without it
 // is not (yet) a store, and it carries the format number so an app that does not understand a newer layout leaves it alone.
-import { readIfExists, readJson, writeJson, ConflictError } from './contract.js';
+import { readJsonIfExists, writeJson, ConflictError } from './contract.js';
 
 export const STORE_FILE = 'store.json';
 /** The layout this app reads and writes: packs/, library.json, profile.json, soundfonts/, classtab/. */
@@ -17,9 +17,9 @@ export class StoreTooNewError extends Error {
 
 /** The store's info, or null when the location is not a store. Throws StoreTooNewError for a layout this app cannot use. */
 export async function readStoreInfo(store) {
-    if (!(await readIfExists(store, STORE_FILE))) return null;
-    const info = await readJson(store, STORE_FILE);
-    if (!info || typeof info.format !== 'number' || info.format > STORE_FORMAT) throw new StoreTooNewError(info || {});
+    const info = await readJsonIfExists(store, STORE_FILE);
+    if (!info) return null;
+    if (typeof info.format !== 'number' || info.format > STORE_FORMAT) throw new StoreTooNewError(info || {});
     return info;
 }
 

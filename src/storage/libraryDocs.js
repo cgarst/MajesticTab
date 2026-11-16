@@ -11,7 +11,7 @@
 // Both have a `format` and a `version`. A reader refuses a newer version and keeps fields it does not know, so an older app
 // does not strip what a newer one wrote. Device-local ids (file store ids, Drive file ids) never leave the device.
 
-import { updateJson, readIfExists, readJson } from './contract.js';
+import { updateJson, readJsonIfExists } from './contract.js';
 
 export const LIBRARY_FORMAT = 'majestictab_library';
 export const PROFILE_FORMAT = 'majestictab_profile';
@@ -208,7 +208,8 @@ const EMPTY = () => ({ collections: [], songs: [], recents: [], setlists: [] });
 
 /** The library records in the store, or empty ones when there is no library.json yet. */
 export async function readLibrary(store) {
-    return (await readIfExists(store, LIBRARY_PATH)) ? fromLibraryDoc(await readJson(store, LIBRARY_PATH)) : EMPTY();
+    const doc = await readJsonIfExists(store, LIBRARY_PATH);
+    return doc ? fromLibraryDoc(doc) : EMPTY();
 }
 
 /**

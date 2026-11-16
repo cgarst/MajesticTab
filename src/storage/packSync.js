@@ -18,7 +18,7 @@
 // `local` is the adapter for this device's data (see LocalAdapter below); `baselines` is { get(location), set(location, value), clear(location) }.
 import { createPackStore } from './packStore.js';
 import { readStoreInfo } from './storeInfo.js';
-import { readIfExists, readJson, writeJson, updateJson, pool, ConflictError, NotFoundError } from './contract.js';
+import { readJsonIfExists, readJson, writeJson, updateJson, UNCHANGED, pool, ConflictError, NotFoundError } from './contract.js';
 import { toLibraryDoc, fromLibraryDoc, toProfileDoc, fromProfileDoc, portableSong, mergeSong, applyIndexToSong, LIBRARY_PATH, PROFILE_PATH } from './libraryDocs.js';
 import { RECORD_ACTION, fingerprintValue, stableStringify, planRecords, TAB_SOURCES_KEY, TAB_SOURCES_DELETED_KEY, readSourceList, readTombstones, mergeSourceLists } from '../recordSync.js';
 
@@ -79,30 +79,45 @@ export function decideItem({ l, r, base, tombstoneAt = 0, time = 0 }) {
 
 // --- reading the store ---
 
+const PACK_MANIFEST_RE = /^packs\/([A-Za-z0-9_-]{1,64})\/manifest\.json$/;
+const PACK_AUDIO_RE = /^packs\/([^/]+)\/audio\/.+/;
+const preparedPlans = new WeakMap();
+const PREPARED_MAX_AGE_MS = 30_000;
+
 async function readRemote(store, { hybrid = false, includeLibrary = hybrid } = {}) {
     const info = await readStoreInfo(store);
     if (!info) return null;
-    const packs = createPackStore(store);
+    const [packEntries, sfEntries, ctEntries, profileDoc, tombstonesDoc, libraryDoc] = await Promise.all([
+        store.list('packs/'),
+        store.list(`${SOUNDFONT_DIR}/`),
+        store.list(`${CLASSTAB_DIR}/`),
+        readJsonIfExists(store, PROFILE_PATH),
+        readJsonIfExists(store, TOMBSTONES_PATH),
+        includeLibrary ? readJsonIfExists(store, LIBRARY_PATH) : Promise.resolve(null),
+    ]);
     const remote = new Map();
     const packsWithAudio = new Set();
     if (hybrid) {
-        for (const e of await store.list('packs/')) {
-            const m = /^packs\/([^/]+)\/audio\/.+/.exec(e.path);
+        for (const e of packEntries) {
+            const m = PACK_AUDIO_RE.exec(e.path);
             if (m) packsWithAudio.add(m[1]);
         }
     }
-    for (const p of await packs.listPacks()) remote.set(packKey(p.packId), { kind: 'pack', id: p.packId, version: p.version, size: p.size, hasAudio: packsWithAudio.has(p.packId) });
-    const profile = (await readIfExists(store, PROFILE_PATH)) ? fromProfileDoc(await readJson(store, PROFILE_PATH)) : { settings: {}, soundFonts: [] };
+    for (const e of packEntries) {
+        const m = PACK_MANIFEST_RE.exec(e.path);
+        if (m) remote.set(packKey(m[1]), { kind: 'pack', id: m[1], version: e.version, size: e.size, hasAudio: packsWithAudio.has(m[1]) });
+    }
+    const profile = profileDoc ? fromProfileDoc(profileDoc) : { settings: {}, soundFonts: [] };
     const fontMeta = new Map(profile.soundFonts.map((f) => [f.id, f]));
-    for (const [prefix, dir, kind] of [['s', SOUNDFONT_DIR, 'soundfont'], ['c', CLASSTAB_DIR, 'classtab']]) {
-        for (const e of await store.list(`${dir}/`)) {
+    for (const [prefix, dir, kind, entries] of [['s', SOUNDFONT_DIR, 'soundfont', sfEntries], ['c', CLASSTAB_DIR, 'classtab', ctEntries]]) {
+        for (const e of entries) {
             const id = e.path.slice(dir.length + 1);
             if (id.includes('/')) continue;
             remote.set(`${prefix}:${id}`, { kind, id, version: e.version, size: e.size, name: fontMeta.get(id)?.name || id, addedAt: fontMeta.get(id)?.addedAt });
         }
     }
-    const tombstones = (await readIfExists(store, TOMBSTONES_PATH)) ? await readJson(store, TOMBSTONES_PATH) : { version: 1, items: {} };
-    const remoteLibrary = includeLibrary && (await readIfExists(store, LIBRARY_PATH)) ? fromLibraryDoc(await readJson(store, LIBRARY_PATH)) : null;
+    const tombstones = tombstonesDoc || { version: 1, items: {} };
+    const remoteLibrary = libraryDoc ? fromLibraryDoc(libraryDoc) : null;
     return { remote, tombstones, profile, remoteLibrary };
 }
 
@@ -119,11 +134,11 @@ function addLocalAudioPacks(target, library) {
     }
 }
 
-async function resolveKeepLocalPacks(read, local, hybrid) {
+function resolveKeepLocalPacks(read, localRecords, hybrid) {
     const keepLocalPacks = new Set();
     if (!hybrid) return keepLocalPacks;
     addLocalAudioPacks(keepLocalPacks, read.remoteLibrary);
-    addLocalAudioPacks(keepLocalPacks, (await local.records()).library);
+    addLocalAudioPacks(keepLocalPacks, localRecords?.library);
     return keepLocalPacks;
 }
 
@@ -140,9 +155,12 @@ async function readAndPlan({ store, local, baselines, location, hybrid = false }
         }
         if (map.size) await local.adoptPackIds(map);
     }
-    const mine = await local.items();
-    const keepLocalPacks = await resolveKeepLocalPacks(read, local, hybrid);
-    return { read, base, mine, keepLocalPacks, plan: planFrom(read, mine, base, { hybrid, keepLocalPacks }) };
+    const [mine, localRecords] = await Promise.all([
+        local.items(),
+        hybrid ? local.records() : Promise.resolve(null),
+    ]);
+    const keepLocalPacks = resolveKeepLocalPacks(read, localRecords, hybrid);
+    return { read, base, mine, keepLocalPacks, localRecords, plan: planFrom(read, mine, base, { hybrid, keepLocalPacks }) };
 }
 
 /**
@@ -150,9 +168,10 @@ async function readAndPlan({ store, local, baselines, location, hybrid = false }
  * @returns {Promise<{ firstSync: boolean, items: Array<{key, kind, id, name, action, conflict?: boolean, size: number}>, unchanged: number, notAStore?: boolean }>}
  */
 export async function planPackSync({ store, local, baselines, location, hybrid = false }) {
-    const { read, plan } = await readAndPlan({ store, local, baselines, location, hybrid });
-    if (!read) return { notAStore: true, firstSync: true, items: [], unchanged: 0 };
-    return plan;
+    const prepared = await readAndPlan({ store, local, baselines, location, hybrid });
+    if (!prepared.read) return { notAStore: true, firstSync: true, items: [], unchanged: 0 };
+    preparedPlans.set(prepared.plan, { ...prepared, location, hybrid, at: Date.now() });
+    return prepared.plan;
 }
 
 function planFrom(read, mine, base, { hybrid = false, keepLocalPacks = new Set() } = {}) {
@@ -200,10 +219,10 @@ function recordMap(library, settings) {
  * version check, so another device writing at the same moment is re-read and merged, not overwritten.
  * @returns {Promise<{ pulled: number, pushed: number, removedHere: number, removedThere: number, conflicts: number, fps: object }>}
  */
-async function syncRecords({ store, local, base, freshPackIds = new Set() }) {
+async function syncRecords({ store, local, base, freshPackIds = new Set(), remoteLibrary: knownRemoteLibrary = null, localRecords: knownLocalRecords = null }) {
     const stats = { pulled: 0, pushed: 0, removedHere: 0, removedThere: 0, conflicts: 0 };
-    await renameImportedSongs({ store, local });
-    const mine = await local.records();
+    const renamed = await renameImportedSongs({ store, local, remoteLibrary: knownRemoteLibrary, localRecords: knownLocalRecords });
+    const mine = (!renamed && knownLocalRecords) ? knownLocalRecords : await local.records();
     // A song this sync has just created from a pack has only what the pack holds. Its record here is not an edit: the store's
     // record, which carries what the pack cannot (pinned, collection, tab names), is taken instead and laid over it.
     const isFresh = (s) => freshPackIds.has(s.packId || s.id);
@@ -218,6 +237,7 @@ async function syncRecords({ store, local, base, freshPackIds = new Set() }) {
         theirMap = recordMap(remoteLibrary, {});
         const libMine = new Map([...mineMap].filter(([, v]) => v.kind !== 'setting'));
         decisions = planRecords(libMine, theirMap, baseRecords, new Set());
+        if (cur && !decisions.some((d) => d.action === RECORD_ACTION.PUSH || d.action === RECORD_ACTION.DELETE_REMOTE)) return UNCHANGED;
         const out = {};
         for (const kind of ['collection', 'song', 'recent', 'setlist']) out[kind] = new Map();
         for (const [, t] of theirMap) out[t.kind].set(t.id, t.value);
@@ -279,6 +299,7 @@ async function syncRecords({ store, local, base, freshPackIds = new Set() }) {
             mergedSources = null;
             remoteSourcesChanged = false;
         }
+        if (cur && !setDecisions.some((d) => d.action === RECORD_ACTION.PUSH || d.action === RECORD_ACTION.DELETE_REMOTE) && !remoteSourcesChanged) return UNCHANGED;
         return toProfileDoc({ settings: next, soundFonts: remoteSettings.soundFonts });
     });
     for (const d of setDecisions) {
@@ -303,7 +324,7 @@ async function syncRecords({ store, local, base, freshPackIds = new Set() }) {
     }
 
     // What the baseline should say now: the fingerprints of every record as it stands on both sides after this sync
-    const after = await local.records();
+    const after = (stats.pulled > 0 || stats.removedHere > 0 || stats.conflicts > 0) ? await local.records() : mine;
     const afterMap = recordMap(after.library, after.settings);
     const fps = {};
     for (const [k, v] of afterMap) fps[k] = v.fp;
@@ -315,18 +336,27 @@ async function syncRecords({ store, local, base, freshPackIds = new Set() }) {
  * still knows that song by its own id, with the pack id beside it, so the imported song takes that id back: otherwise the
  * library would hold the song twice and sync would send the duplicate on.
  */
-async function renameImportedSongs({ store, local }) {
-    if (!(await readIfExists(store, LIBRARY_PATH))) return;
-    const remote = fromLibraryDoc(await readJson(store, LIBRARY_PATH));
-    const here = (await local.records()).library.songs || [];
+async function renameImportedSongs({ store, local, remoteLibrary = null, localRecords = null }) {
+    let remote = remoteLibrary;
+    if (!remote) {
+        const doc = await readJsonIfExists(store, LIBRARY_PATH);
+        if (!doc) return false;
+        remote = fromLibraryDoc(doc);
+    }
+    const candidates = (remote.songs || []).filter((theirs) => theirs.packId && theirs.packId !== theirs.id);
+    if (!candidates.length) return false;
+    const here = (localRecords || await local.records()).library.songs || [];
     const byId = new Map(here.map((s) => [s.id, s]));
-    for (const theirs of remote.songs) {
-        if (!theirs.packId || theirs.packId === theirs.id || byId.has(theirs.id)) continue;
+    let renamed = false;
+    for (const theirs of candidates) {
+        if (byId.has(theirs.id)) continue;
         const imported = byId.get(theirs.packId);
         if (!imported) continue;
         await local.deleteRecord('song', imported.id);
         await local.putRecord('song', { ...imported, id: theirs.id, packId: theirs.packId });
+        renamed = true;
     }
+    return renamed;
 }
 
 // --- apply ---
@@ -336,8 +366,13 @@ async function renameImportedSongs({ store, local }) {
  * Resolves to { uploaded, downloaded, merged, removedHere, removedThere, skipped, records, failed: [{key, reason}] }.
  * An item that fails is left as it was and not recorded in the baseline, so the next sync tries it again.
  */
-export async function applyPackSync({ store, local, baselines, location, hybrid = false, onProgress = () => {} }) {
-    const { read, base, mine, keepLocalPacks, plan: planned } = await readAndPlan({ store, local, baselines, location, hybrid });
+export async function applyPackSync({ store, local, baselines, location, hybrid = false, plan: existingPlan = null, onProgress = () => {} }) {
+    const cached = existingPlan && preparedPlans.get(existingPlan);
+    const useCached = cached && cached.location === location && cached.hybrid === hybrid && (Date.now() - cached.at < PREPARED_MAX_AGE_MS);
+    if (useCached) preparedPlans.delete(existingPlan);
+    const { read, base, mine, keepLocalPacks, localRecords, plan: planned } = useCached
+        ? cached
+        : await readAndPlan({ store, local, baselines, location, hybrid });
     if (!read) throw new Error('This location is not a MajesticTab library');
     const packs = createPackStore(store);
     const plan = planned.items;
@@ -345,6 +380,7 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
     const out = { uploaded: 0, downloaded: 0, merged: 0, removedHere: 0, removedThere: 0, conflicts: 0, failed: [] };
     const tombstones = { version: 1, items: { ...(read.tombstones.items || {}) } };
     let tombstonesChanged = false;
+    const deletedRemote = new Set();
 
     const remoteVersion = async (key) => {
         if (key.startsWith('p:')) return (await store.stat(`packs/${key.slice(2)}/manifest.json`))?.version;
@@ -430,6 +466,7 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
                 if (item.kind === 'pack') await packs.remove(item.id); else await store.delete(blobPath(item.key));
                 tombstones.items[item.key] = { at: Date.now() };
                 tombstonesChanged = true;
+                deletedRemote.add(item.key);
                 delete nextItems[item.key];
                 out.removedThere++;
             }
@@ -442,14 +479,15 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
 
     // Records go first: taking in a song's record changes the song here (tab names, hashes), and the baseline must be the
     // fingerprint of the item as it stands when this sync ends, or the next sync would see its own work as a change.
-    const records = await syncRecords({ store, local, base, freshPackIds });
-    const remoteNow = await readRemote(store);
+    const reuseLocalRecords = (out.downloaded === 0 && out.merged === 0 && out.removedHere === 0) ? localRecords : null;
+    const records = await syncRecords({ store, local, base, freshPackIds, remoteLibrary: read.remoteLibrary, localRecords: reuseLocalRecords });
     const mineNow = await local.items();
+    const hasRemote = (k) => !deletedRemote.has(k) && read.remote.has(k);
     for (const key of needsFp) if (nextItems[key]) nextItems[key].l = mineNow.get(key)?.fp;
-    for (const key of Object.keys(nextItems)) if (!mineNow.has(key) && !remoteNow.remote.has(key)) delete nextItems[key];
+    for (const key of Object.keys(nextItems)) if (!mineNow.has(key) && !hasRemote(key)) delete nextItems[key];
     // Items on both sides that were never mentioned (unchanged, or first seen as equal) keep or get a baseline
-    for (const key of mineNow.keys()) if (!nextItems[key] && remoteNow.remote.has(key) && !out.failed.some((f) => f.key === key)) {
-        nextItems[key] = { l: mineNow.get(key).fp, r: remoteNow.remote.get(key).version };
+    for (const key of mineNow.keys()) if (!nextItems[key] && hasRemote(key) && !out.failed.some((f) => f.key === key)) {
+        nextItems[key] = { l: mineNow.get(key).fp, r: read.remote.get(key).version };
     }
 
     baselines.set(location, { syncedAt: Date.now(), items: nextItems, records: records.fps });

@@ -92,16 +92,26 @@ export async function readIfExists(store, path, options) {
     }
 }
 
+/** Reads and parses JSON if the file exists, or returns null when absent. */
+export async function readJsonIfExists(store, path) {
+    const bytes = await readIfExists(store, path);
+    return bytes ? JSON.parse(decoder.decode(bytes)) : null;
+}
+
+/** Sentinel returned from an `updateJson` callback to skip the write when nothing changed. */
+export const UNCHANGED = Symbol('updateJson.UNCHANGED');
+
 /**
  * Read-modify-write one small file (library.json) so that two devices cannot silently overwrite each other. `change`
- * gets the parsed current value (or null) and returns the new value. A ConflictError reloads and retries.
- * Returns the written version.
+ * gets the parsed current value (or null) and returns the new value (or `UNCHANGED` to skip writing). A ConflictError reloads and retries.
+ * Returns the written (or existing) version.
  */
 export async function updateJson(store, path, change, { attempts = 5 } = {}) {
     for (let attempt = 0; ; attempt++) {
         const entry = await store.stat(path);
         const current = entry ? JSON.parse(await readText(store, path)) : null;
         const next = await change(current);
+        if (next === UNCHANGED) return entry ? entry.version : null;
         try {
             return (await writeJson(store, path, next, { ifVersion: entry ? entry.version : null })).version;
         } catch (err) {
