@@ -787,7 +787,7 @@ function watchUserScroll(output) {
     output.addEventListener('touchend', release, { passive: true });
     output.addEventListener('touchcancel', release, { passive: true });
     output.addEventListener('scroll', () => {
-        if (autoScrollWrite) return;
+        if (autoScrollWrite || performance.now() < autoScrollWriteUntil) return;
         // Momentum scrolls keep firing scroll events after the finger lifts; extend until they stop
         bumpUserScroll(userScrollHeld ? USER_SCROLL_IDLE_MS : USER_SCROLL_GRACE_MS);
     }, { passive: true });
@@ -853,6 +853,9 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     watchUserScroll(output);
     const nowMs = performance.now();
     if (!force && nowMs < userScrollingUntil) return;
+    // In horizontal mode during active playback, the rAF cursor glide drives scrollLeft every vsync;
+    // skip periodic layout reads/writes unless explicitly forced (seeks, mode switches, re-anchoring).
+    if (!force && !bringIntoView && playbackActive() && output.classList.contains('gp-horizontal-mode')) return;
     // Position events arrive far more often than the view needs to move; the checks below read layout, which on a
     // dense score (and on iOS) is costly. Forced calls (seeks, play, clicks) always run.
     if (!force) {
@@ -1083,19 +1086,9 @@ export function applyCursorPositionFromBeat(beat) {
     }
 }
 
-let autoScrollRaf1 = 0;
-let autoScrollRaf2 = 0;
+let autoScrollWriteUntil = 0;
 function markAutoScrollWrite() {
-    autoScrollWrite = true;
-    if (autoScrollRaf1) cancelAnimationFrame(autoScrollRaf1);
-    if (autoScrollRaf2) cancelAnimationFrame(autoScrollRaf2);
-    autoScrollRaf1 = requestAnimationFrame(() => {
-        autoScrollRaf1 = 0;
-        autoScrollRaf2 = requestAnimationFrame(() => {
-            autoScrollRaf2 = 0;
-            autoScrollWrite = false;
-        });
-    });
+    autoScrollWriteUntil = performance.now() + 60;
 }
 
 function isHorizontalMode() {
@@ -1424,21 +1417,25 @@ export function createCustomCursorHandler(api) {
 
                 const reader = getOrCreateReader();
                 const horiz = isHorizontalMode();
-                if (horiz) stopHorizGlide();
                 if (reader) {
                     updateReaderDimensions(cursorH);
-                    reader.style.transition = 'none';
-                    setCursorX(reader, startBeatX);
                     const moved = lastReaderTop !== cursorY || reader.style.display !== 'block' || reader.style.height !== `${cursorH}px`;
                     reader.style.top = `${cursorY}px`;
                     reader.style.height = `${cursorH}px`;
                     reader.style.display = 'block';
                     lastReaderTop = cursorY;
                     if (horiz) {
-                        if (playbackActive() && performance.now() >= userScrollingUntil) {
-                            syncHorizontalScrollToX(startBeatX);
+                        // During playback, transitionBeatCursor runs immediately after and updates the
+                        // active rAF glide without snapping scrollLeft mid-frame.
+                        if (!playbackActive()) {
+                            stopHorizGlide();
+                            reader.style.transition = 'none';
+                            setCursorX(reader, startBeatX);
                         }
                     } else {
+                        stopHorizGlide();
+                        reader.style.transition = 'none';
+                        setCursorX(reader, startBeatX);
                         // Forcing layout every beat is costly on a dense score; it is only needed when the cursor jumps to
                         // another system (or appears). Otherwise, flush style on the cursor so WebKit commits transition:none
                         // and startBeatX before the next transition begins.
@@ -1482,31 +1479,61 @@ export function createCustomCursorHandler(api) {
             const reader = getOrCreateReader();
             if (reader) {
                 if (isHorizontalMode()) {
-                    stopHorizGlide();
+                    const output = document.getElementById('output');
+                    const container = gpState.canvases[0]?.container;
+                    const maxScroll = (output && output.scrollWidth > output.clientWidth + 1)
+                        ? Math.max(0, output.scrollWidth - output.clientWidth)
+                        : 0;
+                    const originLeft = (output && container) ? (container.offsetLeft - (output.clientWidth / 2)) : 0;
                     reader.style.transition = 'none';
-                    setCursorX(reader, startBeatX);
-                    if (performance.now() >= userScrollingUntil) {
-                        syncHorizontalScrollToX(startBeatX);
+                    if (!horizGlide) {
+                        const glide = {
+                            rafId: 0,
+                            reader,
+                            output,
+                            startX: startBeatX,
+                            targetX,
+                            startTime: performance.now(),
+                            duration: animDuration,
+                            maxScroll,
+                            originLeft
+                        };
+                        horizGlide = glide;
+                        const step = (now) => {
+                            if (horizGlide !== glide) return;
+                            const t = glide.duration > 0 ? Math.min(1, (now - glide.startTime) / glide.duration) : 1;
+                            const curX = glide.startX + (glide.targetX - glide.startX) * t;
+                            setCursorX(glide.reader, curX);
+                            if (glide.output && glide.maxScroll > 0 && now >= userScrollingUntil) {
+                                const targetScrollLeft = Math.max(0, Math.min(glide.maxScroll, glide.originLeft + curX));
+                                markAutoScrollWrite();
+                                glide.output.scrollLeft = targetScrollLeft;
+                            }
+                            if (t < 1 || playbackActive()) {
+                                glide.rafId = requestAnimationFrame(step);
+                            } else {
+                                horizGlide = null;
+                            }
+                        };
+                        setCursorX(reader, startBeatX);
+                        if (output && maxScroll > 0 && performance.now() >= userScrollingUntil) {
+                            markAutoScrollWrite();
+                            output.scrollLeft = Math.max(0, Math.min(maxScroll, originLeft + startBeatX));
+                        }
+                        glide.rafId = requestAnimationFrame(step);
+                    } else {
+                        // Reuse the running rAF loop so beat boundaries never cancel/reschedule a frame
+                        horizGlide.reader = reader;
+                        horizGlide.output = output;
+                        horizGlide.startX = startBeatX;
+                        horizGlide.targetX = targetX;
+                        horizGlide.startTime = performance.now();
+                        horizGlide.duration = animDuration;
+                        horizGlide.maxScroll = maxScroll;
+                        horizGlide.originLeft = originLeft;
                     }
-                    const startTime = performance.now();
-                    const glide = { rafId: 0 };
-                    horizGlide = glide;
-                    const step = (now) => {
-                        if (horizGlide !== glide) return;
-                        const t = animDuration > 0 ? Math.min(1, (now - startTime) / animDuration) : 1;
-                        const curX = startBeatX + (targetX - startBeatX) * t;
-                        setCursorX(reader, curX);
-                        if (performance.now() >= userScrollingUntil) {
-                            syncHorizontalScrollToX(curX);
-                        }
-                        if (t < 1) {
-                            glide.rafId = requestAnimationFrame(step);
-                        } else {
-                            horizGlide = null;
-                        }
-                    };
-                    glide.rafId = requestAnimationFrame(step);
                 } else {
+                    stopHorizGlide();
                     reader.style.transition = `transform ${animDuration}ms linear`;
                     setCursorX(reader, targetX);
                 }
