@@ -816,6 +816,12 @@ export function otherPackScores(file) {
     return pack ? pack.entries.filter((e) => e.file !== file).map(({ id, name, detail }) => ({ id, name, detail })) : [];
 }
 
+/** All scores of the pack the open file came from, as `[{ id, name, detail, current }]`; empty when it is not from a pack. */
+export function packScoresOf(file) {
+    const pack = file && packScores.get(file);
+    return pack ? pack.entries.map(({ id, name, detail, file: f }) => ({ id, name, detail, current: f === file })) : [];
+}
+
 /** Opens another score of the pack the open file came from. */
 export async function openPackScore(file, id) {
     const pack = packScores.get(file);

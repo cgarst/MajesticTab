@@ -2896,6 +2896,10 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 /* ---------- Song panel ---------- */
 .score-options-panel .synth-panel-body { display: flex; flex-direction: column; gap: 18px; }
 .score-options-panel .synth-panel-body > div { margin: 0 !important; }
+#scoreOptionsDropdownPanel .form-select { background-color: var(--s3) !important; border: 0 !important; border-radius: var(--r-control) !important; color: var(--ink) !important; min-height: 36px; }
+#scoreOptionsDropdownPanel .form-select:focus { outline: 2px solid var(--hue); outline-offset: -1px; box-shadow: none; }
+#scoreOptionsDropdownPanel .form-select option { background-color: var(--s1); color: var(--ink); }
+@media (pointer: coarse) { #scoreOptionsDropdownPanel .form-select { min-height: 44px; } }
 .score-options-group-title { color: var(--ink2); font-size: 13px; font-weight: 500; }
 .song-row-btn { display: flex !important; width: 100%; text-align: left; justify-content: flex-start !important; padding: 10px 12px !important; background: transparent !important; border: 0 !important; color: var(--ink) !important; border-radius: var(--r-control) !important; min-height: 56px; }
 @media (hover: hover) { .song-row-btn:hover { background: var(--s3) !important; } }

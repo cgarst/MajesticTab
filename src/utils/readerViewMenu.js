@@ -456,62 +456,102 @@ function arrangeSongPanel() {
     window.addEventListener('majestictab:file-loaded', syncTabVersionRow);
     window.addEventListener('majestictab:txt-version-changed', syncTabVersionRow);
 
-    // Other tabs of this song in the library: one press opens that tab. Hidden when the open tab has no sibling.
+    // Scores/tabs of this song (or open .mpak bundle): dropdown selector including and indicating the current score.
+    // Hidden when the open score has no siblings.
     const otherTabs = document.createElement('div');
     otherTabs.id = 'songOtherTabsList';
+    otherTabs.className = 'mb-2';
     otherTabs.hidden = true;
+    const scoreLabel = document.createElement('label');
+    scoreLabel.className = 'form-label small mb-1 fw-semibold text-muted';
+    scoreLabel.htmlFor = 'songScoreSelect';
+    scoreLabel.textContent = 'Score';
+    const scoreSelect = document.createElement('select');
+    scoreSelect.id = 'songScoreSelect';
+    scoreSelect.className = 'form-select form-select-sm';
+    scoreSelect.setAttribute('aria-label', 'Score');
+    otherTabs.append(scoreLabel, scoreSelect);
+
+    let activeScoreSwitch = null;
+    scoreSelect.addEventListener('change', () => {
+        activeScoreSwitch?.(scoreSelect.value);
+    });
+
+    let scoreSyncSeq = 0;
     const syncOtherTabs = async () => {
+        const mySeq = ++scoreSyncSeq;
         try {
             const { getCurrentFile } = await import('../main.js');
+            if (mySeq !== scoreSyncSeq) return;
             const file = getCurrentFile();
-            let others = [];
+            let tabs = [];
             let song = null;
             if (file?.librarySongId && !file.mpakStandalone) {
                 const { getSongById } = await import('../libraryStore.js');
+                if (mySeq !== scoreSyncSeq) return;
                 song = await getSongById(file.librarySongId);
-                others = (song?.tabOptions || []).filter((t) => t.id !== file.tabId);
+                if (mySeq !== scoreSyncSeq) return;
+                tabs = Array.isArray(song?.tabOptions) ? song.tabOptions : [];
             }
-            otherTabs.replaceChildren();
-            if (!others.length && file?.mpakStandalone) {
-                // A pack opened from a file: its other scores, not anything from the library
-                const { otherPackScores, openPackScore } = await import('../mpak.js');
-                const scores = otherPackScores(file);
-                otherTabs.hidden = !scores.length;
+            scoreSelect.replaceChildren();
+            activeScoreSwitch = null;
+
+            if (!tabs.length && file?.mpakStandalone) {
+                // A pack opened from a file: its scores, not anything from the library
+                const { packScoresOf, openPackScore } = await import('../mpak.js');
+                if (mySeq !== scoreSyncSeq) return;
+                const scores = packScoresOf(file);
+                otherTabs.hidden = scores.length <= 1;
+                if (scores.length <= 1) return;
+                let currentId = '';
                 for (const sc of scores) {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'btn btn-sm song-row-btn';
-                    btn.dataset.scoreId = sc.id;
-                    btn.innerHTML = `<span><b>${escapeText(sc.name || 'Score')}</b>${sc.detail ? `<small>${escapeText(sc.detail)}</small>` : ''}</span>`;
-                    btn.addEventListener('click', () => {
-                        $('scoreOptionsPanelCloseBtn')?.click();
-                        openPackScore(file, sc.id);
-                    });
-                    otherTabs.appendChild(btn);
+                    const opt = document.createElement('option');
+                    opt.value = sc.id;
+                    opt.textContent = sc.detail ? `${sc.name || 'Score'} \u00b7 ${sc.detail}` : (sc.name || 'Score');
+                    if (sc.current) {
+                        opt.selected = true;
+                        opt.dataset.current = 'true';
+                        currentId = sc.id;
+                    }
+                    scoreSelect.appendChild(opt);
                 }
+                if (currentId) scoreSelect.value = currentId;
+                activeScoreSwitch = (id) => {
+                    if (!id || id === currentId) return;
+                    $('scoreOptionsPanelCloseBtn')?.click();
+                    openPackScore(file, id);
+                };
                 return;
             }
-            otherTabs.hidden = !others.length;
-            if (!others.length) return;
+
+            otherTabs.hidden = tabs.length <= 1;
+            if (tabs.length <= 1) return;
             const { visibleTuningLabel } = await import('../utils/tuningUtils.js');
-            for (const t of others) {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'btn btn-sm song-row-btn';
-                btn.dataset.tabId = t.id;
+            if (mySeq !== scoreSyncSeq) return;
+            let currentTabId = '';
+            for (const t of tabs) {
+                const opt = document.createElement('option');
+                opt.value = t.id;
                 const pages = (t.startPage && t.endPage) ? `Pages ${t.startPage}\u2013${t.endPage}` : '';
                 const tuning = t.tuning && typeof visibleTuningLabel === 'function' ? visibleTuningLabel(song, t.tuning) : '';
                 const detail = [tuning, pages].filter(Boolean).join(' \u00b7 ');
-                btn.innerHTML = `<span><b>${escapeText(t.name || 'Tab')}</b>${detail ? `<small>${escapeText(detail)}</small>` : ''}</span>`;
-                btn.addEventListener('click', async () => {
-                    $('scoreOptionsPanelCloseBtn')?.click();
-                    const { openLibraryTab } = await import('../libraryModal.js');
-                    openLibraryTab(song.id, t.id);
-                });
-                otherTabs.appendChild(btn);
+                opt.textContent = detail ? `${t.name || 'Tab'} \u00b7 ${detail}` : (t.name || 'Tab');
+                if (t.id === file.tabId) {
+                    opt.selected = true;
+                    opt.dataset.current = 'true';
+                    currentTabId = t.id;
+                }
+                scoreSelect.appendChild(opt);
             }
+            if (currentTabId) scoreSelect.value = currentTabId;
+            activeScoreSwitch = async (tabId) => {
+                if (!tabId || tabId === currentTabId) return;
+                $('scoreOptionsPanelCloseBtn')?.click();
+                const { openLibraryTab } = await import('../libraryModal.js');
+                openLibraryTab(song.id, tabId);
+            };
         } catch {
-            otherTabs.hidden = true;
+            if (mySeq === scoreSyncSeq) otherTabs.hidden = true;
         }
     };
     document.addEventListener('scoreoptions:open', syncOtherTabs);
