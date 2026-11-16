@@ -809,6 +809,16 @@ if (target === 'android') {
         : '');
     if (devIdIdentity) {
       buildEnv.APPLE_SIGNING_IDENTITY = devIdIdentity;
+      // Map the App Store Connect API key vars from .env to the APPLE_API_* names Tauri's macOS bundler expects for notarization.
+      const ascKeyId = (process.env.ASC_KEY_ID ?? '').trim();
+      const ascIssuerId = (process.env.ASC_ISSUER_ID ?? '').trim();
+      const ascKeyPath = (process.env.ASC_KEY_PATH ?? '').trim();
+      if (!buildEnv.APPLE_API_KEY && !buildEnv.APPLE_API_ISSUER && !buildEnv.APPLE_API_KEY_PATH
+        && ascKeyId && ascIssuerId && ascKeyPath) {
+        buildEnv.APPLE_API_KEY = ascKeyId;
+        buildEnv.APPLE_API_ISSUER = ascIssuerId;
+        buildEnv.APPLE_API_KEY_PATH = path.resolve(rootDir, ascKeyPath);
+      }
       // tauri.macos.conf.json defaults signingIdentity to "-" for unsigned local builds; clear it so APPLE_SIGNING_IDENTITY applies.
       const macosSigningConfig = path.join(tauriDir, 'target', 'macos-signing-config.json');
       await mkdir(path.dirname(macosSigningConfig), { recursive: true });
