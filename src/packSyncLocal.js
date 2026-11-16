@@ -10,7 +10,7 @@ import { getAllLibraryData, getSongById, putLibraryRecord, deleteLibraryRecord, 
 import { getAllStoredFiles } from './fileStore.js';
 import { listSoundFonts, getSoundFontData, restoreSoundFontEntry, deleteSoundFont } from './soundFontStore.js';
 import { listClasstab, getClasstabData, restoreClasstabEntry, deleteClasstab, classtabFingerprint } from './classtab/backup.js';
-import { listAudioFiles } from './audioSync/audioFileStore.js';
+import { listAudioFiles, deleteAudioFile } from './audioSync/audioFileStore.js';
 import { collectAllSettings, applyRestoredSettings } from './backupRestore.js';
 import { buildSongPack } from './mtbackup.js';
 import { isPackId, saveMpakToLibrary } from './mpak.js';
@@ -229,4 +229,65 @@ export async function fetchSoundFontOnDemand(store, id, meta = {}) {
     const bytes = await store.read(`soundfonts/${id}.sf2`);
     const item = { id, name: meta.name || id, size: meta.size || bytes.length, addedAt: meta.addedAt || Date.now(), fetchData: async () => asBuffer(bytes) };
     await restoreSoundFontEntry(item, { wipe: true });
+}
+
+/**
+ * Removes local SoundFonts and song audio files that are already present in `store`,
+ * and updates the sync baseline so future hybrid syncs keep them remote-only instead of deleting them remotely.
+ */
+export async function evictLocalHeavyAssets({ store, baselines = localBaselines, location }) {
+    const base = baselines.get(location) || { items: {}, records: {} };
+    const nextBase = { items: { ...(base.items || {}) }, records: { ...(base.records || {}) } };
+    let freedSoundFonts = 0, freedAudio = 0, freedBytes = 0;
+
+    const [fonts, remoteFontEntries] = await Promise.all([listSoundFonts(), store.list('soundfonts/')]);
+    const remoteFontPaths = new Set(remoteFontEntries.map((e) => e.path));
+    for (const f of fonts) {
+        if (!remoteFontPaths.has(`soundfonts/${f.id}.sf2`)) continue;
+        await deleteSoundFont(f.id);
+        delete nextBase.items[`s:${f.id}`];
+        freedSoundFonts++;
+        freedBytes += f.size || 0;
+    }
+
+    const [audioFiles, { songs }, remotePackEntries] = await Promise.all([
+        listAudioFiles(), getAllLibraryData(), store.list('packs/'),
+    ]);
+    if (audioFiles.length) {
+        const packsWithAudio = new Set();
+        for (const e of remotePackEntries) {
+            const m = /^packs\/([^/]+)\/audio\/.+/.exec(e.path);
+            if (m) packsWithAudio.add(m[1]);
+        }
+        const packBySongKey = new Map();
+        for (const song of songs) {
+            const k = enc(songKeyOf(song));
+            const pid = isPackId(song.id) ? song.id : (isPackId(song.packId) ? song.packId : null);
+            if (k && pid) packBySongKey.set(k, pid);
+        }
+        const evictedPackIds = new Set();
+        for (const a of audioFiles) {
+            const keys = a.songKeys || [];
+            if (!keys.length) continue;
+            const packIds = keys.map((k) => packBySongKey.get(k));
+            if (packIds.some((pid) => !pid || !packsWithAudio.has(pid))) continue;
+            await deleteAudioFile(a.id);
+            freedAudio++;
+            freedBytes += a.size || 0;
+            for (const pid of packIds) evictedPackIds.add(pid);
+        }
+        if (evictedPackIds.size) {
+            const afterItems = await createLocalAdapter().items();
+            for (const pid of evictedPackIds) {
+                const key = `p:${pid}`;
+                const after = afterItems.get(key);
+                if (nextBase.items[key] && after) {
+                    nextBase.items[key] = { ...nextBase.items[key], l: after.fp };
+                }
+            }
+        }
+    }
+
+    baselines.set(location, nextBase);
+    return { freedAudio, freedSoundFonts, freedBytes };
 }

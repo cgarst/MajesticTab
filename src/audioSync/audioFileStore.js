@@ -157,6 +157,11 @@ export async function setAudioPeaks(id, peaks, durationMs = null) {
     await request('readwrite', s => s.put(rec));
 }
 
+/** Deletes an audio file record by id. */
+export async function deleteAudioFile(id) {
+    await request('readwrite', s => s.delete(id));
+}
+
 export async function clearAllAudioFiles() {
     await request('readwrite', s => s.clear());
 }

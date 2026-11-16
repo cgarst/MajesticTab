@@ -7,7 +7,7 @@ import { planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, rep
 import { probeLocation, needsUpgrade, upgradeLocation } from './storage/upgrade.js';
 import { writeStoreInfo, StoreTooNewError } from './storage/storeInfo.js';
 import { createProviderStore } from './storageProviders.js';
-import { createLocalAdapter, localBaselines, isHybridSyncEnabled, setHybridSyncEnabled } from './packSyncLocal.js';
+import { createLocalAdapter, localBaselines, isHybridSyncEnabled, setHybridSyncEnabled, evictLocalHeavyAssets } from './packSyncLocal.js';
 import { formatBytes, escapeHtml } from './backupRestore.js';
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported, ICLOUD_UNAVAILABLE_MESSAGE } from './icloudDrive.js';
@@ -306,6 +306,18 @@ const REASON = {
 };
 const asChange = (i) => ({ name: i.name, reason: REASON[i.action](i), size: i.size || 0, conflict: Boolean(i.conflict) });
 
+function hybridControlsHtml(target) {
+    const on = isHybridSyncEnabled();
+    return `
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2">
+            <div class="form-check form-switch m-0">
+                <input class="form-check-input theme-switch" type="checkbox" id="syncHybridToggle" ${on ? 'checked' : ''}>
+                <label class="form-check-label small" for="syncHybridToggle">Keep audio and SoundFonts remote</label>
+            </div>
+            ${on ? textAction('evict-local-heavy', `Free local copies already in ${shortPlace(target)}`) : ''}
+        </div>`;
+}
+
 function showReview(target, store, plan) {
     const by = (action) => plan.items.filter(c => c.action === action).map(asChange);
     const down = by(ITEM_ACTION.DOWNLOAD);
@@ -354,10 +366,7 @@ function showReview(target, store, plan) {
         <p class="sync-hint">
             Songs, collections, recents, setlists and settings follow the newest change on either side, and a removal on one side is carried to the other. When both sides changed a song, its tabs and recordings are combined and none is dropped.
         </p>
-        <div class="form-check form-switch mt-2">
-            <input class="form-check-input theme-switch" type="checkbox" id="syncHybridToggle" ${isHybridSyncEnabled() ? 'checked' : ''}>
-            <label class="form-check-label small" for="syncHybridToggle">Keep audio and SoundFonts remote</label>
-        </div>`,
+        ${hybridControlsHtml(target)}`,
         {
             subtitle: `Sync with ${place}`,
             footer: button('close', 'Cancel') + button('apply', parts.length ? `Sync now (${parts.join(', ')})` : 'Sync now', { primary: true })
@@ -427,7 +436,8 @@ function showDone(target, r, { title = 'Sync complete' } = {}) {
     reloadOnClose = Boolean(r.downloaded || r.merged || r.removedHere || r.records?.pulled || r.records?.removedHere);
     frame(`<div class="task-status" role="status"><strong>${escapeHtml(title)}</strong>
         <span class="task-status-detail">${lines.length ? lines.map(escapeHtml).join('<br>') : 'Library and settings are up to date.'}</span></div>
-        ${failed.length ? notice(`${failed.length} song${failed.length === 1 ? '' : 's'} could not be synced and will be tried again next time: ${escapeHtml(failed.map((f) => f.reason).filter((v, i, a) => a.indexOf(v) === i).join('; '))}`, { error: true }) : ''}`,
+        ${failed.length ? notice(`${failed.length} song${failed.length === 1 ? '' : 's'} could not be synced and will be tried again next time: ${escapeHtml(failed.map((f) => f.reason).filter((v, i, a) => a.indexOf(v) === i).join('; '))}`, { error: true }) : ''}
+        ${context?.store ? hybridControlsHtml(target) : ''}`,
         { subtitle: `Synced with ${targetLabel(target)}`, footer: button('close', 'Done', { primary: true }) });
 }
 
@@ -590,12 +600,37 @@ async function upgrade() {
     }
 }
 
+async function evictHeavy() {
+    if (!context?.store) return;
+    const { target, store } = context;
+    showProgress(target);
+    updateProgress({ phase: 'pull', current: 1, total: 2, text: `Checking ${where(target)}...` });
+    try {
+        const res = await evictLocalHeavyAssets({ store, baselines: localBaselines, location: location(target, store) });
+        const parts = [];
+        if (res.freedAudio) parts.push(`${res.freedAudio} audio file${res.freedAudio === 1 ? '' : 's'}`);
+        if (res.freedSoundFonts) parts.push(`${res.freedSoundFonts} SoundFont${res.freedSoundFonts === 1 ? '' : 's'}`);
+        if (parts.length) {
+            reloadOnClose = true;
+            const mb = res.freedBytes >= 1024 * 1024 ? ` (${(res.freedBytes / (1024 * 1024)).toFixed(1)} MB)` : '';
+            showToast(`Removed ${parts.join(' and ')} from this device${mb}. Copies remain in ${where(target)}.`, 'success');
+        } else {
+            showToast(`No local audio or SoundFonts in ${where(target)} to free.`, 'info');
+        }
+        return start();
+    } catch (err) {
+        console.error('[Sync] Free local copies failed:', err);
+        showError(err.message);
+    }
+}
+
 async function handleAction(action) {
     try {
         if (action === 'close') return closeSyncModal();
         if (action === 'upgrade') return upgrade();
         if (action === 'retry') return start({ interactive: true });
         if (action === 'apply') return apply();
+        if (action === 'evict-local-heavy') return evictHeavy();
         if (action === 'replace-remote' && context) return showConfirmReplace(context.target, context.store);
         if (action === 'back-to-review' && context) return showReview(context.target, context.store, context.plan);
         if (action === 'confirm-replace-remote') return replaceRemote();
