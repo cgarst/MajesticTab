@@ -1574,6 +1574,7 @@ body.fretboard-open {
 /* A sentence, not a count: it takes its own line */
 #syncEditorInfo .sync-info-note { flex-basis: 100%; }
 #syncEditorInfo .sync-info-note::before { content: none !important; }
+#syncFromSelect { width: auto; max-width: min(260px, 100%); }
 #syncEditorTimeline {
   margin-top: 8px;
   margin-bottom: 12px;

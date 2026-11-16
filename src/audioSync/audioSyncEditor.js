@@ -3,9 +3,9 @@
 // delete, shift, jump, and import and export (AlphaTab sync points text and JSON). Every edit is saved at once
 // (syncStore) and announced with an `audiosync:changed` window event, so the follower picks it up.
 
-import { getSongKey } from '../youtubePlayer.js';
+import { getSongKey, getVideoInfo } from '../youtubePlayer.js';
 import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
-import { loadRecord, listRecords, saveRecord, loadRestorePoint, samePoints, SYNC_CHANGED_EVENT } from './syncStore.js';
+import { loadRecord, listRecords, mediaKey, saveRecord, loadRestorePoint, samePoints, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { getAudioMeta, getAudioFile } from './audioFileStore.js';
 import { decodeFlux, refineOffset } from './refineOffset.js';
 import { measureAlignment, compareSyncs, conflictText } from './alignCheck.js';
@@ -255,12 +255,16 @@ export function initAudioSyncEditor() {
         infoHtml += `<span class="sync-info-check sync-info-note" id="syncAlignNote"${alignText ? '' : ' hidden'}>${escapeHtml(alignText)}</span>`;
         $('syncEditorInfo').innerHTML = infoHtml;
         checkAlignment();
+        refreshFromRow();
     }
 
     // Does another recording of this song have a sync that disagrees with how the two recordings line up? The audio
     // offsets and the other recordings' peaks are kept for as long as the page is open, so an edit costs one comparison.
     const alignments = new Map();
     const otherPeaks = new Map();
+    const suggested = new Map(); // `${this}>${other}` -> how much later this recording is than the other, once measured
+    const pairKey = (otherMedia) => `${mediaKey(media())}>${mediaKey(otherMedia)}`;
+    let filledFor = ''; // the pair whose measured offset is already in the box, so a typed value is not overwritten
     let alignText = '';
     let conflict = null; // { other: record, alignment } while another recording's sync disagrees with this one
     async function checkAlignment() {
@@ -279,12 +283,14 @@ export function initAudioSyncEditor() {
             const key = `${cur.media.audioId}|${id}|${peaks.length}`;
             if (!alignments.has(key)) alignments.set(key, measureAlignment(cur.peaks, peaks));
             const alignment = alignments.get(key);
+            if (alignment.kind === 'offset') suggested.set(pairKey(other.media), -alignment.offsetMs);
             text = conflictText(compareSyncs(points, other.points, alignment), alignment, other.media.name || 'another recording');
             if (text) { conflict = { other, alignment }; break; }
         }
         if (current !== cur) return;
         alignText = text || '';
         $('syncRederiveBtn').hidden = !conflict;
+        fillFromOffset();
         if (conflict) $('syncRederiveBtn').title = `Replace these points with the ones of ${conflict.other.media.name || 'the other recording'}, moved by how far the two recordings are apart`;
         const el = $('syncAlignNote');
         if (el) { el.textContent = alignText; el.hidden = !alignText; }
@@ -389,6 +395,59 @@ export function initAudioSyncEditor() {
         $('syncEditorInfo').textContent = `Kept these ${points.length} points as the restore point`;
         updateRestoreButtons();
     });
+
+    const describeMove = (ms) => (ms ? `moved ${Math.abs(ms)} ms ${ms > 0 ? 'later' : 'earlier'}` : 'not moved');
+    const recordingName = (m) => m.name || (m.kind === 'youtube' ? getVideoInfo(m.videoId)?.title || m.label || 'YouTube video' : 'another recording');
+
+    /** Replaces this recording's points with `other`'s, `laterMs` later (negative: earlier). One undo step. */
+    function takeSyncFrom(other, laterMs, note = '') {
+        const next = other.points.map((p) => ({ ...p, timeMs: p.timeMs + laterMs })).filter((p) => p.timeMs >= 0);
+        if (!next.length) return;
+        const ask = `Replace the ${points.length} current points with the ${next.length} of ${recordingName(other.media)}, ${describeMove(laterMs)}${note}? Undo brings the current ones back while this window is open.`;
+        if (!points.length || confirm(ask)) persist(next);
+    }
+
+    // "Use the sync of ...": for a recording the app cannot measure against another one (a YouTube video), the offset is typed
+    const fromRecords = () => {
+        const mine = mediaKey(media());
+        return listRecords(songKey()).filter((r) => mediaKey(r.media) !== mine && r.points.some((p) => Number.isInteger(p.barIndex)));
+    };
+    function refreshFromRow() {
+        const others = fromRecords();
+        const select = $('syncFromSelect');
+        $('syncFromRow').hidden = !others.length;
+        if (!others.length) return;
+        const keep = select.value;
+        select.replaceChildren(...others.map((r) => {
+            const o = document.createElement('option');
+            o.value = mediaKey(r.media);
+            o.textContent = recordingName(r.media);
+            return o;
+        }));
+        if (others.some((r) => mediaKey(r.media) === keep)) select.value = keep;
+        fillFromOffset();
+    }
+    /** Puts the measured offset in the box when the audio of both recordings could be compared; otherwise leaves what was typed. */
+    function fillFromOffset() {
+        const key = `${mediaKey(media())}>${$('syncFromSelect').value}`;
+        const ms = suggested.get(key);
+        if (ms === undefined || filledFor === key) return;
+        filledFor = key;
+        $('syncFromMs').value = String(ms);
+        $('syncFromMs').title = 'Measured from the two audio files, to about 20 ms';
+    }
+    $('syncFromSelect').addEventListener('change', () => {
+        filledFor = '';
+        $('syncFromMs').title = '';
+        $('syncFromMs').value = '0';
+        fillFromOffset();
+    });
+    $('syncFromBtn').addEventListener('click', () => {
+        const other = fromRecords().find((r) => mediaKey(r.media) === $('syncFromSelect').value);
+        const ms = Math.round(Number($('syncFromMs').value));
+        if (other && Number.isFinite(ms)) takeSyncFrom(other, ms);
+    });
+
     // Use the other recording's sync for this one, moved by the exact offset between the two audio files
     $('syncRederiveBtn').addEventListener('click', async () => {
         const found = conflict;
@@ -408,11 +467,8 @@ export function initAudioSyncEditor() {
                 const r = fluxB && refineOffset(fluxA, fluxB, offsetMs);
                 if (r && r.confidence >= 0.5) { offsetMs = r.offsetMs; exact = true; }
             }
-            // offsetMs maps a time here to the other recording's time, so the other's times come back by subtracting it
-            const next = found.other.points.map((p) => ({ ...p, timeMs: p.timeMs - offsetMs })).filter((p) => p.timeMs >= 0);
-            const name = found.other.media.name || 'the other recording';
-            const ask = `Replace the ${points.length} current points with the ${next.length} of ${name}, moved by ${offsetMs} ms${exact ? '' : ' (roughly: the audio could not be compared more closely)'}? Undo brings the current ones back while this window is open.`;
-            if (next.length && confirm(ask)) persist(next);
+            // offsetMs maps a time here to the other recording's time, so this recording is `-offsetMs` later than the other
+            takeSyncFrom(found.other, -offsetMs, exact ? '' : ' (roughly: the audio could not be compared more closely)');
         } finally {
             btn.textContent = label;
             btn.disabled = false;
@@ -552,6 +608,9 @@ export function initAudioSyncEditor() {
             if (isTvMode()) return;
             current = ctx;
             selectedId = null;
+            filledFor = '';
+            $('syncFromMs').value = '0';
+            $('syncFromMs').title = '';
             undoStack = [];
             redoStack = [];
             currentRecord = loadRecord(songKey(), media());
