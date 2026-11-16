@@ -297,7 +297,7 @@ export async function buildMpak(file, options = {}) {
     let activeTitle = '';
     if (!songKey || !options.song) {
         try {
-            const { getSongKey, playerState } = await import('./youtubePlayer.js');
+            const { getSongKey, playerState } = await import('./soundPlayer.js');
             if (!songKey) songKey = getSongKey();
             activeArtist = playerState?.artist || '';
             activeTitle = playerState?.title || '';
@@ -1008,7 +1008,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
     let activeReaderKey = null;
     if (!options.songKey || options.applyToActiveReader === undefined) {
         try {
-            const { getSongKey } = await import('./youtubePlayer.js');
+            const { getSongKey } = await import('./soundPlayer.js');
             activeReaderKey = getSongKey();
         } catch { /* headless environment */ }
     }

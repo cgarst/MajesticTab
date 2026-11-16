@@ -10,7 +10,7 @@ import {
     copySyncedVideoFromSibling,
     deleteSyncedVideos,
     playerState
-} from '../youtubePlayer.js';
+} from '../soundPlayer.js';
 import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
 import { showToast } from '../utils/toast.js';
 

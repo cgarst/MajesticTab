@@ -41,7 +41,7 @@ async function openExternal(url) {
 export async function linkOriginalVideo(songKey, piece) {
     const url = piece.video_links?.[0]?.url;
     if (!songKey || !url) return;
-    const { extractVideoId } = await import('../youtubePlayer.js');
+    const { extractVideoId } = await import('../soundPlayer.js');
     const id = extractVideoId(url);
     if (!id) return; // Vimeo links are not played in the app; the row menu still opens them
     const k = encodeURIComponent(String(songKey).toLowerCase());
@@ -76,7 +76,7 @@ export async function openPiece(piece, composer) {
     }
     const { openLocalFile } = await import('../fileProviders.js');
     await openLocalFile(file);
-    const { getSongKey } = await import('../youtubePlayer.js');
+    const { getSongKey } = await import('../soundPlayer.js');
     await linkOriginalVideo(getSongKey(), piece);
 }
 

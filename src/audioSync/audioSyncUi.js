@@ -3,7 +3,7 @@
 // and, when the song has sync points for that recording, the follower runs on its own. Only one recording drives the cursor at a time. The synth and a recording are never the clock together:
 // the follower stands down while the synth plays and resumes when the recording does.
 
-import { getSongKey, onYouTubeEvent, jamYouTubeControl, toggleYouTubePanel } from '../youtubePlayer.js';
+import { getSongKey, onYouTubeEvent, jamYouTubeControl, toggleYouTubePanel } from '../soundPlayer.js';
 import { onTransportEvent, isSynthPlaying } from '../gpProcessor/gpPlayer.js';
 import { loadRecordingPeaks } from './stemSet.js';
 import { loadRecord } from './syncStore.js';

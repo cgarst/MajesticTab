@@ -41,7 +41,7 @@ globalThis.window = {
 globalThis.MutationObserver = class { observe() {} disconnect() {} };
 globalThis.requestAnimationFrame = (fn) => setTimeout(fn, 0);
 
-await import('../src/youtubePlayer.js');
+await import('../src/soundPlayer.js');
 const { buildFretboardSvg, renderScalesSection, renderCircleInfoPanel, getChordNotesForSymbol, scaleDefinitions } = await import('../src/referenceLibrary.js');
 const { playNote, strumChord } = await import('../src/utils/chordStrum.js');
 const { strumWithSoundFont } = await import('../src/utils/chordSynth.js');

@@ -23,7 +23,7 @@ import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigat
 import { getPagesPerView, setTextPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtils.js';
-import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
+import { initYouTubePlayer, updateActiveSong } from './soundPlayer.js';
 import { initAudioSyncUi } from './audioSync/audioSyncUi.js';
 import { initAudioFilePlayer, updateSongForAudioFile } from './audioSync/audioFilePlayer.js';
 import { initRealAudioController, updateSongForRealAudio } from './audioSync/realAudioController.js';
@@ -1501,7 +1501,7 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
     currentProcessing = { aborted: false };
     
     // Update YouTube player metadata with filename
-    updateSongForYouTube({
+    updateActiveSong({
         filename: file.name,
         scoreTitle: file.songTitle || '',
         scoreArtist: file.songTitle ? (file.artist || '') : '',

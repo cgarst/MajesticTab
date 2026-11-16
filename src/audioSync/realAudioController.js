@@ -11,7 +11,7 @@ import {
     applySyncedDefaults, renderSyncedVideos,
     getSongKey, playerState, getVideoInfo, jamYouTubeControl, onYouTubeEvent, isYouTubeAvailable, isYouTubePlaying, playPauseYouTube,
     pauseYouTube, rewindYouTube10Seconds, setYouTubePlaybackRate, setYouTubeTrackMode, cancelYouTubeSearch, showYouTubeSource
-} from '../youtubePlayer.js';
+} from '../soundPlayer.js';
 import {
     isAudioFileAvailable, isAudioFilePlaying, playPauseAudioFile, pauseAudioFile,
     rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, renderAudioFile, renderAudioFileList, getLocalRecording, openAudioSource
@@ -289,7 +289,7 @@ function getMediaForSlot(slot) {
     }
 }
 
-// Built on first use: youtubePlayer.js imports this file, so its exports are not ready while this one loads
+// Built on first use: soundPlayer.js imports this file, so its exports are not ready while this one loads
 let ytSource = null;
 
 /**
@@ -489,7 +489,7 @@ export function switchRealAudioSource(source, { load = true } = {}) {
 export async function switchToOriginalSound() {
     try {
         switchRealAudioSlot('original');
-        const { toggleYouTubePanel } = await import('../youtubePlayer.js');
+        const { toggleYouTubePanel } = await import('../soundPlayer.js');
         if (typeof setActiveAudioMode === 'function') setActiveAudioMode('youtube');
         if (typeof toggleYouTubePanel === 'function') toggleYouTubePanel(false);
         if (typeof pauseSynthPlayer === 'function') pauseSynthPlayer();

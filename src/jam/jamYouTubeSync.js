@@ -9,7 +9,7 @@
 import { MSG } from './jamProtocol.js';
 import { DriftFilter, median } from './jamClock.js';
 import { loadSetting, saveSetting } from './jamCommon.js';
-import { jamYouTubeControl, onYouTubeEvent, getSongKey } from '../youtubePlayer.js';
+import { jamYouTubeControl, onYouTubeEvent, getSongKey } from '../soundPlayer.js';
 import { loadRecord, SYNC_CHANGED_EVENT } from '../audioSync/syncStore.js';
 import { buildSyncPayload } from '../audioSync/jamBridge.js';
 

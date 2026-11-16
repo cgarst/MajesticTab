@@ -13,7 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 JS = r"""
 (async () => {
   const sheet = await import('/src/ytSheet.js');
-  const yt = await import('/src/youtubePlayer.js');
+  const yt = await import('/src/soundPlayer.js');
   const nav = await import('/src/utils/navigationUtils.js');
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const out = {};

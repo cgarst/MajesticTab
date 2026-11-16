@@ -4,7 +4,7 @@ import { showToast } from '../utils/toast.js';
 import { setMasterVolume } from '../utils/masterVolume.js';
 import { clearOverrides } from '../utils/sessionOverrides.js';
 import { showPanel, hidePanel, placePanel } from '../utils/readerPanels.js';
-import { pauseYouTube, toggleYouTubePanel } from '../youtubePlayer.js';
+import { pauseYouTube, toggleYouTubePanel } from '../soundPlayer.js';
 import { gpState, renderGPPage, applyGpTrackSelection } from './gpHandler.js';
 import { getPagesPerView, isPhoneReader } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';

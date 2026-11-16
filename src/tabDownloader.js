@@ -604,7 +604,7 @@ function deriveSongKeyAndAliases(primaryArtist, primaryTitle, meta, fileName) {
 async function linkSongKeysToLibrary(songId, keys = []) {
     if (!songId) return;
     try {
-        const { rememberSongKey } = await import('./youtubePlayer.js');
+        const { rememberSongKey } = await import('./soundPlayer.js');
         for (const k of keys) {
             if (k) rememberSongKey(songId, k);
         }

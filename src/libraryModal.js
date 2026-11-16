@@ -31,7 +31,7 @@ import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.
 import { isMpakFile, saveMpakToLibrary } from './mpak.js';
 import { showToast } from './utils/toast.js';
 import { scoreOptionsState, pauseSynthPlayer } from './gpProcessor/gpPlayer.js';
-import { pauseYouTube } from './youtubePlayer.js';
+import { pauseYouTube } from './soundPlayer.js';
 import { pauseAudioFile } from './audioSync/audioFilePlayer.js';
 import { pauseRealAudio } from './audioSync/realAudioController.js';
 import { metronome } from './metronome/metronome.js';

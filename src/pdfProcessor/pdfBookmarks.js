@@ -2,7 +2,7 @@
 // Bookmark management and document outline navigation for PDF documents
 
 import { toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
-import { toggleYouTubePanel } from '../youtubePlayer.js';
+import { toggleYouTubePanel } from '../soundPlayer.js';
 
 let bookmarksState = {
     isOpen: false,

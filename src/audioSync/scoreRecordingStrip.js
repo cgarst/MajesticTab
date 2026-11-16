@@ -4,7 +4,7 @@
 // directly above the bar ruler. "Sync" (or "Edit sync" once points exist) lives here and opens the Sync sheet, so the Original panel only chooses
 // the source. The sheet drives the existing sync controls (tap mode, the point editor) rather than copying them.
 
-import { getSongKey, playerState } from '../youtubePlayer.js';
+import { getSongKey, playerState } from '../soundPlayer.js';
 import { getActiveRecording, getActiveMedia, getEmbeddedSyncPoints } from './realAudioController.js';
 import { loadRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { sessionPointsFor, isJamGuestFollowing, JAM_BRIDGE_EVENT } from './jamBridge.js';

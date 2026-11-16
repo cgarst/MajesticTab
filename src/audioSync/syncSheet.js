@@ -6,7 +6,7 @@
 // (TV, Jam guest) stay in one place.
 
 import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
-import { getSongKey, getVideoInfo, getSiblingSyncedVideos } from '../youtubePlayer.js';
+import { getSongKey, getVideoInfo, getSiblingSyncedVideos } from '../soundPlayer.js';
 import { borrowableRecords } from './borrowSync.js';
 import { SYNC_CHANGED_EVENT, isSyncSharedFromOriginal, setSyncSharedFromOriginal, loadRecord, saveRecord, listPdfRecordsForMedia } from './syncStore.js';
 import { inferBarSyncFromPdf } from './inferBarSync.js';

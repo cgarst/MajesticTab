@@ -43,7 +43,7 @@ class Video:
 yt = Video()
 finished = asyncio.Event()
 
-PROBE = "(async()=>{const m=await import(new URL('youtubePlayer.js', document.baseURI).href); const c=await import(new URL('jam/jamCommon.js', document.baseURI).href); const s=m.jamYouTubeControl.snapshot(); return {t:s.timeSec, playing:s.playing, buffering:s.buffering, outMs:c.estimateOutputLatencyMs()+(c.loadSetting('trimMs',0)||0)}})()"
+PROBE = "(async()=>{const m=await import(new URL('soundPlayer.js', document.baseURI).href); const c=await import(new URL('jam/jamCommon.js', document.baseURI).href); const s=m.jamYouTubeControl.snapshot(); return {t:s.timeSec, playing:s.playing, buffering:s.buffering, outMs:c.estimateOutputLatencyMs()+(c.loadSetting('trimMs',0)||0)}})()"
 
 async def cdp_sampler():
     port = os.environ.get("CDP_PORT")

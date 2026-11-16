@@ -3,7 +3,7 @@
 // delete, shift, jump, and import and export (AlphaTab sync points text and JSON). Every edit is saved at once
 // (syncStore) and announced with an `audiosync:changed` window event, so the follower picks it up.
 
-import { getSongKey, getVideoInfo } from '../youtubePlayer.js';
+import { getSongKey, getVideoInfo } from '../soundPlayer.js';
 import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
 import { loadRecord, listRecords, mediaKey, saveRecord, loadRestorePoint, samePoints, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { loadRecordingPeaks, loadRecordingFlux } from './stemSet.js';

@@ -14,7 +14,7 @@ import { setActiveAudioMode } from '../utils/navigationUtils.js';
 import { attachAlphaTabApi, showSynthPlayer, hideSynthPlayer, detachAlphaTabApi, getPlayerContext, isSynthPlaying, synthPlayerState, setSilentSynthMode, updateSynthUI } from '../gpProcessor/gpPlayer.js';
 import { saveAudioFile, getAudioFile, putAudioRecord, unlinkAudioFile } from '../audioSync/audioFileStore.js';
 import { getLocalRecording } from '../audioSync/audioFilePlayer.js';
-import { playerState } from '../youtubePlayer.js';
+import { playerState } from '../soundPlayer.js';
 import { getSongById } from '../libraryStore.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { showToast } from '../utils/toast.js';

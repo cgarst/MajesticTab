@@ -16,7 +16,7 @@
 // jump back (a repeat sign, a D.S., a second verse on the first page). Tapping an earlier page or line while the
 // recording plays is how one is made; the strip marks those points and the Edit list names them.
 
-import { jamYouTubeControl, onYouTubeEvent, playerState, getSongKey } from '../youtubePlayer.js';
+import { jamYouTubeControl, onYouTubeEvent, playerState, getSongKey } from '../soundPlayer.js';
 import { createYouTubeSource } from '../audioSync/mediaSource.js';
 import { getLocalRecording } from '../audioSync/audioFilePlayer.js';
 import { getRealAudioActiveSource } from '../audioSync/realAudioController.js';

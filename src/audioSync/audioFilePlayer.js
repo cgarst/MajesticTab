@@ -4,7 +4,7 @@
 // audio mode next to the synth and YouTube. Files are kept on the device (audioFileStore.js), keyed to the song, and a
 // sync record remembers each file's name, length and fingerprint so a missing file can be relinked.
 
-import { getSongKey, pauseYouTube, onYouTubeEvent, toggleYouTubePanel } from '../youtubePlayer.js';
+import { getSongKey, pauseYouTube, onYouTubeEvent, toggleYouTubePanel } from '../soundPlayer.js';
 import { pauseSynthPlayer, clearSynthHighlights, onTransportEvent } from '../gpProcessor/gpPlayer.js';
 import { setActiveAudioMode, updateGlobalAudioControls } from '../utils/navigationUtils.js';
 import { createLocalAudioSource } from './localAudioSource.js';

@@ -78,9 +78,9 @@ const {
     getSiblingSyncedVideos,
     copySyncedVideoFromSibling,
     deleteSyncedVideos,
-    updateSongForYouTube,
+    updateActiveSong,
     playerState
-} = await import('../src/youtubePlayer.js');
+} = await import('../src/soundPlayer.js');
 
 test('extractSourceWebsite extracts friendly names and clean hostnames', () => {
     store = {};
@@ -97,7 +97,7 @@ test('getSyncedVideos returns only own synced videos and does not mix in sibling
     const songId = 'song_123';
 
     // Simulate Tab A
-    updateSongForYouTube({
+    updateActiveSong({
         filename: 'Duo No 2 (Guitar 1).gp5',
         scoreTitle: 'Duo No 2 - Guitar 1',
         scoreArtist: 'Carulli',
@@ -115,7 +115,7 @@ test('getSyncedVideos returns only own synced videos and does not mix in sibling
         { barIndex: 0, timeMs: 1200 },
         { barIndex: 1, timeMs: 2400 }
     ]);
-    updateSongForYouTube({
+    updateActiveSong({
         filename: 'Duo No 2 (Guitar 2).gp5',
         scoreTitle: 'Duo No 2 - Guitar 2',
         scoreArtist: 'Carulli',
@@ -145,7 +145,7 @@ test('copySyncedVideoFromSibling copies video and sync points with origin metada
     const songId = 'song_test_copy';
 
     // Set up sibling tab A
-    updateSongForYouTube({
+    updateActiveSong({
         filename: 'TabA.gp5',
         scoreTitle: 'Song A',
         scoreArtist: 'Artist',
@@ -163,7 +163,7 @@ test('copySyncedVideoFromSibling copies video and sync points with origin metada
     saveRecord('Artist - Song B', { kind: 'youtube', videoId: 'vid_own', label: 'Own Video' }, [
         { barIndex: 0, timeMs: 500 }
     ]);
-    updateSongForYouTube({
+    updateActiveSong({
         filename: 'TabB.gp5',
         scoreTitle: 'Song B',
         scoreArtist: 'Artist',
@@ -195,7 +195,7 @@ test('copySyncedVideoFromSibling copies video and sync points with origin metada
 test('deleteSyncedVideos supports multi-select deletion of videos and associated sync points', () => {
     store = {};
 
-    updateSongForYouTube({
+    updateActiveSong({
         filename: 'MultiDelete.gp5',
         scoreTitle: 'Multi Delete Test',
         scoreArtist: 'Artist'

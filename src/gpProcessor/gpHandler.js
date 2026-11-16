@@ -3,7 +3,7 @@ import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, pageGapPx } from '../utils/viewModeUtils.js';
 import { enableContinuousScrollTracking } from '../utils/scrollUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator, updateScrollIndicator } from '../utils/renderUtils.js';
-import { updateSongForYouTube } from '../youtubePlayer.js';
+import { updateActiveSong } from '../soundPlayer.js';
 import { updateSongForAudioFile } from '../audioSync/audioFilePlayer.js';
 import { updateSongForRealAudio } from '../audioSync/realAudioController.js';
 import { attachAlphaTabApi, detachAlphaTabApi, playerKeptOnReset, showScoreOptions, hideScoreOptions, reapplyJamTrackView, warmUpAfterLoad, applyPendingResumeBar, getMixerTracks } from './gpPlayer.js';
@@ -183,10 +183,10 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 
         // Update YouTube player with parsed score metadata
         if (api.score) {
-            updateSongForYouTube({
+            updateActiveSong({
                 filename: file.name,
-                scoreTitle: api.score.title,
-                scoreArtist: api.score.artist,
+                scoreTitle: file.songTitle || api.score.title,
+                scoreArtist: file.songTitle ? (file.artist || '') : api.score.artist,
                 librarySongId: file.librarySongId,
                 packId: file.mpakPackId || null,
                 tabName: file.tabName || file.name,

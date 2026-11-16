@@ -12,7 +12,7 @@ import { readSyncPayload, setSessionSync, setJamGuest, setJamFollowing } from '.
 import { runIdentify } from './jamIdentify.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor, reloadSynthSoundFonts } from '../gpProcessor/gpPlayer.js';
 import { setSessionSoundFonts } from '../soundFontStore.js';
-import { jamYouTubeControl } from '../youtubePlayer.js';
+import { jamYouTubeControl } from '../soundPlayer.js';
 import { base64ToArrayBuffer, arrayBufferToBase64Async } from '../fileStore.js';
 
 const PING_BURST = 10;

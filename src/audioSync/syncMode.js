@@ -8,7 +8,7 @@
 // While active, the score switches to scroll view, the follower is active, and score clicks are taps instead of cursor moves.
 
 import { getAudioLatencyMs, setScoreClickOverride, pauseSynthPlayer, clearSynthHighlights, getMidiTickLookup, onTransportEvent } from '../gpProcessor/gpPlayer.js';
-import { getSongKey, pauseYouTube } from '../youtubePlayer.js';
+import { getSongKey, pauseYouTube } from '../soundPlayer.js';
 import { showToast } from '../utils/toast.js';
 import { getScoreContext, setAudioSyncSuspended, startAudioSync, stopAudioSync, getAudioSyncSession } from './audioSyncController.js';
 import { resolvePoints } from './pointCheck.js';

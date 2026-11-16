@@ -284,7 +284,7 @@ export async function openSaveToLibraryModal(file) {
                     delete other.file.mpakStandalone;
                     delete other.file.mpakPackId;
                 }
-                const { promotePackToLibrary } = await import('./youtubePlayer.js');
+                const { promotePackToLibrary } = await import('./soundPlayer.js');
                 promotePackToLibrary(song);
                 if (oldPackId) {
                     const { clearPackStorage } = await import('./mpakSession.js');
@@ -306,7 +306,7 @@ export async function openSaveToLibraryModal(file) {
 
                 // Link any audio files and sync points attached to the open tab's key to the saved/merged library song
                 try {
-                    const { getSongKey, rememberSongKey } = await import('./youtubePlayer.js');
+                    const { getSongKey, rememberSongKey } = await import('./soundPlayer.js');
                     const { linkAudioFile } = await import('./audioSync/audioFileStore.js');
                     const { attachLibraryAudio } = await import('./audioSync/libraryAudio.js');
                     const { isPackKey } = await import('./mpakSession.js');

@@ -357,7 +357,7 @@ function arrangeSongPanel() {
     altBtn.className = 'btn btn-sm song-row-btn';
     altBtn.innerHTML = '<span><b>Find alternate tab</b><small>Look for another tab of this song</small></span>';
     altBtn.addEventListener('click', async () => {
-        const { playerState } = await import('../youtubePlayer.js');
+        const { playerState } = await import('../soundPlayer.js');
         const { artist, title } = playerState;
         if (!title) return;
         $('scoreOptionsPanelCloseBtn')?.click();

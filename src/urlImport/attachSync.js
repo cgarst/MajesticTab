@@ -8,7 +8,7 @@ import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
 import { buildBeatMap } from '../audioSync/beatMap.js';
 import { placeBarTimes } from '../audioSync/importers/index.js';
 import { saveRecord, SYNC_CHANGED_EVENT } from '../audioSync/syncStore.js';
-import { getSongKey } from '../youtubePlayer.js';
+import { getSongKey } from '../soundPlayer.js';
 import { placeSyncSets } from './urlImport.js';
 
 const WAIT_MS = 20000;

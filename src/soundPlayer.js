@@ -1,4 +1,4 @@
-// youtubePlayer.js
+// soundPlayer.js
 // Collapsible YouTube / Backing Track player integrated into top bar
 import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel, isSynthPlaying } from './gpProcessor/gpPlayer.js';
 import { showPanel, hidePanel, placePanel } from './utils/readerPanels.js';
@@ -1207,7 +1207,7 @@ export function getVideoChoices(slot = playerState.trackMode) {
 }
 
 const videoTitle = (id) => getVideoInfo(id)?.title || 'Loading…';
-const videoSubline = (id, count, meta) => [roleLabel(meta), 'YouTube', getVideoInfo(id)?.author, tracksNote(meta), count ? `Synced · ${count} ${count === 1 ? 'point' : 'points'}` : 'Not synced'].filter(Boolean).join(' · ');
+const videoSubline = (id, count, meta) => [roleLabel(meta), 'YouTube', getVideoInfo(id)?.author, tracksNote(meta), count ? `Mapped · ${count} ${count === 1 ? 'point' : 'points'}` : 'Not mapped'].filter(Boolean).join(' · ');
 
 function disarm() { clearTimeout(armTimer); armedRemoval = null; }
 function arm(kind, id) {
@@ -1237,7 +1237,7 @@ function videoRow({ videoId, count, meta, nested }, current, { remove = false, a
         rm.type = 'button';
         rm.className = 'btn rec-text-btn vrow-remove';
         rm.dataset.removeVideoId = videoId;
-        rm.textContent = armedRemoval === videoId ? `Delete ${count} sync points too?` : 'Remove';
+        rm.textContent = armedRemoval === videoId ? `Delete ${count} map points too?` : 'Remove';
         if (armedRemoval === videoId) rm.classList.add('is-armed');
         row.append(rm);
     }
@@ -1419,7 +1419,7 @@ function updatePlaybackControls() {
 /**
  * Called when a new file or score metadata is loaded in the app
  */
-export function updateSongForYouTube({
+export function updateActiveSong({
     filename = '',
     scoreTitle = '',
     scoreArtist = '',

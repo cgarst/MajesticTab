@@ -216,7 +216,7 @@ async function handlePickedFile(file, options = {}) {
                     const hk = `${mpakBundle.header.song.artist} - ${mpakBundle.header.song.title}`;
                     if (hk.toLowerCase() !== mainKey.toLowerCase()) aliasKeys.push(hk);
                 }
-                const { rememberSongKey } = await import('./youtubePlayer.js');
+                const { rememberSongKey } = await import('./soundPlayer.js');
                 rememberSongKey(targetId, mainKey, { filename: file.name, tabName: addedOption?.name || file.name });
                 for (const ak of aliasKeys) rememberSongKey(targetId, ak, { filename: file.name, tabName: addedOption?.name || file.name });
                 await applyMpakExtras(mpakBundle.header, mpakBundle.part, {

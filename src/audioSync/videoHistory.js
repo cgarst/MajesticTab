@@ -3,7 +3,7 @@
 // Sync points are not stored here: they already belong to each video (see syncStore.js), so every remembered video keeps
 // its own. This list is what lets the Original panel offer past choices that have no sync points yet.
 //
-// Entry: { videoId, lastUsedAt }. Titles and channels are looked up from the video id (youtubePlayer.js), not stored.
+// Entry: { videoId, lastUsedAt }. Titles and channels are looked up from the video id (soundPlayer.js), not stored.
 // At most MAX_VIDEOS per slot: the oldest without sync points go first, and a video with sync points is never dropped.
 
 export const VIDEO_HISTORY_PREFIX = 'yt_videos_';
