@@ -7,7 +7,7 @@ import { planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, rep
 import { probeLocation, needsUpgrade, upgradeLocation } from './storage/upgrade.js';
 import { writeStoreInfo, StoreTooNewError } from './storage/storeInfo.js';
 import { createProviderStore } from './storageProviders.js';
-import { createLocalAdapter, localBaselines, isHybridSyncEnabled, evictLocalHeavyAssets } from './packSyncLocal.js';
+import { createLocalAdapter, localBaselines, isHybridSyncEnabled, evictLocalHeavyAssets, estimateReclaimableLocalBytes } from './packSyncLocal.js';
 import { formatBytes, escapeHtml } from './backupRestore.js';
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported, ICLOUD_UNAVAILABLE_MESSAGE } from './icloudDrive.js';
@@ -681,6 +681,13 @@ async function handleAction(action) {
     } catch (err) {
         showToast(err.message, 'error');
     }
+}
+
+/** Estimates local bytes that can be removed for the active sync location without hitting the network. */
+export async function estimateReclaimableForTarget() {
+    const target = getTarget();
+    if (!target) return { bytes: 0, files: 0 };
+    return estimateReclaimableLocalBytes(target);
 }
 
 /** Removes local copies of files already in the sync location, invoked from the first-level Settings row. */

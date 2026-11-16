@@ -277,32 +277,12 @@ export async function fetchSoundFontOnDemand(store, id, meta = {}) {
  * Removes local SoundFonts and song audio files that are already present in `store`,
  * and updates the sync baseline so future hybrid syncs keep them remote-only instead of deleting them remotely.
  */
-export async function evictLocalHeavyAssets({ store, baselines = localBaselines, location }) {
-    const base = baselines.get(location) || { items: {}, records: {} };
-    const nextBase = { items: { ...(base.items || {}) }, records: { ...(base.records || {}) } };
-    let freedSoundFonts = 0, freedAudio = 0, freedScores = 0, freedBytes = 0;
-
-    const [fonts, remoteFontEntries] = await Promise.all([listSoundFonts(), store.list('soundfonts/')]);
-    const remoteFontPaths = new Set(remoteFontEntries.map((e) => e.path));
+function findEvictableAssets({ fonts, audioFiles, storedFiles, songs, setlists, hasRemoteSoundFont, hasRemotePack, hasRemoteAudio }) {
+    const evictSoundFonts = [];
     for (const f of fonts) {
-        if (!remoteFontPaths.has(`soundfonts/${f.id}.sf2`)) continue;
-        await deleteSoundFont(f.id);
-        delete nextBase.items[`s:${f.id}`];
-        freedSoundFonts++;
-        freedBytes += f.size || 0;
+        if (hasRemoteSoundFont(f.id)) evictSoundFonts.push(f);
     }
 
-    const [audioFiles, storedFiles, { songs, setlists }, remotePackEntries] = await Promise.all([
-        listAudioFiles(), getAllStoredFiles(), getAllLibraryData(), store.list('packs/'),
-    ]);
-    const packsWithAudio = new Set();
-    const remoteManifestPacks = new Set();
-    for (const e of remotePackEntries) {
-        const audioMatch = /^packs\/([^/]+)\/audio\/.+/.exec(e.path);
-        if (audioMatch) packsWithAudio.add(audioMatch[1]);
-        const manMatch = /^packs\/([^/]+)\/manifest\.json$/.exec(e.path);
-        if (manMatch) remoteManifestPacks.add(manMatch[1]);
-    }
     const setlistSongIds = new Set();
     for (const sl of setlists || []) {
         for (const item of sl.items || []) {
@@ -310,8 +290,8 @@ export async function evictLocalHeavyAssets({ store, baselines = localBaselines,
         }
     }
     const isProtected = (song) => Boolean(song.pinned || setlistSongIds.has(song.id));
-    const evictedPackIds = new Set();
 
+    const evictAudio = [];
     if (audioFiles.length) {
         const packBySongKey = new Map();
         const protectedSongKeys = new Set();
@@ -326,11 +306,8 @@ export async function evictLocalHeavyAssets({ store, baselines = localBaselines,
             if (!keys.length) continue;
             if (keys.some((k) => protectedSongKeys.has(k))) continue;
             const packIds = keys.map((k) => packBySongKey.get(k));
-            if (packIds.some((pid) => !pid || !packsWithAudio.has(pid))) continue;
-            await deleteAudioFile(a.id);
-            freedAudio++;
-            freedBytes += a.size || 0;
-            for (const pid of packIds) evictedPackIds.add(pid);
+            if (packIds.some((pid) => !pid || !hasRemoteAudio(pid))) continue;
+            evictAudio.push({ audio: a, packIds });
         }
     }
 
@@ -341,26 +318,121 @@ export async function evictLocalHeavyAssets({ store, baselines = localBaselines,
             if (t.fileStoreId) refCounts.set(t.fileStoreId, (refCounts.get(t.fileStoreId) || 0) + 1);
         }
     }
+    const evictSongs = [];
     for (const song of songs) {
         if (isProtected(song)) continue;
         const pid = isPackId(song.id) ? song.id : (isPackId(song.packId) ? song.packId : null);
-        if (!pid || !remoteManifestPacks.has(pid)) continue;
+        if (!pid || !hasRemotePack(pid)) continue;
         const hadFile = (song.tabOptions || []).some((t) => t.fileStoreId && fileById.has(t.fileStoreId));
         if (!hadFile) continue;
-        const updatedTabs = (song.tabOptions || []).map((t) => {
-            if (!t.fileStoreId) return t;
-            refCounts.set(t.fileStoreId, (refCounts.get(t.fileStoreId) || 1) - 1);
-            return { ...t, fileStoreId: null };
-        });
+        for (const t of song.tabOptions || []) {
+            if (t.fileStoreId) refCounts.set(t.fileStoreId, (refCounts.get(t.fileStoreId) || 1) - 1);
+        }
+        evictSongs.push({ song, pid });
+    }
+    const evictStoredFiles = [];
+    for (const [fileId, count] of refCounts) {
+        if (count <= 0 && fileById.has(fileId)) {
+            evictStoredFiles.push(fileById.get(fileId));
+        }
+    }
+
+    const totalBytes =
+        evictSoundFonts.reduce((s, f) => s + (f.size || 0), 0) +
+        evictAudio.reduce((s, e) => s + (e.audio.size || 0), 0) +
+        evictStoredFiles.reduce((s, f) => s + (f.size || 0), 0);
+
+    return { evictSoundFonts, evictAudio, evictSongs, evictStoredFiles, totalBytes };
+}
+
+function getLatestTargetBaseline(target) {
+    if (!target) return null;
+    try {
+        const prefix = `majestictab_packsync_base_${encodeURIComponent(`${target}|`)}`;
+        let best = null;
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k || !k.startsWith(prefix)) continue;
+            const parsed = JSON.parse(localStorage.getItem(k) || 'null');
+            if (parsed?.items && (!best || Object.keys(parsed.items).length > Object.keys(best.items).length)) {
+                best = parsed;
+            }
+        }
+        return best;
+    } catch {
+        return null;
+    }
+}
+
+/** Estimates reclaimable local bytes for files already synced to `target` without network calls. */
+export async function estimateReclaimableLocalBytes(target) {
+    const base = getLatestTargetBaseline(target);
+    if (!base?.items) return { bytes: 0, files: 0 };
+    const items = base.items;
+    const [fonts, audioFiles, storedFiles, { songs, setlists }] = await Promise.all([
+        listSoundFonts(), listAudioFiles(), getAllStoredFiles(), getAllLibraryData(),
+    ]);
+    const res = findEvictableAssets({
+        fonts,
+        audioFiles,
+        storedFiles,
+        songs,
+        setlists,
+        hasRemoteSoundFont: (id) => Boolean(items[`s:${id}`]),
+        hasRemotePack: (pid) => Boolean(items[`p:${pid}`]),
+        hasRemoteAudio: (pid) => Boolean(items[`p:${pid}`]),
+    });
+    return {
+        bytes: res.totalBytes,
+        files: res.evictSoundFonts.length + res.evictAudio.length + res.evictStoredFiles.length,
+    };
+}
+
+export async function evictLocalHeavyAssets({ store, baselines = localBaselines, location }) {
+    const base = baselines.get(location) || { items: {}, records: {} };
+    const nextBase = { items: { ...(base.items || {}) }, records: { ...(base.records || {}) } };
+
+    const [fonts, remoteFontEntries, audioFiles, storedFiles, { songs, setlists }, remotePackEntries] = await Promise.all([
+        listSoundFonts(), store.list('soundfonts/'),
+        listAudioFiles(), getAllStoredFiles(), getAllLibraryData(), store.list('packs/'),
+    ]);
+    const remoteFontPaths = new Set(remoteFontEntries.map((e) => e.path));
+    const packsWithAudio = new Set();
+    const remoteManifestPacks = new Set();
+    for (const e of remotePackEntries) {
+        const audioMatch = /^packs\/([^/]+)\/audio\/.+/.exec(e.path);
+        if (audioMatch) packsWithAudio.add(audioMatch[1]);
+        const manMatch = /^packs\/([^/]+)\/manifest\.json$/.exec(e.path);
+        if (manMatch) remoteManifestPacks.add(manMatch[1]);
+    }
+
+    const plan = findEvictableAssets({
+        fonts,
+        audioFiles,
+        storedFiles,
+        songs,
+        setlists,
+        hasRemoteSoundFont: (id) => remoteFontPaths.has(`soundfonts/${id}.sf2`),
+        hasRemotePack: (pid) => remoteManifestPacks.has(pid),
+        hasRemoteAudio: (pid) => packsWithAudio.has(pid),
+    });
+
+    const evictedPackIds = new Set();
+    for (const f of plan.evictSoundFonts) {
+        await deleteSoundFont(f.id);
+        delete nextBase.items[`s:${f.id}`];
+    }
+    for (const { audio, packIds } of plan.evictAudio) {
+        await deleteAudioFile(audio.id);
+        for (const pid of packIds) evictedPackIds.add(pid);
+    }
+    for (const { song, pid } of plan.evictSongs) {
+        const updatedTabs = (song.tabOptions || []).map((t) => t.fileStoreId ? { ...t, fileStoreId: null } : t);
         await putLibraryRecord('song', { ...song, tabOptions: updatedTabs });
         evictedPackIds.add(pid);
     }
-    for (const [fileId, count] of refCounts) {
-        if (count <= 0 && fileById.has(fileId)) {
-            await deleteStoredFile(fileId);
-            freedScores++;
-            freedBytes += fileById.get(fileId).size || 0;
-        }
+    for (const f of plan.evictStoredFiles) {
+        await deleteStoredFile(f.id);
     }
 
     if (evictedPackIds.size) {
@@ -375,5 +447,10 @@ export async function evictLocalHeavyAssets({ store, baselines = localBaselines,
     }
 
     baselines.set(location, nextBase);
-    return { freedAudio, freedSoundFonts, freedScores, freedBytes };
+    return {
+        freedAudio: plan.evictAudio.length,
+        freedSoundFonts: plan.evictSoundFonts.length,
+        freedScores: plan.evictStoredFiles.length,
+        freedBytes: plan.totalBytes,
+    };
 }

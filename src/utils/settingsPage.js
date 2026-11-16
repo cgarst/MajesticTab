@@ -13,7 +13,8 @@ import { initWebSearchSettings } from './webSearchSettings.js';
 import { isHideNoTabSongsEnabled, setHideNoTabSongsEnabled } from '../libraryModal.js';
 import { isAutoSyncEnabled, setAutoSyncEnabled, triggerAutoSync, STATE_CHANGED_EVENT } from '../autoSync.js';
 import { isHybridSyncEnabled, setHybridSyncEnabled } from '../packSyncLocal.js';
-import { getSyncPlaceLabel, evictLocalFilesFromSettings } from '../syncUi.js';
+import { getSyncPlaceLabel, evictLocalFilesFromSettings, estimateReclaimableForTarget } from '../syncUi.js';
+import { formatBytes } from '../backupRestore.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -208,13 +209,23 @@ function makeEvictLocalFilesRow() {
     r.classList.add('srow-task');
     const titleEl = r.querySelector('.st b');
     const helpEl = r.querySelector('.st span');
+    let estimateSeq = 0;
     const syncRow = () => {
         const place = getSyncPlaceLabel();
         const title = `Remove local files already in ${place}`;
         if (titleEl) titleEl.textContent = title;
-        if (helpEl) helpEl.textContent = `Frees space on this device while keeping your copies in ${place}.`;
         btn.setAttribute('aria-label', title);
-        r.hidden = !isHybridSyncEnabled();
+        const hidden = !isHybridSyncEnabled();
+        r.hidden = hidden;
+        if (helpEl) helpEl.textContent = `Frees space on this device while keeping your copies in ${place}.`;
+        if (hidden || !helpEl) return;
+        const seq = ++estimateSeq;
+        estimateReclaimableForTarget().then(({ bytes }) => {
+            if (seq !== estimateSeq || r.hidden) return;
+            helpEl.textContent = bytes > 0
+                ? `Frees ${formatBytes(bytes)} on this device while keeping your copies in ${place}.`
+                : `No local files to remove; copies stay in ${place}.`;
+        }).catch(() => {});
     };
     btn.addEventListener('click', async () => {
         if (btn.disabled) return;
@@ -230,6 +241,7 @@ function makeEvictLocalFilesRow() {
     });
     window.addEventListener('sync:hybridChanged', syncRow);
     window.addEventListener(STATE_CHANGED_EVENT, syncRow);
+    window.addEventListener('library:refresh', syncRow);
     syncRow();
     return r;
 }

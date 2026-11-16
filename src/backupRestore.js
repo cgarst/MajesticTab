@@ -1353,26 +1353,19 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <input type="text" class="form-control form-control-sm" id="backupFilenameInput" value="${escapeHtml(defaultFilename)}">
           </div>
 
-          <!-- Where the file goes: a file on this device unless another place is asked for -->
+          <!-- Where the file goes: one button per save destination, matching Restore -->
           <div class="mb-3">
-            <div class="d-flex align-items-center justify-content-between gap-2">
-              <span class="small text-white-50" id="backupSaveToLine">Saves to a file on this device.</span>
-              <button type="button" class="btn btn-sm btn-link p-0 text-white-50 text-decoration-none flex-shrink-0" id="backupSaveElsewhereBtn" style="font-size: 0.75rem;" aria-expanded="false" aria-controls="backupProviderGroup">Save somewhere else</button>
-            </div>
-            <div class="mt-2" id="backupProviderGroup" style="display: none;">
-              <div class="d-flex flex-column gap-2" id="backupProviderList">
-                ${providers.map((p) => `
-                  <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center justify-content-between gap-2" style="cursor: pointer;">
-                    <div class="d-flex align-items-center gap-3 min-w-0">
-                      <input class="form-check-input theme-radio m-0" type="radio" name="backupTargetProvider" value="${escapeHtml(p.id)}" ${p.id === preferredProviderId ? 'checked' : ''}>
-                      <div class="min-w-0">
-                        <div class="fw-semibold text-white small leading-tight">${escapeHtml(p.name)}</div>
-                        <div class="text-muted text-truncate" style="font-size: 0.73rem;">${escapeHtml(p.saveDescription || p.description || '')}</div>
-                      </div>
-                    </div>
-                  </label>
-                `).join('')}
-              </div>
+            <div class="small fw-semibold text-white-50 mb-2">Save backup</div>
+            <div class="d-flex align-items-center gap-2 flex-wrap" id="backupProviderButtons">
+              ${providers.map((p) => {
+                  const label = p.id === 'local' ? 'To file…'
+                      : p.id === 's3' ? 'To S3 bucket'
+                      : p.id === 'webdav' ? 'To WebDAV'
+                      : p.id === 'google-drive' ? 'To Google Drive'
+                      : p.id === 'icloud-drive' ? 'To iCloud Drive'
+                      : `To ${p.name}`;
+                  return `<button type="button" class="btn btn-sm btn-theme-outline px-3" data-backup-provider="${escapeHtml(p.id)}" data-provider-name="${escapeHtml(p.name)}">${escapeHtml(label)}</button>`;
+              }).join('')}
             </div>
           </div>
 
@@ -1381,9 +1374,6 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
 
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="backupCancelBtn">Cancel</button>
-            <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="backupExecuteBtn">
-              Back up
-            </button>
           </div>
         </div>
 
@@ -1957,13 +1947,13 @@ function attachModalHandlers(modal, options = {}) {
     });
 
     // --- CREATE BACKUP ACTION ---
-    const backupExecuteBtn = modal.querySelector('#backupExecuteBtn');
+    const backupProviderBtns = Array.from(modal.querySelectorAll('[data-backup-provider]'));
     const backupStatusAlert = modal.querySelector('#backupStatusAlert');
     const backupFilenameInput = modal.querySelector('#backupFilenameInput');
     const backupFilenameGroup = modal.querySelector('#backupFilenameGroup');
     // Backups are one .mtbackup file; incremental snapshots belong to Sync
     const getBackupFormat = () => 'single';
-    const getBackupProviderId = () => modal.querySelector('input[name="backupTargetProvider"]:checked')?.value || 'local';
+    const getBackupProviderId = () => 'local';
 
     // Resolves where an incremental backup would be stored. `interactive` calls must come from a click,
     // since choosing a folder and re-granting access both need a user gesture.
@@ -2014,31 +2004,7 @@ function attachModalHandlers(modal, options = {}) {
     };
     showLastBackup();
 
-    // The save target is a file on this device unless another place is asked for
-    const providerGroup = modal.querySelector('#backupProviderGroup');
-    const saveElsewhereBtn = modal.querySelector('#backupSaveElsewhereBtn');
-    const saveToLine = modal.querySelector('#backupSaveToLine');
-    const updateSaveToLine = () => {
-        const shown = providerGroup && providerGroup.style.display !== 'none';
-        if (saveElsewhereBtn) { saveElsewhereBtn.textContent = shown ? 'Save to this device' : 'Save somewhere else'; saveElsewhereBtn.setAttribute('aria-expanded', String(Boolean(shown))); }
-        if (saveToLine) {
-            const chosen = modal.querySelector('input[name="backupTargetProvider"]:checked');
-            const name = chosen?.closest('label')?.querySelector('.leading-tight')?.textContent;
-            saveToLine.textContent = shown && name ? `Saves to ${name}.` : 'Saves to a file on this device.';
-        }
-    };
-    if (providerGroup) providerGroup.style.display = 'none';
-    saveElsewhereBtn?.addEventListener('click', () => {
-        const shown = providerGroup.style.display !== 'none';
-        providerGroup.style.display = shown ? 'none' : 'block';
-        if (shown) { const local = modal.querySelector('input[name="backupTargetProvider"][value="local"]'); if (local) local.checked = true; }
-        updateSaveToLine();
-    });
-    modal.querySelectorAll('input[name="backupTargetProvider"]').forEach(el => el.addEventListener('change', updateSaveToLine));
-
-    backupExecuteBtn?.addEventListener('click', async () => {
-        const selectedProviderEl = modal.querySelector('input[name="backupTargetProvider"]:checked');
-        const providerId = selectedProviderEl?.value || 'local';
+    const runBackupToProvider = async (btn, providerId, providerLabel) => {
         let filename = (backupFilenameInput?.value || '').trim();
         if (!filename) filename = `MajesticTab-backup-${new Date().toISOString().split('T')[0]}.mtbackup`;
         if (filename.toLowerCase().endsWith('.json')) {
@@ -2048,12 +2014,12 @@ function attachModalHandlers(modal, options = {}) {
             filename += '.mtbackup';
         }
 
-        backupExecuteBtn.disabled = true;
-        backupExecuteBtn.textContent = 'Backing up…';
+        const origText = btn.textContent;
+        backupProviderBtns.forEach((b) => { b.disabled = true; });
+        btn.textContent = 'Backing up…';
         showTaskProgress(backupStatusAlert, { label: 'Packaging songs…' });
 
         try {
-            const providerLabel = selectedProviderEl?.closest('label')?.querySelector('.leading-tight')?.textContent || providerId;
             const { createMtBackup } = await import('./mtbackup.js');
             const made = await createMtBackup({
                 onProgress: ({ phase, current, total, name }) => {
@@ -2073,17 +2039,25 @@ function attachModalHandlers(modal, options = {}) {
             showLastBackup();
             const note = made.skipped.length ? ` · ${made.skipped.length} song${made.skipped.length === 1 ? '' : 's'} could not be packed: ${made.skipped.slice(0, 3).map(x => x.title).join(', ')}${made.skipped.length > 3 ? '…' : ''}` : '';
             showTaskResult(backupStatusAlert, made.skipped.length ? 'warn' : 'done', `Backup saved (${formatBytes(savedBytes)}) · ${made.summary.packs} song${made.summary.packs === 1 ? '' : 's'}${note}`);
-            backupExecuteBtn.textContent = 'Saved';
+            btn.textContent = 'Saved';
             setTimeout(() => {
-                backupExecuteBtn.disabled = false;
-                backupExecuteBtn.textContent = 'Back up';
+                backupProviderBtns.forEach((b) => { b.disabled = false; });
+                btn.textContent = origText;
             }, 3000);
         } catch (err) {
             console.error('Backup creation failed:', err);
             showTaskResult(backupStatusAlert, 'error', `Could not save the backup. ${err.message}`);
-            backupExecuteBtn.disabled = false;
-            backupExecuteBtn.textContent = 'Try again';
+            backupProviderBtns.forEach((b) => { b.disabled = false; });
+            btn.textContent = origText;
         }
+    };
+
+    backupProviderBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const providerId = btn.dataset.backupProvider || 'local';
+            const providerLabel = btn.dataset.providerName || providerId;
+            runBackupToProvider(btn, providerId, providerLabel);
+        });
     });
 
     // --- RESTORE FILE PICKING & INSPECTION ---
