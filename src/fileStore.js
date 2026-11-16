@@ -203,7 +203,14 @@ let storedFilesCacheVersion = 0;
 function storedFilesWriteTx(db) {
     invalidateStoredFilesCache();
     const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.addEventListener('complete', invalidateStoredFilesCache);
+    tx.addEventListener('complete', () => {
+        invalidateStoredFilesCache();
+        try {
+            if (typeof globalThis.window?.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+                globalThis.window.dispatchEvent(new CustomEvent('majestictab:data-changed'));
+            }
+        } catch (_) {}
+    });
     return tx;
 }
 

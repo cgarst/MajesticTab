@@ -244,6 +244,9 @@ export function saveRecord(songKey, media, points, storage = recordStorage, now 
     try {
         if (!record.points.length && !restore) storage.removeItem(key);
         else storage.setItem(key, JSON.stringify(serializeRecord(record)));
+        if (storage === recordStorage) {
+            globalThis.window?.dispatchEvent?.(new CustomEvent('majestictab:data-changed'));
+        }
     } catch (e) {
         console.warn('[Audio Sync] Could not save sync points:', e);
         return null;
@@ -253,7 +256,14 @@ export function saveRecord(songKey, media, points, storage = recordStorage, now 
 
 export function deleteRecord(songKey, media, storage = recordStorage) {
     const key = storageKey(songKey, media);
-    if (key) try { storage.removeItem(key); } catch { /* ignore */ }
+    if (key) {
+        try {
+            storage.removeItem(key);
+            if (storage === recordStorage) {
+                globalThis.window?.dispatchEvent?.(new CustomEvent('majestictab:data-changed'));
+            }
+        } catch { /* ignore */ }
+    }
 }
 
 /** Every stored record of a song, newest first. */

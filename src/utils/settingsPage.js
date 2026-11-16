@@ -11,6 +11,7 @@ import { canQuitApp } from './quitApp.js';
 import { isNative } from '../tabDownloader.js';
 import { initWebSearchSettings } from './webSearchSettings.js';
 import { isHideNoTabSongsEnabled, setHideNoTabSongsEnabled } from '../libraryModal.js';
+import { isAutoSyncEnabled, setAutoSyncEnabled, triggerAutoSync } from '../autoSync.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -134,19 +135,16 @@ function makeStringingRow() {
     return row('Stringing', 'Standard puts the high string on top, as in tab; upside down puts the low string on top.', seg);
 }
 
-function makeHideNoTabSongsRow() {
+function makeSwitchRow({ id, title, help, checked, onChange }) {
     const sw = el('input', 'form-check-input theme-switch');
     sw.type = 'checkbox';
-    sw.id = 'hideNoTabSongsSwitch';
-    sw.checked = isHideNoTabSongsEnabled();
-    sw.setAttribute('aria-label', 'Hide songs without tabs');
-    sw.addEventListener('change', () => {
-        setHideNoTabSongsEnabled(sw.checked);
-        window.dispatchEvent(new CustomEvent('library:refresh'));
-    });
+    sw.id = id;
+    sw.checked = checked;
+    sw.setAttribute('aria-label', title);
+    sw.addEventListener('change', () => onChange(sw.checked));
     const wrap = el('div', 'form-check form-switch mb-0');
     wrap.appendChild(sw);
-    const r = row('Hide songs without tabs', 'Only show songs in the library that have at least one tab attached.', wrap);
+    const r = row(title, help, wrap);
     r.style.cursor = 'pointer';
     r.addEventListener('click', (e) => {
         if (e.target !== sw) {
@@ -155,6 +153,36 @@ function makeHideNoTabSongsRow() {
         }
     });
     return r;
+}
+
+function makeHideNoTabSongsRow() {
+    return makeSwitchRow({
+        id: 'hideNoTabSongsSwitch',
+        title: 'Hide songs without tabs',
+        help: 'Only show songs in the library that have at least one tab attached.',
+        checked: isHideNoTabSongsEnabled(),
+        onChange: (checked) => {
+            setHideNoTabSongsEnabled(checked);
+            window.dispatchEvent(new CustomEvent('library:refresh'));
+        },
+    });
+}
+
+function makeAutoSyncRow() {
+    return makeSwitchRow({
+        id: 'autoSyncSwitch',
+        title: 'Auto-sync',
+        help: 'Keep your library synced in the background when a location is connected.',
+        checked: isAutoSyncEnabled(),
+        onChange: (checked) => {
+            setAutoSyncEnabled(checked);
+            if (checked) {
+                triggerAutoSync({ force: true, reason: 'toggle' });
+            } else {
+                import('../syncUi.js').then((m) => m.refreshSyncStatus()).catch(() => {});
+            }
+        },
+    });
 }
 
 export function initSettingsPage() {
@@ -357,7 +385,7 @@ export function initSettingsPage() {
     const syncTask = taskRow('sync', 'Sync', 'Keep this device and your backup location matching.', 'Sync');
     if (syncStatus) syncTask[0].querySelector('.st').appendChild(syncStatus);
     panes.library.appendChild(group('Library', makeHideNoTabSongsRow()));
-    panes.library.appendChild(group('Sync', ...syncTask));
+    panes.library.appendChild(group('Sync', ...syncTask, makeAutoSyncRow()));
     panes.library.appendChild(taskGroup('Back up and restore',
         ...[taskRow('backup', 'Create a backup', 'Save your library to one file you keep.', 'Create'),
             taskRow('restore', 'Restore from a backup', 'Bring a backup file back.', 'Restore')]));

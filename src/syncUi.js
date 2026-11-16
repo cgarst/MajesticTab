@@ -11,21 +11,19 @@ import { createLocalAdapter, localBaselines, isHybridSyncEnabled, setHybridSyncE
 import { formatBytes, escapeHtml } from './backupRestore.js';
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported, ICLOUD_UNAVAILABLE_MESSAGE } from './icloudDrive.js';
-import { getPreferredStorage, setPreferredStorage } from './fileProviders.js';
 import { s3ConfigFormHtml, saveS3ConfigFromForm } from './s3Ui.js';
 import { webdavConfigFormHtml, saveWebDavConfigFromForm } from './webdavUi.js';
 import { getS3Config, clearS3Config } from './s3Client.js';
 import { getWebDavConfig, clearWebDavConfig } from './webdavClient.js';
 import { showToast } from './utils/toast.js';
-
-const DRIVE = 'google-drive';
-const FOLDER = 'folder';
-const ICLOUD = 'icloud';
-const S3 = 's3';
-const WEBDAV = 'webdav';
-// A plan that removes this share of the tabs (and at least MASS_REMOVAL_MIN) is called out as unusual
-const MASS_REMOVAL_SHARE = 0.5;
-const MASS_REMOVAL_MIN = 5;
+import {
+    DRIVE, FOLDER, ICLOUD, S3, WEBDAV, MASS_REMOVAL_SHARE, MASS_REMOVAL_MIN,
+    getTarget, setTarget, providerOf, rememberLocation, lastSyncedAt, appVersion,
+    targetLabel, resolveBackend,
+} from './syncBackend.js';
+import {
+    getAutoSyncState, onManualSyncComplete, runWithSyncLock, initAutoSync, STATE_CHANGED_EVENT,
+} from './autoSync.js';
 
 let modal = null;
 let authHandler = null;
@@ -33,21 +31,8 @@ let session = 0;
 let context = null;
 let reloadOnClose = false;
 
-const getTarget = getPreferredStorage;
-const setTarget = setPreferredStorage;
 // Set just before sending the user to Google, so a failed sign-in shows the Connect screen instead of looping
 const AUTO_AUTH_KEY = 'majestictab_sync_auto_auth';
-const LAST_LOCATION_KEY = 'majestictab_sync_location';
-const providerOf = (target) => (target === FOLDER ? 'local' : target);
-const rememberLocation = (location) => { try { localStorage.setItem(LAST_LOCATION_KEY, location); } catch (_) {} };
-const lastSyncedAt = () => { try { const l = localStorage.getItem(LAST_LOCATION_KEY); return l ? localBaselines.get(l)?.syncedAt || 0 : 0; } catch (_) { return 0; } };
-async function appVersion() {
-    try {
-        const [{ default: info }, { formatBuildVersion }] = await Promise.all([import('./build-info.js'), import('./updater.js')]);
-        return formatBuildVersion(info);
-    } catch (_) { return ''; }
-}
-const targetLabel = (target) => target === DRIVE ? 'Google Drive' : target === ICLOUD ? 'iCloud Drive' : target === S3 ? 'your S3 bucket' : target === WEBDAV ? 'your WebDAV server' : 'your backup folder';
 
 function relativeTime(ms) {
     const minutes = Math.round((Date.now() - ms) / 60000);
@@ -59,54 +44,36 @@ function relativeTime(ms) {
     return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
+const PAUSE_NOTE = {
+    'needs-auth': 'sign in to resume auto-sync',
+    'needs-permission': 'allow folder access to resume auto-sync',
+    'needs-review': 'review changes in Sync',
+    'needs-upgrade': 'upgrade needed in Sync',
+    'store-too-new': 'update MajesticTab to sync',
+    'offline': 'offline',
+};
+
 /** Fills the "Last synced" line under the Sync button in Settings. */
 export function refreshSyncStatus() {
     const el = document.getElementById('syncStatusLine');
     if (!el) return;
     const at = lastSyncedAt();
     const target = getTarget();
-    el.textContent = at && target
+    const auto = getAutoSyncState();
+    if (auto.status === 'syncing' && target) {
+        el.textContent = `Syncing with ${targetLabel(target)}...`;
+        return;
+    }
+    const base = at && target
         ? `Last synced ${relativeTime(at)} with ${targetLabel(target)}`
         : 'Not synced yet';
-}
-
-// --- backend ---
-
-/** @returns {Promise<{status: 'ready', backend: object}|{status: string, folderName?: string}>} */
-async function resolveBackend(target, { interactive = false } = {}) {
-    // @googleDrive:begin
-    if (target === DRIVE) {
-        const { isTokenValid, ensureFreshToken } = await import('./googleDrive.js');
-        await ensureFreshToken();
-        if (!isTokenValid()) return { status: 'needs-auth' };
-        const { createDriveBackend } = await import('./driveBackup.js');
-        return { status: 'ready', backend: createDriveBackend() };
+    if (auto.status === 'paused' && PAUSE_NOTE[auto.reason]) {
+        el.textContent = `${base} · ${PAUSE_NOTE[auto.reason]}`;
+    } else if (auto.status === 'error') {
+        el.textContent = `${base} · auto-sync failed`;
+    } else {
+        el.textContent = base;
     }
-    // @googleDrive:end
-    if (target === ICLOUD) {
-        const { getIcloudBackupFolder, createFolderBackend } = await import('./folderBackup.js');
-        const handle = await getIcloudBackupFolder();
-        return handle ? { status: 'ready', backend: createFolderBackend(handle) } : { status: 'needs-icloud' };
-    }
-    if (target === S3) {
-        const { createS3Backend } = await import('./s3Backup.js');
-        const backend = createS3Backend();
-        return backend ? { status: 'ready', backend } : { status: 'needs-s3' };
-    }
-    if (target === WEBDAV) {
-        const { createWebDavBackend } = await import('./webdavBackup.js');
-        const backend = createWebDavBackend();
-        return backend ? { status: 'ready', backend } : { status: 'needs-webdav' };
-    }
-    const folders = await import('./folderBackup.js');
-    let handle = await folders.getSavedBackupFolder();
-    if (!handle && interactive) handle = await folders.pickBackupFolder();
-    if (!handle) return { status: 'needs-folder' };
-    const granted = interactive
-        ? await folders.ensureFolderPermission(handle)
-        : (await folders.queryFolderPermission(handle)) === 'granted';
-    if (!granted) return { status: 'needs-permission', folderName: handle.name };
-    return { status: 'ready', backend: folders.createFolderBackend(handle) };
 }
 
 // --- modal shell ---
@@ -521,16 +488,17 @@ async function apply({ quiet = false } = {}) {
     const mine = ++session;
     if (!quiet) showProgress(target);
     try {
-        const result = await applyPackSync({
+        const result = await runWithSyncLock(() => applyPackSync({
             store, local, baselines: localBaselines, location: location(target, store), hybrid: isHybridSyncEnabled(),
             onProgress: (p) => {
                 if (quiet) return;
                 const push = p.action === ITEM_ACTION.UPLOAD || p.action === ITEM_ACTION.DELETE_REMOTE;
                 updateProgress({ phase: push ? 'push' : 'pull', current: p.current - 1, total: p.total, text: p.name });
             },
-        });
+        }));
         if (mine !== session) return;
         rememberLocation(location(target, store));
+        onManualSyncComplete();
         context = null;
         showDone(target, result, { title: quiet ? 'Everything is in sync' : 'Sync complete' });
         refreshSyncStatus();
@@ -548,16 +516,17 @@ async function replaceRemote() {
     const mine = ++session;
     showProgress(target);
     try {
-        const result = await replaceRemoteFromLocal({
+        const result = await runWithSyncLock(() => replaceRemoteFromLocal({
             store, local, baselines: localBaselines, location: location(target, store),
             onProgress: (p) => {
                 if (mine !== session) return;
                 const push = p.action === ITEM_ACTION.UPLOAD || p.action === ITEM_ACTION.DELETE_REMOTE;
                 updateProgress({ phase: push ? 'push' : 'pull', current: p.current - 1, total: p.total, text: p.name });
             },
-        });
+        }));
         if (mine !== session) return;
         rememberLocation(location(target, store));
+        onManualSyncComplete();
         context = null;
         showDone(target, result, { title: `Replaced ${where(target)}` });
         refreshSyncStatus();
@@ -740,5 +709,7 @@ export function initSync() {
         sessionStorage.removeItem(AUTO_AUTH_KEY);
         start({ interactive: true });
     });
+    window.addEventListener(STATE_CHANGED_EVENT, refreshSyncStatus);
     refreshSyncStatus();
+    initAutoSync();
 }
