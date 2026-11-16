@@ -93,7 +93,7 @@ export function initScoreRecordingStrip() {
         } else {
             statusEl.removeAttribute('title');
             const state = summary.flaggedBar ? `Check bar ${summary.flaggedBar}` : summary.full ? 'Synced' : 'Partly synced';
-            statusEl.textContent = `${state} · ${n} ${n === 1 ? 'point' : 'points'}${fromHost ? ' from the host' : ''}`;
+            statusEl.textContent = fromHost ? `${state} · from the host` : state;
         }
         if (!canAuthor()) actionsEl.innerHTML = '';
         else if (!n) actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Add points</button>';
