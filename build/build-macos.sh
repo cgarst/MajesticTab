@@ -70,7 +70,9 @@ if [ -d "$MOUNT_POINT/MajesticTab.app" ]; then
     echo "Installing MajesticTab.app to /Applications/..."
     rm -rf /Applications/MajesticTab.app
     cp -R "$MOUNT_POINT/MajesticTab.app" /Applications/
-    xattr -cr /Applications/MajesticTab.app
+    if codesign -dv /Applications/MajesticTab.app 2>&1 | grep -q "Signature=adhoc"; then
+        xattr -cr /Applications/MajesticTab.app
+    fi
     echo "Successfully installed MajesticTab.app to /Applications/"
 else
     echo "Error: MajesticTab.app not found in mounted volume at $MOUNT_POINT" >&2
