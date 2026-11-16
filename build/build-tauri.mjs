@@ -813,16 +813,18 @@ if (target === 'android') {
       ? path.join(tauriDir, 'target', 'aarch64-pc-windows-msvc', 'release', 'bundle')
       : path.join(tauriDir, 'target', 'release', 'bundle');
   if (macosAppStore) {
+    const builtApp = path.join(bundleRoot, 'macos', 'MajesticTab.app');
     await rm(path.join(distDir, 'MajesticTab-appstore.app'), { recursive: true, force: true });
     await mkdir(distDir, { recursive: true });
-    await cp(path.join(bundleRoot, 'macos', 'MajesticTab.app'), path.join(distDir, 'MajesticTab-appstore.app'), { recursive: true });
+    await cp(builtApp, path.join(distDir, 'MajesticTab-appstore.app'), { recursive: true });
     // The Mac App Store takes a signed installer package, not the .app. MACOS_INSTALLER_IDENTITY is the "3rd Party Mac Developer
     // Installer" (Mac Installer Distribution) certificate's name.
     const installerIdentity = (process.env.MACOS_INSTALLER_IDENTITY ?? '').trim();
     if (installerIdentity) {
       const pkg = path.join(distDir, 'MajesticTab-appstore.pkg');
       await rm(pkg, { force: true });
-      run('productbuild', ['--component', path.join(distDir, 'MajesticTab-appstore.app'), '/Applications', '--sign', installerIdentity, pkg]);
+      // Pass the MajesticTab.app bundle (not the -appstore copy) so productbuild installs /Applications/MajesticTab.app.
+      run('productbuild', ['--component', builtApp, '/Applications', '--sign', installerIdentity, pkg]);
     }
   } else {
     await copyBundleArtifacts(path.join(bundleRoot, target === 'macos' ? 'dmg' : 'nsis'), target === 'macos' ? '.dmg' : '.exe');
