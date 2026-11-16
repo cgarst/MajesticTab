@@ -115,7 +115,7 @@ export async function updateJson(store, path, change, { attempts = 5 } = {}) {
  * manifest.json first, manifest.json last, so a pack with a manifest is a complete pack. `files` maps relative path to bytes.
  * Files that are already in the store with the same size are skipped when `skipSameSize` (audio, which is Stored and large).
  */
-export async function writePackDir(store, dir, files, { skipSameSize = false, onProgress } = {}) {
+export async function writePackDir(store, dir, files, { skipSameSize = false, onProgress, manifestIfVersion } = {}) {
     checkStorePath(dir);
     const paths = Object.keys(files).filter((p) => p !== 'manifest.json');
     let done = 0;
@@ -127,7 +127,8 @@ export async function writePackDir(store, dir, files, { skipSameSize = false, on
         onProgress?.(++done, paths.length + 1);
     }
     if (!files['manifest.json']) throw new StorageError('A pack needs a manifest.json');
-    await store.write(`${dir}/manifest.json`, files['manifest.json']);
+    // manifestIfVersion: null = a new pack only, a string = replace exactly that manifest (two devices editing one pack)
+    await store.write(`${dir}/manifest.json`, files['manifest.json'], manifestIfVersion === undefined ? undefined : { ifVersion: manifestIfVersion });
     onProgress?.(paths.length + 1, paths.length + 1);
 }
 
