@@ -11,7 +11,9 @@ import { canQuitApp } from './quitApp.js';
 import { isNative } from '../tabDownloader.js';
 import { initWebSearchSettings } from './webSearchSettings.js';
 import { isHideNoTabSongsEnabled, setHideNoTabSongsEnabled } from '../libraryModal.js';
-import { isAutoSyncEnabled, setAutoSyncEnabled, triggerAutoSync } from '../autoSync.js';
+import { isAutoSyncEnabled, setAutoSyncEnabled, triggerAutoSync, STATE_CHANGED_EVENT } from '../autoSync.js';
+import { isHybridSyncEnabled, setHybridSyncEnabled } from '../packSyncLocal.js';
+import { getSyncPlaceLabel, evictLocalFilesFromSettings } from '../syncUi.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -183,6 +185,53 @@ function makeAutoSyncRow() {
             }
         },
     });
+}
+
+function makeHybridSyncRow() {
+    return makeSwitchRow({
+        id: 'hybridSyncSwitch',
+        title: 'Keep files in cloud until opened',
+        help: 'Syncs your song list and settings while leaving files in your sync location until you open a song.',
+        checked: isHybridSyncEnabled(),
+        onChange: (checked) => {
+            setHybridSyncEnabled(checked);
+            window.dispatchEvent(new CustomEvent('sync:hybridChanged', { detail: { enabled: checked } }));
+        },
+    });
+}
+
+function makeEvictLocalFilesRow() {
+    const btn = el('button', 'btn btn-sm srow-ghost srow-hit', 'Remove');
+    btn.type = 'button';
+    btn.id = 'evictLocalFilesBtn';
+    const r = row(' ', ' ', btn);
+    r.classList.add('srow-task');
+    const titleEl = r.querySelector('.st b');
+    const helpEl = r.querySelector('.st span');
+    const syncRow = () => {
+        const place = getSyncPlaceLabel();
+        const title = `Remove local files already in ${place}`;
+        if (titleEl) titleEl.textContent = title;
+        if (helpEl) helpEl.textContent = `Frees space on this device while keeping your copies in ${place}.`;
+        btn.setAttribute('aria-label', title);
+        r.hidden = !isHybridSyncEnabled();
+    };
+    btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.textContent = 'Removing...';
+        try {
+            await evictLocalFilesFromSettings();
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Remove';
+            syncRow();
+        }
+    });
+    window.addEventListener('sync:hybridChanged', syncRow);
+    window.addEventListener(STATE_CHANGED_EVENT, syncRow);
+    syncRow();
+    return r;
 }
 
 export function initSettingsPage() {
@@ -385,7 +434,7 @@ export function initSettingsPage() {
     const syncTask = taskRow('sync', 'Sync', 'Keep this device and your backup location matching.', 'Sync');
     if (syncStatus) syncTask[0].querySelector('.st').appendChild(syncStatus);
     panes.library.appendChild(group('Library', makeHideNoTabSongsRow()));
-    panes.library.appendChild(group('Sync', ...syncTask, makeAutoSyncRow()));
+    panes.library.appendChild(group('Sync', ...syncTask, makeAutoSyncRow(), makeHybridSyncRow(), makeEvictLocalFilesRow()));
     panes.library.appendChild(taskGroup('Back up and restore',
         ...[taskRow('backup', 'Create a backup', 'Save your library to one file you keep.', 'Create'),
             taskRow('restore', 'Restore from a backup', 'Bring a backup file back.', 'Restore')]));

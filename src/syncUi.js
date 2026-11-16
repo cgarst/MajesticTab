@@ -7,7 +7,7 @@ import { planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, rep
 import { probeLocation, needsUpgrade, upgradeLocation } from './storage/upgrade.js';
 import { writeStoreInfo, StoreTooNewError } from './storage/storeInfo.js';
 import { createProviderStore } from './storageProviders.js';
-import { createLocalAdapter, localBaselines, isHybridSyncEnabled, setHybridSyncEnabled, evictLocalHeavyAssets } from './packSyncLocal.js';
+import { createLocalAdapter, localBaselines, isHybridSyncEnabled, evictLocalHeavyAssets } from './packSyncLocal.js';
 import { formatBytes, escapeHtml } from './backupRestore.js';
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported, ICLOUD_UNAVAILABLE_MESSAGE } from './icloudDrive.js';
@@ -273,16 +273,9 @@ const REASON = {
 };
 const asChange = (i) => ({ name: i.name, reason: REASON[i.action](i), size: i.size || 0, conflict: Boolean(i.conflict) });
 
-function hybridControlsHtml(target) {
-    const on = isHybridSyncEnabled();
-    return `
-        <div class="sync-hybrid">
-            <div class="form-check form-switch sync-hybrid-toggle">
-                <input class="form-check-input theme-switch" type="checkbox" id="syncHybridToggle" ${on ? 'checked' : ''}>
-                <label class="form-check-label" for="syncHybridToggle">Keep files in cloud until opened</label>
-            </div>
-            ${on ? textAction('evict-local-heavy', `Remove local files already in ${shortPlace(target)}`) : ''}
-        </div>`;
+export function getSyncPlaceLabel() {
+    const target = getTarget();
+    return target ? shortPlace(target) : 'cloud';
 }
 
 function showReview(target, store, plan) {
@@ -332,8 +325,7 @@ function showReview(target, store, plan) {
         ${section(up, { title: `Sent to ${place}` })}
         <p class="sync-hint">
             Songs, collections, recents, setlists and settings follow the newest change on either side, and a removal on one side is carried to the other. When both sides changed a song, its tabs and recordings are combined and none is dropped.
-        </p>
-        ${hybridControlsHtml(target)}`,
+        </p>`,
         {
             subtitle: `Sync with ${place}`,
             footer: button('close', 'Cancel') + button('apply', parts.length ? `Sync now (${parts.join(', ')})` : 'Sync now', { primary: true })
@@ -411,8 +403,7 @@ function showDone(target, r, { title = 'Sync complete' } = {}) {
     reloadOnClose = Boolean(r.downloaded || r.merged || r.removedHere || r.records?.pulled || r.records?.removedHere);
     frame(`<div class="task-status" role="status"><strong>${escapeHtml(title)}</strong>
         <span class="task-status-detail">${lines.length ? lines.map(escapeHtml).join('<br>') : 'Library and settings are up to date.'}</span></div>
-        ${failed.length ? notice(`${failed.length} song${failed.length === 1 ? '' : 's'} could not be synced and will be tried again next time: ${escapeHtml(failed.map((f) => f.reason).filter((v, i, a) => a.indexOf(v) === i).join('; '))}`, { error: true }) : ''}
-        ${context?.store ? hybridControlsHtml(target) : ''}`,
+        ${failed.length ? notice(`${failed.length} song${failed.length === 1 ? '' : 's'} could not be synced and will be tried again next time: ${escapeHtml(failed.map((f) => f.reason).filter((v, i, a) => a.indexOf(v) === i).join('; '))}`, { error: true }) : ''}`,
         { subtitle: `Synced with ${targetLabel(target)}`, footer: button('close', 'Done', { primary: true }) });
 }
 
@@ -692,10 +683,38 @@ async function handleAction(action) {
     }
 }
 
+/** Removes local copies of files already in the sync location, invoked from the first-level Settings row. */
+export async function evictLocalFilesFromSettings() {
+    const target = getTarget();
+    if (!target) return openSyncModal();
+    const mine = ++session;
+    try {
+        const opened = await openLocation(target, mine, () => {}, true);
+        if (!opened?.store || mine !== session) {
+            if (mine === session && !opened) return openSyncModal();
+            return;
+        }
+        const res = await evictLocalHeavyAssets({
+            store: opened.store,
+            baselines: localBaselines,
+            location: location(target, opened.store),
+        });
+        if (res.freedAudio || res.freedSoundFonts || res.freedScores) {
+            const mb = res.freedBytes >= 1024 * 1024 ? ` (${(res.freedBytes / (1024 * 1024)).toFixed(1)} MB)` : '';
+            showToast(`Removed local files from this device${mb}. Copies remain in ${where(target)}.`, 'success');
+            window.dispatchEvent(new CustomEvent('library:refresh'));
+        } else {
+            showToast(`No local files in ${where(target)} to remove.`, 'info');
+        }
+    } catch (err) {
+        console.error('[Sync] Free local copies failed:', err);
+        showToast(err.message, 'error');
+    }
+}
+
 /** Opens the Sync task under its row in Settings and compares. Used by the row and by the Sync button in the library. */
 async function onHybridToggle(checked) {
-    setHybridSyncEnabled(checked);
-    if (!context?.plan || !context?.store) return start();
+    if (!context?.plan || !context?.store) return;
     const { target, store, local } = context;
     if (checked) {
         const basePlan = context.fullPlan || context.plan;
@@ -745,9 +764,6 @@ export async function openSyncModal() {
             const action = e.target.closest('[data-sync-action]')?.dataset.syncAction;
             if (action) handleAction(action);
         });
-        modal.addEventListener('change', (e) => {
-            if (e.target.id === 'syncHybridToggle') onHybridToggle(e.target.checked);
-        });
     }
     await start();
 }
@@ -755,6 +771,9 @@ export async function openSyncModal() {
 export function initSync() {
     // The Sync row in Settings opens the task itself (settingsPage.js); another data task opening closes this one
     window.addEventListener('dataTaskOpened', () => { if (modal?.style.display === 'block') reset(); });
+    window.addEventListener('sync:hybridChanged', (e) => {
+        if (modal?.style.display === 'block') onHybridToggle(Boolean(e.detail?.enabled));
+    });
     // Desktop and mobile sign in without reloading the page, so resume the comparison that was waiting on it
     window.addEventListener('googleAuthSuccess', (e) => {
         if (e.detail?.state !== 'sync' || modal?.style.display !== 'block') return;
