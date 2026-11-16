@@ -1540,6 +1540,7 @@ export async function getRecents(limit = MAX_RECENTS_LIMIT) {
     const songCache = new Map();
     const validRecents = [];
     const idsToPurge = [];
+    let validCount = 0;
 
     for (const r of rawRecents) {
         if (!r || !r.librarySongId) {
@@ -1558,15 +1559,15 @@ export async function getRecents(limit = MAX_RECENTS_LIMIT) {
             continue;
         }
 
-        if (!r.coverUrl && song.coverUrl) r.coverUrl = song.coverUrl;
-        if (!r.songTitle && song.title) r.songTitle = song.title;
-        if (!r.artist && song.artist) r.artist = song.artist;
-        if (!r.album && song.album) r.album = song.album;
-
+        validCount++;
         if (validRecents.length < limit) {
+            if (!r.coverUrl && song.coverUrl) r.coverUrl = song.coverUrl;
+            if (!r.songTitle && song.title) r.songTitle = song.title;
+            if (!r.artist && song.artist) r.artist = song.artist;
+            if (!r.album && song.album) r.album = song.album;
             validRecents.push(r);
-        } else if (limit <= MAX_RECENTS_LIMIT && r.id) {
-            // Purge excess stored recents beyond limit
+        } else if (validCount > MAX_RECENTS_LIMIT && limit <= MAX_RECENTS_LIMIT && r.id) {
+            // Purge excess stored recents beyond MAX_RECENTS_LIMIT (not beyond a smaller caller limit like getRecents(1))
             idsToPurge.push(r.id);
         }
     }
