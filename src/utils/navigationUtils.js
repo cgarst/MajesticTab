@@ -1285,6 +1285,8 @@ export function handleGlobalPlayPause() {
         return;
     }
     if (isSynthAvailable()) {
+        // Falling back to the Synth (Original is selected but has nothing to play): select it, so the dock and the cursor follow
+        if (!synthIsSelected()) setActiveAudioMode('synth');
         playPauseSynth();
         return;
     }
@@ -1292,6 +1294,11 @@ export function handleGlobalPlayPause() {
         playPauseRealAudio();
         return;
     }
+}
+
+function synthIsSelected() {
+    return Boolean(document.getElementById('synthToggleBtn')?.classList.contains('active-audio-mode')
+        || document.getElementById('mobileSynthToggleBtn')?.classList.contains('active-audio-mode'));
 }
 
 /**
