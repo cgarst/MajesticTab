@@ -223,7 +223,10 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             } else {
                 const idx = cfg.getPages().findIndex((p) => p.some((it) => it.canvas === canvas));
                 if (idx >= 0 && !(idx >= state.value && idx < state.value + state.perView)) {
-                    applyScrubValue(cfg, state, Math.max(state.min, Math.min(state.max, idx)));
+                    const onePage = (cfg.getPageStep?.() ?? state.perView) === 1;
+                    const forward = idx >= state.value + state.perView;
+                    const target = (onePage === forward) ? idx - state.perView + 1 : idx;
+                    applyScrubValue(cfg, state, Math.max(state.min, Math.min(state.max, target)));
                 }
             }
         }
