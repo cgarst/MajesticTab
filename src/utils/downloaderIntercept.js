@@ -368,7 +368,7 @@ export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, lo
             const { fetchText } = await import('../urlImport/openFromUrl.js');
             sets = await load(matchedUrl, fetchText);
         }
-        if (!sets?.length) return { saved: [], skipped: ['No sync points found in source'] };
+        if (!sets?.length) return { saved: [], skipped: ['No map points found in source'] };
 
         let bars = null;
         if (file) {
@@ -381,15 +381,15 @@ export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, lo
         if (switchToOriginal && result?.saved?.length) await switchToOriginalSound();
         if (typeof showToast === 'function') {
             if (result?.saved?.length) {
-                showToast(`Added sync points for ${result.saved.length === 1 ? result.saved[0] : `${result.saved.length} videos`}`, 'success');
+                showToast(`Added map points for ${result.saved.length === 1 ? result.saved[0] : `${result.saved.length} videos`}`, 'success');
             } else if (result?.skipped?.length) {
-                showToast(`Sync points not added: ${result.skipped[0]}`, 'warning', 6000);
+                showToast(`Map points not added: ${result.skipped[0]}`, 'warning', 6000);
             }
         }
         return result;
     } catch (e) {
         console.warn('[Tab Downloader] Auto-sync points error:', e);
-        if (typeof showToast === 'function') showToast(`Sync points not added: ${e?.message || 'could not fetch them'}`, 'warning', 6000);
-        return { saved: [], skipped: [e?.message || 'Failed to fetch sync points'] };
+        if (typeof showToast === 'function') showToast(`Map points not added: ${e?.message || 'could not fetch them'}`, 'warning', 6000);
+        return { saved: [], skipped: [e?.message || 'Failed to fetch map points'] };
     }
 }

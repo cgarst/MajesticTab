@@ -100,7 +100,7 @@ export function openSongTabPicker(o) {
                 return `<li class="tabpick-item${isDef ? ' is-default' : ''}" data-tab-id="${esc(t.id)}">
                   <button type="button" class="tabpick-row tabpick-open" data-act="open" data-tab-id="${esc(t.id)}">
                     <span class="tabpick-name">${esc(t.name)}</span>
-                    ${o.isSynced(t) ? '<span class="sync-dot" title="Synced audio" role="img" aria-label="Synced audio"></span>' : ''}
+                    ${o.isSynced(t) ? '<span class="sync-dot" title="Mapped audio" role="img" aria-label="Mapped audio"></span>' : ''}
                     ${meta ? `<span class="tabpick-meta">${esc(meta)}</span>` : ''}
                   </button>
                   ${manage ? `

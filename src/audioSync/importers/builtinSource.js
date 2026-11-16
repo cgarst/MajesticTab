@@ -33,6 +33,6 @@ export const builtinSource = {
             if (responses.length === 1 + k) return { fetch: [`${u.origin}/api/video-points/${song}/${ids[k]}/list`] };
             if (hasSets(responses[1 + k])) return { text: responses[1 + k] };
         }
-        throw new Error('No sync points have been added to this tab (or its recent versions) yet.');
+        throw new Error('No map points have been added to this tab (or its recent versions) yet.');
     }
 };

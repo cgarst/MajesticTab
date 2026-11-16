@@ -139,7 +139,8 @@ export async function installArchive(bytes) {
         const mb = Math.round(bytes.byteLength / 1048576);
         throw new ClasstabError(full ? `Not enough space to store the archive (${mb} MB).` : "Couldn't store the archive on this device.", full ? 'quota' : 'store');
     }
-    zipCache = bytes;
+    // Do not pin the ~50+ MB ZIP in JS heap after install; getZip() reads it from IndexedDB on demand.
+    zipCache = null;
     catalogCache = record;
     const diff = diffCatalogs(old, record);
     listeners.forEach((fn) => { try { fn(); } catch { /* a listener failing must not stop the others */ } });

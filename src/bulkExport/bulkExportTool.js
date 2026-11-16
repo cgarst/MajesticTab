@@ -1,7 +1,7 @@
 // bulkExportTool.js
 // Bulk export page in Tools:
 // 1. Library metadata: CSV containing artist, album, song, youtube url, youtube backing url, tunings, tab files, year
-// 1b. Sync data: ZIP of JSON files, one per song and recording
+// 1b. Map data: ZIP of JSON files, one per song and recording
 // 2. Original tab files: All .gp, .pdf, .txt files from library and storage bundled into a ZIP
 // 3. PDF export: Runs all tabs in library through score PDF export, bundled into a ZIP
 
@@ -78,7 +78,7 @@ export function renderBulkExportTool(container) {
         return `
         <div class="be-modes" role="tablist" aria-label="Bulk export modes">
           <button type="button" class="be-mode-btn" data-mode="metadata" role="tab" aria-selected="${state.activeMode === 'metadata'}" ${state.running ? 'disabled' : ''}>Library metadata</button>
-          <button type="button" class="be-mode-btn" data-mode="sync" role="tab" aria-selected="${state.activeMode === 'sync'}" ${state.running ? 'disabled' : ''}>Sync data</button>
+          <button type="button" class="be-mode-btn" data-mode="sync" role="tab" aria-selected="${state.activeMode === 'sync'}" ${state.running ? 'disabled' : ''}>Map data</button>
           <button type="button" class="be-mode-btn" data-mode="originals" role="tab" aria-selected="${state.activeMode === 'originals'}" ${state.running ? 'disabled' : ''}>Original tab files</button>
           <button type="button" class="be-mode-btn" data-mode="pdf" role="tab" aria-selected="${state.activeMode === 'pdf'}" ${state.running ? 'disabled' : ''}>PDF export</button>
         </div>`;
@@ -115,17 +115,17 @@ export function renderBulkExportTool(container) {
     function renderSyncHtml() {
         const songs = state.cachedSongs || [];
         const { count, songCount } = buildSyncZipEntries({ songs, collections: state.cachedCollections || [] });
-        const statsText = `${count} ${count === 1 ? 'recording' : 'recordings'} synced across ${songCount} ${songCount === 1 ? 'song' : 'songs'}`;
+        const statsText = `${count} ${count === 1 ? 'recording' : 'recordings'} mapped across ${songCount} ${songCount === 1 ? 'song' : 'songs'}`;
 
         return `
         <div class="be-section">
-          <p class="ct-sub">Export your audio sync points as a ZIP of JSON files, one per song and recording, in artist and album folders. Each file names the YouTube video or audio file the points are synced to.</p>
+          <p class="ct-sub">Export your map points as a ZIP of JSON files, one per song and recording, in artist and album folders. Each file names the YouTube video or audio file the points are mapped to.</p>
           <div class="be-card">
             <div class="be-stats-row"><span class="be-stats-label">${esc(statsText)}</span></div>
           </div>
           <div class="be-actions">
             <button type="button" class="btn btn-sm btn-theme-primary" data-act="export-sync" ${state.running || count === 0 ? 'disabled' : ''}>
-              Export sync data as ZIP
+              Export map data as ZIP
             </button>
             ${state.readyExport?.mode === 'sync' && !state.running ? `<button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" data-act="share-ready"><i class="bi-share"></i> Save / Share (${esc(state.readyExport.filename)})</button>` : ''}
             ${state.statusText ? `<span class="be-status" role="status">${esc(state.statusText)}</span>` : ''}
@@ -256,7 +256,7 @@ export function renderBulkExportTool(container) {
     async function handleExportSync() {
         if (state.running) return;
         state.running = true;
-        state.statusText = 'Collecting sync data…';
+        state.statusText = 'Collecting map data…';
         state.progressPct = 25;
         notify();
 
@@ -265,7 +265,7 @@ export function renderBulkExportTool(container) {
             const collections = state.cachedCollections || (await getCollections().catch(() => []));
             const result = buildSyncZipEntries({ songs, collections });
             if (result.count === 0) {
-                state.statusText = 'No sync data found';
+                state.statusText = 'No map data found';
                 return;
             }
             state.progressPct = 70;
@@ -273,12 +273,12 @@ export function renderBulkExportTool(container) {
 
             const zipped = createZip(result.entries);
             const today = new Date().toISOString().slice(0, 10);
-            const filename = `MajesticTab_Sync_Data_${today}.zip`;
+            const filename = `MajesticTab_Map_Data_${today}.zip`;
             const file = new File([new Blob([zipped], { type: 'application/zip' })], filename, { type: 'application/zip' });
             state.readyExport = { file, filename, mode: 'sync' };
 
             await saveOrDownloadBlob(file, filename);
-            state.statusText = `Exported ${result.count} sync ${result.count === 1 ? 'file' : 'files'}`;
+            state.statusText = `Exported ${result.count} map ${result.count === 1 ? 'file' : 'files'}`;
             state.progressPct = 100;
         } catch (err) {
             console.error('[BulkExport] Error exporting sync data:', err);

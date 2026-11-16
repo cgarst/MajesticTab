@@ -63,8 +63,8 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
         // A TV, or a guest following the host, only follows existing points, so with none the row has nothing to offer
         row.hidden = !media || ((isTvMode() || guestOnVideo(media)) && !has);
         info.textContent = has
-            ? `${record.points.length} sync point${record.points.length === 1 ? '' : 's'}${record.fromHost ? ' from the host' : ''}`
-            : 'No sync points';
+            ? `${record.points.length} map point${record.points.length === 1 ? '' : 's'}${record.fromHost ? ' from the host' : ''}`
+            : 'No map points';
 
         const session = getAudioSyncSession();
         const mine = Boolean(session && source && session.source === source);
@@ -110,11 +110,11 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
             ? { fromAudioId: from.media.audioId, fromAudioName: from.media.name, fromSongKey: songKey, copiedAt: Date.now() }
             : { fromVideoId: from.media.videoId, fromSongKey: songKey, copiedAt: Date.now() };
         const saved = borrowRecord(songKey, from, { ...media, origin }, offsetMs, { replace });
-        if (!saved) { showToast('Could not copy the sync points', 'error'); return null; }
+        if (!saved) { showToast('Could not copy the map points', 'error'); return null; }
         window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
         showToast(lined
-            ? `Copied ${saved.points.length} sync points, shifted by ${(offsetMs / 1000).toFixed(2)} s. Adjust them with Shift all points.`
-            : `Copied ${saved.points.length} sync points with no shift. The recordings did not line up on their own: play it and use Shift all points.`, lined ? 'success' : 'warning');
+            ? `Copied ${saved.points.length} map points, shifted by ${(offsetMs / 1000).toFixed(2)} s. Adjust them with Shift all points.`
+            : `Copied ${saved.points.length} map points with no shift. The recordings did not line up on their own: play it and use Shift all points.`, lined ? 'success' : 'warning');
         // The editor plays the recording from any point and shifts every point, so the offset can be set by ear
         const source = getSource();
         if (source) {

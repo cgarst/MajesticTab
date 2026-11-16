@@ -70,7 +70,7 @@ export function openManageSyncedVideosModal() {
 
     const currentTab = playerState.tabName || playerState.filename || 'this tab';
     if (subTitle) {
-        subTitle.textContent = `Synced videos for ${currentTab}`;
+        subTitle.textContent = `Mapped videos for ${currentTab}`;
     }
 
     const videos = getSyncedVideos();
@@ -94,9 +94,9 @@ export function openManageSyncedVideosModal() {
                 const siteText = v.origin.fromSourceWebsite ? ` · Source: ${v.origin.fromSourceWebsite}` : '';
                 originText = `Copied from tab: <b>${escapeHtml(fromName)}</b>${escapeHtml(siteText)}`;
             } else if (playerState.sourceWebsite) {
-                originText = `Original tab sync · Source: ${escapeHtml(playerState.sourceWebsite)}`;
+                originText = `Original tab map · Source: ${escapeHtml(playerState.sourceWebsite)}`;
             } else {
-                originText = 'Original sync for this tab';
+                originText = 'Original map for this tab';
             }
 
             const row = document.createElement('div');
@@ -271,7 +271,7 @@ export function initSyncedVideosModals() {
         // Confirmed deletion
         const toDelete = Array.from(selectedDeleteIds);
         const count = deleteSyncedVideos(toDelete);
-        showToast(`Deleted ${count} synced video${count === 1 ? '' : 's'} and sync points.`, 'success');
+        showToast(`Deleted ${count} mapped video${count === 1 ? '' : 's'} and map points.`, 'success');
         resetDeleteState();
 
         const remaining = getSyncedVideos();
@@ -292,10 +292,10 @@ export function initSyncedVideosModals() {
 
         const success = copySyncedVideoFromSibling(target);
         if (success) {
-            showToast(`Copied sync points from "${target.originTabName}".`, 'success');
+            showToast(`Copied map points from "${target.originTabName}".`, 'success');
             closeModal('copySyncedVideoModal');
         } else {
-            showToast('Could not copy sync points.', 'error');
+            showToast('Could not copy map points.', 'error');
         }
     });
 

@@ -72,7 +72,7 @@ export async function extractPlayedBarsFromFile(file) {
 export async function attachSyncSets(sets, { songKey = null, aliasKeys = [], bars = null } = {}) {
     if (!sets?.length) return { saved: [], skipped: [] };
     const playedBars = (bars && bars.length) ? bars : await playedBarsWhenReady();
-    if (!playedBars.length) return { saved: [], skipped: ['The score was not ready, so no sync points were added'] };
+    if (!playedBars.length) return { saved: [], skipped: ['The score was not ready, so no map points were added'] };
     let covered = 0;
     let firstPassOnly = false;
     let extra = 0;
@@ -88,7 +88,7 @@ export async function attachSyncSets(sets, { songKey = null, aliasKeys = [], bar
     if (covered) for (const p of placed) p.label = `${p.label} (bars 1-${covered} of ${playedBars.length})`;
     // A longer list: read from the first bar, so say how many times were left over (the end may not line up)
     if (extra) for (const p of placed) p.label = `${p.label} (list has ${extra} more bars than the score; read from bar 1)`;
-    if (firstPassOnly) for (const p of placed) p.label = `${p.label} (repeats not synced)`;
+    if (firstPassOnly) for (const p of placed) p.label = `${p.label} (repeats not mapped)`;
     const targetKey = songKey || getSongKey();
     const allKeys = [targetKey, ...(Array.isArray(aliasKeys) ? aliasKeys : [])].filter(Boolean);
     const uniqueKeys = [...new Set(allKeys.map(k => String(k).trim()))].filter(Boolean);

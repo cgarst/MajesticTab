@@ -23,13 +23,21 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 Sync the Play listing (text and images) without uploading a build
 
+### android beta
+
+```sh
+[bundle exec] fastlane android beta
+```
+
+Upload the AAB and debug symbols to the internal testing track only (play-beta.yml): no listing sync, no promotion
+
 ### android release
 
 ```sh
 [bundle exec] fastlane android release
 ```
 
-Upload the AAB, debug symbols and changelog, and sync the listing
+Upload the AAB, debug symbols and changelog to PLAY_PROMOTE_TO (or PLAY_TRACK), and sync the listing
 
 ----
 

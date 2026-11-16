@@ -60,7 +60,7 @@ const formats = [
             const points = importPoints(text);
             // importPoints does not validate JSON entries, and any array of objects would pass for points
             const valid = points?.length && points.every(p => Number.isInteger(p.barIndex) && p.barIndex >= 0 && Number.isFinite(p.timeMs) && p.timeMs >= 0);
-            return valid ? [{ label: `Sync points (${points.length})`, points }] : null;
+            return valid ? [{ label: `Map points (${points.length})`, points }] : null;
         }
     },
     {
@@ -91,9 +91,9 @@ export function detectSets(text) {
         const sets = format.read(body);
         if (sets) return sets;
     }
-    if (/^\s*(\[\s*\]|\{\s*\}|null)\s*$/.test(body)) throw new Error('That address has no sync points yet.');
+    if (/^\s*(\[\s*\]|\{\s*\}|null)\s*$/.test(body)) throw new Error('That address has no map points yet.');
     if (/^\s*<(!doctype|html)/i.test(body)) {
-        throw new Error('That address is a web page. Use the address of the data itself: sync text, a JSON export, or JSON that lists the start time of each bar.');
+        throw new Error('That address is a web page. Use the address of the data itself: map text, a JSON export, or JSON that lists the start time of each bar.');
     }
     throw new Error('Nothing in that address reads as sync points: expected AlphaTab \\sync text, a MajesticTab JSON export, or JSON with a list of bar start times.');
 }

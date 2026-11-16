@@ -232,8 +232,8 @@ function showLinkUi(file) {
             $('synthMidiNote').textContent = 'Silent bar-by-bar auto-scroll is active. Link a MIDI file if you also want synth audio.';
         } else {
             $('synthMidiNote').textContent = linked
-                ? "Plays the MIDI file. It isn't synced to the tab."
-                : "Link a MIDI file to hear this tab. It isn't synced to the tab.";
+                ? "Plays the MIDI file. It isn't mapped to the tab."
+                : "Link a MIDI file to hear this tab. It isn't mapped to the tab.";
         }
     }
     if ($('synthMidiReplaceBtn')) $('synthMidiReplaceBtn').textContent = linked ? 'Link another MIDI file\u2026' : 'Link a MIDI file\u2026';

@@ -469,7 +469,7 @@
         <div class="song-format-options">
           <button class="btn" id="exportSourceTabBtn" type="button" title="Export the original tab file" aria-label="Export the original tab file">Original</button>
           <button class="btn" id="exportPDFBtn" type="button" title="Export as PDF" aria-label="Export as PDF" style="display: none;">PDF</button>
-          <button class="btn" id="exportMpakBtn" type="button" title="Export as a Music Pack (.mpak) retaining all score versions, associated media, and sync data" aria-label="Export as a Music Pack (.mpak) retaining all score versions, associated media, and sync data">MPAK</button>
+          <button class="btn" id="exportMpakBtn" type="button" title="Export as a Music Pack (.mpak) retaining all score versions, associated media, and map data" aria-label="Export as a Music Pack (.mpak) retaining all score versions, associated media, and map data">MPAK</button>
         </div>
       </div>
       <div class="song-format-row" id="songShareRow" hidden>
@@ -477,7 +477,7 @@
         <div class="song-format-options" id="songShareOptions">
           <button class="btn" id="shareSourceTabBtn" type="button" title="Share the original tab file" aria-label="Share the original tab file">Original</button>
           <button class="btn" id="sharePDFBtn" type="button" title="Share as PDF" aria-label="Share as PDF" style="display: none;">PDF</button>
-          <button class="btn" id="shareMpakBtn" type="button" title="Share as a Music Pack (.mpak) retaining all score versions, associated media, and sync data" aria-label="Share as a Music Pack (.mpak) retaining all score versions, associated media, and sync data">MPAK</button>
+          <button class="btn" id="shareMpakBtn" type="button" title="Share as a Music Pack (.mpak) retaining all score versions, associated media, and map data" aria-label="Share as a Music Pack (.mpak) retaining all score versions, associated media, and map data">MPAK</button>
         </div>
       </div>
       <p class="small text-muted mb-0 text-center" id="songSourceLine" style="display: none;"></p>
@@ -557,7 +557,7 @@
     </div>
 
     <div class="mb-3" id="synthMidiSection" style="display: none;">
-      <p class="small text-muted mb-2" id="synthMidiNote">Plays the MIDI file. It isn't synced to the tab.</p>
+      <p class="small text-muted mb-2" id="synthMidiNote">Plays the MIDI file. It isn't mapped to the tab.</p>
       <div class="d-flex gap-2">
         <button type="button" class="btn btn-sm btn-theme-outline" id="synthMidiReplaceBtn">Link another MIDI file&hellip;</button>
         <button type="button" class="btn btn-sm btn-theme-outline" id="synthMidiRemoveBtn">Remove</button>
@@ -761,7 +761,7 @@
             <b>Original recording</b>
             <span class="slot-source-line" id="slotSourceOriginal">YouTube · Loading...</span>
           </span>
-          <span class="chip" id="slotChipOriginal">Not synced</span>
+          <span class="chip" id="slotChipOriginal">Not mapped</span>
         </button>
         <button type="button" class="slot" role="radio" aria-checked="false" id="slotRowBacking" data-slot="backing">
           <span class="rd" aria-hidden="true"></span>
@@ -769,7 +769,7 @@
             <b>Backing track</b>
             <span class="slot-source-line" id="slotSourceBacking">No backing track attached</span>
           </span>
-          <span class="chip" id="slotChipBacking">Not synced</span>
+          <span class="chip" id="slotChipBacking">Not mapped</span>
         </button>
       </div>
       <div class="visually-hidden">
@@ -778,7 +778,7 @@
       </div>
     </div>
 
-    <p class="small text-white-50 mb-3" id="realAudioEmptyHint" hidden>Nothing is attached to this tab yet. Add an audio file or a video below, then sync it to the score.</p>
+    <p class="small text-white-50 mb-3" id="realAudioEmptyHint" hidden>Nothing is attached to this tab yet. Add an audio file or a video below, then map it to the score.</p>
 
     <!-- Shared Playback Speed -->
     <div class="d-flex align-items-center justify-content-between mb-3 px-1" hidden>
@@ -810,7 +810,7 @@
             <a class="btn rec-text-btn yt-ext-btn" id="ytExternalLink" href="#" target="_blank" title="Open this search on YouTube" aria-label="Open this search on YouTube" rel="noopener noreferrer"><i class="bi-box-arrow-up-right" aria-hidden="true"></i></a>
           </div>
         </div>
-        <p class="small text-muted mb-3" id="ytAddHint">Search by song or paste a link: either adds the video to the list below, where it keeps its own sync points.</p>
+        <p class="small text-muted mb-3" id="ytAddHint">Search by song or paste a link: either adds the video to the list below, where it keeps its own map points.</p>
       </div>
     </div>
 
@@ -1277,7 +1277,7 @@
   </section>
 </div>
 
-<div id="syncModeBar" class="sync-mode-bar" role="toolbar" aria-label="Tap to sync" hidden>
+<div id="syncModeBar" class="sync-mode-bar" role="toolbar" aria-label="Tap to map" hidden>
   <div class="sync-mode-head">
     <div class="sync-mode-hint small" id="smHint" role="status"></div>
     <button type="button" class="btn btn-sm btn-theme-primary flex-shrink-0" id="smDoneBtn">Done</button>
@@ -1328,7 +1328,7 @@
     <header class="theme-modal-header">
       <div class="theme-modal-title-group">
         <div class="theme-modal-titles">
-          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="syncSheetTitle">Sync</h2>
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="syncSheetTitle">Map</h2>
           <div class="small text-white-50 sync-sheet-sub" id="syncSheetSub"></div>
         </div>
       </div>
@@ -1350,7 +1350,7 @@
           <i class="bi-sliders text-info fs-5"></i>
         </div>
         <div class="theme-modal-titles">
-          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="syncEditorModalTitle">Sync points</h2>
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="syncEditorModalTitle">Map points</h2>
         </div>
       </div>
       <div class="theme-modal-actions">
@@ -1368,12 +1368,12 @@
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncRedoBtn" title="Redo">Redo</button>
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncRestoreBtn" title="Put back the restore point">Restore original</button>
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncKeepBtn" title="Keep the current points as the restore point">Keep as restore point</button>
-        <button type="button" class="btn btn-sm btn-theme-outline" id="syncRederiveBtn" hidden>Use other recording's sync</button>
+        <button type="button" class="btn btn-sm btn-theme-outline" id="syncRederiveBtn" hidden>Use other recording's map</button>
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncCopyBtn" title="Copy the points as AlphaTab sync points text">Copy text</button>
         <button type="button" class="btn btn-sm btn-theme-danger ms-auto" id="syncClearBtn">Clear all</button>
       </div>
       <div id="syncImportPanel" class="mb-2" hidden>
-        <textarea class="form-control form-control-sm mb-2" id="syncImportText" rows="4" spellcheck="false" aria-label="Sync points text or address" placeholder="Paste AlphaTab sync points (\sync bar pass ms), a web address or exported JSON"></textarea>
+        <textarea class="form-control form-control-sm mb-2" id="syncImportText" rows="4" spellcheck="false" aria-label="Map points text or address" placeholder="Paste AlphaTab sync points (\sync bar pass ms), a web address or exported JSON"></textarea>
         <select class="form-select form-select-sm mb-2" id="syncImportSet" aria-label="Which set of points" hidden></select>
         <div class="d-flex flex-wrap gap-2 align-items-center">
           <button type="button" class="btn btn-sm btn-theme-primary" id="syncImportReplaceBtn">Replace points</button>
@@ -1418,8 +1418,8 @@
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncShiftAllBtn">Apply</button>
       </div>
       <div class="d-flex flex-wrap gap-2 align-items-center mt-2 small" id="syncFromRow" hidden>
-        <span class="text-white-50">Use the sync of</span>
-        <select class="form-select form-select-sm sync-input-from" id="syncFromSelect" aria-label="Recording to take the sync from"></select>
+        <span class="text-white-50">Use the map of</span>
+        <select class="form-select form-select-sm sync-input-from" id="syncFromSelect" aria-label="Recording to take the map from"></select>
         <span class="text-white-50">moved</span>
         <input type="number" class="form-control form-control-sm sync-input-ms" id="syncFromMs" value="0" step="10" aria-label="Milliseconds this recording is later than that one; negative when earlier">
         <span class="text-white-50">ms later</span>
@@ -1442,7 +1442,7 @@
           <div id="syncRows" class="sync-rows"></div>
         </div>
       </details>
-      <div class="small text-white-50 mt-2" id="syncEmpty" hidden>No sync points yet. Play the recording, move the cursor to the bar you hear, and add a point.</div>
+      <div class="small text-white-50 mt-2" id="syncEmpty" hidden>No map points yet. Play the recording, move the cursor to the bar you hear, and add a point.</div>
     </div>
   </section>
 </div>
@@ -1455,8 +1455,8 @@
           <i class="bi-film text-info fs-5"></i>
         </div>
         <div class="theme-modal-titles">
-          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="manageSyncedModalTitle">Synced videos</h2>
-          <div class="small text-white-50" id="manageSyncedModalSub">Synced videos and points for this tab</div>
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="manageSyncedModalTitle">Mapped videos</h2>
+          <div class="small text-white-50" id="manageSyncedModalSub">Mapped videos and points for this tab</div>
         </div>
       </div>
       <div class="theme-modal-actions">
@@ -1480,7 +1480,7 @@
         </div>
       </div>
       <div id="manageSyncedList" class="d-flex flex-column gap-2" role="list"></div>
-      <div id="manageSyncedEmpty" class="text-center text-muted py-4" hidden>No synced videos for this tab.</div>
+      <div id="manageSyncedEmpty" class="text-center text-muted py-4" hidden>No mapped videos for this tab.</div>
     </div>
   </section>
 </div>
@@ -1493,8 +1493,8 @@
           <i class="bi-copy text-info fs-5"></i>
         </div>
         <div class="theme-modal-titles">
-          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="copySyncedModalTitle">Copy synced video</h2>
-          <div class="small text-white-50">Select a video from another tab of this song to copy its sync points</div>
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="copySyncedModalTitle">Copy mapped video</h2>
+          <div class="small text-white-50">Select a video from another tab of this song to copy its map points</div>
         </div>
       </div>
       <div class="theme-modal-actions">
@@ -1505,7 +1505,7 @@
     </header>
     <div class="theme-modal-body p-3">
       <div id="copySyncedList" class="d-flex flex-column gap-2" role="list"></div>
-      <div id="copySyncedEmpty" class="text-center text-muted py-4" hidden>No other tabs of this song have synced videos.</div>
+      <div id="copySyncedEmpty" class="text-center text-muted py-4" hidden>No other tabs of this song have mapped videos.</div>
     </div>
     <div class="theme-modal-footer d-flex justify-content-end gap-2 p-3">
       <button type="button" class="btn btn-sm btn-theme-outline" id="copySyncedCancelBtn">Cancel</button>

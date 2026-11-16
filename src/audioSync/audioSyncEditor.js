@@ -243,8 +243,8 @@ export function initAudioSyncEditor() {
         const syncedBars = new Set(points.map(p => `${p.barIndex}:${p.occurrence || 0}`)).size;
         const flagged = Object.keys(info.flags).length;
         // Plain text separated by middle dots, as everywhere else: statuses are not pills. What needs a look is in ink.
-        const parts = [`<span class="tnum">${points.length} point${points.length === 1 ? '' : 's'}, ${syncedBars} of ${totalBars} bars synced</span>`];
-        if (totalBars > syncedBars && points.length > 0) parts.push(`<span class="tnum">${totalBars - syncedBars} not synced</span>`);
+        const parts = [`<span class="tnum">${points.length} point${points.length === 1 ? '' : 's'}, ${syncedBars} of ${totalBars} bars mapped</span>`];
+        if (totalBars > syncedBars && points.length > 0) parts.push(`<span class="tnum">${totalBars - syncedBars} not mapped</span>`);
         if (flagged > 0) parts.push(`<span class="sync-info-check tnum">${flagged} to check</span>`);
         const fit = ctx && points.length ? syncFit(ctx.timeline, points) : null;
         if (fit) parts.push(`<span class="${fit.level === 'good' ? '' : 'sync-info-check'}">${escapeHtml(fit.text)}</span>`);
@@ -321,7 +321,7 @@ export function initAudioSyncEditor() {
         }
         const incoming = importPoints(text);
         if (!incoming || !incoming.length) {
-            status.textContent = 'No sync points found';
+            status.textContent = 'No map points found';
             return;
         }
         persist(merge ? [...points, ...incoming].sort((a, b) => a.timeMs - b.timeMs) : incoming);
@@ -514,7 +514,7 @@ export function initAudioSyncEditor() {
                 return;
             }
         } catch (_) {}
-        status.textContent = 'No sync points found in that file';
+        status.textContent = 'No map points found in that file';
     }
 
     $('syncImportChooseBtn')?.addEventListener('click', async () => {
@@ -522,8 +522,8 @@ export function initAudioSyncEditor() {
             try {
                 const picked = await window.__TAURI__.dialog.open({
                     multiple: false,
-                    title: 'Choose a sync points file',
-                    filters: [{ name: 'Sync points', extensions: ['json', 'txt', 'atex', 'tex'] }]
+                    title: 'Choose a map points file',
+                    filters: [{ name: 'Map points', extensions: ['json', 'txt', 'atex', 'tex'] }]
                 });
                 if (!picked) return;
                 const path = Array.isArray(picked) ? picked[0] : picked;
@@ -548,7 +548,7 @@ export function initAudioSyncEditor() {
         try { await navigator.clipboard.writeText(toAlphaTexSync(points)); $('syncEditorInfo').textContent = 'Copied the points as text'; } catch { /* clipboard unavailable */ }
     });
     $('syncClearBtn').addEventListener('click', () => {
-        if (points.length && confirm('Remove all sync points for this recording?')) persist([]);
+        if (points.length && confirm('Remove all map points for this recording?')) persist([]);
     });
     $('syncShiftBtn').addEventListener('click', () => {
         const from = parseTime($('syncShiftFrom').value);

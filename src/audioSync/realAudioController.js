@@ -340,7 +340,7 @@ export function updateRecordingSlots() {
         if (slot === 'original' && getSlotSource(slot) === 'embedded') {
             srcLine.textContent = 'Guitar Pro file · audio stored in the file';
             chip.className = 'chip ok';
-            chip.textContent = 'Synced';
+            chip.textContent = 'Mapped';
             return;
         }
 
@@ -348,7 +348,7 @@ export function updateRecordingSlots() {
         if (!media) {
             srcLine.textContent = slot === 'original' ? 'No original recording attached' : 'No backing track attached';
             chip.className = 'chip';
-            chip.textContent = 'Not synced';
+            chip.textContent = 'Not mapped';
             return;
         }
 
@@ -360,24 +360,24 @@ export function updateRecordingSlots() {
 
         if (!rec || !rec.points?.length) {
             chip.className = 'chip';
-            chip.textContent = 'Not synced';
+            chip.textContent = 'Not mapped';
         } else if (timeline) {
             const view = buildTimelineModel({ timeline, points: rec.points, axis: 'bars' });
             const fit = rec.anchorType === 'bar' ? syncFit(timeline, rec.points) : null;
             chip.title = fit ? fit.text : '';
             if (fit?.flagged) {
                 chip.className = 'chip warn';
-                chip.textContent = 'Check sync';
+                chip.textContent = 'Check map';
             } else if (view.gaps.length === 0) {
                 chip.className = 'chip ok';
-                chip.textContent = 'Synced';
+                chip.textContent = 'Mapped';
             } else {
                 chip.className = 'chip warn';
-                chip.textContent = 'Partly synced';
+                chip.textContent = 'Partly mapped';
             }
         } else {
             chip.className = 'chip ok';
-            chip.textContent = 'Synced';
+            chip.textContent = 'Mapped';
         }
     });
 }
@@ -399,7 +399,7 @@ function renderEmbeddedRow(selected) {
     const rd = document.createElement('span'); rd.className = 'rd'; rd.setAttribute('aria-hidden', 'true');
     const t = document.createElement('span'); t.className = 't';
     const b = document.createElement('b'); b.textContent = 'Audio in the Guitar Pro file';
-    const sub = document.createElement('span'); sub.textContent = 'Stored in the song file · Synced';
+    const sub = document.createElement('span'); sub.textContent = 'Stored in the song file · Mapped';
     t.append(b, sub);
     btn.append(rd, t);
     btn.addEventListener('click', () => switchRealAudioSource('embedded'));

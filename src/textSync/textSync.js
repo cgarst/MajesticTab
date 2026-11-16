@@ -415,7 +415,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
                 + '<button type="button" class="ct-text rec-done" data-act="done">Done</button>';
         } else if (points.length) {
             const repeats = backs.size ? `${backs.size} ${backs.size === 1 ? 'repeat' : 'repeats'}` : '';
-            const word1 = isAuto ? 'Auto-synced' : 'Synced';
+            const word1 = isAuto ? 'Auto-mapped' : 'Mapped';
             statusEl.textContent = '';
             statusEl.removeAttribute('title');
             const btn = document.createElement('button');
@@ -439,8 +439,8 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             btn.type = 'button';
             btn.className = 'ct-text';
             btn.dataset.act = 'sync';
-            btn.textContent = 'Not synced';
-            btn.title = `The ${rec?.label?.toLowerCase() || 'recording'} plays on its own. The tab won't follow it until you add sync points.`;
+            btn.textContent = 'Not mapped';
+            btn.title = `The ${rec?.label?.toLowerCase() || 'recording'} plays on its own. The tab won't follow it until you add map points.`;
             actionsEl.replaceChildren(btn);
         }
         if (tapping) statusEl.removeAttribute('title');

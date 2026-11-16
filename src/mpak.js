@@ -1304,7 +1304,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
     if (keptEdits) {
         try {
             const { showToast } = await import('./utils/toast.js');
-            showToast('Kept your edited sync points. The pack\'s own are under Restore original in the sync editor.', 'info', 6000);
+            showToast('Kept your edited map points. The pack\'s own are under Restore original in the map editor.', 'info', 6000);
         } catch { /* headless environment */ }
     }
 

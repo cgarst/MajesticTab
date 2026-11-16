@@ -14,7 +14,7 @@ Read every guitar part together
 • Choose an app theme and paper color that are easy on the eyes.
 
 Play along with the original recording
-• Tap to sync any tab to the record you learned it from, from YouTube or an audio file on your device, and the cursor follows the music through tempo changes. Attach a backing track and sync it the same way.
+• Tap to map any tab to the record you learned it from, from YouTube or an audio file on your device, and the cursor follows the music through tempo changes. Attach a backing track and map it the same way.
 • The built-in offline SoundFont synth (load your own SF2 or SF3 files) has a mixer for every track, speed from 50% to 125%, loop for the bars you are learning, count-in, metronome and a 10-second rewind.
 • A virtual fretboard lights up the notes of the current beat, with a color for each track and a left-handed option.
 

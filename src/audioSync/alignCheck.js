@@ -91,7 +91,7 @@ export function conflictText(result, alignment, otherName) {
     if (result?.verdict !== 'conflict') return null;
     const apart = formatShift(alignment.offsetMs);
     if (Math.abs(result.deltaMs) <= OFFSET_TOLERANCE_MS) {
-        return `Same sync times as ${otherName}, but the two recordings are ${apart} apart. One of them is off.`;
+        return `The points match ${otherName}, but the two recordings are ${apart} apart. One of them is off.`;
     }
-    return `Sync differs from ${otherName} by ${formatShift(result.deltaMs)}, but the recordings are ${apart} apart. One of them is off.`;
+    return `The map differs from ${otherName} by ${formatShift(result.deltaMs)}, but the recordings are ${apart} apart. One of them is off.`;
 }

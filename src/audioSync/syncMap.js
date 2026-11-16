@@ -23,7 +23,7 @@ export function validatePoints(points) {
         const a = points[i - 1];
         const b = points[i];
         if (!(b.timeMs > a.timeMs) || !(b.scoreMs > a.scoreMs)) {
-            problems.push({ index: i, id: b.id, code: 'order', message: 'Sync points must be in order in both the recording and the score' });
+            problems.push({ index: i, id: b.id, code: 'order', message: 'Map points must be in order in both the recording and the score' });
             continue;
         }
         const ratio = (b.scoreMs - a.scoreMs) / (b.timeMs - a.timeMs);

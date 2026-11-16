@@ -21,17 +21,17 @@ export async function runSyncSteps({ url, step, fetchText }) {
         const out = await step(url, responses);
         if (typeof out?.text === 'string') return out.text;
         const wanted = out?.fetch;
-        if (!Array.isArray(wanted) || !wanted.length) throw new Error('The sync source returned nothing to fetch or read.');
-        if (wanted.length > MAX_PER_ROUND) throw new Error(`The sync source asked for ${wanted.length} addresses at once; the limit is ${MAX_PER_ROUND}.`);
+        if (!Array.isArray(wanted) || !wanted.length) throw new Error('The map source returned nothing to fetch or read.');
+        if (wanted.length > MAX_PER_ROUND) throw new Error(`The map source asked for ${wanted.length} addresses at once; the limit is ${MAX_PER_ROUND}.`);
         for (const address of wanted) {
             let target;
-            try { target = new URL(address); } catch { throw new Error('The sync source asked for something that is not a web address.'); }
-            if (target.protocol !== 'https:') throw new Error('The sync source may only fetch https addresses.');
-            if (target.origin !== origin) throw new Error(`The sync source asked for ${target.host}, which is not the site you gave (${new URL(origin).host}).`);
+            try { target = new URL(address); } catch { throw new Error('The map source asked for something that is not a web address.'); }
+            if (target.protocol !== 'https:') throw new Error('The map source may only fetch https addresses.');
+            if (target.origin !== origin) throw new Error(`The map source asked for ${target.host}, which is not the site you gave (${new URL(origin).host}).`);
             const text = await fetchText(target.href);
             if (text.length > MAX_CHARS) throw new Error('A response was too large.');
             responses.push(text);
         }
     }
-    throw new Error('The sync source needed too many steps.');
+    throw new Error('The map source needed too many steps.');
 }

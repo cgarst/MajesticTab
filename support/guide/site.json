@@ -67,7 +67,7 @@
         {
           "slug": "original-audio",
           "title": "Original recording",
-          "desc": "Sync a tab to a YouTube video or an audio file by tapping along."
+          "desc": "Map a tab to a YouTube video or an audio file by tapping along."
         },
         {
           "slug": "guitar",
@@ -157,7 +157,7 @@
         {
           "slug": "bulk-export",
           "title": "Bulk export",
-          "desc": "Export your library as a spreadsheet, sync data, tab files or PDFs."
+          "desc": "Export your library as a spreadsheet, map data, tab files or PDFs."
         }
       ]
     },

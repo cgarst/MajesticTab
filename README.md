@@ -6,7 +6,7 @@
 
 **Your music stand. Without the mess.**
 
-Bring all your guitar tabs into one library, fitted to your guitar and synced to the original recording.
+Bring all your guitar tabs into one library, fitted to your guitar and mapped to the original recording.
 
 [![License: MPL 2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/cgarst/MajesticTab?label=release)](https://github.com/cgarst/MajesticTab/releases/latest)
@@ -61,10 +61,10 @@ Most tab apps hand you a list of files. MajesticTab builds a library around the 
 
 ### Play along with the original recording
 
-Sync any tab to the record you learned it from, and the playhead follows the music.
+Map any tab to the record you learned it from, and the playhead follows the music.
 
-- **Tap to sync:** Link a YouTube video or a local audio file on your device, select **Sync** and then **Tap along**, and tap each bar as you hear it. The cursor, metronome, and count-in follow the recording through tempo changes and live drift.
-- **Fine-tune any section:** Re-tap a range of bars, nudge individual sync points, snap a tap to the nearest audio transient, or attach a separate backing track and switch between the original and backing audio.
+- **Tap to map:** Link a YouTube video or a local audio file on your device, select the recording's state and then **Tap along**, and tap each bar as you hear it. The cursor, metronome, and count-in follow the recording through tempo changes and live drift.
+- **Fine-tune any section:** Re-tap a range of bars, nudge individual map points, snap a tap to the nearest audio transient, or attach a separate backing track and switch between the original and backing audio.
 - **Built-in SoundFont synth:** Play Guitar Pro tabs offline with per-track mixing, solo/mute controls, one-click "No guitars" (or "No bass") backing mode, custom `.sf2` / `.sf3` SoundFonts, speed control from 50% to 125% (pitch-preserved on local audio too), bar looping, and a 10-second rewind.
 
 ![The Recording panel with the original recording and a backing track, and a YouTube or local audio source](docs/img/app/original.webp)

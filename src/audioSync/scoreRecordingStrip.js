@@ -78,8 +78,8 @@ export function initScoreRecordingStrip() {
         drawnKey = key;
         strip.classList.toggle('is-synced', points.length > 0);
         const n = points.length;
-        const label = !n ? 'Not synced' : syncStateText(n, summary, fromHost);
-        const hint = !n ? 'The recording plays on its own. The cursor won’t follow it until you add sync points.' : '';
+        const label = !n ? 'Not mapped' : syncStateText(n, summary, fromHost);
+        const hint = !n ? 'The recording plays on its own. The cursor won’t follow it until you add map points.' : '';
         if (!canAuthor()) {
             statusEl.textContent = label;
             if (hint) statusEl.title = hint;
@@ -95,7 +95,7 @@ export function initScoreRecordingStrip() {
             btn.dataset.act = 'sync';
             btn.textContent = label;
             if (hint) btn.title = hint;
-            btn.setAttribute('aria-label', `${label} — open sync options`);
+            btn.setAttribute('aria-label', `${label} — open map options`);
             actionsEl.replaceChildren(btn);
         }
         marksEl.replaceChildren();

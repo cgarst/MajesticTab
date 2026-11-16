@@ -385,7 +385,7 @@ async function addFile(file, { relink = null } = {}) {
             const durationMs = analysed?.durationMs ?? null;
             const sameFile = fingerprint === relink.fingerprint;
             const sameLength = durationMs === null || relink.durationMs === null || Math.abs(durationMs - relink.durationMs) <= LENGTH_TOLERANCE_MS;
-            if (!sameFile && !sameLength && !confirm('This file is a different length from the one the sync points were made with, so they will probably not line up. Use it anyway?')) {
+            if (!sameFile && !sameLength && !confirm('This file is a different length from the one the map points were made with, so they will probably not line up. Use it anyway?')) {
                 setStatus('');
                 return;
             }
@@ -463,7 +463,7 @@ function syncedFiles() {
     return listRecords(getSongKey()).filter(r => r.media.kind === 'local' && r.points.length)
         .map(r => ({ audioId: r.media.audioId, count: r.points.length, points: r.points, origin: r.media.origin || null, updatedAt: r.updatedAt }));
 }
-const pointsLabel = (count) => (count ? `Synced · ${count} ${count === 1 ? 'point' : 'points'}` : 'Not synced');
+const pointsLabel = (count) => (count ? `Mapped · ${count} ${count === 1 ? 'point' : 'points'}` : 'Not mapped');
 
 function disarm() { clearTimeout(state.armTimer); state.armedRemoval = null; }
 function arm(kind, id) {
@@ -523,7 +523,7 @@ function render() {
         const detail = [roleLabel(meta), 'Audio file', tracksNote(meta), f.durationMs ? clock(f.durationMs) : 'Unknown length', megabytes(f.size), pointsLabel(count)].filter(Boolean).join(' · ');
         let actions;
         if (removeMode) {
-            const rm = actionButton('Remove this file', state.armedRemoval === f.id ? `Delete ${count} sync points too?` : 'Remove', () => {
+            const rm = actionButton('Remove this file', state.armedRemoval === f.id ? `Delete ${count} map points too?` : 'Remove', () => {
                 // A file with sync points takes a second press: it would delete them
                 if (count > 0 && state.armedRemoval !== f.id) { arm('remove', f.id); render(); return; }
                 removeFile(f.id);
@@ -540,7 +540,7 @@ function render() {
     for (const m of state.missing) {
         rows.push(fileRow({
             title: m.name || 'Audio file',
-            detail: 'Not on this device. Choose the same file to use its sync points.',
+            detail: 'Not on this device. Choose the same file to use its map points.',
             missing: true,
             actions: [actionButton('Choose the file again', 'Relink', () => startRelink(m), 'btn-theme-outline')]
         }));

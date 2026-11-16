@@ -57,7 +57,7 @@ export function createSyncTimeline({ host, getData, onChangePoints, onSeek, onSe
         <div class="sync-tl-scroll">
           <div class="sync-tl-stack">
             <canvas class="sync-tl-canvas"></canvas>
-            <canvas class="sync-tl-head" aria-label="Sync timeline. Click to seek."></canvas>
+            <canvas class="sync-tl-head" aria-label="Map timeline. Click to seek."></canvas>
           </div>
         </div>
       </div>`;
@@ -175,7 +175,7 @@ export function createSyncTimeline({ host, getData, onChangePoints, onSeek, onSe
         if (!ok) {
             ctx.fillStyle = c.dim;
             ctx.font = '12px system-ui, sans-serif';
-            ctx.fillText('Open a tab to see its sync timeline', 8, HEIGHT / 2);
+            ctx.fillText('Open a tab to see its map timeline', 8, HEIGHT / 2);
             status.textContent = '';
             drawHead();
             return;
