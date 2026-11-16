@@ -697,6 +697,8 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         read_opened_file_range,
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         icloud::icloud_drive_root,
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        icloud::icloud_download,
         self_update::update_install_mode,
         secrets::secret_supported,
         secrets::secret_get,
@@ -754,6 +756,8 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         read_opened_file_range,
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         icloud::icloud_drive_root,
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        icloud::icloud_download,
         self_update::update_install_mode,
         secrets::secret_supported,
         secrets::secret_get,

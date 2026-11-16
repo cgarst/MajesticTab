@@ -9,7 +9,7 @@
 // Folder file systems are usually case-insensitive (macOS, Windows). Writing "case/file" next to "Case/File" would
 // silently replace it, so a write whose name differs from an existing sibling only in case or unicode form throws
 // ConflictError instead. A directory is checked once per store, then remembered.
-import { CAPABILITIES, NotFoundError, ConflictError, checkStorePath, checkStorePrefix } from './contract.js';
+import { CAPABILITIES, NotFoundError, ConflictError, StorageError, checkStorePath, checkStorePrefix } from './contract.js';
 
 const STAT_CONCURRENCY = 16;
 const PART_SUFFIX = '.part';
@@ -185,9 +185,12 @@ export function createBrowserFolderStore(rootHandle, { rootName = 'MajesticTab L
 
 /**
  * @param rootPath absolute path of the folder the user chose
- * @param {{ fs?: object, rootName?: string, label?: string, rootLabel?: string }} options  `fs` defaults to the Tauri plugin
+ * @param {{ fs?: object, rootName?: string, label?: string, rootLabel?: string, icloud?: { download?: (absPath: string) => Promise<void>, timeoutMs?: number, pollMs?: number } }} options
+ *   `fs` defaults to the Tauri plugin. `icloud` is for a folder inside iCloud Drive: a file that iCloud has moved out of
+ *   the device is left as a hidden ".name.icloud" stub. It is listed under its real name with version "evicted" (and size 0),
+ *   and reading it asks `download` to fetch it and waits for it to arrive.
  */
-export function createNativeFolderStore(rootPath, { fs, rootName = 'MajesticTab Library', label = 'the folder', rootLabel } = {}) {
+export function createNativeFolderStore(rootPath, { fs, rootName = 'MajesticTab Library', label = 'the folder', rootLabel, icloud } = {}) {
     const api = () => fs || window.__TAURI__.fs;
     const sep = rootPath.includes('\\') && !rootPath.includes('/') ? '\\' : '/';
     const base = rootPath.replace(/[\\/]+$/, '');
@@ -240,15 +243,44 @@ export function createNativeFolderStore(rootPath, { fs, rootName = 'MajesticTab 
         return { path, size: info.size || 0, version: versionOf(mtime, info.size || 0, info.ino), modifiedTime: isoOf(mtime) };
     }
 
-    async function walk(dir, out) {
+    const stubOf = (name) => `.${name}.icloud`;
+    const STUB = /^\.(.+)\.icloud$/;
+
+    async function walk(dir, out, evicted) {
         const entries = await names(abs(dir));
         if (!entries) return out;
+        const present = new Set(entries.map((e) => e.name));
         for (const e of entries) {
             const rel = dir ? `${dir}/${e.name}` : e.name;
-            if (e.isDirectory) await walk(rel, out);
+            const stub = icloud && !e.isDirectory && STUB.exec(e.name);
+            if (e.isDirectory) await walk(rel, out, evicted);
+            else if (stub) {
+                // an evicted file: listed under its real name unless the real file is there too
+                if (!present.has(stub[1])) { const real = dir ? `${dir}/${stub[1]}` : stub[1]; out.push(real); evicted.add(real); }
+            } else if (icloud && e.name.startsWith('.')) continue;     // .DS_Store and other system files
             else if (e.isFile !== false && !e.name.endsWith(PART_SUFFIX)) out.push(rel);
         }
         return out;
+    }
+
+    // The entry for a file iCloud has evicted, or null
+    async function evictedEntry(path) {
+        if (!icloud) return null;
+        const [dir, name] = splitPath(path);
+        const info = await api().stat(abs(dir ? `${dir}/${stubOf(name)}` : stubOf(name))).catch(() => null);
+        if (!info || info.isDirectory) return null;
+        return { path, size: 0, version: 'evicted', modifiedTime: '' };
+    }
+
+    // Asks iCloud for an evicted file and waits until the real file is in place
+    async function fetchEvicted(path) {
+        if (!icloud.download) throw new StorageError(`${path} is in iCloud and not on this device yet`);
+        await icloud.download(abs(path));
+        const deadline = Date.now() + (icloud.timeoutMs ?? 120000);
+        while (!(await api().exists(abs(path)))) {
+            if (Date.now() > deadline) throw new StorageError(`iCloud has not finished downloading ${path}. Try again in a moment.`);
+            await new Promise((r) => setTimeout(r, icloud.pollMs ?? 500));
+        }
     }
 
     const store = {
@@ -262,18 +294,21 @@ export function createNativeFolderStore(rootPath, { fs, rootName = 'MajesticTab 
 
         async list(prefix = '') {
             checkStorePrefix(prefix);
-            const paths = await walk(prefix.replace(/\/$/, ''), []);
-            return (await pool(paths, STAT_CONCURRENCY, statPath)).filter(Boolean);
+            const evicted = new Set();
+            const paths = await walk(prefix.replace(/\/$/, ''), [], evicted);
+            return (await pool(paths, STAT_CONCURRENCY, (p) => (evicted.has(p) ? evictedEntry(p) : statPath(p)))).filter(Boolean);
         },
 
-        stat(path) { checkStorePath(path); return statPath(path); },
+        async stat(path) { checkStorePath(path); return (await statPath(path)) || evictedEntry(path); },
 
         async read(path, { range } = {}) {
             checkStorePath(path);
             let bytes;
             try { bytes = await api().readFile(abs(path)); } catch (err) {
-                if (isMissing(err)) throw new NotFoundError(`No such file: ${path}`);
-                throw err;
+                if (!isMissing(err)) throw err;
+                if (!(await evictedEntry(path))) throw new NotFoundError(`No such file: ${path}`);
+                await fetchEvicted(path);
+                bytes = await api().readFile(abs(path));
             }
             const whole = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
             return range ? whole.slice(Math.max(0, range.start ?? 0), Math.min(whole.length, range.end ?? whole.length)) : whole.slice();
@@ -300,7 +335,12 @@ export function createNativeFolderStore(rootPath, { fs, rootName = 'MajesticTab 
         async delete(path, { ifVersion } = {}) {
             checkStorePath(path);
             await checkVersion(store, path, ifVersion, 'deleting');
-            if (!(await statPath(path))) return false;
+            if (!(await statPath(path))) {
+                if (!(await evictedEntry(path))) return false;
+                const [stubDir, stubName] = splitPath(path);
+                await api().remove(abs(stubDir ? `${stubDir}/${stubOf(stubName)}` : stubOf(stubName)));
+                return true;
+            }
             await api().remove(abs(path));
             let [dir] = splitPath(path);
             while (dir) {

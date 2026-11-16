@@ -46,3 +46,14 @@ pub async fn icloud_drive_root(app: AppHandle) -> Result<Option<String>, String>
     app.fs_scope().allow_directory(&root, true).map_err(|e| e.to_string())?;
     Ok(Some(root.to_string_lossy().into_owned()))
 }
+
+/// Asks iCloud to bring an evicted file back to this device. The call returns at once; the file appears at `path`
+/// when the download finishes, and the caller waits for that.
+#[tauri::command]
+pub async fn icloud_download(path: String) -> Result<(), String> {
+    use objc2_foundation::{NSString, NSURL};
+    let url = NSURL::fileURLWithPath(&NSString::from_str(&path));
+    NSFileManager::defaultManager()
+        .startDownloadingUbiquitousItemAtURL_error(&url)
+        .map_err(|e| e.localizedDescription().to_string())
+}
