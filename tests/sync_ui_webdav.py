@@ -117,6 +117,16 @@ with sync_playwright() as p:
             after = dav_paths(url2)
             check('the new layout is written beside the old one', any(f.endswith('MajesticTab Library/store.json') for f in after) and len([f for f in after if '/packs/' in f and f.endswith('manifest.json')]) == 2, after[:20])
             check('the old files are all still there', all(f in after for f in old))
+            check('the old layout carries the upgrade marker, which is not a snapshot', any(f.endswith('MajesticTab Backup/manifests/manifest-UPGRADED.json') for f in after))
+            refused = C.evaluate("""async () => {
+              const se = await import('/src/syncEngine.js'); const wb = await import('/src/webdavBackup.js');
+              const ib = await import('/src/incrementalBackup.js');
+              const backend = wb.createWebDavBackend();
+              const snaps = await ib.listIncrementalBackups(backend);
+              try { await se.planSync(backend); return { snaps: snaps.length, refused: false }; }
+              catch (e) { return { snaps: snaps.length, refused: e.name === 'UpgradedLocationError', text: e.message }; }
+            }""")
+            check('an old-layout sync of the upgraded location is refused, and snapshots can still be listed for a restore', refused['refused'] and refused['snaps'] >= 1, refused)
             open_sync(C); wait_for(C, 'Everything is in sync')
             check('and a second sync on that device finds nothing to do', True)
             # a fresh device receives the songs through the screen

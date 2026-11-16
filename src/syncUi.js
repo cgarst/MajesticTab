@@ -2,6 +2,7 @@
 // The Sync task: a row in Settings (Library and backup) that opens in place under its row. One tap, then a single review of exactly what will change
 // (see syncEngine.js), one confirmation, and a short result. The sync location is remembered.
 import { planSync, applySync, clearSyncBase } from './syncEngine.js';
+import { UPGRADE_MARKER_NAME } from './incrementalBackup.js';
 import { planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, ITEM_ACTION } from './storage/packSync.js';
 import { probeLocation, needsUpgrade, upgradeLocation } from './storage/upgrade.js';
 import { writeStoreInfo, StoreTooNewError } from './storage/storeInfo.js';
@@ -529,6 +530,8 @@ async function upgrade() {
             // The existing sync, so this device holds everything the old copy holds before the new copy is written
             syncWithLegacy: async () => { const plan = await planSync(legacy, (t) => say(t)); await applySync(legacy, plan, (p) => { if (mine === session) updateProgress(p); }); },
             exportToStore: (to, onProgress) => exportLocalToStore(to, local, onProgress),
+            // Versions that still sync with the old copy find this and stop, with a note to update
+            markLegacy: () => legacy.putManifest(UPGRADE_MARKER_NAME, JSON.stringify({ app: 'MajesticTab', upgradedTo: 'MajesticTab Library', at: new Date().toISOString() }), { tabs: 0, soundFonts: 0, audio: 0 }),
         });
         await seedItemBaselines({ store, local, baselines: localBaselines, location: location(target, store) });
         if (mine !== session) return;

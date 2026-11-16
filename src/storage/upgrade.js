@@ -51,11 +51,13 @@ export const needsUpgrade = (probe) => probe.state === LOCATION.LEGACY;
  * @param exportToStore    async (store, onProgress) => { packIds: string[], records, settings, soundFonts }
  *                         writes this device's packs (and soundfont/classtab blobs) into `store` and returns the library records,
  *                         settings and soundfont list for the two documents
- * @returns {{ state: 'upgraded'|'already-upgraded', packs?: number }}
+ * @param markLegacy      async () => void   leaves the upgrade marker in the old layout (incrementalBackup.UPGRADE_MARKER_NAME), so versions
+ *                         that still sync with it stop instead of drifting. A failure here does not undo the upgrade
+ * @returns {{ state: 'upgraded'|'already-upgraded', packs?: number, markerWritten?: boolean }}
  * Order: sync, packs, library.json, profile.json, verify, store.json last. A failure before store.json leaves a location that
  * still probes as legacy (partial), and running the upgrade again resumes: files already in place are not written twice.
  */
-export async function upgradeLocation({ legacy, current, syncWithLegacy, exportToStore, appVersion = '', onStatus = () => {} }) {
+export async function upgradeLocation({ legacy, current, syncWithLegacy, exportToStore, markLegacy, appVersion = '', onStatus = () => {} }) {
     const before = await probeLocation({ legacy, current });
     if (before.state === LOCATION.CURRENT || before.state === LOCATION.BOTH) return { state: 'already-upgraded' };
     if (before.state === LOCATION.NONE) throw new UpgradeError('There is no earlier backup at this location to upgrade.');
@@ -77,7 +79,12 @@ export async function upgradeLocation({ legacy, current, syncWithLegacy, exportT
     if (problems.length) throw new UpgradeError(`The new copy did not check out (${problems.length} problem${problems.length === 1 ? '' : 's'}). The existing backup was not changed.`, problems);
 
     if (!(await writeStoreInfo(current, { appVersion }))) return { state: 'already-upgraded' };
-    return { state: 'upgraded', packs: packIds.length };
+    let markerWritten = false;
+    if (markLegacy) {
+        onStatus('Marking the old copy');
+        try { await markLegacy(); markerWritten = true; } catch (_) { /* the new layout is complete; only older versions miss the notice */ }
+    }
+    return { state: 'upgraded', packs: packIds.length, markerWritten };
 }
 
 /**

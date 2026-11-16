@@ -68,10 +68,23 @@ test('upgrade syncs first, writes packs and documents, checks, and writes store.
         syncWithLegacy: async () => order.push('sync'), exportToStore: async (s, p) => { order.push('export'); return exporter()(s, p); },
     });
     assert.deepEqual(order, ['sync', 'export']);
-    assert.deepEqual(r, { state: 'upgraded', packs: 2 });
+    assert.deepEqual(r, { state: 'upgraded', packs: 2, markerWritten: false });
     assert.equal(writes.at(-1), 'store.json');
     assert.deepEqual((await readLibrary(cur)).songs.map((s) => s.id), ['one', 'two']);
     assert.equal((await probeLocation({ legacy: legacyBackend([{ name: 'm' }]), current: cur })).state, LOCATION.BOTH);
+});
+
+test('the old layout is marked after store.json, and a failing mark does not undo the upgrade', async () => {
+    const cur = await fresh();
+    const order = [];
+    const w = cur.write.bind(cur); cur.write = async (p, ...r) => { order.push(p); return w(p, ...r); };
+    const r = await upgradeLocation({ legacy: legacyBackend([{ name: 'm' }]), current: cur, syncWithLegacy: async () => {}, exportToStore: exporter(), markLegacy: async () => order.push('marker') });
+    assert.deepEqual([r.state, r.markerWritten], ['upgraded', true]);
+    assert.deepEqual(order.slice(-2), ['store.json', 'marker']);
+    const cur2 = await fresh();
+    const r2 = await upgradeLocation({ legacy: legacyBackend([{ name: 'm' }]), current: cur2, syncWithLegacy: async () => {}, exportToStore: exporter(), markLegacy: async () => { throw new Error('read only'); } });
+    assert.deepEqual([r2.state, r2.markerWritten], ['upgraded', false]);
+    assert.ok(await cur2.stat('store.json'));
 });
 
 test('a problem found while checking leaves no store.json, so the location still reads as legacy and can be retried', async () => {
