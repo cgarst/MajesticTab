@@ -190,12 +190,12 @@ function makeAutoSyncRow() {
 function makeHybridSyncRow() {
     return makeSwitchRow({
         id: 'hybridSyncSwitch',
-        title: 'Keep files in cloud until opened',
-        help: 'Syncs your song list and settings while leaving files in your sync location until you open a song.',
-        checked: isHybridSyncEnabled(),
+        title: 'Keep all files on device',
+        help: 'Downloads every song in your library during sync. When off, pinned songs and setlists still stay on this device while other files stay in your sync location until opened.',
+        checked: !isHybridSyncEnabled(),
         onChange: (checked) => {
-            setHybridSyncEnabled(checked);
-            window.dispatchEvent(new CustomEvent('sync:hybridChanged', { detail: { enabled: checked } }));
+            setHybridSyncEnabled(!checked);
+            window.dispatchEvent(new CustomEvent('sync:hybridChanged', { detail: { enabled: !checked } }));
         },
     });
 }

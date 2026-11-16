@@ -22,7 +22,7 @@ import { songFromManifest } from './storage/libraryDocs.js';
 import { recordStorage } from './audioSync/syncRecordStore.js';
 
 const HYBRID_SYNC_KEY = 'majestictab_sync_hybrid';
-export const isHybridSyncEnabled = () => { try { return localStorage.getItem(HYBRID_SYNC_KEY) === '1'; } catch { return false; } };
+export const isHybridSyncEnabled = () => { try { return localStorage.getItem(HYBRID_SYNC_KEY) !== '0'; } catch { return true; } };
 export const setHybridSyncEnabled = (on) => { try { localStorage.setItem(HYBRID_SYNC_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ } };
 import { fingerprintValue } from './recordSync.js';
 import { sha256 } from './mpak/core/index.js';
