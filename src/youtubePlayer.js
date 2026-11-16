@@ -10,6 +10,7 @@ import { listHistory, rememberVideo, forgetVideo } from './audioSync/videoHistor
 import { showToast } from './utils/toast.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 import { packSongKey, plainSongKey } from './mpakSession.js';
+import { isRemoveMode, setRecordingsPresent, REC_REMOVE_MODE_EVENT } from './audioSync/removeMode.js';
 import { showSheet, closeSheet, resetPeek, isVideoShown, visibleVideoRect, onSheetChange, onSheetMove, onSheetTransition, initYtSheet } from './ytSheet.js';
 
 let activeSearchController = null;
@@ -1155,7 +1156,6 @@ export function applySyncedDefaults({ reload = true } = {}) {
 
 const slotOfKind = (kind) => (kind === 'backing' ? 'backing' : 'original');
 let lastRememberedId = null;
-let removeMode = false;
 let armedRemoval = null;
 let armTimer = 0;
 
@@ -1239,9 +1239,8 @@ export async function renderSyncedVideos() {
 
     const choices = getVideoChoices();
     wrap.hidden = choices.length === 0;
-    const editBtn = document.getElementById('ytEditVideosBtn');
-    if (editBtn) { editBtn.hidden = choices.length === 0; editBtn.textContent = removeMode ? 'Done' : 'Remove videos…'; editBtn.setAttribute('aria-pressed', removeMode ? 'true' : 'false'); }
-    if (choices.length === 0) removeMode = false;
+    setRecordingsPresent('videos', choices.length > 0);
+    const removeMode = isRemoveMode();
     if (wrap.hidden) { list.textContent = ''; return; }
 
     const current = localStorage.getItem(getStorageKey()) || playerState.currentVideoId;
@@ -1285,14 +1284,9 @@ function initVideoList() {
             return;
         }
         const row = e.target.closest('[data-video-id]');
-        if (row && !removeMode) bindSyncedVideo(row.dataset.videoId);
+        if (row && !isRemoveMode()) bindSyncedVideo(row.dataset.videoId);
     });
-    document.getElementById('ytEditVideosBtn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        removeMode = !removeMode;
-        disarm();
-        renderSyncedVideos();
-    });
+    window.addEventListener(REC_REMOVE_MODE_EVENT, () => { disarm(); renderSyncedVideos(); });
     window.addEventListener(SYNC_CHANGED_EVENT, () => renderSyncedVideos());
 }
 

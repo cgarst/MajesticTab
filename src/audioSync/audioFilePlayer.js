@@ -15,8 +15,9 @@ import {
     setAudioPeaks, relinkAudioFile
 } from './audioFileStore.js';
 import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
-import { adoptUnassignedAudio } from './libraryAudio.js';
+import { adoptUnassignedAudio, detachLibraryAudio } from './libraryAudio.js';
 import { isJamHosting, JAM_BRIDGE_EVENT } from './jamBridge.js';
+import { isRemoveMode, setRecordingsPresent, REC_REMOVE_MODE_EVENT } from './removeMode.js';
 import { listRecords, loadRecord, saveRecord, deleteRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { mountSyncRow } from './audioSyncUi.js';
 
@@ -36,7 +37,6 @@ const state = {
     rate: 1,
     relinkTarget: null, // media descriptor being relinked, or null when choosing a new file
     uiTimer: 0,
-    removeMode: false,  // the list shows Remove beside each file
     armedRemoval: null, // file id waiting for a second press (it has sync points)
     armTimer: 0,
     // A song is known by its file name until its score has been read, then by artist and title. Files added in
@@ -375,6 +375,7 @@ async function removeFile(id) {
         if (localStorage.getItem(SLOT_FILE_KEY(songKey, 'backing')) === id) localStorage.removeItem(SLOT_FILE_KEY(songKey, 'backing'));
     } catch { /* optional */ }
     if (id === state.currentId) destroySource();
+    detachLibraryAudio(id);
     await unlinkAudioFile(id, songKey);
     deleteRecord(songKey, { kind: 'local', audioId: id, name: meta?.name || '' });
     disarm();
@@ -435,11 +436,12 @@ function render() {
     if (!list) return;
     const synced = syncedFiles();
     const countOf = (id) => synced.find(s => s.audioId === id)?.count || 0;
+    const removeMode = isRemoveMode();
     const rows = state.files.map(f => {
         const count = countOf(f.id);
         const detail = ['Audio file', f.durationMs ? clock(f.durationMs) : 'Unknown length', megabytes(f.size), pointsLabel(count)].join(' · ');
         let actions;
-        if (state.removeMode) {
+        if (removeMode) {
             const rm = actionButton('Remove this file', state.armedRemoval === f.id ? `Delete ${count} sync points too?` : 'Remove', () => {
                 // A file with sync points takes a second press: it would delete them
                 if (count > 0 && state.armedRemoval !== f.id) { arm('remove', f.id); render(); return; }
@@ -450,7 +452,7 @@ function render() {
         } else {
             actions = [];
         }
-        return fileRow({ title: f.name, detail, selected: f.id === state.currentId && fileSourceActive(), onSelect: state.removeMode ? null : () => selectFile(f.id), actions });
+        return fileRow({ title: f.name, detail, selected: f.id === state.currentId && fileSourceActive(), onSelect: removeMode ? null : () => selectFile(f.id), actions });
     });
     for (const m of state.missing) {
         rows.push(fileRow({
@@ -462,13 +464,7 @@ function render() {
     }
     list.replaceChildren(...rows);
     if ($('afFileSection')) $('afFileSection').hidden = rows.length === 0;
-    const editBtn = $('afEditFilesBtn');
-    if (editBtn) {
-        editBtn.hidden = state.files.length === 0;
-        editBtn.textContent = state.removeMode ? 'Done' : 'Remove files…';
-        editBtn.setAttribute('aria-pressed', state.removeMode ? 'true' : 'false');
-    }
-    if (state.files.length === 0) state.removeMode = false;
+    setRecordingsPresent('files', state.files.length > 0);
 
     const loaded = Boolean(state.source);
     if ($('afPlayer')) $('afPlayer').hidden = !loaded;
@@ -621,12 +617,7 @@ export function initAudioFilePlayer() {
         if (file) addFile(file, { relink });
     });
     $('afPlayBtn')?.addEventListener('click', () => playPauseAudioFile());
-    $('afEditFilesBtn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.removeMode = !state.removeMode;
-        disarm();
-        render();
-    });
+    window.addEventListener(REC_REMOVE_MODE_EVENT, () => { disarm(); render(); });
     window.addEventListener(SYNC_CHANGED_EVENT, () => render());
 
     const wave = $('afWave');

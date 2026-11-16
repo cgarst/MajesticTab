@@ -47,6 +47,20 @@ export function readLibraryAudio(songId) {
     } catch { return []; }
 }
 
+/** The player removed a file: forget it in every library song's attachments, or opening the song would link it again. */
+export function detachLibraryAudio(audioId) {
+    try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (!key || !key.startsWith('audio_lib_')) continue;
+            const list = JSON.parse(localStorage.getItem(key) || '[]');
+            if (!Array.isArray(list) || !list.some((e) => e?.audioId === audioId)) continue;
+            const kept = list.filter((e) => e?.audioId !== audioId);
+            if (kept.length) localStorage.setItem(key, JSON.stringify(kept)); else localStorage.removeItem(key);
+        }
+    } catch { /* optional */ }
+}
+
 /** Every song key this library song's audio may sit under: its own names and the keys its tabs have been opened under. */
 export function songAudioKeys(song) {
     const keys = new Set([libraryAudioKey(song)].filter(Boolean));
