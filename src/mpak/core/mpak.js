@@ -69,6 +69,7 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
     if (t.path) {
       bytes = await file(t.path);
       if (await hash(bytes) !== t.sha256) warnings.push(`score sha256 mismatch: ${t.path}`);
+      if (t.size !== undefined && t.size !== bytes.length) warnings.push(`score size mismatch: ${t.path}`);
     } else {
       checkEntryName(t.externalPath);
       if (externalScore) {
@@ -81,6 +82,15 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
   const primary = manifest.scores[0];
   const score = scoreBytes.get(primary.id);
   const scoreOf = (id) => manifest.scores.find((t) => t.id === id);
+  // A sync or beat file listed in `entries` is checked against its size and hash (SPEC section 4, "Integrity"). A mismatch is a warning.
+  const checked = new Set();
+  const checkEntry = async (path, bytes) => {
+    const info = manifest.entries?.[path];
+    if (!info || checked.has(path)) return;
+    checked.add(path);
+    if (info.size !== bytes.length) warnings.push(`${path}: size differs from the manifest`);
+    else if (await hash(bytes) !== info.sha256) warnings.push(`${path}: sha256 differs from the manifest`);
+  };
   const syncs = new Map(); // `${scoreId}\n${recordingId}` -> sync file
   const beatFiles = new Map(); // recordingId -> beat file
   for (const r of manifest.recordings || []) {
@@ -88,7 +98,7 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
       const t = scoreOf(sid);
       if (!byName.has(sp)) { warnings.push(`${r.id}: missing sync file ${sp}`); continue; }
       let sf;
-      try { sf = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await file(sp, limits.maxSync))); } catch (e) { warnings.push(`${sp}: ${e.message}`); continue; }
+      try { const sb = await file(sp, limits.maxSync); await checkEntry(sp, sb); sf = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(sb)); } catch (e) { warnings.push(`${sp}: ${e.message}`); continue; }
       const se = validateSync(sf, t.format);
       if (se.length) { warnings.push(`${sp}: ${se.join('; ')}`); continue; }
       if (sf.recording !== r.id) { warnings.push(`${sp}: recording id mismatch`); continue; }
@@ -99,7 +109,9 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
       if (!byName.has(r.beats)) warnings.push(`${r.id}: missing beat file ${r.beats}`);
       else {
         try {
-          const bf = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await file(r.beats, limits.maxSync)));
+          const bb = await file(r.beats, limits.maxSync);
+          await checkEntry(r.beats, bb);
+          const bf = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bb));
           const be = validateBeats(bf);
           if (be.length) warnings.push(`${r.beats}: ${be.join('; ')}`);
           else if (bf.recording !== r.id) warnings.push(`${r.beats}: recording id mismatch`);
@@ -113,6 +125,7 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
         if (holder.format !== 'gp') warnings.push(`${r.id}: embedded source on a ${holder.format} score, skipped`);
       }
       if (src.type === 'file' && !byName.has(src.path)) warnings.push(`${r.id}: missing audio file ${src.path}`);
+      else if (src.type === 'file' && src.size !== undefined && src.size !== byName.get(src.path).usize) warnings.push(`${r.id}: audio size differs from the manifest: ${src.path}`);
     }
   }
   // Sync of a recording for a score: its own file, else syncFrom (plus syncOffsetMs), else stemOf. Offsets add along the chain.

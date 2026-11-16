@@ -31,6 +31,7 @@ function checkSource(s, at, ck) {
   if ('offsetMs' in s) ck(`${at}/offsetMs`, isNum(s.offsetMs), 'must be a number');
   if ('durationMs' in s) ck(`${at}/durationMs`, isNum(s.durationMs) && s.durationMs >= 0, 'must be a number >= 0');
   if ('sha256' in s) ck(`${at}/sha256`, isStr(s.sha256) && SHA.test(s.sha256), 'must be lowercase hex sha256');
+  if ('size' in s) ck(`${at}/size`, isInt(s.size) && s.size >= 0, 'must be an integer >= 0');
   if ('derivedFrom' in s) ck(`${at}/derivedFrom`, isStr(s.derivedFrom) && ID.test(s.derivedFrom), 'must be an id');
   if (s.type === 'embedded') {
     if ('score' in s) ck(`${at}/score`, isStr(s.score) && ID.test(s.score), 'must be a score id');
@@ -94,6 +95,7 @@ function checkScore(t, at, ck) {
   if ((hasExt || 'startPage' in t || 'endPage' in t) && 'format' in t)
     ck(`${at}/format`, t.format === 'pdf', 'must be "pdf" when externalPath, startPage or endPage is present');
   ck(`${at}/sha256`, isStr(t.sha256) && SHA.test(t.sha256), 'is required and must be lowercase hex sha256');
+  if ('size' in t) ck(`${at}/size`, isInt(t.size) && t.size >= 0, 'must be an integer >= 0');
   if ('name' in t) ck(`${at}/name`, isStr(t.name), 'must be a string');
   if ('pages' in t) ck(`${at}/pages`, isInt(t.pages) && t.pages >= 1, 'must be an integer >= 1');
   if ('startPage' in t) ck(`${at}/startPage`, isInt(t.startPage) && t.startPage >= 1, 'must be an integer >= 1');
@@ -122,6 +124,14 @@ export function manifestSchemaErrors(m) {
     ck('/generator/name', isStr(m.generator.name) && m.generator.name.length > 0, 'is required and must be a non-empty string');
     if ('version' in m.generator) ck('/generator/version', isStr(m.generator.version), 'must be a string');
   }
+  if ('entries' in m && ck('/entries', isObj(m.entries), 'must be an object mapping archive paths to { size, sha256 }'))
+    for (const [k, v] of Object.entries(m.entries)) {
+      const p = `/entries/${k}`;
+      ck(p, PATH.test(k), 'the key must be an archive path');
+      if (!ck(p, isObj(v), 'must be an object')) continue;
+      ck(`${p}/size`, isInt(v.size) && v.size >= 0, 'is required and must be an integer >= 0');
+      ck(`${p}/sha256`, isStr(v.sha256) && SHA.test(v.sha256), 'is required and must be lowercase hex sha256');
+    }
   if ('song' in m && ck('/song', isObj(m.song), 'must be an object')) {
     const s = m.song;
     for (const k of ['title', 'artist', 'composer', 'album']) if (k in s) ck(`/song/${k}`, isStr(s[k]), 'must be a string');

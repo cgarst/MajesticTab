@@ -558,6 +558,18 @@ export async function buildMpak(file, options = {}) {
         }
     }
 
+    // The size of each score and audio file, and the size and hash of each sync file (SPEC section 4, "Integrity")
+    const entries = {};
+    for (const sc of manifest.scores) if (files.has(sc.path)) sc.size = files.get(sc.path).length;
+    for (const rec of manifest.recordings) {
+        for (const src of rec.sources) if (src.type === 'file' && files.has(src.path)) src.size = files.get(src.path).length;
+        for (const path of Object.values(rec.sync || {})) {
+            const bytes = files.get(path);
+            if (bytes) entries[path] = { size: bytes.length, sha256: await sha256(bytes) };
+        }
+    }
+    if (Object.keys(entries).length) manifest.entries = entries;
+
     const { parts } = await coreBuildMpak(manifest, files);
     const clean = (s) => String(s || '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim();
     const artist = clean(normSong.artist);

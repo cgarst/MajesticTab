@@ -109,10 +109,11 @@ test('the tab option fields the pack drops are exactly the known list', () => {
     assert.ok(tab.name);
 });
 
-test('every score entry has a hash but no size (matters for an unpacked pack)', () => {
+test('every score entry has a hash and a size (SPEC section 4, Integrity)', async () => {
+    const bytes = new Uint8Array(await score.arrayBuffer());
     for (const s of header.scores) {
         assert.match(s.sha256, /^[0-9a-f]{64}$/);
-        assert.equal(s.size, undefined, 'the manifest now records a size: update the directory-form plan');
+        assert.equal(s.size, bytes.length);
     }
 });
 
