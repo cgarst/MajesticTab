@@ -653,6 +653,73 @@ let savedPositionBar = 0;
 let lastPositionSaveAt = 0;
 
 let noted = { bar: 0, total: 0 };
+let pendingResumeBar = 0;
+let pendingSeekTimer = null;
+
+function clearPendingSeekTimer() {
+    if (pendingSeekTimer) {
+        clearInterval(pendingSeekTimer);
+        pendingSeekTimer = null;
+    }
+}
+
+/** Records a bar to seek to as soon as the next score's player is ready (used by Library Resume). */
+export function setPendingResumeBar(bar) {
+    const n = Number(bar) || 0;
+    pendingResumeBar = n > 1 ? n : 0;
+}
+
+/** Clears any unconsumed resume bar (for example if Resume failed or opened a non-GP file). */
+export function clearPendingResumeBar() {
+    pendingResumeBar = 0;
+    clearPendingSeekTimer();
+}
+
+function seekApiToBar(api, score, bar) {
+    const total = score?.masterBars?.length || 0;
+    if (!api || !total || api.isReadyForPlayback !== true || warmingUp) return false;
+    const lookup = getMidiTickLookup(api);
+    if (!lookup) return false;
+    const targetBar = Math.max(1, Math.min(total, Math.round(Number(bar) || 1)));
+    const mb = score.masterBars[targetBar - 1];
+    if (!mb) return false;
+
+    let tick = mb.start;
+    try {
+        const t = lookup.getMasterBarStart?.(mb);
+        if (typeof t === 'number' && !Number.isNaN(t)) tick = t;
+    } catch (_) { /* notation tick */ }
+
+    api.tickPosition = tick;
+    let timePos = api.timePosition || 0;
+    if (tick > 0 && !timePos && typeof mb.startMs === 'number') {
+        timePos = mb.startMs / currentSpeedFactor();
+    }
+    synthPlayerState.currentTime = timePos;
+    updateSynthUI();
+
+    noted = { bar: targetBar, total };
+    savedPositionBar = 0;
+    savePlaybackPosition(true);
+    followSeekToBar(tick, targetBar - 1);
+    emitTransportEvent('position', {
+        timeMs: toSongMs(synthPlayerState.currentTime),
+        tick,
+        endMs: toSongMs(synthPlayerState.endTime),
+        playing: synthPlayerState.isPlaying
+    });
+    return true;
+}
+
+/** Applies any pending resume bar if the attached player is ready; returns true if applied. */
+export function applyPendingResumeBar() {
+    if (!pendingResumeBar) return false;
+    const { api, score } = getPlayerContext();
+    if (!seekApiToBar(api, score, pendingResumeBar)) return false;
+    pendingResumeBar = 0;
+    clearPendingSeekTimer();
+    return true;
+}
 
 /** The ruler reports the bar the cursor is in (every position event, seeks included). */
 export function notePlaybackBar(bar, total) {
@@ -674,23 +741,15 @@ export function savePlaybackPosition(force = false) {
 
 /** Moves the cursor to a bar once the score has loaded (a resume opens the tab first, then calls this). */
 export function seekToBarWhenReady(bar, timeoutMs = 25000) {
+    setPendingResumeBar(bar);
+    clearPendingSeekTimer();
+    if (!pendingResumeBar || applyPendingResumeBar()) return;
     const started = Date.now();
-    const timer = setInterval(() => {
-        const { api, score } = getPlayerContext();
-        const mb = score?.masterBars?.[bar - 1];
-        const lookup = api && getMidiTickLookup(api);
-        if (api && mb && lookup && api.isReadyForPlayback !== false) {
-            clearInterval(timer);
-            let tick = mb.start;
-            try {
-                const t = lookup.getMasterBarStart?.(mb);
-                if (typeof t === 'number' && !Number.isNaN(t)) tick = t;
-            } catch (_) { /* notation tick */ }
-            api.tickPosition = tick;
-        } else if (Date.now() - started > timeoutMs) {
-            clearInterval(timer);
+    pendingSeekTimer = setInterval(() => {
+        if (!pendingResumeBar || applyPendingResumeBar() || Date.now() - started > timeoutMs) {
+            clearPendingSeekTimer();
         }
-    }, 400);
+    }, 50);
 }
 
 
@@ -1617,6 +1676,10 @@ document.addEventListener('visibilitychange', async () => {
 export function attachAlphaTabApi(api, opts = {}) {
     cancelPendingClicks();
     cancelCountIn();
+    clearPendingSeekTimer();
+    savedPositionBar = 0;
+    lastPositionSaveAt = 0;
+    noted = { bar: 0, total: 0 };
     fileClicks = opts.clicks || null;
     silentSynth = Boolean(opts.silent);
     clickCache = null;
@@ -1746,6 +1809,7 @@ export function attachAlphaTabApi(api, opts = {}) {
             synthPlayerState.soundFontLoaded = true;
             updateSynthUI();
             emitTransportEvent('ready');
+            if (!warmingUp) applyPendingResumeBar();
         });
     }
 
@@ -1901,6 +1965,10 @@ export function setKeepPlayerOnReset(on) { keepPlayerOnReset = !!on; }
 export function playerKeptOnReset() { return keepPlayerOnReset; }
 
 export function detachAlphaTabApi() {
+    clearPendingSeekTimer();
+    savedPositionBar = 0;
+    lastPositionSaveAt = 0;
+    noted = { bar: 0, total: 0 };
     pauseIOSAudioPlayback();
     forgetSynthContexts();
     cancelCountIn();

@@ -8,7 +8,7 @@ import {
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
     deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, removeTabOptionFromSong, moveTabOptionToSong, getAllSongs, setDefaultTabOption,
     togglePinSong, toggleArtistPinned, isArtistPinned, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption,
-    getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID,
+    getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, updateRecentPosition, DEFAULT_COLLECTION_ID,
     updateAlbumMetadataInLibrary, cleanTitle
 } from './libraryStore.js';
 import { retargetSetlistTab } from './setlistStore.js';
@@ -1802,11 +1802,25 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
     container.querySelector('#libResumeBtn')?.addEventListener('click', async () => {
         const [latest] = await getRecents(1);
         if (!latest) return;
-        // Straight into the tab, then to the bar it was left at
-        await openRecentItem(latest);
-        if (latest.lastBar > 1) {
-            const { seekToBarWhenReady } = await import('./gpProcessor/gpPlayer.js');
-            seekToBarWhenReady(latest.lastBar);
+        const targetBar = Number(latest.lastBar) || 1;
+        const gpPlayer = targetBar > 1 ? await import('./gpProcessor/gpPlayer.js') : null;
+        gpPlayer?.setPendingResumeBar(targetBar);
+        try {
+            // Straight into the tab, then to the bar it was left at
+            await openRecentItem(latest);
+        } catch (e) {
+            gpPlayer?.clearPendingResumeBar();
+            throw e;
+        }
+        if (gpPlayer) {
+            const { api, score } = gpPlayer.getPlayerContext();
+            if (api) {
+                gpPlayer.seekToBarWhenReady(targetBar);
+                const totalBars = score?.masterBars?.length || Number(latest.totalBars) || 0;
+                if (totalBars) updateRecentPosition(Math.min(targetBar, totalBars), totalBars).catch(() => {});
+            } else {
+                gpPlayer.clearPendingResumeBar();
+            }
         }
     });
 

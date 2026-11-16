@@ -6,7 +6,7 @@ import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicato
 import { updateSongForYouTube } from '../youtubePlayer.js';
 import { updateSongForAudioFile } from '../audioSync/audioFilePlayer.js';
 import { updateSongForRealAudio } from '../audioSync/realAudioController.js';
-import { attachAlphaTabApi, detachAlphaTabApi, playerKeptOnReset, showScoreOptions, hideScoreOptions, reapplyJamTrackView, warmUpAfterLoad, getMixerTracks } from './gpPlayer.js';
+import { attachAlphaTabApi, detachAlphaTabApi, playerKeptOnReset, showScoreOptions, hideScoreOptions, reapplyJamTrackView, warmUpAfterLoad, applyPendingResumeBar, getMixerTracks } from './gpPlayer.js';
 import { waitForMainThreadIdle } from '../utils/mainThreadIdle.js';
 import { showLoadingCard, setLoadingProgress, setLoadingIdentity, hideLoadingCard } from '../utils/loadingCard.js';
 import {
@@ -248,6 +248,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 
         // Warming the synth is part of loading: the card stays up until the first play would start promptly
         await warmUpAfterLoad(() => setLoadingProgress(loadingToken, 80, 'Warming up audio…'));
+        applyPendingResumeBar();
         setLoadingProgress(loadingToken, 100, 'Ready');
     } catch (err) {
         console.error('Error loading Guitar Pro file:', err);
