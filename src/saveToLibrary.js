@@ -22,10 +22,28 @@ function refreshSaveToLibraryBtn() {
 }
 
 export async function openSaveToLibraryModal(file) {
-    const [collections, meta] = await Promise.all([
+    const [collections, meta, unpacked] = await Promise.all([
         getCollections(),
-        detectFileMetadata(file, file.name).catch(() => null)
+        detectFileMetadata(file, file.name).catch(() => null),
+        import('./mpak.js').then(m => m.getOpenedMpak(file)).catch(() => null),
     ]);
+    let subtitleText = file.name;
+    if (unpacked) {
+        const scoreCount = 1 + (unpacked.otherScores?.length || 0);
+        const recordings = Array.isArray(unpacked.header?.recordings) ? unpacked.header.recordings : [];
+        const recCount = recordings.length;
+        const stemCount = recordings.filter(r => r?.role === 'stem').length;
+        const parts = [
+            unpacked.packName || file.name,
+            `${scoreCount} ${scoreCount === 1 ? 'score' : 'scores'}`,
+        ];
+        if (recCount > 0) {
+            parts.push(stemCount === recCount
+                ? `${recCount} ${recCount === 1 ? 'stem' : 'stems'}`
+                : `${recCount} ${recCount === 1 ? 'recording' : 'recordings'}`);
+        }
+        subtitleText = parts.filter(Boolean).join(' \u00b7 ');
+    }
     const isClassical = Boolean(file.classtabTab);
     const mpakSong = (file.mpakSong && typeof file.mpakSong === 'object') ? file.mpakSong : null;
     // A classical piece's file name is the archive's lowercase path; its title keeps the catalog's case
@@ -56,7 +74,7 @@ export async function openSaveToLibraryModal(file) {
           <div class="theme-modal-icon"><i class="bi-bookmark-plus text-primary fs-5"></i></div>
           <div class="theme-modal-titles">
             <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Save to Library</h5>
-            <div class="small text-muted text-truncate" style="font-size: 0.78rem;">${escapeHtml(file.name)}</div>
+            <div class="small text-muted text-truncate" style="font-size: 0.78rem;">${escapeHtml(subtitleText)}</div>
           </div>
         </div>
         <div class="theme-modal-actions">
@@ -324,7 +342,7 @@ export async function openSaveToLibraryModal(file) {
 
             closeModal();
             refreshSaveToLibraryBtn();
-            showToast(merged ? `Added tab to "${song.title}" in your library.` : `Saved "${song.title || title}" to your library.`, 'success');
+            showToast(merged ? `Added ${unpacked ? 'pack' : 'tab'} to "${song.title}" in your library.` : `Saved "${song.title || title}" to your library.`, 'success');
         } catch (err) {
             console.error('[SaveToLibrary] Failed:', err);
             confirmBtn.disabled = false;

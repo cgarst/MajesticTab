@@ -767,7 +767,7 @@ export async function unpackMpak(input, options = {}) {
         .map((sc) => ({ score: sc, bytes: opened.scoreBytes(sc.id) }))
         .filter((x) => x.bytes)
         .map((x) => ({ score: x.score, file: scoreFileOf(x.score, x.bytes) }));
-    return { header, opened, part: opened, tabFile, score, otherScores };
+    return { header, opened, part: opened, tabFile, score, otherScores, packName: input?.name || '' };
 }
 
 const PENDING_BROWSER_TARGET_KEY = 'majestictab_pending_browser_target';
