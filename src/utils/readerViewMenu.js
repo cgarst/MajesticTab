@@ -153,7 +153,7 @@ function arrangeViewOptions(root) {
     layout.innerHTML = '<label class="form-label d-block mb-1 small text-white-50">Layout</label>'
         + '<div class="hud-pill-group w-100" role="group" aria-label="Layout">'
         + '<button type="button" class="btn btn-sm flex-fill" data-layout="page">Page</button>'
-        + '<button type="button" class="btn btn-sm flex-fill" data-layout="scroll">Scroll</button>'
+        + '<button type="button" class="btn btn-sm flex-fill" data-layout="scroll">Vertical</button>'
         + '<button type="button" class="btn btn-sm flex-fill" data-layout="horizontal" hidden>Horizontal</button></div>';
     const pageRadio = $('pageModeRadio');
     const scrollRadio = $('continuousModeRadio');
@@ -167,7 +167,6 @@ function arrangeViewOptions(root) {
         const isPage = Boolean(pageRadio?.checked);
         const isHoriz = !isPage && ((hasBars && textState.layoutMode === 'horizontal') || (isGp && gpState.layoutMode === 'horizontal'));
         const isScroll = !isPage && !isHoriz && Boolean(scrollRadio?.checked);
-        if (scrollBtn) scrollBtn.textContent = supportsHoriz ? 'Vertical' : 'Scroll';
         if (horizBtn) horizBtn.hidden = !supportsHoriz;
         pageBtn?.classList.toggle('active', isPage);
         scrollBtn?.classList.toggle('active', isScroll);
