@@ -9,6 +9,7 @@ import { PHONE_READER_QUERY } from './viewModeUtils.js';
 import { isTabletop } from '../foldState.js';
 import { showPanel, hidePanel, isShown, placePanel, outsideTapCloses } from './readerPanels.js';
 import { textState, setTextLayoutMode, setTextVersion, renderTextPage } from '../textProcessor/textHandler.js';
+import { gpState, setGpLayoutMode, renderGPPage } from '../gpProcessor/gpHandler.js';
 const $ = (id) => document.getElementById(id);
 
 export function initReaderViewMenu() {
@@ -161,11 +162,13 @@ function arrangeViewOptions(root) {
     const horizBtn = layout.querySelector('[data-layout="horizontal"]');
     const syncLayout = () => {
         const hasBars = document.body.classList.contains('txt-has-bars');
+        const isGp = document.body.classList.contains('gp-file-active');
+        const supportsHoriz = hasBars || isGp;
         const isPage = Boolean(pageRadio?.checked);
-        const isHoriz = !isPage && hasBars && textState.layoutMode === 'horizontal';
+        const isHoriz = !isPage && ((hasBars && textState.layoutMode === 'horizontal') || (isGp && gpState.layoutMode === 'horizontal'));
         const isScroll = !isPage && !isHoriz && Boolean(scrollRadio?.checked);
-        if (scrollBtn) scrollBtn.textContent = hasBars ? 'Vertical' : 'Scroll';
-        if (horizBtn) horizBtn.hidden = !hasBars;
+        if (scrollBtn) scrollBtn.textContent = supportsHoriz ? 'Vertical' : 'Scroll';
+        if (horizBtn) horizBtn.hidden = !supportsHoriz;
         pageBtn?.classList.toggle('active', isPage);
         scrollBtn?.classList.toggle('active', isScroll);
         horizBtn?.classList.toggle('active', isHoriz);
@@ -174,24 +177,46 @@ function arrangeViewOptions(root) {
         const b = e.target.closest('[data-layout]');
         if (!b) return;
         const mode = b.dataset.layout;
+        const isGp = document.body.classList.contains('gp-file-active');
         if (mode === 'page') {
-            setTextLayoutMode('page');
+            if (isGp) setGpLayoutMode('page');
+            else setTextLayoutMode('page');
             pageRadio?.click();
         } else if (mode === 'horizontal') {
-            setTextLayoutMode('horizontal');
-            if (scrollRadio?.checked) {
-                const out = $('output');
-                if (out) renderTextPage(out, false);
+            if (isGp) {
+                setGpLayoutMode('horizontal');
+                if (scrollRadio?.checked) {
+                    const out = $('output');
+                    if (out) renderGPPage(out, false, scrollRadio);
+                } else {
+                    scrollRadio?.click();
+                }
             } else {
-                scrollRadio?.click();
+                setTextLayoutMode('horizontal');
+                if (scrollRadio?.checked) {
+                    const out = $('output');
+                    if (out) renderTextPage(out, false);
+                } else {
+                    scrollRadio?.click();
+                }
             }
         } else {
-            setTextLayoutMode('vertical');
-            if (scrollRadio?.checked) {
-                const out = $('output');
-                if (out) renderTextPage(out, false);
+            if (isGp) {
+                setGpLayoutMode('vertical');
+                if (scrollRadio?.checked) {
+                    const out = $('output');
+                    if (out) renderGPPage(out, false, scrollRadio);
+                } else {
+                    scrollRadio?.click();
+                }
             } else {
-                scrollRadio?.click();
+                setTextLayoutMode('vertical');
+                if (scrollRadio?.checked) {
+                    const out = $('output');
+                    if (out) renderTextPage(out, false);
+                } else {
+                    scrollRadio?.click();
+                }
             }
         }
         setTimeout(() => {

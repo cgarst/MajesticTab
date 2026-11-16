@@ -220,7 +220,7 @@ export function loadGuitarPro(file, container, options) {
     return ensureMusicFont().then(() => loadGuitarProScore(file, container, options));
 }
 
-function loadGuitarProScore(file, container, { debug = false, originalFile = null } = {}) {
+function loadGuitarProScore(file, container, { debug = false, originalFile = null, layoutMode = 'page' } = {}) {
     const targetFile = originalFile || (file instanceof File ? file : null) || (window.gpState?.currentFile) || null;
     // A different song starts with no temporary overrides (notation, strings, guitar fit)
     if (targetFile) beginSong(targetFile);
@@ -317,7 +317,7 @@ function loadGuitarProScore(file, container, { debug = false, originalFile = nul
                     enableElementHighlighting: true,
                     scrollMode: alphaTab.ScrollMode.Off
                 },
-                display: { staveProfile: getGpStaveProfile(), layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE, stretchForce: GP_STRETCH_FORCE, padding: (typeof window !== 'undefined' && window.innerWidth <= 576) ? [4, 18, 4, 16] : [20, 20, 20, 20] },
+                display: { staveProfile: getGpStaveProfile(), layoutMode: layoutMode === 'horizontal' ? alphaTab.LayoutMode.Horizontal : alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE, stretchForce: GP_STRETCH_FORCE, padding: (typeof window !== 'undefined' && window.innerWidth <= 576) ? [4, 18, 4, 16] : [20, 20, 20, 20] },
                 notation: {
                     rhythmMode: alphaTab.TabRhythmMode.ShowWithBars,
                     elements: {

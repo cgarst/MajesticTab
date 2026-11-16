@@ -190,13 +190,13 @@ export class NavigationHandler {
                 config.gpState.currentPageIndex = 0;
                 config.renderGPPage(config.output, isPageMode, config.continuousModeRadio);
             } else {
-                config.output.scrollTo({ top: 0, behavior: 'smooth' });
+                config.output.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
             }
         } else {
             if (isPageMode) {
                 return { newPageIndex: 0 };
             } else {
-                config.output.scrollTo({ top: 0, behavior: 'smooth' });
+                config.output.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
             }
         }
         return null;

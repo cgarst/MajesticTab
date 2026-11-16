@@ -419,6 +419,9 @@ body:not(.library-view-active) .breadcrumb-divider { display: none; }
 #output .alphaTabContainer {
   margin: 0 auto; border-radius: 3px; overflow: hidden;
 }
+#output.continuous-mode.gp-horizontal-mode {
+  align-items: flex-start;
+}
 /* The pages are at rest, so they are flat: the paper tone against the ground separates them, with no shadow or outline. */
 .pageWrapper, .gp-page-wrapper, .alphaTabContainer, .text-content {
   box-shadow: none; border: 0;
@@ -1724,6 +1727,28 @@ body.fretboard-open {
   padding: 16px 20px 10px;
   border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
   background: transparent;
+}
+@media (max-width: 575.98px) {
+  .album-header {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+  .album-header > :first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .album-header-actions {
+    margin-left: auto;
+  }
+}
+@media (pointer: coarse) {
+  .album-header-actions .btn-theme-icon {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 .album-header-cover {
   width: 44px;
@@ -4966,8 +4991,10 @@ body > #controllerHelpModal { display: none; }
 @keyframes tabpickSheetOut { to { transform: translate3d(0, 24px, 0); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .tabpick, .tabpick-scrim { animation: none !important; } }
 /* The row menu is a plain ⋯: no caret, and the placeholder on rows without a menu is exactly as wide */
-.song-actions .dropdown > .dropdown-toggle.btn-theme-icon::after { display: none; }
-.song-actions .dropdown > .dropdown-toggle.btn-theme-icon { min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
+.song-actions .dropdown > .dropdown-toggle.btn-theme-icon::after,
+.album-header-actions .dropdown > .dropdown-toggle.btn-theme-icon::after { display: none; }
+.song-actions .dropdown > .dropdown-toggle.btn-theme-icon,
+.album-header-actions .dropdown > .dropdown-toggle.btn-theme-icon { min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
 .song-actions-spacer { width: 36px; }
 @media (pointer: coarse) { .song-actions .dropdown > .dropdown-toggle.btn-theme-icon, .song-actions-spacer { min-width: 44px; width: 44px; } }
 

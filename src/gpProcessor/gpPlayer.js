@@ -977,17 +977,33 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
         }
     }
 
-    // Landscape side insets: keep the cursor out of the notch strip when the score can scroll sideways
+    // Horizontal layout read-ahead / side-inset tracking
     if (hasValidCursor && output.scrollWidth > output.clientWidth + 1) {
         const minX = Math.max(outputRect.left, safe.left) + 12;
         const maxX = Math.min(outputRect.right, window.innerWidth - safe.right) - 12;
-        let dx = 0;
-        if (cursorRect.left < minX) dx = cursorRect.left - minX;
-        else if (cursorRect.right > maxX) dx = cursorRect.right - maxX;
-        if (dx) {
-            autoScrollWrite = true;
-            output.scrollLeft += dx;
-            requestAnimationFrame(() => requestAnimationFrame(() => { autoScrollWrite = false; }));
+        if (output.classList.contains('gp-horizontal-mode')) {
+            const visibleW = Math.max(100, maxX - minX);
+            const cursorRelX = cursorRect.left - minX;
+            const outOfLeft = cursorRelX < 0;
+            const pastReadAhead = (playbackActive() || bringIntoView) && (cursorRelX > visibleW * 0.65 || cursorRect.right > maxX);
+            if (outOfLeft || pastReadAhead) {
+                const maxScrollLeft = Math.max(0, output.scrollWidth - output.clientWidth);
+                const targetScrollLeft = Math.max(0, Math.min(maxScrollLeft, output.scrollLeft + cursorRelX - visibleW * 0.20));
+                if (Math.abs(output.scrollLeft - targetScrollLeft) > 5) {
+                    autoScrollWrite = true;
+                    output.scrollLeft = targetScrollLeft;
+                    requestAnimationFrame(() => requestAnimationFrame(() => { autoScrollWrite = false; }));
+                }
+            }
+        } else {
+            let dx = 0;
+            if (cursorRect.left < minX) dx = cursorRect.left - minX;
+            else if (cursorRect.right > maxX) dx = cursorRect.right - maxX;
+            if (dx) {
+                autoScrollWrite = true;
+                output.scrollLeft += dx;
+                requestAnimationFrame(() => requestAnimationFrame(() => { autoScrollWrite = false; }));
+            }
         }
     }
 }

@@ -46,6 +46,7 @@ export const gpState = {
     canvases: [],
     pages: [],
     lastLayoutDimensions: null, // Cache layout dimensions
+    layoutMode: 'vertical', // 'page' | 'vertical' | 'horizontal'
     reset() {
         if (!playerKeptOnReset()) detachAlphaTabApi();
         hideScoreOptions();
@@ -53,6 +54,7 @@ export const gpState = {
         this.pages.length = 0;
         this.currentPageIndex = 0;
         this.lastLayoutDimensions = null;
+        document.body.classList.remove('gp-file-active', 'gp-horizontal-mode');
         const synthSection = document.getElementById('synthTrackVisibilitySection');
         const synthList = document.getElementById('synthTrackList');
         if (synthSection) synthSection.style.display = 'none';
@@ -66,17 +68,25 @@ export const gpState = {
     }
 };
 
+export function setGpLayoutMode(mode) {
+    if (mode === 'page' || mode === 'vertical' || mode === 'horizontal') {
+        gpState.layoutMode = mode;
+    }
+}
+
 /**
  * Load a Guitar Pro file into the app.
  */
 export async function loadGP(file, output, pageModeRadio, continuousModeRadio, debug = false) {
     // Determine active mode (default to page mode if neither or page mode is selected)
     const isPageMode = pageModeRadio ? pageModeRadio.checked : true;
+    const isHorizontal = !isPageMode && gpState.layoutMode === 'horizontal';
 
     // Reset state and clear output
     gpState.reset();
     gpState.currentFile = file;
     gpState.lastLayoutDimensions = null; // Force fresh layout calculation
+    document.body.classList.add('gp-file-active');
     clearOutput(output);
 
     const fileBaseName = (file.name || '').replace(/\.[^/.]+$/, '');
@@ -90,6 +100,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     // Ensure output is visible for alphaTab sizing
     output.style.display = 'flex';
     output.style.overflowY = isPageMode ? 'hidden' : 'auto';
+    output.style.overflowX = isHorizontal ? 'auto' : 'hidden';
 
     // Load file
     let dataToLoad;
@@ -120,9 +131,10 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
         const wrapperPadX = window.innerWidth <= 576 ? 2 : window.innerWidth < 768 ? 4 : 8;
         const targetWidth = Math.floor((window.innerWidth - (window.innerWidth <= 576 ? 4 : 20) - pageGapPx() * (pagesPerView - 1)) / pagesPerView) - 2 - wrapperPadX * 2;
 
-    container.style.width = isPageMode ? `${targetWidth}px` : '100%';
+    container.style.width = isPageMode ? `${targetWidth}px` : (isHorizontal ? 'max-content' : '100%');
+    container.style.minWidth = isHorizontal ? '100%' : '';
     container.style.height = isPageMode ? '100%' : 'auto';
-    container.style.minHeight = '100%';
+    container.style.minHeight = isHorizontal ? '0' : '100%';
     container.style.flexShrink = '0';
     container.style.display = 'block';
     container.style.margin = '0 auto';
@@ -131,15 +143,15 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     console.log('[GP Init] ========================================');
     console.log('[GP Init] Window width:', window.innerWidth);
     console.log('[GP Init] Pages per view:', pagesPerView);
-    console.log('[GP Init] Initial mode:', isPageMode ? 'page' : 'continuous');
-    console.log('[GP Init] Calculated container width:', isPageMode ? `${targetWidth}px` : '100%');
+    console.log('[GP Init] Initial mode:', isPageMode ? 'page' : (isHorizontal ? 'horizontal' : 'continuous'));
+    console.log('[GP Init] Calculated container width:', isPageMode ? `${targetWidth}px` : (isHorizontal ? 'max-content' : '100%'));
     console.log('[GP Init] ========================================');
 
     // Force a layout before creating AlphaTab API
     void container.offsetHeight;
 
     try {
-        const api = await loadGuitarPro(dataToLoad, container, { debug, originalFile: file });
+        const api = await loadGuitarPro(dataToLoad, container, { debug, originalFile: file, layoutMode: isHorizontal ? 'horizontal' : 'page' });
         setLoadingProgress(loadingToken, 55, 'Preparing sound…');
         if (api.score?.title && !(file.librarySongTitle || file.songTitle)) {
             setLoadingIdentity(loadingToken, { title: api.score.title, subtitle: file.artist || api.score.artist || '' });
@@ -330,10 +342,18 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
     }
 
     if (pageModeChecked) {
-        output.classList.remove('continuous-mode');
+        gpState.layoutMode = 'page';
+        document.body.classList.remove('gp-horizontal-mode');
+        output.classList.remove('continuous-mode', 'gp-horizontal-mode');
         output.style.overflowY = 'hidden';
         output.style.overflowX = 'hidden';
         output.style.overflow = 'hidden';
+
+        const layoutModeChanged = api && api.settings.display.layoutMode !== alphaTab.LayoutMode.Page;
+        if (layoutModeChanged) {
+            api.settings.display.layoutMode = alphaTab.LayoutMode.Page;
+            api.updateSettings();
+        }
 
         const pagesPerView = getPagesPerView(true);
         const targetWidth = Math.floor((window.innerWidth - (window.innerWidth <= 576 ? 4 : 24)) / pagesPerView) - (window.innerWidth <= 576 ? 4 : window.innerWidth < 768 ? 16 : 24);
@@ -341,9 +361,11 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         const widthChanged = container.style.width !== targetWidthStr;
 
         container.style.width = targetWidthStr;
+        container.style.minWidth = '';
         container.style.height = '100%';
+        container.style.minHeight = '100%';
 
-        if ((widthChanged || paddingChanged) && api) {
+        if ((widthChanged || paddingChanged || layoutModeChanged) && api) {
             // Park container offscreen while alphaTab re-renders at new target width
             const offscreenHolder = document.createElement('div');
             offscreenHolder.style.cssText = 'position:absolute;visibility:hidden;width:0;height:0;overflow:hidden;';
@@ -367,33 +389,53 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         renderGPPageMode(output);
         settleLayout();
     } else {
+        const isHorizontal = gpState.layoutMode === 'horizontal';
+        if (!isHorizontal && gpState.layoutMode === 'page') {
+            gpState.layoutMode = 'vertical';
+        }
+        document.body.classList.toggle('gp-horizontal-mode', isHorizontal);
+
+        const desiredLayoutMode = isHorizontal ? alphaTab.LayoutMode.Horizontal : alphaTab.LayoutMode.Page;
+        const layoutModeChanged = api && api.settings.display.layoutMode !== desiredLayoutMode;
+        if (layoutModeChanged) {
+            api.settings.display.layoutMode = desiredLayoutMode;
+            api.updateSettings();
+        }
+
         // Make sure the container is detached before reattaching
         if (container.parentNode) {
             container.parentNode.removeChild(container);
         }
         container.style.transform = '';
         container.style.transformOrigin = '';
-        const wasNotFullWidth = container.style.width !== '100%';
-        container.style.width = '100%';
+        const desiredWidth = isHorizontal ? 'max-content' : '100%';
+        const widthChanged = container.style.width !== desiredWidth;
+        container.style.width = desiredWidth;
+        container.style.minWidth = isHorizontal ? '100%' : '';
         container.style.height = 'auto';
-        container.style.minHeight = '100%';
+        container.style.minHeight = isHorizontal ? '0' : '100%';
         container.style.flexShrink = '0';
         
         // Set up continuous mode view
         output.classList.add('continuous-mode');
+        output.classList.toggle('gp-horizontal-mode', isHorizontal);
         output.style.overflowY = 'auto';  // Explicitly enable vertical scrolling
-        output.style.overflowX = 'hidden'; // Prevent horizontal scrolling
+        output.style.overflowX = isHorizontal ? 'auto' : 'hidden';
         output.appendChild(container);
         output.scrollTop = 0;
+        output.scrollLeft = 0;
 
         // Keep the top bar percentage in sync with scrolling (scroll or playback follow)
         enableContinuousScrollTracking(output, [container], () => {});
         updateScrollIndicator(document.getElementById('pageIndicator'), output, 1);
 
-        if ((wasNotFullWidth || paddingChanged) && api) {
+        if ((widthChanged || paddingChanged || layoutModeChanged) && api) {
             const unsubSettle = api.postRenderFinished.on(() => {
                 unsubSettle();
                 fitScoreText(container);
+                if (api.tickPosition > 0) {
+                    window.__majesticUpdateContinuousPlaybackScroll?.(api.tickPosition, true, null, null, true);
+                }
                 settleLayout();
             });
             api.render();

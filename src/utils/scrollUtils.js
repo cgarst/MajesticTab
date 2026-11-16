@@ -45,6 +45,15 @@ function popHistory(container) {
 export function scrollByViewport(container, isNext = true) {
     if (!container) return;
 
+    if (container.classList.contains('gp-horizontal-mode')) {
+        const scrollAmount = Math.max(100, container.clientWidth * 0.8);
+        const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+        const target = Math.min(maxScroll, Math.max(0, container.scrollLeft + (isNext ? scrollAmount : -scrollAmount)));
+        container.scrollLeft = target;
+        updateContinuousPageIndicator(container, [], null);
+        return;
+    }
+
     // 1. Locate all system rows / canvas blocks inside container
     const rawBlocks = Array.from(container.querySelectorAll(
         'div.at-surface.at > div, .at-surface > div, .pageWrapper, .gp-page-wrapper, canvas, .condensed-page-canvas'

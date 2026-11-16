@@ -61,6 +61,12 @@ export function updatePageIndicator(indicator, current, total, pagesPerView = 1)
  */
 export function updateScrollIndicator(indicator, container, totalItems) {
     if (!indicator) return;
+    if (container.classList.contains('gp-horizontal-mode')) {
+        const maxScroll = container.scrollWidth - container.clientWidth;
+        const scrollPercent = maxScroll > 0 ? (container.scrollLeft / maxScroll) * 100 : 0;
+        indicator.textContent = `${Math.round(scrollPercent)}%`;
+        return;
+    }
     const scrollPercent = (container.scrollTop / (container.scrollHeight - container.clientHeight) * 100) || 0;
     indicator.textContent = `${Math.round(scrollPercent)}%`;
 }
