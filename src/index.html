@@ -1529,6 +1529,13 @@
       </div>
     </header>
     <div class="theme-modal-body p-3">
+      <div class="edit-text-tools" id="editTextTools" role="toolbar" aria-label="Insert into the text">
+        <button type="button" class="edit-text-tool" data-tool="staff">Staff</button>
+        <button type="button" class="edit-text-tool" data-tool="bar">Add bar</button>
+        <button type="button" class="edit-text-tool" data-tool="chords" aria-expanded="false" aria-controls="editTextPanel">Chords</button>
+        <button type="button" class="edit-text-tool" data-tool="section" aria-expanded="false" aria-controls="editTextPanel">Section</button>
+      </div>
+      <div class="edit-text-panel" id="editTextPanel" hidden></div>
       <textarea id="editTextArea" class="form-control edit-text-area" rows="16" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Tab text" placeholder="Type or paste the tab or lyrics here"></textarea>
     </div>
     <div class="theme-modal-footer d-flex justify-content-end gap-2 p-3">

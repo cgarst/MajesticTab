@@ -4653,6 +4653,7 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
                 file.tabName = tabOption.name || file.name;
                 file.fileStoreId = tabOption.fileStoreId;
                 file.editableText = Boolean(tabOption.editableText);
+                file.songStringCount = song.stringCount || null;
                 file.preferredStringCount = tabOption.preferredStringCount || null;
                 file.librarySongId = song.id;
                 file.sourceUrl = tabOption.sourceUrl || null;

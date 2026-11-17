@@ -6316,3 +6316,21 @@ body.reading-mode .auto-sync-progress { opacity: 0 !important; }
 
 /* Edit text modal: a monospaced page the size of the dialog, so tab columns line up as they will in the reader */
 .edit-text-area { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; line-height: 1.35; min-height: 40vh; max-height: 60vh; resize: vertical; white-space: pre; overflow: auto; }
+
+/* Edit text tools: ghost text actions on one scrolling row; the chord and section choices open on a tone step below it */
+.edit-text-tools, .edit-text-row { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.edit-text-tools::-webkit-scrollbar, .edit-text-row::-webkit-scrollbar { display: none; }
+.edit-text-tools { margin: 0 0 8px; }
+.edit-text-panel { display: flex; flex-direction: column; gap: 2px; margin: 0 0 8px; padding: 4px; background: var(--s2); border-radius: var(--r-control); }
+.edit-text-panel[hidden] { display: none; }
+.edit-text-tool, .edit-text-chip {
+  flex: none; border: 0; background: transparent; color: var(--ink2); font: 13px system-ui, sans-serif; white-space: nowrap;
+  min-height: 40px; padding: 0 12px; border-radius: var(--r-control); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out);
+}
+.edit-text-chip { color: var(--ink); min-width: 40px; }
+.edit-text-tool[aria-expanded="true"], .edit-text-chip[aria-pressed="true"] { background: var(--s3); color: var(--ink); }
+@media (hover: hover) { .edit-text-tool:hover, .edit-text-chip:hover { background: var(--s3); } }
+.edit-text-tool:active, .edit-text-chip:active { background: var(--s3); }
+.edit-text-tool:focus-visible, .edit-text-chip:focus-visible { outline: 2px solid var(--hue); outline-offset: -2px; }
+@media (pointer: coarse) { .edit-text-tool, .edit-text-chip { min-height: 44px; min-width: 44px; } }
+@media (max-width: 576px) { .edit-text-area { min-height: 26vh; max-height: 34vh; } }
