@@ -206,11 +206,13 @@ const isUtf8 = (bytes) => {
  * before points were stored as lines and pages) is converted with the score it was made for. Returns null when the record
  * is for another kind of score than `anchorType`.
  */
-function toV1SyncFile(rec, recordingId, scoreId, anchorType, { firstPage = 1, lastPage = null, blocks = null } = {}) {
+function toV1SyncFile(rec, recordingId, scoreId, anchorType, { firstPage = 1, lastPage = null, pageOffset = 0, blocks = null } = {}) {
     let points = rec.points;
     if (rec.anchorType === 'unit') points = unitsToPoints(points, anchorType, { firstPage, blocks: blocks || [] });
     else if (rec.anchorType !== anchorType) return null;
     if (anchorType === 'pdf') points = points.filter((p) => p.page >= firstPage && (!lastPage || p.page <= lastPage));
+    // A pack that holds only its pages numbers them from 1: the store's points name the pages of the whole book
+    if (anchorType === 'pdf' && pageOffset) points = points.map((p) => ({ ...p, page: p.page - pageOffset }));
     const seenTimes = new Set();
     const out = [];
     for (const p of toSyncPoints([...points].sort((a, b) => a.timeMs - b.timeMs), anchorType)) {
@@ -254,6 +256,37 @@ function rememberLibrarySongKey(librarySongId, key, meta = {}) {
         localStorage.setItem(storageKey, JSON.stringify(list.slice(-20)));
     } catch { /* optional */ }
 }
+
+/**
+ * A PDF cut down to the pages a song uses, for a pack of one song from a book. Returns `{ bytes, pages, firstPage, lastPage }`
+ * (the book pages it covers), or null when there is nothing to cut: no range, the range is the whole file, pdf-lib is not
+ * loaded or the file cannot be read. The caller then stores the PDF whole with its range.
+ */
+async function trimPdfToRange(bytes, startPage, endPage) {
+    const lib = globalThis.PDFLib;
+    const hasStart = Number.isInteger(startPage) && startPage >= 1;
+    const hasEnd = Number.isInteger(endPage) && endPage >= 1;
+    if (!lib?.PDFDocument || (!hasStart && !hasEnd)) return null;
+    try {
+        const src = await lib.PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+        const total = src.getPageCount();
+        const firstPage = Math.min(total, hasStart ? startPage : 1);
+        const lastPage = Math.max(firstPage, Math.min(total, hasEnd ? endPage : total));
+        if (firstPage === 1 && lastPage === total) return null;
+        const out = await lib.PDFDocument.create();
+        const indices = Array.from({ length: lastPage - firstPage + 1 }, (_, i) => firstPage - 1 + i);
+        for (const page of await out.copyPages(src, indices)) out.addPage(page);
+        return { bytes: new Uint8Array(await out.save()), pages: indices.length, firstPage, lastPage };
+    } catch (e) {
+        console.warn('[mpak] could not cut the PDF to its pages, storing it whole:', e);
+        return null;
+    }
+}
+
+/** The pages of a score's file that its sync points may name, and how far the store's page numbers shift to fit the file. */
+const syncWindowOf = (run) => (run.trimmed
+    ? { firstPage: run.trimmed.firstPage, lastPage: run.trimmed.lastPage, pageOffset: run.trimmed.firstPage - 1 }
+    : { firstPage: run.entry.startPage || 1, lastPage: run.entry.endPage || run.entry.pages || null });
 
 /**
  * The other tabs of the open song that can go in its pack: the ones in the library whose file is stored on this device and
@@ -369,12 +402,18 @@ export async function buildMpak(file, options = {}) {
         usedScorePaths.add(path.toLowerCase());
         // A text score must be UTF-8 in the file (SPEC section 6): convert one in another encoding and hash the converted bytes.
         if (format === 'txt' && !isUtf8(bytes)) bytes = new TextEncoder().encode(decodeText(bytes));
+        // A song from a book goes in with only its own pages (options.trimPdf false keeps the whole book and the range)
+        const trimmed = format === 'pdf' && options.trimPdf !== false ? await trimPdfToRange(bytes, input.startPage, input.endPage) : null;
+        if (trimmed) bytes = trimmed.bytes;
         files.set(path, bytes);
         const entry = { id, path, format, sha256: await sha256(bytes), name: sName };
         if (input.label) entry.label = input.label;
         const tuningArr = toManifestTuning(input.tuning);
         if (tuningArr) entry.instruments = [{ tuning: tuningArr }];
-        if (format === 'pdf') {
+        if (trimmed) {
+            // The file is the song's pages alone: the whole file is the song, so no range (SPEC section 6.1)
+            entry.pages = trimmed.pages;
+        } else if (format === 'pdf') {
             if (Number.isInteger(input.pages) && input.pages >= 1) entry.pages = input.pages;
             if (Number.isInteger(input.startPage) && input.startPage >= 1) entry.startPage = input.startPage;
             if (Number.isInteger(input.endPage) && input.endPage >= 1) entry.endPage = input.endPage;
@@ -385,7 +424,7 @@ export async function buildMpak(file, options = {}) {
         // that kind gets them), by song and score file for a text or PDF tab. Records an earlier version shared between
         // a song's text and PDF tabs are read as well.
         const anchorType = ANCHOR[format];
-        const run = { entry, anchorType, bytes, recordsByMedia: new Map(), syncKey: null, legacyKey: null };
+        const run = { entry, anchorType, bytes, trimmed, recordsByMedia: new Map(), syncKey: null, legacyKey: null };
         if (anchorType === 'bar' && !barSyncTaken) { barSyncTaken = true; run.syncKey = songKey; }
         else if (anchorType === 'pdf' || anchorType === 'text') { run.syncKey = scoreSyncKey(songKey, openSha256); run.legacyKey = legacyScoreSyncKey(songKey); }
         if (run.syncKey) {
@@ -433,8 +472,7 @@ export async function buildMpak(file, options = {}) {
             if (!syncRec) continue;
             const syncPath = `sync/${recording.id}-${run.entry.id}.json`;
             const syncDoc = toV1SyncFile(syncRec, recording.id, run.entry.id, run.anchorType, {
-                firstPage: run.entry.startPage || 1,
-                lastPage: run.entry.endPage || run.entry.pages || null,
+                ...syncWindowOf(run),
                 blocks: run.anchorType === 'text' ? textBlocksOf(run.bytes) : null,
             });
             if (syncDoc?.points.length) {
@@ -596,8 +634,7 @@ export async function buildMpak(file, options = {}) {
                 if (!syncRec) continue;
                 const syncPath = `sync/${recording.id}-${run.entry.id}.json`;
                 const syncDoc = toV1SyncFile(syncRec, recording.id, run.entry.id, run.anchorType, {
-                    firstPage: run.entry.startPage || 1,
-                    lastPage: run.entry.endPage || run.entry.pages || null,
+                    ...syncWindowOf(run),
                     blocks: run.anchorType === 'text' ? textBlocksOf(run.bytes) : null,
                 });
                 if (syncDoc?.points.length) {
