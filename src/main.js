@@ -17,7 +17,7 @@ import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPP
 import { setGpDisplayScale, applySavedGpDisplayScale, setGpDensity, getGpDensity, applySavedGpDensity, updateAutoGpDensity, getGpNotationMode, getGpDisplayScalePercent, getDefaultGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
 import { initPageStrip } from './utils/pageStrip.js';
 import { initTextSync } from './textSync/textSync.js';
-import { loadText, renderTextPage, textState, nextTextPage, prevTextPage, setTextLayoutMode } from './textProcessor/textHandler.js';
+import { loadText, renderTextPage, textState, nextTextPage, prevTextPage, setTextLayoutMode, setPendingTextResume } from './textProcessor/textHandler.js';
 import { getTextMaxScalePercent } from './textProcessor/textProcessor.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
@@ -1766,6 +1766,23 @@ export function hideLoadingBar() {
 
 export function getCurrentFile() {
     return currentFile;
+}
+
+/**
+ * Lays the open text tab out again from `file` (its new content) where the reader stands. Unlike loadFile it leaves the
+ * player, the recording and the song's other state alone: only the text and its pages are redrawn.
+ */
+export async function refreshTextTab(file) {
+    if (!currentFile || !isFileType(currentFile, ['txt'])) return false;
+    const pageMode = Boolean(pageModeRadio?.checked);
+    const maxScroll = output.scrollHeight - output.clientHeight;
+    setPendingTextResume({
+        page: pageMode ? textState.currentPageIndex + 1 : 1,
+        scrollRatio: pageMode ? null : (maxScroll > 0 ? output.scrollTop / maxScroll : 0)
+    });
+    currentFile = file;
+    await loadText(file, output, pageModeRadio, continuousModeRadio);
+    return true;
 }
 
 export function getCondensedCanvases() {

@@ -3,7 +3,7 @@
 // tab option. It reads like any text tab; the Song menu's "Edit text" opens this modal to write it. While the text is
 // empty the modal opens by itself when the tab is opened.
 
-import { getCurrentFile, loadFile } from './main.js';
+import { getCurrentFile, loadFile, refreshTextTab } from './main.js';
 import { saveStoredFile } from './fileStore.js';
 import { showToast } from './utils/toast.js';
 import { buildStaff, insertBlockEdit, chordEdit, addBar, staffKey, SECTIONS, CHORD_ROOTS, CHORD_QUALITIES } from './textProcessor/textEditing.js';
@@ -113,7 +113,8 @@ async function save() {
         // The reader shows the new text with everything else about the tab kept
         Object.assign(next, file);
         close();
-        await loadFile(next, { keepMode: true });
+        // Only the text is redrawn: the player, the recording and the reader's place stay as they are
+        if (!(await refreshTextTab(next))) await loadFile(next, { keepMode: true });
     } catch (err) {
         console.warn('Could not save the text:', err);
         showToast('Could not save the text', 'error');
