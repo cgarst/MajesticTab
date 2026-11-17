@@ -96,6 +96,16 @@ export function keysOfOtherSongs(songId, storage = (typeof localStorage !== 'und
     return out;
 }
 
+/**
+ * Does a stored file belong to other songs only? True when the file is linked to song keys and none of them is one of this
+ * song's own keys (`ownKeys`, lowercase, raw and encoded). A file linked to no key is kept. This holds whichever way the file
+ * reached the song: a slot pointer, an attachment by id, or a key lookup.
+ */
+export function isForeignAudio(meta, ownKeys) {
+    const keys = (meta?.songKeys || []).map((k) => String(k).toLowerCase());
+    return keys.length > 0 && !keys.some((k) => ownKeys.has(k));
+}
+
 /** Does this song already have an audio file in the slot, under any of its keys? `existingIds` is the set of stored files' ids. */
 export function songHasAudioInSlot(song, slot, existingIds) {
     if (readLibraryAudio(song.id).some((e) => e.slot === slot && existingIds.has(e.audioId))) return true;

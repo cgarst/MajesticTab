@@ -605,8 +605,8 @@ export async function buildMpak(file, options = {}) {
     // attached to the library song, and the one in a slot whose source is a video. The player has one file per slot at a
     // time, so these are the ones it lists beside the slot's file.
     try {
-        const { listAudioFilesForSong } = await import('./audioSync/audioFileStore.js');
-        const { readLibraryAudio, songAudioKeys, keysOfOtherSongs } = await import('./audioSync/libraryAudio.js');
+        const { listAudioFilesForSong, getAudioMeta } = await import('./audioSync/audioFileStore.js');
+        const { readLibraryAudio, songAudioKeys, keysOfOtherSongs, isForeignAudio } = await import('./audioSync/libraryAudio.js');
         // A key another library song remembers too (an import can leave the same one on every song) does not say whose audio a
         // file is, so only the song's own key and its own other keys count. Files attached by id below are not affected.
         const otherKeys = libSong?.id ? keysOfOtherSongs(libSong.id) : new Set();
@@ -621,8 +621,11 @@ export async function buildMpak(file, options = {}) {
         if (libSong?.id) for (const e of readLibraryAudio(libSong.id)) add(e.audioId, e.slot);
         for (const k of keys) for (const meta of await listAudioFilesForSong(k)) add(meta.id, 'original');
 
+        // A file linked only to other songs' keys is theirs, however it reached this song (an attachment by id included)
+        const ownKeys = new Set(keys.flatMap((k) => [k.toLowerCase(), enc(k).toLowerCase()]));
         let n = 0;
         for (const [id, slot] of candidates) {
+            if (isForeignAudio(await getAudioMeta(id), ownKeys)) continue;
             const rec = await getAudioFile(id);
             if (!rec?.data) continue;
             const audioBytes = new Uint8Array(rec.data);

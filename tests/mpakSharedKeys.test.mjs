@@ -42,3 +42,13 @@ test('keys other songs remember are found, the song\'s own are not', () => {
     assert.ok(forA.has('artist - b'));
     assert.ok(!forA.has('artist - a'));
 });
+
+const { isForeignAudio } = await import('../src/audioSync/libraryAudio.js');
+
+test('a file linked only to other songs\' keys is foreign, however it reached the song', () => {
+    const own = new Set(['artist - a', 'artist%20-%20a']);
+    assert.equal(isForeignAudio({ songKeys: ['Artist - B', 'guitar-1-tablature'] }, own), true);
+    assert.equal(isForeignAudio({ songKeys: ['Artist - B', 'Artist - A'] }, own), false);
+    assert.equal(isForeignAudio({ songKeys: [] }, own), false);
+    assert.equal(isForeignAudio(null, own), false);
+});
