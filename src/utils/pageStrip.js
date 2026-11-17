@@ -81,6 +81,7 @@ export function initPageStrip(getConfig) {
         if (state && pending !== null && !state.continuous) state.value = Math.max(state.min, Math.min(state.max, pending));
         const show = Boolean(state) && (state.continuous || state.total > 1) && !document.body.classList.contains('library-view-active');
         strip.hidden = !show;
+        document.body.classList.toggle('doc-tab', Boolean(state));
         document.body.classList.toggle('page-strip-on', show);
         if (!show) return;
         if (drawn.total !== (state.total ?? 0) || drawn.continuous !== state.continuous) build(state);

@@ -728,6 +728,9 @@ function scoreFileOf(entry, bytes) {
             endPage: entry.endPage ?? entry.pages ?? null,
             pages: entry.pages ?? null,
         };
+        // The PDF reader and the library read the range from `startPage` and `endPage`: without them the whole book opens
+        if (Number.isInteger(entry.startPage) && entry.startPage >= 1) file.startPage = entry.startPage;
+        if (Number.isInteger(entry.endPage) && entry.endPage >= 1) file.endPage = entry.endPage;
     }
     return file;
 }

@@ -2998,12 +2998,14 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 .page-strip-fill { position: absolute; inset: 0; background: var(--s3); transform-origin: 0 50%; transform: scaleX(0); display: block; }
 .page-strip-head { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: var(--hue); display: block; pointer-events: none; }
 /* With a strip there are no bars: the dock keeps play, the sound switch and volume */
-body.page-strip-on .dock-time, body.page-strip-on .dock-bpm, body.page-strip-on #barRuler { display: none !important; }
-body.page-strip-on .dock-ruler:not(:has(.page-strip.in-dock)) { display: none !important; }
+body.page-strip-on .dock-time, body.page-strip-on .dock-bpm, body.page-strip-on #barRuler,
+/* A one-page PDF or text tab has no strip, but it has no bars either: Bar and bpm would show a Guitar Pro song's last values */
+body.doc-tab .dock-time, body.doc-tab .dock-bpm, body.doc-tab #barRuler { display: none !important; }
+body:is(.page-strip-on, .doc-tab) .dock-ruler:not(:has(.page-strip.in-dock)) { display: none !important; }
 /* Desktop: the strip sits in the dock row, between the transport and the sound switch */
 .page-strip.in-dock { padding: 0; background: transparent; z-index: auto; }
 .page-strip.in-dock .page-strip-track { height: 36px; }
-body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr auto; }
+body:is(.page-strip-on, .doc-tab) .mobile-playback-dock-inner { grid-template-columns: auto 1fr auto; }
 .page-strip-track:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
 .page-strip-marks { position: relative; height: 26px; margin-top: 4px; }
 .page-strip-mark { position: absolute; top: 0; transform: translateX(-2px); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: transparent; border: 0; padding: 4px 6px; color: var(--ink2); font: 500 12px system-ui, sans-serif; min-height: 24px; border-radius: var(--r-sm); }
@@ -5326,7 +5328,7 @@ body.midi-synth-source:not(.txt-has-bars) #dockLoopBtn,
 body.midi-synth-source:not(.txt-has-bars) .mb-3:has(#synthLoopSwitch) { display: none !important; }
 body.txt-horizontal-mode #pageStrip,
 body.rec-strip-on.txt-has-bars:has(#output.continuous-mode) #pageStrip { display: none !important; }
-body.rec-strip-on:not(.page-strip-on) .mobile-playback-dock-inner { grid-template-columns: auto 1fr auto auto; }
+body.rec-strip-on:not(.page-strip-on):not(.doc-tab) .mobile-playback-dock-inner { grid-template-columns: auto 1fr auto auto; }
 
 /* PDF pages: the page box is exactly the page. It was 100% of its share of the row, so a page narrower than its
    share (two portrait pages side by side on a landscape phone) sat in a wide box with extra margin each side. */
