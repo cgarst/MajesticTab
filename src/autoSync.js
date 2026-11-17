@@ -147,8 +147,8 @@ export function createAutoSyncController(deps) {
                 return { status: 'paused', reason: 'needs-review' };
             }
 
-            const onProgress = ({ current, total }) => {
-                if (total > 0) setState({ progress: { current, total } });
+            const onProgress = ({ current, total, action, name }) => {
+                if (total > 0) setState({ progress: { current, total, action, name } });
             };
 
             let result;

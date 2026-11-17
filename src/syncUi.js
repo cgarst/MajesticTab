@@ -881,8 +881,51 @@ function ensureBodyStateObserver() {
     bodyStateObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 }
 
+let slotHiddenByUs = false;
+
+/** While auto-sync runs, Settings shows the same progress as a manual sync, in the Sync row's slot. */
+function updateSettingsAutoProgress(auto) {
+    const slot = document.querySelector('.data-task-slot[data-task="sync"]');
+    if (!slot) return;
+    let box = slot.querySelector(':scope > [data-auto-sync-progress]');
+    const show = auto.status === 'syncing' && getTarget() && modal?.style.display !== 'block';
+    if (!show) {
+        box?.remove();
+        if (slotHiddenByUs && !slot.children.length) slot.hidden = true;
+        slotHiddenByUs = false;
+        return;
+    }
+    if (!box) {
+        box = document.createElement('div');
+        box.dataset.autoSyncProgress = '';
+        box.innerHTML = `<div class="task-progress" role="status" aria-live="polite">
+            <div class="task-progress-text"><span class="task-progress-label" data-pct>0%</span><span class="task-progress-detail" data-text>Starting...</span></div>
+            ${progressTrack('autoSyncSlotBar')}
+        </div>`;
+        if (slot.hidden) { slot.hidden = false; slotHiddenByUs = true; }
+        slot.appendChild(box);
+    }
+    const p = auto.progress;
+    const push = p && (p.action === ITEM_ACTION.UPLOAD || p.action === ITEM_ACTION.DELETE_REMOTE);
+    const track = box.querySelector('#autoSyncSlotBar');
+    const fill = box.querySelector('#autoSyncSlotBarFill');
+    if (p?.total > 0) {
+        const share = Math.max(0, p.current - 1) / p.total;
+        const pct = Math.max(0, Math.min(99, Math.round(push ? 50 + share * 49 : share * 50)));
+        track.classList.remove('is-indeterminate');
+        track.setAttribute('aria-valuenow', String(pct));
+        fill.style.transform = `scaleX(${pct / 100})`;
+        box.querySelector('[data-pct]').textContent = `${pct}%`;
+        box.querySelector('[data-text]').textContent = p.name || 'Syncing...';
+    } else {
+        track.classList.add('is-indeterminate');
+        box.querySelector('[data-text]').textContent = 'Checking...';
+    }
+}
+
 function updateAutoSyncHud(state) {
     const auto = state || getAutoSyncState();
+    updateSettingsAutoProgress(auto);
     const bar = getAutoSyncProgressBar();
     if (auto.status === 'syncing') {
         bar.classList.add('is-active');
