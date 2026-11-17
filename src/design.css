@@ -437,7 +437,9 @@ body:not(.library-view-active) .breadcrumb-divider { display: none; }
 /* The pages are at rest, so they are flat: the paper tone against the ground separates them, with no shadow or outline. */
 .pageWrapper, .gp-page-wrapper, .alphaTabContainer, .text-content,
 body.theme-sheet-active .pageWrapper, body.theme-sheet-active .gp-page-wrapper,
-body.theme-sheet-active .alphaTabContainer, body.theme-sheet-active .text-content {
+body.theme-sheet-active .alphaTabContainer, body.theme-sheet-active .text-content,
+body.sheet-mode-dark:not(.theme-sheet-active) .pageWrapper, body.sheet-mode-dark:not(.theme-sheet-active) .gp-page-wrapper,
+body.sheet-mode-dark:not(.theme-sheet-active) .alphaTabContainer, body.sheet-mode-dark:not(.theme-sheet-active) .text-content {
   box-shadow: none; border: 0;
 }
 
