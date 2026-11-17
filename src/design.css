@@ -6278,13 +6278,14 @@ body.theme-sheet-active .txt-ribbon-gutter {
 #realAudioRecordings:not(:has(.vrow)) { display: none; }
 #ytDropdownPanel:not([data-rec-source="local"]) :is(#afPlayer, #afStemSection) { display: none !important; }
 
-/* Auto-sync global progress hairline: 2px at the top edge, hidden in Reading mode */
+/* Auto-sync global progress line: 3px at the top edge, below the status bar and Dynamic Island on a phone
+   (at top 0 it sits behind them and cannot be seen); hidden in Reading mode */
 .auto-sync-progress {
   position: fixed;
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
   left: 0;
   right: 0;
-  height: 2px;
+  height: 3px;
   z-index: 10050;
   pointer-events: none;
   overflow: hidden;
