@@ -275,11 +275,16 @@ jobs:
           git -C "$RUNNER_TEMP/fdroiddata" commit -am "net.zathu.majestictab: update to $version"
           git -C "$RUNNER_TEMP/fdroiddata" push origin net.zathu.majestictab
 
-  # Open the next version on main once every channel above has finished, so day-to-day work and the TestFlight betas
-  # (testflight-beta.yml) are never on a version that is already released. A bump commit pushed with the workflow token does
+  # Open the next version on main once every channel above has finished and at least one store or distribution channel
+  # published successfully, so a single failed channel (re-run it afterwards) does not leave main on a released version and
+  # break the beta workflows (testflight-beta.yml, play-beta.yml). A bump commit pushed with the workflow token does
   # not start other workflows, so it does not trigger a canary build. Skipped when main has already moved past this version.
   bump-next:
     needs: [build, store, publish-play, publish-msstore, publish-appstore-ios, publish-appstore-mac, publish, publish-fdroid]
+    if: >-
+      ${{ !cancelled() && (needs.publish-play.result == 'success' || needs.publish-msstore.result == 'success' ||
+      needs.publish-appstore-ios.result == 'success' || needs.publish-appstore-mac.result == 'success' ||
+      needs.publish.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
