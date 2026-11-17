@@ -3669,6 +3669,9 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
   }
   .tauri-macos body.library-view-active #topBar { height: 36px; }
   .tauri-windows .setpage { padding-right: max(28px, calc(var(--wc-r, 0px) + 16px)); }
+  /* Windows: the caption buttons are --bar-h tall and float over the page. Start the page (and its scrollbar) below them so they never cover the search bar or the scrollbar's top. Fullscreen hides the buttons, so the gutter goes too. */
+  .tauri-windows body.library-view-active #libraryPage { padding-top: var(--bar-h); }
+  .tauri-windows.window-fullscreen body.library-view-active #libraryPage { padding-top: 0; }
 }
 
 /* About: the one place the pick appears */
