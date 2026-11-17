@@ -152,8 +152,9 @@ function initLibraryTopBar() {
 
     window.addEventListener('libraryDataChanged', () => {
         // The Tools page shows no library data, and drawing it again would close the tool that caused the change
-        // (an import, a tab saved from the web search walk)
-        if (isLibraryOpen() && activeView !== 'tools') {
+        // (an import, a tab saved from the web search walk). Settings is the same: redrawing it would close the open task
+        // (Sync, after Done) back to the top level; the library view draws again when Settings is left
+        if (isLibraryOpen() && activeView !== 'tools' && activeView !== 'settings') {
             // Draw the same view again where it was scrolled; a data change is not a navigation
             const body = document.getElementById('libraryModalContent');
             const scroll = body ? body.scrollTop : 0;
