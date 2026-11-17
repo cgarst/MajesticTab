@@ -6443,13 +6443,11 @@ input[type=range]::-moz-range-thumb,
 .album-detail-view.album-drop-active,
 .ref-control-btn.active { box-shadow: none !important; }
 .theme-card.active { box-shadow: none; background: var(--s3); }
-.update-banner { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important; }
 @media (hover: hover) and (pointer: fine) {
 .library-card:hover,
 .library-pinned-card:hover .pinned-play-badge:not(.has-cover),
 .library-pinned-card:hover .pinned-play-badge.has-cover { box-shadow: none; }
 }
-.theme-dropdown-menu { box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.5) !important; }
 /* A drop target takes a tone step instead of the halo it had */
 .library-song-row.song-drop-active, .album-card.album-drop-active, .album-detail-view.album-drop-active { background-color: var(--s3) !important; }
 
@@ -6469,3 +6467,11 @@ input[type=range]::-moz-range-thumb,
 @media (hover: hover) { .btn-theme-danger:hover:not(:disabled) { box-shadow: none !important; } }
 .gp-reader-cursor svg, .ref-circle-slice.active, .ref-circle-svg, .controller-svg-diagram,
 .pinned-play-badge.has-cover .pinned-play-icon { filter: none !important; }
+
+/* One shadow for what floats over the content: menus, popovers, toasts, banners and the panels that open from the reader's five words.
+   Dialogs (.theme-modal-card) and everything at rest have none; the scrim and the tone steps separate those. No glow, no colour. */
+:root { --shadow-float: 0 8px 24px rgb(0 0 0 / 0.35); }
+.dropdown-menu, .popover-pop, .theme-dropdown-menu, .tools-menu, .view-menu, .guitar-menu, .more-menu,
+.score-options-panel, .synth-panel, .yt-panel, .pdf-bookmarks-panel,
+.page-scrubber-popover, .downloader-batch-popover, #downloaderSourcesMenu, .ct-menu, .ct-moremenu,
+.theme-toast, .update-banner, .jam-request-card, .tabpick, .ruler-tip, #pinchScaleReadout { box-shadow: var(--shadow-float) !important; }
