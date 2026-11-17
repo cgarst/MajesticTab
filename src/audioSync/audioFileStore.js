@@ -47,8 +47,13 @@ async function request(mode, run) {
 
 /** Content fingerprint: SHA-256 of the file size and its first megabyte, as hex. Cheap, and stable across renames. */
 export async function fingerprintOf(arrayBuffer) {
-    const head = new Uint8Array(arrayBuffer, 0, Math.min(arrayBuffer.byteLength, FINGERPRINT_BYTES));
-    const sizeBytes = new TextEncoder().encode(`${arrayBuffer.byteLength}:`);
+    return fingerprintOfHead(arrayBuffer.byteLength, new Uint8Array(arrayBuffer, 0, Math.min(arrayBuffer.byteLength, FINGERPRINT_BYTES)));
+}
+
+/** The same fingerprint from a file's size and its first megabyte alone, so a file in an archive is compared without reading it whole. */
+export async function fingerprintOfHead(size, headBytes) {
+    const head = headBytes.subarray(0, FINGERPRINT_BYTES);
+    const sizeBytes = new TextEncoder().encode(`${size}:`);
     const joined = new Uint8Array(sizeBytes.length + head.length);
     joined.set(sizeBytes);
     joined.set(head, sizeBytes.length);

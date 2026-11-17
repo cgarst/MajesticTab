@@ -23,6 +23,10 @@ import { STRATEGIES, pairFile, baseNameOf, normName, sameArtist, sameTitle, look
 import { lookup, lookupAlbum, searchSongs, searchAlbums, normKey, resolveAlbumTracklist, matchTrack } from './matcher.js';
 import { canPickFolder, pickFilesOnly, pickAndScanFolder } from './scanFolder.js';
 import { renderAudioImport, audioImportReadout, onAudioImportChange } from './audioImport.js';
+import { packAdds, describeAdds } from './packContribution.js';
+import { listAudioFiles, fingerprintOfHead } from '../audioSync/audioFileStore.js';
+import { libraryAudioKey, songAudioKeys, keysOfOtherSongs, readLibraryAudio } from '../audioSync/libraryAudio.js';
+import { listRecords, mediaKey } from '../audioSync/syncStore.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const plural = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -47,7 +51,7 @@ const state = {
     rows: [],
     filter: 'all', // 'all' | 'attention'
     customFallback: false, // a file nothing matched is imported as custom music
-    skipExisting: true, // a song or album that already has a tab is left out
+    skipExisting: true, // a tab file whose song already has a tab, and a pack that adds nothing, are left out
     openId: null, // the row whose search panel is open
     lookingUp: false,
     summary: '',
@@ -86,7 +90,7 @@ function verdict(row) {
     if (row.imported) return 'done';
     if (row.stage !== 'done' && !row.manual) return 'wait';
     if (!row.pick) return 'attention';
-    if (state.skipExisting && row.hadTab && !row.forced) return 'have';
+    if (state.skipExisting && !row.forced && (row.entry.ext === 'mpak' && row.adds ? row.adds.total === 0 : row.hadTab)) return 'have';
     if (row.excluded) return 'out';
     // A guess is not imported until the person has looked at it (checked it, or chosen a song)
     return row.status === 'maybe' && !row.manual && !row.confirmed ? 'attention' : 'ready';
@@ -102,12 +106,83 @@ const baseStatusText = (row) => {
     if (row.stage === 'queued') return 'Waiting';
     if (row.stage === 'working') return 'Looking up…';
     if (row.stage === 'error') return 'Lookup failed';
-    if (verdict(row) === 'have') return row.kind === 'album' ? 'Album already has a tab book' : 'Already has a tab';
+    if (verdict(row) === 'have') return row.entry.ext === 'mpak' && row.adds ? 'Nothing new in it' : row.kind === 'album' ? 'Album already has a tab book' : 'Already has a tab';
+    if (row.entry.ext === 'mpak' && row.adds?.total && row.status !== 'maybe') return describeAdds(row.adds);
     if (row.pick?.source === 'custom') return 'Custom music';
     if (row.manual && row.pick) return 'Chosen by you';
     if (!row.pick) return row.parsed ? 'No match' : 'No pairing';
     return { library: 'In your library', match: 'Matched', maybe: 'Check this', custom: 'Custom music' }[row.status] || '';
 };
+
+// --- What a pack would add --------------------------------------------------------------------------------------------
+
+let audioFilesCache = null;
+const audioFilesNow = async () => (audioFilesCache ||= await listAudioFiles().catch(() => []));
+const lowerKey = (k) => String(k || '').toLowerCase();
+
+/** The library song a pick points at, or null when importing it would create the song. Does not create anything. */
+function knownSong(pick) {
+    if (!pick) return null;
+    if (pick.source === 'custom') {
+        const artist = pick.artist || 'Custom Music';
+        return state.songs.find((s) => s.isCustom && sameTitle(s.title, pick.title) && sameTitle(s.artist, artist) && sameTitle(s.album, pick.album)) || null;
+    }
+    return state.songs.find((s) => (pick.songId && s.id === pick.songId) || (pick.recordingMbid && s.recordingMbid === pick.recordingMbid)
+        || (sameTitle(s.title, pick.title) && sameArtist(s.artist, pick.artist) && (!pick.album || sameTitle(s.album, pick.album)))) || null;
+}
+
+/** The first megabyte of a pack's audio file, read from the archive without reading the file whole; null when it cannot be. */
+async function headOf(file, opened, path) {
+    try {
+        const r = opened.range(path);
+        return new Uint8Array(await file.slice(r.start, Math.min(r.end, r.start + 1048576)).arrayBuffer());
+    } catch { return null; }
+}
+
+/**
+ * Works out what an .mpak row would add to its song and keeps it on the row (`row.adds`, null when it cannot be told). A file the
+ * song already has is found by its size, then by the stored fingerprint of its first megabyte. Only the song's own audio counts:
+ * keys another song also remembers do not say whose a file is.
+ */
+async function computeAdds(row) {
+    if (row.entry.ext !== 'mpak') return;
+    const seq = (row.addsSeq = (row.addsSeq || 0) + 1);
+    let adds = null;
+    if (row.pick) {
+        try {
+            const file = await row.entry.getFile();
+            const { header, opened } = await readMpak(file);
+            const song = knownSong(row.pick);
+            let isSameFile = async () => null;
+            let hasSync = () => false;
+            if (song) {
+                const stored = await audioFilesNow();
+                const others = keysOfOtherSongs(song.id);
+                const own = lowerKey(libraryAudioKey(song));
+                const keys = [...new Set([libraryAudioKey(song), ...songAudioKeys(song)].filter(Boolean))].filter((k) => lowerKey(k) === own || !others.has(lowerKey(k)));
+                const keySet = new Set(keys.map(lowerKey));
+                const ids = new Set(readLibraryAudio(song.id).map((e) => e.audioId));
+                const mine = stored.filter((f) => ids.has(f.id) || (f.songKeys || []).some((k) => keySet.has(lowerKey(k))));
+                isSameFile = async (src) => {
+                    const near = mine.filter((f) => f.size === src.size);
+                    if (!near.length) return null;
+                    const head = await headOf(file, opened, src.path);
+                    if (!head) return near[0].id;
+                    const fp = await fingerprintOfHead(src.size, head);
+                    return near.find((f) => f.fingerprint === fp)?.id || null;
+                };
+                const shas = (header.scores || []).map((sc) => sc.sha256).filter(Boolean);
+                const have = new Set(keys.flatMap((k) => [k, `text:${k}`, ...shas.map((h) => `score:${h}:${k}`)])
+                    .flatMap((k) => listRecords(k)).map((r) => mediaKey(r.media)).filter(Boolean));
+                hasSync = (rec, media) => have.has(mediaKey(media));
+            }
+            adds = await packAdds({ manifest: header, song, isSameFile, hasSync });
+        } catch (err) {
+            console.warn('[Bulk import] Could not tell what', row.entry.path, 'adds:', err);
+        }
+    }
+    if (row.addsSeq === seq) row.adds = adds;
+}
 
 /** A song that is not on MusicBrainz: the names as the file gave them (or the person typed them), saved as custom music. */
 const customPick = (p, kind = 'song') => ({
@@ -115,8 +190,13 @@ const customPick = (p, kind = 'song') => ({
     recordingMbid: '', year: null, length: null, coverUrl: null
 });
 
-/** Does the song (or album) this row would add to already have a tab? Read from the library as it was when the row was paired. */
+/** Does the song (or album) this row would add to already have a tab? A pack is judged by what it would add (computeAdds). */
 function markHad(row) {
+    markHadTab(row);
+    if (row.entry?.ext === 'mpak') computeAdds(row).then(() => notify(row.id)).catch(() => {});
+}
+
+function markHadTab(row) {
     const p = row.pick;
     row.hadTab = false;
     if (!p) return;
@@ -131,7 +211,7 @@ function markHad(row) {
 }
 
 function makeRow(entry, i) {
-    return { id: `r${i}`, entry, kind: 'song', manualKind: false, hadTab: false, forced: false, parsed: null, stage: 'queued', status: 'none', pick: null, candidates: [], before: null, excluded: false, confirmed: false, manual: false, imported: '', note: '', error: '' };
+    return { id: `r${i}`, entry, kind: 'song', manualKind: false, hadTab: false, adds: null, addsSeq: 0, forced: false, parsed: null, stage: 'queued', status: 'none', pick: null, candidates: [], before: null, excluded: false, confirmed: false, manual: false, imported: '', note: '', error: '' };
 }
 
 async function embeddedMeta(entry) {
@@ -294,7 +374,7 @@ function restartLookups() {
     state.controller?.abort();
     for (const row of state.rows) {
         if (row.manual || row.imported) continue;
-        Object.assign(row, { stage: 'queued', status: 'none', pick: null, candidates: [], before: null, parsed: null, error: '', excluded: false, confirmed: false, forced: false, hadTab: false });
+        Object.assign(row, { stage: 'queued', status: 'none', pick: null, candidates: [], before: null, parsed: null, error: '', excluded: false, confirmed: false, forced: false, hadTab: false, adds: null });
         if (!row.manualKind) row.kind = 'song';
     }
     runLookups();
@@ -339,7 +419,7 @@ function setKind(row, kind) {
     if (row.kind === kind) return;
     row.kind = kind;
     row.manualKind = true;
-    Object.assign(row, { manual: false, excluded: false, confirmed: false, forced: false, hadTab: false, before: null, pick: null, candidates: [], status: 'none', stage: 'queued' });
+    Object.assign(row, { manual: false, excluded: false, confirmed: false, forced: false, hadTab: false, adds: null, before: null, pick: null, candidates: [], status: 'none', stage: 'queued' });
     notify(row.id);
     resolveRow(row, null);
 }
@@ -389,7 +469,9 @@ async function importAlbumTab(row, file) {
 async function runImport() {
     // What already has a tab is judged by the library as it is now, before this import adds any
     state.songs = await getAllSongs().catch(() => state.songs);
-    state.rows.forEach((r) => { if (!r.imported) markHad(r); });
+    state.rows.forEach((r) => { if (!r.imported) markHadTab(r); });
+    audioFilesCache = null;
+    for (const r of state.rows) if (!r.imported && r.entry.ext === 'mpak') await computeAdds(r);
     const todo = state.rows.filter((r) => verdict(r) === 'ready' && !r.imported);
     if (!todo.length) { notify(); return; }
     state.controller?.abort();
@@ -448,6 +530,7 @@ async function runImport() {
     }
     state.phase = 'review';
     state.controller = null;
+    audioFilesCache = null;
     const parts = [plural(added, 'tab', 'tabs') + ' imported'];
     if (skipped) parts.push(`${skipped} already in the library`);
     if (failed) parts.push(`${failed} failed`);
@@ -600,7 +683,7 @@ function renderTabsImport(container) {
             <button type="button" class="ct-text" data-act="select-none">Select none</button>
             <button type="button" class="ct-text" data-act="choose">Choose another folder</button>`}
           </div>
-          ${importing ? '' : `<label class="be-option imp-fallback"><input type="checkbox" class="form-check-input" data-act="skip-existing" ${state.skipExisting ? 'checked' : ''}><span class="be-option-text"><span class="be-option-title">Skip songs and albums that already have a tab</span><span class="be-option-sub">A file is left out when its song, or its album’s tab book, already has a tab in your library. Check its row to import it anyway.</span></span></label>`}
+          ${importing ? '' : `<label class="be-option imp-fallback"><input type="checkbox" class="form-check-input" data-act="skip-existing" ${state.skipExisting ? 'checked' : ''}><span class="be-option-text"><span class="be-option-title">Skip files that add nothing new</span><span class="be-option-sub">A tab file is left out when its song, or its album’s tab book, already has a tab. A pack is left out when its song already has its score, stems, audio and sync data. Check its row to import it anyway.</span></span></label>`}
           ${importing ? '' : `<label class="be-option imp-fallback"><input type="checkbox" class="form-check-input" data-act="custom-fallback" ${state.customFallback ? 'checked' : ''}><span class="be-option-text"><span class="be-option-title">Import files with no good match as custom music</span><span class="be-option-sub">MusicBrainz is tried first. Songs it cannot find, or only guesses at, are saved under the names from the file.</span></span></label>`}
           ${state.summary ? `<div class="be-status" role="status">${esc(state.summary)}</div>` : ''}
         </div>
