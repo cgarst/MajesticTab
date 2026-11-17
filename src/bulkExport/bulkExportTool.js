@@ -1,14 +1,19 @@
 // bulkExportTool.js
 // Bulk export page in Tools:
-// 1. Library metadata: CSV containing artist, album, song, youtube url, youtube backing url, tunings, tab files, year
+// 1. Library metadata: CSV containing artist, album, song, youtube url, youtube backing url, tunings, tab files by type, stems, local audio, sync data, year
 // 1b. Map data: ZIP of JSON files, one per song and recording
 // 2. Original tab files: All .gp, .pdf, .txt files from library and storage bundled into a ZIP
 // 3. PDF export: Runs all tabs in library through score PDF export, bundled into a ZIP
 
 import { getAllSongs, getCollections } from '../libraryStore.js';
+import { findDuplicateSongs } from '../libraryDuplicates.js';
 import { getAllStoredFiles, getStoredFile } from '../fileStore.js';
+import { listAudioFiles } from '../audioSync/audioFileStore.js';
 import {
     exportMetadataCsv,
+    isRemoteOnlySong,
+    packIdsNeedingCloud,
+    loadManifestSummaries,
     buildSyncZipEntries,
     buildOriginalsZipEntries,
     buildLibraryPdfsZipEntries,
@@ -29,9 +34,11 @@ const state = {
     progressPct: 0,
     includeUnlinkedOriginals: true,
     includeUnlinkedPdfs: false,
+    includeCloudData: false,
     cachedSongs: null,
     cachedCollections: null,
     cachedStoredFiles: null,
+    cachedAudioFiles: [],
     readyExport: null
 };
 
@@ -54,15 +61,17 @@ export function renderBulkExportTool(container) {
 
     async function loadData() {
         try {
-            const [songs, collections, storedFiles] = await Promise.all([
+            const [songs, collections, storedFiles, audioFiles] = await Promise.all([
                 getAllSongs().catch(() => []),
                 getCollections().catch(() => []),
-                getAllStoredFiles().catch(() => [])
+                getAllStoredFiles().catch(() => []),
+                listAudioFiles().catch(() => [])
             ]);
             if (!alive) return;
             state.cachedSongs = songs;
             state.cachedCollections = collections;
             state.cachedStoredFiles = storedFiles;
+            state.cachedAudioFiles = audioFiles;
             render();
         } catch (e) {
             console.error('[BulkExport] Error loading library data:', e);
@@ -86,8 +95,13 @@ export function renderBulkExportTool(container) {
 
     function renderMetadataHtml() {
         const songs = state.cachedSongs || [];
-        const metadata = exportMetadataCsv({ songs, collections: state.cachedCollections || [] });
+        const metadata = exportMetadataCsv({ songs, collections: state.cachedCollections || [], audioFiles: state.cachedAudioFiles, storedFileIds: new Set((state.cachedStoredFiles || []).map((f) => f.id)) });
         const { totalSongs, songsWithOriginalVideo, songsWithBackingVideo } = metadata.stats;
+        const storedIds = new Set((state.cachedStoredFiles || []).map((f) => f.id));
+        const remoteOnly = songs.filter((s) => isRemoteOnlySong(s, storedIds)).length;
+
+        const dupes = findDuplicateSongs(songs).length;
+        const dupesHtml = dupes ? `<div class="be-info-sub" role="status">${dupes} ${dupes === 1 ? 'song appears' : 'songs appear'} more than once in your library, so the CSV has more than one row for ${dupes === 1 ? 'it' : 'each'}. Review them in Settings, Library, Upkeep.</div>` : '';
 
         const statsText = [
             `${totalSongs} ${totalSongs === 1 ? 'song' : 'songs'}`,
@@ -97,16 +111,25 @@ export function renderBulkExportTool(container) {
 
         return `
         <div class="be-section">
-          <p class="ct-sub">Export your entire library’s metadata into a CSV spreadsheet. Includes artist, album, song title, linked YouTube original and backing audio URLs, tunings, tab filenames and release year.</p>
+          <p class="ct-sub">Export your entire library’s metadata into a CSV spreadsheet. Includes artist, album, song title, linked YouTube original and backing audio URLs, tunings, tab filenames by type, stem and local audio counts, sync data and release year.</p>
           <div class="be-card">
             <div class="be-stats-row"><span class="be-stats-label">${esc(statsText)}</span></div>
-            <div class="be-info-sub">Columns: artist, album, song, youtube url, youtube backing url, tunings, tab_files, year</div>
+            <label class="be-option">
+              <input type="checkbox" class="form-check-input" data-act="toggle-cloud" ${state.includeCloudData ? 'checked' : ''} ${state.running ? 'disabled' : ''}>
+              <span class="be-option-text">
+                <span class="be-option-title">Include songs not on this device</span>
+                <span class="be-option-sub">${remoteOnly ? `${remoteOnly} ${remoteOnly === 1 ? 'song is' : 'songs are'} only in cloud sync. ` : ''}Reads each song’s small manifest from your sync storage, no audio or tabs. Slower with many songs. Otherwise their audio and sync columns stay blank.</span>
+              </span>
+            </label>
+            ${dupesHtml}
+            <div class="be-info-sub">Columns: artist, album, song, youtube url, youtube backing url, tunings, gp_files, pdf_files, txt_files, stems, mix_audio_files, backing_audio_file, sync_recordings, sync_type, sync_media, data_source, year</div>
           </div>
           <div class="be-actions">
             <button type="button" class="btn btn-sm btn-theme-primary" data-act="export-metadata" ${state.running || totalSongs === 0 ? 'disabled' : ''}>
               Export metadata as CSV
             </button>
             ${state.readyExport?.mode === 'metadata' && !state.running ? `<button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" data-act="share-ready"><i class="bi-share"></i> Save / Share (${esc(state.readyExport.filename)})</button>` : ''}
+            ${state.running ? '<button type="button" class="ct-text" data-act="cancel">Cancel</button>' : ''}
             ${state.statusText ? `<span class="be-status" role="status">${esc(state.statusText)}</span>` : ''}
           </div>
         </div>`;
@@ -218,6 +241,35 @@ export function renderBulkExportTool(container) {
 
     // --- Action Handlers -----------------------------------------------------------------------------------------
 
+    /** Manifest summaries for the songs whose audio or sync data may live only in the store. False when cancelled. */
+    async function readCloudSummaries(songs, storedFileIds, audioFiles) {
+        const { getTarget, openSyncStore } = await import('../syncBackend.js');
+        const opened = await openSyncStore(getTarget(), { interactive: true });
+        if (opened?.status !== 'ready') {
+            state.statusText = 'Sync storage is not available, exporting this device only';
+            return null;
+        }
+        const ids = packIdsNeedingCloud({ songs, storedFileIds, audioFiles });
+        state.abortController = new AbortController();
+        const decoder = new TextDecoder();
+        const result = await loadManifestSummaries(
+            ids,
+            async (id) => JSON.parse(decoder.decode(await opened.store.read(`packs/${id}/manifest.json`))),
+            {
+                abortSignal: state.abortController.signal,
+                onProgress: (done, total) => {
+                    state.statusText = `Reading song ${done} of ${total}…`;
+                    state.progressPct = 25 + Math.round((done / Math.max(total, 1)) * 50);
+                    notify();
+                }
+            }
+        );
+        const cancelled = state.abortController.signal.aborted;
+        state.abortController = null;
+        if (cancelled) { state.statusText = 'Export cancelled'; return false; }
+        return result;
+    }
+
     async function handleExportMetadata() {
         if (state.running) return;
         state.running = true;
@@ -231,7 +283,14 @@ export function renderBulkExportTool(container) {
             state.progressPct = 50;
             notify();
 
-            const { csvString, count } = exportMetadataCsv({ songs, collections });
+            const audioFiles = state.cachedAudioFiles?.length ? state.cachedAudioFiles : await listAudioFiles().catch(() => []);
+            const storedFileIds = new Set((state.cachedStoredFiles || []).map((f) => f.id));
+            let cloudSummaries = null;
+            if (state.includeCloudData) {
+                cloudSummaries = await readCloudSummaries(songs, storedFileIds, audioFiles);
+                if (cloudSummaries === false) return;
+            }
+            const { csvString, count } = exportMetadataCsv({ songs, collections, audioFiles, storedFileIds, cloudSummaries });
             state.progressPct = 80;
             notify();
 
@@ -467,6 +526,8 @@ export function renderBulkExportTool(container) {
         const t = e.target;
         if (t.dataset.act === 'toggle-unlinked') {
             state.includeUnlinkedOriginals = t.checked;
+        } else if (t.dataset.act === 'toggle-cloud') {
+            state.includeCloudData = t.checked;
         } else if (t.dataset.act === 'toggle-unlinked-pdfs') {
             state.includeUnlinkedPdfs = t.checked;
         }

@@ -1,12 +1,15 @@
 // bulkExportCore.js
 // Core export engines for MajesticTab:
-// 1. Library metadata CSV (artist, album, song, youtube url, youtube backing url, tunings, tab files, year)
+// 1. Library metadata CSV (artist, album, song, video urls, tunings, tab files by type, stems, local audio, sync data, year)
 // 1b. Sync data: a ZIP of JSON files, one per song and recording, each naming the video or file it is synced to
 // 2. Original tab files (organized into folders as a ZIP archive)
 // 3. PDF bulk export (runs all tabs in library through the score PDF export code, bundled into a ZIP archive)
 
 import { listRecords } from '../audioSync/syncStore.js';
 import { listHistory } from '../audioSync/videoHistory.js';
+import { listRecordingMeta } from '../audioSync/recordingMeta.js';
+import { readLibraryAudio } from '../audioSync/libraryAudio.js';
+import { slotFileKey } from '../stemdeck/backingCandidates.js';
 import { isIOSDevice } from '../utils/iosAudioUnlock.js';
 import { showToast } from '../utils/toast.js';
 
@@ -92,14 +95,177 @@ function collectSyncRecords(candidateKeys, storage, listRecordsFn) {
     return out;
 }
 
+const TAB_KINDS = { gp: ['gp', 'gp3', 'gp4', 'gp5', 'gpx'], pdf: ['pdf'], txt: ['txt'] };
+
+/** Tab names of a song split by file type: { gp: [], pdf: [], txt: [] }. Other extensions are left out. */
+export function splitTabFiles(song) {
+    const out = { gp: [], pdf: [], txt: [] };
+    for (const t of Array.isArray(song.tabOptions) ? song.tabOptions : []) {
+        const name = t.name || '';
+        const ext = name.split('.').pop().toLowerCase();
+        for (const [kind, exts] of Object.entries(TAB_KINDS)) if (exts.includes(ext)) out[kind].push(name);
+    }
+    return out;
+}
+
+/**
+ * Local audio of a song. `audioFiles` is the stored files' metadata (listAudioFiles). Returns
+ * { stems, mixAudio, backing }: the number of stem parts, the number of full-mix files (the Original and any extras, not
+ * the Backing track and not a stem part), and 1 when a local file is the Backing track.
+ */
+export function songLocalAudio(song, candidateKeys, audioFiles, storage) {
+    const known = new Map(audioFiles.map((f) => [f.id, f]));
+    const lowerKeys = new Set(candidateKeys.map((k) => k.toLowerCase()));
+    const ids = new Set();
+    for (const f of audioFiles) if ((f.songKeys || []).some((k) => lowerKeys.has(String(k).toLowerCase()))) ids.add(f.id);
+    if (song.id) for (const e of readLibraryAudio(song.id)) if (known.has(e.audioId)) ids.add(e.audioId);
+
+    const stemIds = new Set();
+    if (storage) {
+        for (const k of candidateKeys) {
+            for (const meta of Object.values(listRecordingMeta(k, storage))) {
+                for (const m of meta.stems || []) stemIds.add(m.audioId);
+            }
+        }
+    }
+    let backing = 0;
+    let backingId = null;
+    if (storage) {
+        for (const k of candidateKeys) {
+            const id = storage.getItem(slotFileKey(k, 'backing'));
+            if (id && known.has(id)) { backing = 1; backingId = id; break; }
+        }
+    }
+    for (const id of stemIds) ids.delete(id);
+    if (backingId) ids.delete(backingId);
+    return { stems: stemIds.size, mixAudio: ids.size, backing };
+}
+
+const ANCHOR_OF_FORMAT = { gp: 'bar', gp3: 'bar', gp4: 'bar', gp5: 'bar', gpx: 'bar', musicxml: 'bar', mxl: 'bar', mscz: 'bar', alphatex: 'bar', pdf: 'pdf', txt: 'text', abc: 'text' };
+
+/**
+ * The same counts as songLocalAudio and songSyncSummary, read from a pack's manifest alone (no audio, no score, no sync
+ * file). A recording with role `stem` is a stem part, `backing` with a file source is the Backing track, any other recording
+ * with a file source is a full mix. A recording that has a `sync` map is mapped; the kind of map comes from the format of the
+ * score it syncs to, and what it is mapped to from its sources (`youtube`, or a file as `local`).
+ */
+export function summarizeManifest(manifest) {
+    const recs = Array.isArray(manifest?.recordings) ? manifest.recordings : [];
+    const scoreFormat = new Map();
+    for (const sc of manifest?.scores || []) for (const x of [sc, ...(sc.alternates || [])]) scoreFormat.set(x.id, x.format);
+    const out = { stems: 0, mixAudio: 0, backing: 0, syncRecordings: 0 };
+    const types = new Set();
+    const media = new Set();
+    for (const r of recs) {
+        const sources = Array.isArray(r.sources) ? r.sources : [];
+        const hasFile = sources.some((x) => x.type === 'file');
+        if (r.role === 'stem') { if (hasFile) out.stems++; }
+        else if (r.role === 'backing') { if (hasFile) out.backing = 1; }
+        else if (hasFile) out.mixAudio++;
+        const mapped = Object.keys(r.sync || {});
+        if (!mapped.length) continue;
+        out.syncRecordings++;
+        for (const id of mapped) { const t = ANCHOR_OF_FORMAT[scoreFormat.get(id)]; if (t) types.add(t); }
+        if (sources.some((x) => x.type === 'youtube')) media.add('youtube');
+        if (hasFile) media.add('local');
+    }
+    return {
+        ...out,
+        syncTypes: ['bar', 'pdf', 'text'].filter((x) => types.has(x)),
+        syncMedia: ['youtube', 'local'].filter((x) => media.has(x))
+    };
+}
+
+/**
+ * Pack ids of the songs whose audio or sync data may be only in the store: remote-only songs, and songs here that show no
+ * local audio, or no sync data (their audio may have been left out of this device).
+ */
+export function packIdsNeedingCloud({ songs, storedFileIds, audioFiles = [], storage = (typeof localStorage !== 'undefined' ? localStorage : null), listRecordsFn = listRecords }) {
+    const ids = [];
+    for (const song of songs) {
+        const packId = packIdOfLibrarySong(song);
+        if (!packId) continue;
+        if (isRemoteOnlySong(song, storedFileIds)) { ids.push(packId); continue; }
+        const keys = getCandidateKeysForSong(song, storage);
+        const a = songLocalAudio(song, keys, audioFiles, storage);
+        const sync = songSyncSummary(keys, storage, listRecordsFn);
+        if ((!a.stems && !a.mixAudio && !a.backing) || !sync.recordings) ids.push(packId);
+    }
+    return ids;
+}
+
+const PACK_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** The pack folder of a song: its own id when that can be one, else the id it remembers. Null when it has none. */
+export function packIdOfLibrarySong(song) {
+    if (PACK_ID.test(song.id || '')) return song.id;
+    return PACK_ID.test(song.packId || '') ? song.packId : null;
+}
+
+/** A song with tabs, none of which has its file on this device. */
+export function isRemoteOnlySong(song, storedFileIds) {
+    const tabs = Array.isArray(song.tabOptions) ? song.tabOptions : [];
+    return tabs.length > 0 && !tabs.some((t) => t.fileStoreId && storedFileIds.has(t.fileStoreId));
+}
+
+/**
+ * Reads the manifest of each given pack (one small read each, never audio) and returns Map<packId, summary>. A pack that
+ * cannot be read is left out. `readManifest(packId)` returns the parsed manifest. Reads run `concurrency` at a time.
+ */
+export async function loadManifestSummaries(packIds, readManifest, { concurrency = 6, onProgress, abortSignal } = {}) {
+    const out = new Map();
+    const queue = [...new Set(packIds)];
+    let done = 0;
+    const worker = async () => {
+        while (queue.length && !abortSignal?.aborted) {
+            const id = queue.shift();
+            try { out.set(id, summarizeManifest(await readManifest(id))); } catch { /* not in the store, or unreadable */ }
+            onProgress?.(++done, done + queue.length);
+        }
+    };
+    await Promise.all(Array.from({ length: concurrency }, worker));
+    return out;
+}
+
+/**
+ * Sync data of a song, from its stored records (bar, pdf and text maps, including the `text:` keys a pdf or text
+ * tab files its points under). Returns { recordings, types, media }: how many recordings are mapped, which kinds of
+ * map ('bar', 'pdf', 'text') and what they are mapped to ('youtube', 'local').
+ */
+export function songSyncSummary(candidateKeys, storage, listRecordsFn) {
+    const types = new Set();
+    const media = new Set();
+    const seen = new Set();
+    if (typeof listRecordsFn !== 'function' || !storage) return { recordings: 0, types: [], media: [] };
+    for (const k of candidateKeys.flatMap((key) => [key, `text:${key}`])) {
+        for (const r of listRecordsFn(k, storage)) {
+            if (!r.points || !r.points.length) continue;
+            const id = r.media?.kind === 'youtube' ? `yt_${r.media.videoId}` : `local_${r.media?.audioId}`;
+            seen.add(id);
+            types.add(r.anchorType || 'bar');
+            if (r.media?.kind) media.add(r.media.kind);
+        }
+    }
+    const order = (list, ref) => ref.filter((x) => list.has(x));
+    return { recordings: seen.size, types: order(types, ['bar', 'pdf', 'text']), media: order(media, ['youtube', 'local']) };
+}
+
 /**
  * Exports library metadata as an RFC 4180 CSV string.
- * Columns: artist, album, song, youtube url, youtube backing url, tunings, tab_files, year.
+ * Columns: artist, album, song, youtube url, youtube backing url, tunings, gp_files, pdf_files, txt_files, stems,
+ * mix_audio_files, backing_audio_file, sync_recordings, sync_type, sync_media, data_source, year.
  * Sync points are not in the CSV (they overflow a spreadsheet cell); see buildSyncZipEntries.
+ * `audioFiles` is the stored audio files' metadata (listAudioFiles); `storedFileIds` the ids of the tab files on this device.
+ * `cloudSummaries` is Map<packId, summary> from loadManifestSummaries: it fills the audio and sync columns of a song whose
+ * data is not on this device. data_source says where a row's audio and sync columns came from: `device`, `cloud`, or
+ * `not on device` (a remote-only song whose manifest was not read: those columns are blank, not 0).
  */
 export function exportMetadataCsv({
     songs = [],
     collections = [],
+    audioFiles = [],
+    storedFileIds = null,
+    cloudSummaries = null,
     storage = (typeof localStorage !== 'undefined' ? localStorage : null),
     listRecordsFn = listRecords,
     listHistoryFn = listHistory
@@ -111,7 +277,16 @@ export function exportMetadataCsv({
         'youtube url',
         'youtube backing url',
         'tunings',
-        'tab_files',
+        'gp_files',
+        'pdf_files',
+        'txt_files',
+        'stems',
+        'mix_audio_files',
+        'backing_audio_file',
+        'sync_recordings',
+        'sync_type',
+        'sync_media',
+        'data_source',
         'year'
     ];
 
@@ -120,6 +295,7 @@ export function exportMetadataCsv({
     let songsWithBackingVideo = 0;
     let songsWithSync = 0;
 
+    songs = songs.filter((s) => !s.isAlbumTabContainer);
     for (const song of songs) {
         const artist = song.artist || '';
         const album = song.album || '';
@@ -167,9 +343,27 @@ export function exportMetadataCsv({
         const originalUrl = originalVideoId ? `https://www.youtube.com/watch?v=${originalVideoId}` : '';
         const backingUrl = backingVideoId ? `https://www.youtube.com/watch?v=${backingVideoId}` : '';
         const tunings = Array.isArray(song.tunings) ? song.tunings.join('; ') : '';
-        const tabFiles = Array.isArray(song.tabOptions)
-            ? song.tabOptions.map((t) => t.name || '').filter(Boolean).join('; ')
-            : '';
+        const tabs = splitTabFiles(song);
+        let audio = songLocalAudio(song, candidateKeys, audioFiles, storage);
+        let sync = songSyncSummary(candidateKeys, storage, listRecordsFn);
+        let dataSource = 'device';
+        const remoteOnly = storedFileIds ? isRemoteOnlySong(song, storedFileIds) : false;
+        const packId = packIdOfLibrarySong(song);
+        const cloud = packId ? cloudSummaries?.get(packId) : null;
+        if (cloud) {
+            // Audio is left out of this device (or the song is remote only): the pack says what it holds
+            if (!audio.stems && !audio.mixAudio && !audio.backing && (cloud.stems || cloud.mixAudio || cloud.backing)) {
+                audio = { stems: cloud.stems, mixAudio: cloud.mixAudio, backing: cloud.backing };
+                dataSource = 'cloud';
+            }
+            if (!sync.recordings && cloud.syncRecordings) {
+                sync = { recordings: cloud.syncRecordings, types: cloud.syncTypes, media: cloud.syncMedia };
+                dataSource = 'cloud';
+            }
+        } else if (remoteOnly) {
+            dataSource = 'not on device';
+        }
+        const unknown = dataSource === 'not on device';
         const year = song.year != null ? String(song.year) : '';
 
         rows.push(toCsvRow([
@@ -179,7 +373,16 @@ export function exportMetadataCsv({
             originalUrl,
             backingUrl,
             tunings,
-            tabFiles,
+            tabs.gp.join('; '),
+            tabs.pdf.join('; '),
+            tabs.txt.join('; '),
+            unknown ? '' : audio.stems,
+            unknown ? '' : audio.mixAudio,
+            unknown ? '' : audio.backing,
+            unknown ? '' : sync.recordings,
+            sync.types.join('; '),
+            sync.media.join('; '),
+            dataSource,
             year
         ]));
     }

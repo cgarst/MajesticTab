@@ -453,7 +453,8 @@ export function initSettingsPage() {
             taskRow('restore', 'Restore from a backup', 'Bring a backup file back.', 'Restore')]));
     panes.library.appendChild(taskGroup('Upkeep',
         ...[taskRow('reload', 'Reload library metadata', 'Refresh covers, durations and album details.', 'Reload'),
-            taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Review', false, 'Review orphaned files')]));
+            taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Review', false, 'Review orphaned files'),
+            taskRow('duplicates', 'Duplicate songs', 'Find songs listed more than once, such as a second disc of the same album.', 'Review', false, 'Review duplicate songs')]));
     const danger = taskGroup('Danger zone',
         ...[taskRow('cache', 'Clear cached data', 'Covers and downloads, kept only to load faster.', 'Clear', true),
             taskRow('delete', 'Delete all data', 'Removes your library, setlists and settings from this device.', 'Delete', true)]);

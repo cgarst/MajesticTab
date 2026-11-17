@@ -1,5 +1,6 @@
 // tests/bulkExport.test.mjs
 import assert from 'node:assert/strict';
+import { findDuplicateSongs } from '../src/libraryDuplicates.js';
 import {
     escapeCsvCell,
     toCsvRow,
@@ -7,6 +8,9 @@ import {
     uniquePath,
     getCandidateKeysForSong,
     exportMetadataCsv,
+    summarizeManifest,
+    packIdsNeedingCloud,
+    loadManifestSummaries,
     buildSyncZipEntries,
     buildOriginalsZipEntries,
     buildLibraryPdfsZipEntries,
@@ -121,9 +125,20 @@ assert.deepEqual(headerParts, [
     'youtube url',
     'youtube backing url',
     'tunings',
-    'tab_files',
+    'gp_files',
+    'pdf_files',
+    'txt_files',
+    'stems',
+    'mix_audio_files',
+    'backing_audio_file',
+    'sync_recordings',
+    'sync_type',
+    'sync_media',
+    'data_source',
     'year'
 ]);
+assert(lines[1].includes('Lead Guitar.gp5') && lines[1].includes('Rhythm Guitar.pdf'));
+assert(lines[1].endsWith(',1,bar,youtube,device,1986'), 'one youtube bar sync: ' + lines[1]);
 
 assert(lines[1].includes('Metallica'));
 assert(lines[1].includes('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
@@ -132,6 +147,73 @@ assert(lines[1].includes('E Standard'));
 assert(lines[1].includes('1986'));
 
 assert(!lines[1].includes('timeMs'), 'Sync points must stay out of the CSV');
+
+// 6a. audio and stem columns
+{
+    const store = new Map([
+        ['audio_file_metallica%20-%20master%20of%20puppets_backing', 'bk'],
+        ['rec_meta_metallica%20-%20master%20of%20puppets', JSON.stringify({
+            local_s1: { role: 'stem', stems: [{ audioId: 's1', label: 'Guitar' }, { audioId: 's2', label: 'Bass' }] }
+        })]
+    ]);
+    const st = { getItem: (k) => store.get(k) ?? null, setItem() {}, key: (i) => [...store.keys()][i] ?? null, get length() { return store.size; } };
+    const files = ['o', 'bk', 's1', 's2'].map((id) => ({ id, songKeys: ['Metallica - Master of Puppets'] }));
+    const out = exportMetadataCsv({ songs: [song1], audioFiles: files, storage: st, listRecordsFn: () => [] });
+    assert(out.csvString.split('\r\n')[1].includes(',2,1,1,0,,,device,1986'), out.csvString);
+}
+
+// 6c. cloud (manifest) summaries
+{
+    const manifest = {
+        scores: [{ id: 'sc1', format: 'gp5' }, { id: 'sc2', format: 'pdf' }],
+        recordings: [
+            { id: 'r1', role: 'original', sources: [{ type: 'file', path: 'audio/a.mp3' }], sync: { sc1: 'sync/a.json' } },
+            { id: 'r2', role: 'backing', sources: [{ type: 'file', path: 'audio/b.mp3' }] },
+            { id: 'r3', role: 'original', sources: [{ type: 'youtube', videoId: 'dQw4w9WgXcQ' }], sync: { sc2: 'sync/c.json' } },
+            { id: 'r4', role: 'stem', stemOf: 'r1', sources: [{ type: 'file', path: 'audio/s1.mp3' }] },
+            { id: 'r5', role: 'stem', stemOf: 'r1', sources: [{ type: 'file', path: 'audio/s2.mp3' }] }
+        ]
+    };
+    const sum = summarizeManifest(manifest);
+    assert.deepEqual(sum, { stems: 2, mixAudio: 1, backing: 1, syncRecordings: 2, syncTypes: ['bar', 'pdf'], syncMedia: ['youtube', 'local'] });
+
+    const remote = { id: 'pack1', artist: 'A', title: 'T', tabOptions: [{ name: 'x.gp5', fileStoreId: 'gone' }] };
+    const empty = { getItem: () => null, setItem() {}, key: () => null, length: 0 };
+    const row = (opts) => exportMetadataCsv({ songs: [remote], storage: empty, listRecordsFn: () => [], storedFileIds: new Set(), ...opts }).csvString.split('\r\n')[1];
+    assert(row({}).endsWith(',,,,,,,not on device,'), row({}));
+    assert(row({ cloudSummaries: new Map([['pack1', sum]]) }).endsWith(',2,1,1,2,bar; pdf,youtube; local,cloud,'));
+    assert.deepEqual(packIdsNeedingCloud({ songs: [remote, song1], storedFileIds: new Set(['file_lead']), storage: empty, listRecordsFn: () => [] }), ['pack1', 'song1']);
+
+    const seen = [];
+    const map = await loadManifestSummaries(['pack1', 'bad', 'pack1'], async (id) => { if (id === 'bad') throw new Error('x'); return manifest; }, { onProgress: (d) => seen.push(d) });
+    assert.equal(map.size, 1);
+    assert.equal(seen.length, 2);
+}
+
+// 6d. album-tab containers are not songs
+{
+    const out = exportMetadataCsv({ songs: [song1, { ...song1, id: 'album_tab_x', isAlbumTabContainer: true }], storage: mockStorage, listRecordsFn: () => [] });
+    assert.equal(out.count, 1);
+    assert.equal(out.csvString.split('\r\n').length, 2);
+}
+
+// 6e. duplicate songs
+{
+    const mk = (id, o = {}) => ({ id, artist: 'Haken', album: 'Affinity', title: '1985', tabOptions: [], mediumNumber: 1, ...o });
+    const tabbed = mk('a', { tabOptions: [{ name: 'x.gp5' }], mediumNumber: 1 });
+    const shell = mk('b', { mediumNumber: 2 });
+    const packed = mk('c', { packId: 'p1' });
+    const g = findDuplicateSongs([shell, tabbed, packed, mk('z', { title: 'Other' }), { ...tabbed, id: 'k', isAlbumTabContainer: true }]);
+    assert.equal(g.length, 1);
+    assert.equal(g[0].keep.id, 'a');
+    assert.deepEqual(g[0].remove.map((s) => s.id), ['b']);
+    assert.equal(g[0].review, false);
+    assert.equal(findDuplicateSongs([tabbed, mk('d', { tabOptions: [{ name: 'y.pdf' }] })])[0].review, true);
+    // all empty: the lowest disc stays; audio attached keeps a copy
+    const g2 = findDuplicateSongs([mk('m2', { mediumNumber: 2 }), mk('m1')], { hasAudio: (s) => s.id === 'm2' });
+    assert.equal(g2[0].keep.id, 'm1');
+    assert.equal(g2[0].remove.length, 0);
+}
 
 // 6b. buildSyncZipEntries
 const syncOut = buildSyncZipEntries({

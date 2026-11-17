@@ -16,8 +16,10 @@ import {
 } from './fileStore.js';
 import {
     ensureDefaultCollection, getAllLibraryData, importLibraryData, clearAllLibraryData,
-    reloadAllLibraryMetadata, findOrphanedStoredFiles, deleteOrphanedStoredFiles
+    reloadAllLibraryMetadata, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary
 } from './libraryStore.js';
+import { findDuplicateSongs } from './libraryDuplicates.js';
+import { readLibraryAudio } from './audioSync/libraryAudio.js';
 import {
     getSaveProviders, saveToProvider, getPreferredStorage
 } from './fileProviders.js';
@@ -1213,7 +1215,7 @@ function leaveEmbeddedBackup() {
 
 /**
  * Open the Data Management modal
- * @param {'backup'|'restore'|'reload'|'delete'} initialTab
+ * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'cache'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup', options = {}) {
     // Data management lives in Settings, on the Library and backup page. There is no popup.
@@ -1616,6 +1618,22 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           </div>
         </div>
 
+        <!-- TAB: DUPLICATE SONGS -->
+        <div id="duplicatesTabContent" style="display: ${activeTab === 'duplicates' ? 'block' : 'none'};">
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2">Songs listed more than once</div>
+            <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+              Songs with the same artist, album and title. Only copies with no tabs, no pack and no audio can be removed, and the copy with tabs stays. The removal reaches your other devices at the next sync.
+            </div>
+            <div id="duplicatesList"></div>
+          </div>
+          <div id="duplicatesStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="duplicatesCancelBtn">Close</button>
+            <button type="button" class="btn btn-sm btn-theme-danger px-4" id="duplicatesDeleteBtn" disabled>Remove selected</button>
+          </div>
+        </div>
+
         <!-- TAB: CLEAR CACHE -->
         <div id="cacheTabContent" style="display: ${activeTab === 'cache' ? 'block' : 'none'};">
           <!-- Cache Summary Overview -->
@@ -1809,6 +1827,63 @@ function attachModalHandlers(modal, options = {}) {
         await renderOrphans();
     });
     renderOrphans();
+
+    // --- DUPLICATE SONGS ---
+    const duplicatesList = modal.querySelector('#duplicatesList');
+    const duplicatesDeleteBtn = modal.querySelector('#duplicatesDeleteBtn');
+    const duplicatesStatusAlert = modal.querySelector('#duplicatesStatusAlert');
+    const updateDuplicatesBtn = () => {
+        const n = duplicatesList.querySelectorAll('.dupe-check:checked').length;
+        duplicatesDeleteBtn.disabled = n === 0;
+        duplicatesDeleteBtn.textContent = `Remove selected${n ? ` · ${n}` : ''}`;
+    };
+    const renderDuplicates = async () => {
+        let groups = [];
+        try {
+            groups = findDuplicateSongs(await getAllSongs(), { hasAudio: (s) => readLibraryAudio(s.id).length > 0 });
+        } catch (err) {
+            console.error('Failed to scan for duplicate songs:', err);
+            duplicatesList.innerHTML = `<div class="text-danger small">Failed to scan: ${escapeHtml(err.message)}</div>`;
+            return;
+        }
+        if (groups.length === 0) {
+            duplicatesList.innerHTML = '<div class="text-white-50 small">No song is listed more than once.</div>';
+            updateDuplicatesBtn();
+            return;
+        }
+        duplicatesList.innerHTML = `
+          <div class="d-flex flex-column gap-2" style="max-height: 45vh; overflow-y: auto;">
+            ${groups.map((g) => `
+              <div class="p-2 rounded-2 backup-stat-card">
+                <div class="small text-white text-truncate">${escapeHtml(g.title)}<span class="text-white-50"> · ${escapeHtml(g.artist)} · ${escapeHtml(g.album)}</span></div>
+                ${g.review ? '<div class="small text-white-50">More than one copy has tabs. Remove the extra by hand from the library.</div>' : ''}
+                ${g.remove.map((s) => `
+                  <label class="d-flex align-items-center gap-2 mb-0 mt-1" style="cursor: pointer;">
+                    <input type="checkbox" class="form-check-input dupe-check flex-shrink-0" data-id="${escapeHtml(s.id)}" checked>
+                    <span class="small text-white-50">Remove the copy on ${escapeHtml(s.mediumFormat || 'disc')} ${s.mediumNumber || 1}${s.trackNumber ? `, track ${escapeHtml(String(s.trackNumber))}` : ''} (no tabs)</span>
+                  </label>`).join('')}
+              </div>`).join('')}
+          </div>`;
+        duplicatesList.querySelectorAll('.dupe-check').forEach((cb) => cb.addEventListener('change', updateDuplicatesBtn));
+        updateDuplicatesBtn();
+    };
+    modal.querySelector('#duplicatesCancelBtn')?.addEventListener('click', closeBackupModal);
+    duplicatesDeleteBtn?.addEventListener('click', async () => {
+        const ids = [...duplicatesList.querySelectorAll('.dupe-check:checked')].map((cb) => cb.dataset.id);
+        if (ids.length === 0) return;
+        duplicatesDeleteBtn.disabled = true;
+        duplicatesDeleteBtn.textContent = 'Removing…';
+        showTaskProgress(duplicatesStatusAlert, { label: 'Removing songs…', detail: `${ids.length} selected` });
+        try {
+            for (const id of ids) await deleteSongFromLibrary(id);
+            showTaskResult(duplicatesStatusAlert, 'done', `Removed ${ids.length} ${ids.length === 1 ? 'song' : 'songs'}`);
+        } catch (err) {
+            console.error('Failed to remove duplicate songs:', err);
+            showTaskResult(duplicatesStatusAlert, 'error', `Could not remove the songs. ${err.message}`);
+        }
+        await renderDuplicates();
+    });
+    renderDuplicates();
 
     // --- ORPHANED FILES IN CLOUD STORAGE ---
     const remoteOrphansList = modal.querySelector('#remoteOrphansList');
