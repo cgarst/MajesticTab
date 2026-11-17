@@ -1194,6 +1194,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .srow .sc { flex: none; display: flex; gap: 8px; align-items: center; }
 .srow .srow-ghost { background: transparent; border: 0; box-shadow: none; color: var(--ink2); font-weight: 500; }
 @media (hover: hover) { .srow .srow-ghost:hover:not(:disabled) { background: var(--s3); color: var(--ink); } }
+.srow #updateCheckBtn[hidden] { display: none; }
 .fin-ctl { display: inline-flex; align-items: center; gap: 8px; }
 .fin-ctl #drawerThemeName { font-weight: 600; }
 .snote { margin: 8px 2px 0; font-size: 13px; color: var(--ink2); max-width: 52ch; }

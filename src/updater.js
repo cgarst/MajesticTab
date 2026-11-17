@@ -190,9 +190,11 @@ function wireInstallButton(button, update, mode, status) {
 
 function removeInlineInstall() {
     document.getElementById('updateInstallBtn')?.remove();
+    const checkBtn = document.getElementById('updateCheckBtn');
+    if (checkBtn) checkBtn.hidden = false;
 }
 
-/** A manual check answers in the Settings row it was started from. Check stays a check; install is its own button. */
+/** A manual check answers in the Settings row it was started from: the install button takes the Check button's place. */
 async function showInlineUpdate(update, status) {
     status.textContent = `Update available: ${update.label}`;
     const checkBtn = document.getElementById('updateCheckBtn');
@@ -205,7 +207,8 @@ async function showInlineUpdate(update, status) {
     button.className = checkBtn.className;
     wireInstallButton(button, update, mode, status);
     button.setAttribute('aria-label', `${button.textContent} ${update.label}`);
-    status.insertAdjacentElement('afterend', button);
+    checkBtn.insertAdjacentElement('beforebegin', button);
+    checkBtn.hidden = true;
 }
 
 async function showUpdateBanner(update) {
