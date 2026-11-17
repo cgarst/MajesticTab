@@ -110,6 +110,10 @@ async function save() {
     try {
         const next = new File([text.trim() ? text : '\n'], file.name, { type: 'text/plain' });
         await saveStoredFile(next, file.providerId || 'local', { id: file.fileStoreId, editableText: true });
+        // The tab's recorded hash described the old text; a stale one stops a pack of the new text matching this tab
+        if (file.librarySongId && file.tabId) {
+            try { (await import('./libraryStore.js')).updateTabOptionOnSong(file.librarySongId, file.tabId, { sha256: null }).catch(() => {}); } catch (_) {}
+        }
         // The reader shows the new text with everything else about the tab kept
         Object.assign(next, file);
         close();

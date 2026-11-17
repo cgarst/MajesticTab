@@ -1381,6 +1381,8 @@ async function findTabOfScore(song, file, entry) {
     const remoteCandidates = [];
 
     for (const t of song?.tabOptions || []) {
+        // Typed text changes after it has synced, so its hash and size say nothing: the same name is the same tab
+        if (t.editableText && ext === 'txt' && fileName && (t.name === fileName || (t.relativePath || '').split(/[\\/]/).pop() === fileName)) return t;
         if (sha && t.sha256) {
             if (t.sha256 === sha) return t;
             continue;
@@ -1471,6 +1473,15 @@ export async function saveMpakToLibrary(input, options = {}) {
             // A song record synced from library.json (dynamic/hybrid mode) can carry a tab's sha256 without a local fileStore entry.
             const { getStoredFileRecord, saveStoredFile } = await import('./fileStore.js');
             const hasLocalFile = existing.fileStoreId && Boolean(await getStoredFileRecord(existing.fileStoreId));
+            if (hasLocalFile && existing.editableText) {
+                // The pack carries the newer typed text: this device's file takes it, under the same file id
+                const { saveStoredFile: save } = await import('./fileStore.js');
+                await save(file, existing.providerId || 'local', { id: existing.fileStoreId, editableText: true });
+                const { updateTabOptionOnSong } = await import('./libraryStore.js');
+                const sha = entry?.sha256 || file?.contentSha256 || null;
+                const updatedTab = await updateTabOptionOnSong(song.id, existing.id, { sha256: sha });
+                return { song: (await getSongById(song.id)) || song, tabOption: updatedTab || existing, stored: null, duplicate: true };
+            }
             if (hasLocalFile) return { song, tabOption: existing, stored: null, duplicate: true };
             const stored = await saveStoredFile(file, providerId, {
                 name: file.name,
