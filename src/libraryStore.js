@@ -642,6 +642,7 @@ export async function addTabOptionToSong(songId, tabOption) {
         endPage: (tabOption.endPage !== undefined && tabOption.endPage !== null) ? parseInt(tabOption.endPage, 10) : null,
         isAlbumRange: Boolean(tabOption.isAlbumRange),
         isDefault: Boolean(tabOption.isDefault),
+        editableText: Boolean(tabOption.editableText),
         sourceUrl: tabOption.sourceUrl || null,
         sourceWebsite: tabOption.sourceWebsite || null,
         sha256: tabOption.sha256 || null,

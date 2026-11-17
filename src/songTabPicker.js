@@ -51,7 +51,7 @@ function placePanel(p) {
  * @param {function(tab):string} o.tabMeta   grey meta text for a tab (pages, tuning)
  * @param {function(tab):boolean} o.isSynced
  * @param {boolean} o.canEditRange  show "Edit pages" for album-PDF tabs in manage mode
- * @param {Object}  o.on            { openTab(tab), makeDefault(tabId), removeTab(tabId), editRange(tab), addFrom(providerId), listSongs(), moveTab(tabId, songId) }
+ * @param {Object}  o.on            { addText() (optional: "Enter as text"), openTab(tab), makeDefault(tabId), removeTab(tabId), editRange(tab), addFrom(providerId), listSongs(), moveTab(tabId, songId) }
  *                                  listSongs (optional) returns [{ id, title, artist, album }] to choose from; with it, manage mode offers "Move"
  */
 export function openSongTabPicker(o) {
@@ -83,7 +83,7 @@ export function openSongTabPicker(o) {
         return `
           ${tabs.length ? '<div class="tabpick-bar"><button type="button" class="tabpick-back" data-act="back">Back</button></div>' : ''}
           ${isSheet ? `<h2 class="tabpick-title">${tabs.length ? 'Add another tab' : 'Add a tab'}</h2>` : ''}
-          <ul class="tabpick-list">${primary.map(sourceRow).join('')}</ul>
+          <ul class="tabpick-list">${primary.map(sourceRow).join('')}${o.on.addText ? '<li><button type="button" class="tabpick-row" data-act="text">Enter as text</button></li>' : ''}</ul>
           ${more.length ? `<p class="tabpick-label" id="tabpickMore">More sources</p><ul class="tabpick-list" aria-labelledby="tabpickMore">${more.map(sourceRow).join('')}</ul>` : ''}
           ${dropHint}`;
     }
@@ -167,6 +167,7 @@ export function openSongTabPicker(o) {
             return;
         }
         if (act === 'more') { mode = 'add'; paint(); return; }
+        if (act === 'text') { closeSongTabPicker({ restoreFocus: false }); o.on.addText(); return; }
         if (act === 'add') { closeSongTabPicker({ restoreFocus: false }); o.on.addFrom(btn.dataset.providerId); return; }
         if (act === 'open' && tab) { closeSongTabPicker({ restoreFocus: false }); o.on.openTab(tab); return; }
         if (act === 'default' && tab) { closeSongTabPicker({ restoreFocus: false }); o.on.makeDefault(tab.id); return; }

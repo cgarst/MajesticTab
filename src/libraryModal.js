@@ -3623,6 +3623,31 @@ async function openAlbumPdfPagesFor(songId, tabId) {
     openSetAlbumPdfPagesModal(song, albumPdfTabs, existingTab, { isCustom: Boolean(selectedArtist?.isCustom) });
 }
 
+// "Enter as text": an empty .txt tab the player types into. It opens at once, and the reader asks for the text until there is some.
+async function addTextTabToSong(songId) {
+    try {
+        const song = await getSongById(songId);
+        if (!song) return;
+        const taken = new Set((song.tabOptions || []).map(t => t.name));
+        const base = `${String(song.title || 'Song').replace(/[\\/:*?"<>|]/g, ' ').trim() || 'Song'} (text)`;
+        let name = `${base}.txt`;
+        for (let n = 2; taken.has(name); n++) name = `${base} ${n}.txt`;
+        const file = new File(['\n'], name, { type: 'text/plain' });
+        const stored = await saveStoredFile(file, 'local', { editableText: true });
+        const option = await addTabOptionToSong(songId, {
+            name, providerId: 'local', relativePath: name, fileStoreId: stored.id,
+            fileType: 'txt', editableText: true, isDefault: !(song.tabOptions || []).length
+        });
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+        const fresh = await getSongById(songId);
+        const tab = fresh?.tabOptions?.find(t => t.id === option?.id) || fresh?.tabOptions?.find(t => t.fileStoreId === stored.id);
+        if (fresh && tab) await loadSongTab(fresh, tab);
+    } catch (err) {
+        console.warn('Could not add a text tab:', err);
+        showToast('Could not add a text tab', 'error');
+    }
+}
+
 // One panel for adding, choosing and managing a song's tabs, so the row stays one line however many there are
 async function toggleSongTabsPicker(anchor, songId, mode, { forceOpen = false } = {}) {
     if (!forceOpen && anchor.getAttribute('aria-expanded') === 'true' && isSongTabPickerOpen()) {
@@ -3660,7 +3685,8 @@ async function toggleSongTabsPicker(anchor, songId, mode, { forceOpen = false } 
                 await renderView();
             },
             editRange: (tab) => openAlbumPdfPagesFor(songId, tab.id),
-            addFrom: (providerId) => importTabFromProvider(songId, providerId)
+            addFrom: (providerId) => importTabFromProvider(songId, providerId),
+            addText: () => addTextTabToSong(songId)
         }
     });
 }
@@ -4626,6 +4652,7 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
                 file.tabId = tabOption.id;
                 file.tabName = tabOption.name || file.name;
                 file.fileStoreId = tabOption.fileStoreId;
+                file.editableText = Boolean(tabOption.editableText);
                 file.preferredStringCount = tabOption.preferredStringCount || null;
                 file.librarySongId = song.id;
                 file.sourceUrl = tabOption.sourceUrl || null;

@@ -8,6 +8,7 @@ import { setupDrivePicker, migrateGoogleAuth } from './googleDrive.js';
 // @googleDrive:end
 import { setupExportPDFButton } from './exportPdf.js';
 import { setupSaveToLibraryButton } from './saveToLibrary.js';
+import { setupEditableText } from './editableText.js';
 import { setupSongPinButton } from './songPin.js';
 import { setupAddToSetlistButton } from './setlistUi.js';
 import { setupSetlistNav, refreshSetlistNav } from './setlistPlayer.js';
@@ -1064,6 +1065,7 @@ async function initApp() {
     initIOSAudioUnlock();
     setupExportPDFButton();
     setupSaveToLibraryButton();
+    setupEditableText();
     setupSongPinButton();
     setupAddToSetlistButton();
     setupSetlistNav(getCurrentFile);
