@@ -20,6 +20,7 @@ import { createPackStore } from './storage/packStore.js';
 import { REMOTE_ONLY_FP } from './storage/packSync.js';
 import { songFromManifest } from './storage/libraryDocs.js';
 import { recordStorage } from './audioSync/syncRecordStore.js';
+import { readRebuildMarks } from './packRepair.js';
 
 const HYBRID_SYNC_KEY = 'majestictab_sync_hybrid';
 export const isHybridSyncEnabled = () => { try { return localStorage.getItem(HYBRID_SYNC_KEY) !== '0'; } catch { return true; } };
@@ -142,6 +143,7 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
                 }
             }
             const recording = indexRecordingKeys();
+            const rebuildMarks = readRebuildMarks();
             const out = new Map();
             songOfPack = new Map();
             for (const song of songs) {
@@ -166,6 +168,8 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
                     tabs: tabs.map((t) => [t.id, t.name, t.startPage, t.endPage, t.tuning, fileFp(fileById.get(t.fileStoreId))]),
                     signals,
                     removedAudio: getRemovedAudio(songKeyOf(song)),
+                    // Only a song marked in Settings, Upkeep carries this, so no other fingerprint changes
+                    ...(rebuildMarks[song.id] ? { rebuilt: rebuildMarks[song.id] } : {}),
                 });
                 out.set(`p:${packId}`, { kind: 'pack', id: packId, name: song.title, fp, time: song.addedAt || 0, hasAudio: songsWithAudio.has(songKey) });
             }

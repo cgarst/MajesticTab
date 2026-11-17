@@ -20,6 +20,8 @@ import {
 } from './libraryStore.js';
 import { findDuplicateSongs } from './libraryDuplicates.js';
 import { readLibraryAudio } from './audioSync/libraryAudio.js';
+import { findPooledSongs, readRememberedKeys, markPacksForRebuild } from './packRepair.js';
+import { listAudioFiles } from './audioSync/audioFileStore.js';
 import {
     getSaveProviders, saveToProvider, getPreferredStorage
 } from './fileProviders.js';
@@ -1215,7 +1217,7 @@ function leaveEmbeddedBackup() {
 
 /**
  * Open the Data Management modal
- * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'cache'|'delete'} initialTab
+ * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'rebuild'|'cache'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup', options = {}) {
     // Data management lives in Settings, on the Library and backup page. There is no popup.
@@ -1634,6 +1636,22 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           </div>
         </div>
 
+        <!-- TAB: PACKS WITH EXTRA AUDIO -->
+        <div id="rebuildTabContent" style="display: ${activeTab === 'rebuild' ? 'block' : 'none'};">
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2">Packs with extra audio</div>
+            <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+              Songs that remember a name another song remembers too, with audio filed under it. Their packs took in audio of the other songs. Rebuilding sends each pack again with only its own audio at the next sync. The old files stay in your sync storage until you remove them under Orphaned files.
+            </div>
+            <div id="rebuildList"></div>
+          </div>
+          <div id="rebuildStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="rebuildCancelBtn">Close</button>
+            <button type="button" class="btn btn-sm btn-theme-primary px-4" id="rebuildBtn" disabled>Rebuild selected</button>
+          </div>
+        </div>
+
         <!-- TAB: CLEAR CACHE -->
         <div id="cacheTabContent" style="display: ${activeTab === 'cache' ? 'block' : 'none'};">
           <!-- Cache Summary Overview -->
@@ -1884,6 +1902,60 @@ function attachModalHandlers(modal, options = {}) {
         await renderDuplicates();
     });
     renderDuplicates();
+
+    // --- PACKS WITH EXTRA AUDIO ---
+    const rebuildList = modal.querySelector('#rebuildList');
+    const rebuildBtn = modal.querySelector('#rebuildBtn');
+    const rebuildStatusAlert = modal.querySelector('#rebuildStatusAlert');
+    const updateRebuildBtn = () => {
+        const n = rebuildList.querySelectorAll('.rebuild-check:checked').length;
+        rebuildBtn.disabled = n === 0;
+        rebuildBtn.textContent = `Rebuild selected${n ? ` · ${n}` : ''}`;
+    };
+    const renderRebuild = async () => {
+        let found = [];
+        try {
+            found = findPooledSongs({ songs: await getAllSongs(), audioFiles: await listAudioFiles(), keysBySong: readRememberedKeys() });
+        } catch (err) {
+            console.error('Failed to scan for packs with extra audio:', err);
+            rebuildList.innerHTML = `<div class="text-danger small">Failed to scan: ${escapeHtml(err.message)}</div>`;
+            return;
+        }
+        if (found.length === 0) {
+            rebuildList.innerHTML = '<div class="text-white-50 small">No pack holds audio of other songs.</div>';
+            updateRebuildBtn();
+            return;
+        }
+        rebuildList.innerHTML = `
+          <label class="d-flex align-items-center gap-2 mb-2 small text-white" style="cursor: pointer;">
+            <input type="checkbox" class="form-check-input" id="rebuildSelectAll" checked>
+            Select all (${found.length} songs)
+          </label>
+          <div class="d-flex flex-column gap-1" style="max-height: 45vh; overflow-y: auto;">
+            ${found.map((f) => `
+              <label class="d-flex align-items-center gap-2 mb-0" style="cursor: pointer;">
+                <input type="checkbox" class="form-check-input rebuild-check flex-shrink-0" data-id="${escapeHtml(f.song.id)}" checked>
+                <span class="small text-white text-truncate">${escapeHtml(f.song.title)}<span class="text-white-50"> · ${escapeHtml(f.song.artist)} · ${f.files} files</span></span>
+              </label>`).join('')}
+          </div>`;
+        rebuildList.querySelector('#rebuildSelectAll').addEventListener('change', (e) => {
+            rebuildList.querySelectorAll('.rebuild-check').forEach((cb) => { cb.checked = e.target.checked; });
+            updateRebuildBtn();
+        });
+        rebuildList.querySelectorAll('.rebuild-check').forEach((cb) => cb.addEventListener('change', updateRebuildBtn));
+        updateRebuildBtn();
+    };
+    modal.querySelector('#rebuildCancelBtn')?.addEventListener('click', closeBackupModal);
+    rebuildBtn?.addEventListener('click', () => {
+        const ids = [...rebuildList.querySelectorAll('.rebuild-check:checked')].map((cb) => cb.dataset.id);
+        if (ids.length === 0) return;
+        const n = markPacksForRebuild(ids);
+        showTaskResult(rebuildStatusAlert, n ? 'done' : 'error', n
+            ? `Marked ${n} ${n === 1 ? 'pack' : 'packs'}. Sync to send ${n === 1 ? 'it' : 'them'} again.`
+            : 'Could not mark the packs. Storage is not available.');
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+    });
+    renderRebuild();
 
     // --- ORPHANED FILES IN CLOUD STORAGE ---
     const remoteOrphansList = modal.querySelector('#remoteOrphansList');
