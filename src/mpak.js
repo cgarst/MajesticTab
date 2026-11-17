@@ -234,6 +234,16 @@ function toV1SyncFile(rec, recordingId, scoreId, anchorType, { firstPage = 1, la
 
 const STORED_ANCHORS = ['bar', 'pdf', 'text'];
 
+/**
+ * Does a score's file name belong to this song? A name like "guitar-1-tablature" is the same in every pack of a set, so a song
+ * key made from it would be shared by all those songs. A name that carries the song's title is the song's own.
+ */
+export function isSongSpecificName(baseName, title) {
+    const flat = (v) => String(v || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+    const t = flat(title);
+    return Boolean(t) && flat(baseName).includes(t);
+}
+
 function rememberLibrarySongKey(librarySongId, key, meta = {}) {
     if (!librarySongId || !key) return;
     try {
@@ -596,8 +606,12 @@ export async function buildMpak(file, options = {}) {
     // time, so these are the ones it lists beside the slot's file.
     try {
         const { listAudioFilesForSong } = await import('./audioSync/audioFileStore.js');
-        const { readLibraryAudio, songAudioKeys } = await import('./audioSync/libraryAudio.js');
-        const keys = [...new Set([songKey, ...(libSong?.id ? songAudioKeys(libSong) : [])].filter(Boolean))];
+        const { readLibraryAudio, songAudioKeys, keysOfOtherSongs } = await import('./audioSync/libraryAudio.js');
+        // A key another library song remembers too (an import can leave the same one on every song) does not say whose audio a
+        // file is, so only the song's own key and its own other keys count. Files attached by id below are not affected.
+        const otherKeys = libSong?.id ? keysOfOtherSongs(libSong.id) : new Set();
+        const keys = [...new Set([songKey, ...(libSong?.id ? songAudioKeys(libSong) : [])].filter(Boolean))]
+            .filter((k) => k === songKey || !otherKeys.has(k.toLowerCase()));
         const candidates = new Map(); // audio id -> slot
         const add = (id, slot) => { if (id && !candidates.has(id) && !packedAudio.has(id)) candidates.set(id, slot); };
         for (const k of keys) {
@@ -1530,7 +1544,7 @@ export async function saveMpakToLibrary(input, options = {}) {
         : (header.song?.title || '');
     if (headerKey && headerKey.toLowerCase() !== mainKey.toLowerCase()) aliasSet.add(headerKey);
     const baseName = (tabFile.name || '').replace(/\.[^/.]+$/, '').trim();
-    if (baseName && baseName.toLowerCase() !== mainKey.toLowerCase()) aliasSet.add(baseName);
+    if (baseName && baseName.toLowerCase() !== mainKey.toLowerCase() && isSongSpecificName(baseName, song.title)) aliasSet.add(baseName);
     const aliasKeys = Array.from(aliasSet);
 
     const keyMeta = {

@@ -73,6 +73,29 @@ export function songAudioKeys(song) {
     return [...keys];
 }
 
+/**
+ * The song keys that library songs other than `songId` remember (lowercase). A key more than one song remembers does not name
+ * one song's audio: a pack built from it would take in every other song's files too.
+ */
+export function keysOfOtherSongs(songId, storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
+    const out = new Set();
+    if (!storage) return out;
+    const prefix = SONG_KEYS('');
+    try {
+        for (let i = 0; i < storage.length; i++) {
+            const name = storage.key(i);
+            if (!name || !name.startsWith(prefix) || name === SONG_KEYS(songId)) continue;
+            const list = JSON.parse(storage.getItem(name) || '[]');
+            if (!Array.isArray(list)) continue;
+            for (const e of list) {
+                const k = typeof e === 'string' ? e : e?.key;
+                if (k) out.add(String(k).toLowerCase());
+            }
+        }
+    } catch { /* what could not be read is not counted */ }
+    return out;
+}
+
 /** Does this song already have an audio file in the slot, under any of its keys? `existingIds` is the set of stored files' ids. */
 export function songHasAudioInSlot(song, slot, existingIds) {
     if (readLibraryAudio(song.id).some((e) => e.slot === slot && existingIds.has(e.audioId))) return true;
