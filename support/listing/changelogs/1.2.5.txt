@@ -1,1 +1,5 @@
-- Bug fixes and stability improvements
+- Add a text tab by typing or pasting, with an Edit text window and staff, chord and section tools
+- Edit a custom song's title, folder, tuning and strings from the library
+- Name stem sets in the Map sheet; open a pack's PDF at its page range
+- Cloud sync fixes: edited text tabs update in place and duplicates collapse
+- Flat pages without glow, and a smoother scroll cursor on fast notes
