@@ -1145,6 +1145,9 @@ export function applyCursorPositionFromBeat(beat) {
     }
 }
 
+// How long a beat's cursor glide runs on past its beat (see transitionBeatCursor)
+const GLIDE_OVERSHOOT_MS = 24;
+
 let autoScrollWriteUntil = 0;
 function markAutoScrollWrite() {
     autoScrollWriteUntil = performance.now() + 60;
@@ -1208,9 +1211,12 @@ export function createCustomCursorHandler(api) {
     let pageCursorsMayExist = true;
     let lastReaderTop = null;
     let horizGlide = null;
+    let vertGlide = null;
     function stopHorizGlide() {
         if (horizGlide?.rafId) cancelAnimationFrame(horizGlide.rafId);
         horizGlide = null;
+        if (vertGlide?.rafId) cancelAnimationFrame(vertGlide.rafId);
+        vertGlide = null;
     }
 
     function getOrCreateReader() {
@@ -1514,8 +1520,15 @@ export function createCustomCursorHandler(api) {
             const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
 
             const factor = (cursorMode === alphaTab.midi?.MidiTickLookupFindBeatResultCursorMode?.ToNextBext) ? 2 : 1;
-            const targetX = startBeatX + (nextBeatX - startBeatX) * factor;
-            const animDuration = duration * factor;
+            // AlphaTab issues each beat's glide on a timer tick, up to a frame after the previous glide ended. Ending
+            // exactly on the beat parks the cursor for that gap on every beat, which reads as micro stutter on fast
+            // passages. Running on past the beat at the same speed keeps it moving; the next glide starts from where
+            // the cursor is, so there is no jump.
+            const baseDuration = duration * factor;
+            const overshootMs = baseDuration > 0 ? Math.min(GLIDE_OVERSHOOT_MS, baseDuration * 0.5) : 0;
+            const baseTargetX = startBeatX + (nextBeatX - startBeatX) * factor;
+            const targetX = baseTargetX + (baseDuration > 0 ? (baseTargetX - startBeatX) * overshootMs / baseDuration : 0);
+            const animDuration = baseDuration + overshootMs;
 
             if (isPageMode) {
                 if (readerEl) readerEl.style.display = 'none';
@@ -1592,9 +1605,29 @@ export function createCustomCursorHandler(api) {
                         horizGlide.originLeft = originLeft;
                     }
                 } else {
-                    stopHorizGlide();
-                    reader.style.transition = `transform ${animDuration}ms linear`;
-                    setCursorX(reader, targetX);
+                    // Moved by a frame loop, not a CSS transition. WebKit restarts an accelerated transition from a stale
+                    // position each time it is retargeted, so on fast passages (a new glide every few frames) the cursor
+                    // stepped back a few pixels and then sprinted ahead. A glide that starts where the cursor is does neither.
+                    reader.style.transition = 'none';
+                    const span = Math.abs(baseTargetX - startBeatX);
+                    const ahead = vertGlide ? vertGlide.x - startBeatX : -1;
+                    const fromX = (ahead >= 0 && ahead <= Math.max(8, span * 0.6, (vertGlide?.over || 0) * 1.5 + 2)) ? vertGlide.x : startBeatX;
+                    if (vertGlide) {
+                        Object.assign(vertGlide, { reader, startX: fromX, targetX, over: targetX - baseTargetX, startTime: performance.now(), duration: animDuration });
+                    } else {
+                        const glide = { rafId: 0, reader, x: fromX, startX: fromX, targetX, over: targetX - baseTargetX, startTime: performance.now(), duration: animDuration };
+                        vertGlide = glide;
+                        const step = (now) => {
+                            if (vertGlide !== glide) return;
+                            const f = glide.duration > 0 ? Math.min(1, Math.max(0, (now - glide.startTime) / glide.duration)) : 1;
+                            glide.x = glide.startX + (glide.targetX - glide.startX) * f;
+                            setCursorX(glide.reader, glide.x);
+                            if (f < 1 || playbackActive()) glide.rafId = requestAnimationFrame(step);
+                            else vertGlide = null;
+                        };
+                        glide.rafId = requestAnimationFrame(step);
+                    }
+                    setCursorX(reader, fromX);
                 }
             }
 
