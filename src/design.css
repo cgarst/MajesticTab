@@ -6334,3 +6334,7 @@ body.reading-mode .auto-sync-progress { opacity: 0 !important; }
 .edit-text-tool:focus-visible, .edit-text-chip:focus-visible { outline: 2px solid var(--hue); outline-offset: -2px; }
 @media (pointer: coarse) { .edit-text-tool, .edit-text-chip { min-height: 44px; min-width: 44px; } }
 @media (max-width: 576px) { .edit-text-area { min-height: 26vh; max-height: 34vh; } }
+/* The text page is a tone step, not a bordered box: no outline, no glow; keyboard focus gets the plain ring */
+.edit-text-area, .edit-text-area:focus { background-color: var(--s3); color: var(--ink); border: 0; box-shadow: none; border-radius: var(--r-control); }
+.edit-text-area:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+.edit-text-area::placeholder { color: var(--ink2); }
