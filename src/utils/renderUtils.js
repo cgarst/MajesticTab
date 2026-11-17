@@ -45,8 +45,9 @@ export function clearOutput(output) {
  * @param {number} pagesPerView Number of pages being displayed (for page mode)
  */
 export function updatePageIndicator(indicator, current, total, pagesPerView = 1) {
-    if (pagesPerView > 1) {
-        const endPage = Math.min(current + pagesPerView - 1, total);
+    // `current` and the last shown page are zero-based indexes, so the last one is at most total - 1
+    const endPage = Math.min(current + pagesPerView - 1, total - 1);
+    if (endPage > current) {
         indicator.textContent = `${current + 1}-${endPage + 1} of ${total}`;
     } else {
         indicator.textContent = `${current + 1} of ${total}`;
