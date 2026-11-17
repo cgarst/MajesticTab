@@ -484,6 +484,15 @@ export async function saveSongToLibrary(songData, collectionId = DEFAULT_COLLECT
 }
 
 /**
+ * The track a song's recording id names. One recording can sit on two discs of a release, so the track on the song's own
+ * disc wins; matching on the id alone would give the second disc's song the first disc's track and reset its disc number.
+ */
+export function findTrackByRecording(tracks, song) {
+    const same = tracks.filter(t => t.recordingMbid && t.recordingMbid === song.recordingMbid);
+    return same.find(t => (t.mediumNumber || 1) === (song.mediumNumber || 1)) || same[0] || null;
+}
+
+/**
  * Add an entire album with tracklist to library (filtering out DVD/Blu-ray media)
  */
 export async function addAlbumToLibrary(albumData, tracks = [], collectionId = DEFAULT_COLLECTION_ID) {
@@ -2214,9 +2223,7 @@ export async function updateAlbumMetadataInLibrary(albumData, collectionId = nul
         // Track-level fields
         if (!song.isAlbumTabContainer && tracks.length > 0) {
             let matchedTrack = null;
-            if (song.recordingMbid) {
-                matchedTrack = tracks.find(t => t.recordingMbid && t.recordingMbid === song.recordingMbid);
-            }
+            if (song.recordingMbid) matchedTrack = findTrackByRecording(tracks, song);
             if (!matchedTrack && song.trackNumber) {
                 matchedTrack = tracks.find(t =>
                     t.trackNumber === song.trackNumber &&
@@ -2467,9 +2474,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
 
                         // Match track in albumData.tracks
                         let matchedTrack = null;
-                        if (song.recordingMbid) {
-                            matchedTrack = tracks.find(t => t.recordingMbid && t.recordingMbid === song.recordingMbid);
-                        }
+                        if (song.recordingMbid) matchedTrack = findTrackByRecording(tracks, song);
                         if (!matchedTrack && song.trackNumber) {
                             matchedTrack = tracks.find(t =>
                                 t.trackNumber === song.trackNumber &&
