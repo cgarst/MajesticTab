@@ -3785,6 +3785,7 @@ function renderSongRow(song, options = {}) {
                 const existingPdfTab = tabOptions.find(t => t.isAlbumRange || t.startPage);
                 return `${hasTabs ? '<li><hr class="dropdown-divider"></li>' : ''}<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"${existingPdfTab ? ` data-tab-id="${existingPdfTab.id}"` : ''}>${existingPdfTab ? 'Edit' : 'Set'} ${pdfPagesNoun} PDF pages\u2026</button></li>`;
               })() : ''}
+              ${isAlbumEditMode && song.isCustom ? `<li><button class="dropdown-item small edit-custom-song-btn" data-song-id="${song.id}">Edit details\u2026</button></li>` : ''}
               ${isAlbumEditMode ? `
                 <li><hr class="dropdown-divider"></li>
                 <li><button class="dropdown-item small text-danger delete-song-btn" data-song-id="${song.id}">Remove from library</button></li>
@@ -4192,6 +4193,28 @@ function setupSongRowActions(container) {
         });
     });
 
+
+    // Edit a custom song's title, folder, tuning and strings (in Edit Mode)
+    container.querySelectorAll('.edit-custom-song-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const song = await getSongById(btn.dataset.songId);
+            if (!song) return;
+            const { openCustomMusicModal } = await import('./customMusicModal.js');
+            let folders = [];
+            try {
+                const hierarchy = await getLibraryHierarchy(activeCollectionId);
+                const custom = (hierarchy.artists || []).find(a => a.isCustom);
+                folders = [...new Set((custom?.albums || []).map(al => (al.folderPath || al.title || '').trim()).filter(Boolean))].sort();
+            } catch (_) { /* suggestions only */ }
+            openCustomMusicModal({
+                collectionId: activeCollectionId,
+                song,
+                folders,
+                onSaved: () => window.dispatchEvent(new CustomEvent('libraryDataChanged'))
+            });
+        });
+    });
 
     // Delete song from library (in Edit Mode)
     container.querySelectorAll('.delete-song-btn').forEach(btn => {
