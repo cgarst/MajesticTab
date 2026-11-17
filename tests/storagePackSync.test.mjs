@@ -132,6 +132,26 @@ test('both devices edit the same pack: the later one merges the other in and sen
     assert.deepEqual([...a.state.songs.get('one').scores.values()].sort(), ['A tab', 'B tab', 'one']);
 });
 
+test('a pack marked for rebuild is sent as built here: nothing of the store\'s copy is taken in, and its extra audio is not kept', async () => {
+    const store = await newStore();
+    const a = fakeLocal(), baseA = memoryBaselines(), b = fakeLocal(), baseB = memoryBaselines();
+    a.addSong('one', 'One');
+    await sync(store, a, baseA); await sync(store, b, baseB);
+    // The store's copy took in audio of other songs; this device's own copy is clean but marked
+    a.editSong('one', (s) => { s.audio = new Uint8Array([1, 2, 3, 4]); });
+    await sync(store, a, baseA);
+    a.editSong('one', (s) => { s.audio = null; s.scores.set('own.gp5', 'own'); });
+    const items = a.items.bind(a);
+    a.items = async () => { const m = await items(); m.get('p:one').rebuilt = true; return m; };
+    const plan = await planPackSync({ store, local: a, baselines: baseA, location: LOC });
+    assert.deepEqual(plan.items.map((i) => i.action), [A.UPLOAD]);
+    const r = await sync(store, a, baseA);
+    assert.deepEqual([r.uploaded, r.merged, r.downloaded], [1, 0, 0]);
+    assert.equal(a.state.songs.get('one').audio, null);
+    const manifest = (await createPackStore(store).open('one')).manifest;
+    assert.equal((manifest.recordings || []).length, 0);
+});
+
 test('a device that already has the song but never synced merges instead of duplicating or overwriting', async () => {
     const store = await newStore();
     const a = fakeLocal(); a.addSong('one', 'One'); await sync(store, a, memoryBaselines());

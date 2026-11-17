@@ -171,7 +171,7 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
                     // Only a song marked in Settings, Upkeep carries this, so no other fingerprint changes
                     ...(rebuildMarks[song.id] ? { rebuilt: rebuildMarks[song.id] } : {}),
                 });
-                out.set(`p:${packId}`, { kind: 'pack', id: packId, name: song.title, fp, time: song.addedAt || 0, hasAudio: songsWithAudio.has(songKey) });
+                out.set(`p:${packId}`, { kind: 'pack', id: packId, name: song.title, fp, time: song.addedAt || 0, hasAudio: songsWithAudio.has(songKey), ...(rebuildMarks[song.id] ? { rebuilt: true } : {}) });
             }
             for (const f of fonts) out.set(`s:${f.id}`, { kind: 'soundfont', id: f.id, name: f.name, fp: `${f.size || 0}:${f.addedAt || 0}`, time: f.addedAt || 0, size: f.size || 0 });
             for (const c of classtab) out.set(`c:${c.id}`, { kind: 'classtab', id: c.id, name: c.name, fp: classtabFingerprint(c), time: c.addedAt || 0, size: c.size || 0 });

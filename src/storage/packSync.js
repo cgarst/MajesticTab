@@ -213,7 +213,10 @@ function planFrom(read, mine, base, { hybrid = false, keepLocalPacks = new Set()
     let unchanged = 0;
     for (const key of new Set([...mine.keys(), ...read.remote.keys()])) {
         const m = mine.get(key), r = read.remote.get(key);
-        const d = decideItem({ l: m?.fp, r: r?.version, base: base?.items?.[key], tombstoneAt: read.tombstones.items?.[key]?.at || 0, time: m?.time || 0 });
+        let d = decideItem({ l: m?.fp, r: r?.version, base: base?.items?.[key], tombstoneAt: read.tombstones.items?.[key]?.at || 0, time: m?.time || 0 });
+        // A pack marked for rebuild (Upkeep) is sent as this device built it. Combining would take in the store's copy first,
+        // which holds the audio of other songs the rebuild is meant to leave out.
+        if (d && d.action === ITEM_ACTION.MERGE && m?.rebuilt && r) d = { action: ITEM_ACTION.UPLOAD };
         if (!d) {
             if (key.startsWith('p:') && r) {
                 if (m?.remoteOnly && (!hybrid || keepLocalPacks.has(m.id))) {
@@ -427,7 +430,7 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
         const data = await local.readItem(item.key);
         if (item.kind === 'pack') {
             const itemHybrid = hybrid && !keepLocalPacks.has(item.id);
-            if (itemHybrid && expectRemote !== undefined) await preserveRemoteAudio(packs, item.id, data);
+            if (itemHybrid && expectRemote !== undefined && !mine.get(item.key)?.rebuilt) await preserveRemoteAudio(packs, item.id, data);
             await packs.write(item.id, Object.fromEntries(data.files), { manifestIfVersion: expectRemote ?? null });
         } else {
             await store.write(blobPath(item.key), data.bytes, expectRemote === undefined ? { ifVersion: null } : { ifVersion: expectRemote });
