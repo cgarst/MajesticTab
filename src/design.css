@@ -5713,7 +5713,7 @@ body.library-view-active .yt-sheet { display: none !important; }
 .vrow .slot .t b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Library rows: file type and audio sit with the meta; on a narrow row the artist/album and tuning give way, these stay whole */
-.library-song-row .sub .song-format, .library-song-row .sub .song-audio { flex: none; overflow: visible; }
+.library-song-row .sub .song-format, .library-song-row .sub .song-audio, .library-song-row .sub .song-mapped { flex: none; overflow: visible; }
 
 /* ---------- Bulk Export Tool (Tools > Bulk export) ---------- */
 .tools-shell .tool-pane:has(.bulkexport-tool-embedded) { overflow-y: auto; padding-bottom: 24px; }

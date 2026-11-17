@@ -3717,8 +3717,6 @@ function renderSongRow(song, options = {}) {
         ...(song.tabOptions || []).map(t => t.name)
     ].filter(Boolean);
     const hasSyncPoints = songKeys.some(k => songHasSyncPoints(k));
-    const isSynced = Boolean(hasSyncPoints || song.hasSyncedAudio || song.syncedAudioUrl || (song.tabOptions && song.tabOptions.some(t => t.syncedAudio)));
-    // File type and audio, as plain grey text: "GP5 · PDF", "Synth · Recording". Synth exists for Guitar Pro tabs only.
     const tabFormat = (t) => {
         if (t.isPdf || t.startPage || t.isAlbumRange) return 'PDF';
         const ext = (t.fileType || ((t.name || '').includes('.') ? t.name.split('.').pop() : '')).toLowerCase();
@@ -3728,15 +3726,20 @@ function renderSongRow(song, options = {}) {
         return '';
     };
     const formats = [...new Set(tabOptions.map(tabFormat).filter(Boolean))];
-    const hasSynth = Boolean(song.synthMidi) || formats.some(f => f !== 'PDF' && f !== 'Text');
     // Local audio: files attached by the bulk import (the registry) or filed under a key the song is opened by
     const audioKeys = [...new Set([...songKeys, ...songAudioKeys(song)])];
     const registry = readLibraryAudio(song.id);
-    const hasLocalOriginal = registry.some(e => e.slot === 'original') || audioKeys.some(k => songHasLocalSlot(k, 'original'));
-    const hasLocalBacking = registry.some(e => e.slot === 'backing') || audioKeys.some(k => songHasLocalSlot(k, 'backing'));
-    const audioLabels = [hasSynth ? 'Synth' : '', (isSynced || hasLocalOriginal) ? 'Recording' : '', hasLocalBacking ? 'Backing track' : ''].filter(Boolean);
+    const hasAudioFile = Boolean(registry.length || audioKeys.some(k => songHasLocalSlot(k, 'original') || songHasLocalSlot(k, 'backing')))
+        || Boolean(song.hasSyncedAudio || song.syncedAudioUrl || (song.tabOptions && song.tabOptions.some(t => t.syncedAudio)));
+    // A linked video is a video saved for the song's Original or Backing, under any key the song is opened by
+    const hasYouTube = audioKeys.some(k => ['original', 'backing'].some((mode) => {
+        try { return Boolean(localStorage.getItem(`yt_track_${encodeURIComponent(k.toLowerCase())}_${mode}`)); } catch { return false; }
+    }));
+    // File type, linked audio and whether it is mapped, as plain grey text: "GP · PDF", "Audio file / YouTube", "Mapped"
+    const audioLabels = [hasAudioFile ? 'Audio file' : '', hasYouTube ? 'YouTube' : ''].filter(Boolean);
     const formatChipHtml = formats.length ? `<span class="chip sec song-format">${escapeHtml(formats.join(' / '))}</span>` : '';
-    const audioChipHtml = audioLabels.length ? `<span class="chip sec song-audio">${escapeHtml(audioLabels.join(' + '))}</span>` : '';
+    const audioChipHtml = audioLabels.length ? `<span class="chip sec song-audio">${escapeHtml(audioLabels.join(' / '))}</span>` : '';
+    const mappedChipHtml = hasSyncPoints ? `<span class="chip sec song-mapped">Mapped</span>` : '';
     const syncDotHtml = '';
 
     return `
@@ -3753,6 +3756,7 @@ function renderSongRow(song, options = {}) {
               ${pdfChipHtml}
               ${formatChipHtml}
               ${audioChipHtml}
+              ${mappedChipHtml}
               ${multiTabsChipHtml}
               ${syncDotHtml}
             </span>
