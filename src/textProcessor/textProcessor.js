@@ -407,6 +407,8 @@ export function buildHorizontalRibbon(lines, blocks, { version = 1 } = {}) {
     return root;
 }
 
+const MIN_PAGE_COLUMNS = 48;
+
 function createPaginatedPages(processedLines, blocks) {
     const pages = [];
     // #output reserves 80px at the bottom; the container and the wrapper
@@ -431,7 +433,12 @@ function createPaginatedPages(processedLines, blocks) {
     probe.style.cssText = 'position:absolute;visibility:hidden;width:max-content;white-space:pre';
     processedLines.forEach(el => probe.appendChild(el.cloneNode(true)));
     document.body.appendChild(probe);
+    // A page is never narrower than MIN_PAGE_COLUMNS characters, so a one-line note is not a thin strip
+    const widthPad = document.createElement('div');
+    widthPad.textContent = ' '.repeat(MIN_PAGE_COLUMNS);
+    probe.appendChild(widthPad);
     const naturalWidth = Math.ceil(probe.scrollWidth) + PAGE_PADDING * 2 + PAGE_BORDER;
+    probe.removeChild(widthPad);
     const tallestBlock = Math.max(1, ...[...probe.children].map(c => c.offsetHeight));
     document.body.removeChild(probe);
     const MAX_PAGES = getLandscapePageLayout() === 'single' ? 1 : 6;

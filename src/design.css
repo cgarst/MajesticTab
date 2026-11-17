@@ -6475,3 +6475,9 @@ input[type=range]::-moz-range-thumb,
 .score-options-panel, .synth-panel, .yt-panel, .pdf-bookmarks-panel,
 .page-scrubber-popover, .downloader-batch-popover, #downloaderSourcesMenu, .ct-menu, .ct-moremenu,
 .theme-toast, .update-banner, .jam-request-card, .tabpick, .ruler-tip, #pinchScaleReadout { box-shadow: var(--shadow-float) !important; }
+
+/* One monospace stack for tab text, so columns line up: the system's own fixed-width font, never the bare `monospace` keyword
+   (a different, smaller face). The page, the measuring div that paginates it and the Edit text window must all use it. */
+:root { --font-tab: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.pageWrapper, .pageWrapper > div, .text-content, .measure-div { font-family: var(--font-tab), var(--tab-cjk-fonts); }
+.edit-text-area { font-family: var(--font-tab); }
