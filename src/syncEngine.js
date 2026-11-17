@@ -8,7 +8,7 @@
 // one device would otherwise disappear from the others. Audio this device chose not to download stays in the
 // snapshot (it is carried into the next one).
 import { getAllStoredFiles, deleteStoredFile, putStoredFileRecord } from './fileStore.js';
-import { getAllSongs, getAllLibraryData, importLibraryData, removeTabOptionFromSong, putLibraryRecord, deleteLibraryRecord } from './libraryStore.js';
+import { getAllSongs, getAllLibraryData, importLibraryData, removeTabOptionFromSong, collapseDuplicateTextTabs, putLibraryRecord, deleteLibraryRecord } from './libraryStore.js';
 import { listSoundFonts, deleteSoundFont, restoreSoundFontEntry } from './soundFontStore.js';
 import { CLASSTAB_BACKUP_STORE, isClasstabItem, classtabFingerprint, listClasstab, restoreClasstabEntry, deleteClasstab } from './classtab/backup.js';
 import { mergeAudioSync, AUDIO_SYNC_PREFIX } from './audioSync/syncStore.js';
@@ -475,6 +475,9 @@ export async function applySync(backend, plan, onProgress) {
             }
         }
     }
+
+    // A text tab that arrived twice under different ids is one tab; the other device does the same, so both settle on the same one
+    if (plan.latest && await collapseDuplicateTextTabs()) plan = { ...plan, needsPush: true };
 
     if (plan.needsPush) {
         const pushed = await createIncrementalBackup(backend, {

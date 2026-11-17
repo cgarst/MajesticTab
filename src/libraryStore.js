@@ -764,6 +764,40 @@ export async function removeTabOptionFromSong(songId, tabOptionId) {
 }
 
 /**
+ * A text tab that reached a song twice (typed here, then arrived again from a pack or the other device under another id)
+ * collapses to one. Tabs match by name without the extension, a trailing "(text)" and a number. The kept tab is the same
+ * on every device: the editable one, then the newest file, then the lowest id. Returns how many tabs were removed.
+ */
+export async function collapseDuplicateTextTabs() {
+    const { getStoredFileRecord } = await import('./fileStore.js');
+    const stem = (n) => String(n || '').replace(/\.txt$/i, '').replace(/\s*\(text\)\s*\d*$/i, '').replace(/\s+\d+$/, '').trim().toLowerCase();
+    let removed = 0;
+    for (const song of await getAllSongs()) {
+        const groups = new Map();
+        for (const t of song.tabOptions || []) {
+            if (String(t.fileType || '').toLowerCase() !== 'txt' || !stem(t.name)) continue;
+            const key = stem(t.name);
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(t);
+        }
+        for (const tabs of groups.values()) {
+            if (tabs.length < 2) continue;
+            const ranked = [];
+            for (const t of tabs) {
+                const rec = t.fileStoreId ? await getStoredFileRecord(t.fileStoreId).catch(() => null) : null;
+                ranked.push({ t, edit: t.editableText ? 1 : 0, time: rec?.lastModified || rec?.savedAt || 0 });
+            }
+            ranked.sort((a, b) => b.edit - a.edit || b.time - a.time || String(a.t.id).localeCompare(String(b.t.id)));
+            for (const { t } of ranked.slice(1)) {
+                await removeTabOptionFromSong(song.id, t.id);
+                removed++;
+            }
+        }
+    }
+    return removed;
+}
+
+/**
  * Re-assign a tab to another song (for example after a bulk import filed it under the wrong one). The tab keeps its
  * id, file and name, so sync points and setlist entries that point at it keep working. Returns the moved tab.
  */
