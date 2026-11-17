@@ -6452,3 +6452,20 @@ input[type=range]::-moz-range-thumb,
 .theme-dropdown-menu { box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.5) !important; }
 /* A drop target takes a tone step instead of the halo it had */
 .library-song-row.song-drop-active, .album-card.album-drop-active, .album-detail-view.album-drop-active { background-color: var(--s3) !important; }
+
+/* No coloured glows and no resting drop shadows. These repeat the style.css selectors and use !important, because some of the
+   originals sit in higher-specificity chains (the dark sheet rule did). Hover and active keep their tone steps; focus keeps its ring. */
+#synthToggleBtn.active, #synthToggleBtn.active-audio-mode,
+#ytToggleBtn.active, #ytToggleBtn.active-audio-mode,
+#ytToggleBtn.btn-source-local.active, #ytToggleBtn.btn-source-local.active-audio-mode,
+.badge-btn-y, .badge-btn-a, .badge-btn-x, .badge-btn-b,
+.library-body-header, .search-sticky-header, .library-disc-header,
+.album-cover-img, .album-cover-banner,
+.theme-swatch-btn, .theme-swatch-btn:hover, .theme-card-gradient-bar, .theme-colorway-chip,
+.top-bar-song-btn.is-static, .top-bar-song-btn.disabled, .top-bar-song-btn[disabled],
+.top-bar-song-btn.is-static:hover, .top-bar-song-btn.disabled:hover, .top-bar-song-btn[disabled]:hover,
+.downloader-tab-btn.active, .pinned-play-badge.has-cover, .library-pinned-card:hover,
+#globalAudioControls, #audioSourcePill, #synthMiniPill, #ytMiniPill { box-shadow: none !important; }
+@media (hover: hover) { .btn-theme-danger:hover:not(:disabled) { box-shadow: none !important; } }
+.gp-reader-cursor svg, .ref-circle-slice.active, .ref-circle-svg, .controller-svg-diagram,
+.pinned-play-badge.has-cover .pinned-play-icon { filter: none !important; }
