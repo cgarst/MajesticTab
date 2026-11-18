@@ -222,3 +222,34 @@ test('forwards applyPackSync progress into state and clears on idle', async () =
         { status: 'idle', progress: null },
     ]);
 });
+
+test('hold keeps every run out, forced ones included, then reschedules one sync', async () => {
+    const { deps, calls } = makeDeps({ dirtyDebounceMs: 5 });
+    const ctrl = createAutoSyncController(deps);
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    const held = ctrl.hold(() => gate);
+    const a = await ctrl.run({ reason: 'periodic' });
+    const b = await ctrl.run({ force: true, reason: 'online' });
+    assert.equal(a.reason, 'held');
+    assert.equal(b.reason, 'held');
+    assert.equal(calls.plan, 0);
+    release();
+    await held;
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(calls.plan, 1);
+});
+
+test('hold waits for a sync already in flight and nested holds release together', async () => {
+    const { deps, calls } = makeDeps();
+    const ctrl = createAutoSyncController(deps);
+    const syncing = ctrl.run({ reason: 'startup' });
+    let sawPlans = -1;
+    await ctrl.hold(async () => {
+        await ctrl.hold(async () => {});
+        sawPlans = calls.plan;
+        assert.equal((await ctrl.run({})).reason, 'held');
+    });
+    await syncing;
+    assert.equal(sawPlans, 1);
+});

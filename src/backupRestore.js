@@ -26,6 +26,7 @@ import {
     getSaveProviders, saveToProvider, getPreferredStorage
 } from './fileProviders.js';
 import { showToast } from './utils/toast.js';
+import { holdSync } from './autoSync.js';
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported } from './icloudDrive.js';
 import { refreshAppearance } from './themeEngine.js';
@@ -592,10 +593,15 @@ export function applyRestoredSettings(settings, { wipe }) {
  *   } Audio is always restored with the rest
  * @returns {Promise<object>} Results of the restore operation
  */
-export async function restoreBackup(bundleOrFile, { mode = 'merge', onProgress } = {}) {
+export async function restoreBackup(bundleOrFile, options = {}) {
     if (!bundleOrFile) {
         throw new Error('Invalid backup bundle provided.');
     }
+    // Auto-sync must not run against a half-restored library
+    return holdSync(() => restoreBackupHeld(bundleOrFile, options));
+}
+
+async function restoreBackupHeld(bundleOrFile, { mode = 'merge', onProgress } = {}) {
 
     if (bundleOrFile instanceof Blob || (typeof File !== 'undefined' && bundleOrFile instanceof File)) {
         return await restoreBackupStream(bundleOrFile, { mode, onProgress });
@@ -826,7 +832,11 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
 }
 
 /** Empties tabs, SoundFonts, audio, the library and the backed-up settings, ready for a restore in wipe mode. */
-export async function wipeLibraryData() {
+export function wipeLibraryData() {
+    return holdSync(wipeLibraryDataHeld);
+}
+
+async function wipeLibraryDataHeld() {
     await clearAllStoredFiles();
     await clearAllSoundFonts();
     await clearAllAudioFiles();
@@ -988,7 +998,11 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
 /**
  * Completely delete all local application data, tabs, library, custom extensions, and settings.
  */
-export async function deleteAllAppData() {
+export function deleteAllAppData() {
+    return holdSync(deleteAllAppDataHeld);
+}
+
+async function deleteAllAppDataHeld() {
     // 1. Wipe IndexedDB stored files and library
     await clearAllStoredFiles();
     await clearAllSoundFonts();

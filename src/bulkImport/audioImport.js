@@ -20,6 +20,7 @@ import { libraryAudioKey, attachLibraryAudio, songHasAudioInSlot } from '../audi
 import { pairFile, cleanAudioTitle, stripTrackNumber, baseNameOf, sameTitle, VIA_LABEL } from './pairing.js';
 import { lookupLibraryAudio, searchLibrarySongs } from './matcher.js';
 import { canPickFolder, pickAndScanFolder } from './scanFolder.js';
+import { holdSync } from '../autoSync.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const plural = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -489,7 +490,7 @@ export function renderAudioImport(container) {
         const row = state.rows.find((r) => r.id === rowId);
         if (act === 'choose') choose();
         else if (act === 'cancel-scan') state.scanController?.abort();
-        else if (act === 'import') runImport();
+        else if (act === 'import') holdSync(runImport);
         else if (act === 'cancel-import') state.controller?.abort();
         else if (act === 'select-all' || act === 'select-none') {
             const on = act === 'select-all';

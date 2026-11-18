@@ -81,6 +81,7 @@ export function createAutoSyncController(deps) {
     let inFlight = null;
     let pending = false;
     let dirtyTimer = null;
+    let holds = 0;
 
     const setState = (next) => {
         state = { ...state, ...next };
@@ -186,6 +187,11 @@ export function createAutoSyncController(deps) {
 
     const run = async ({ force = false, reason = 'auto' } = {}) => {
         if (!isEnabled()) return { status: 'skipped', reason: 'disabled' };
+        if (holds > 0) {
+            // A restore or bulk import is changing the library: no run starts, forced ones included
+            pending = true;
+            return { status: 'deferred', reason: 'held' };
+        }
         if (inFlight) {
             pending = true;
             return inFlight;
@@ -220,6 +226,22 @@ export function createAutoSyncController(deps) {
         }, dirtyDebounceMs);
     };
 
+    // Keeps auto-sync from starting while fn runs, and waits for a sync already in flight. A run that was
+    // asked for meanwhile is rescheduled through the dirty debounce once the last hold ends.
+    const hold = async (fn) => {
+        holds++;
+        try {
+            if (inFlight) await inFlight.catch(() => {});
+            return await fn();
+        } finally {
+            holds--;
+            if (holds === 0 && pending) {
+                pending = false;
+                markDirty();
+            }
+        }
+    };
+
     const clearPause = () => {
         if (state.status === 'paused' || state.status === 'error') {
             setState({ status: 'idle', reason: null, detail: null, progress: null });
@@ -234,6 +256,7 @@ export function createAutoSyncController(deps) {
         getState,
         isRunning: () => Boolean(inFlight),
         runExclusive: runWithLock,
+        hold,
     };
 }
 
@@ -340,6 +363,11 @@ export function isSyncRunning() {
 
 export function runWithSyncLock(fn) {
     return getController().runExclusive(fn);
+}
+
+/** Runs fn with auto-sync held off: for restores, wipes and bulk imports that rewrite the library. */
+export function holdSync(fn) {
+    return getController().hold(fn);
 }
 
 export function onManualSyncComplete() {

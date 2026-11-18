@@ -24,6 +24,7 @@ import { lookup, lookupAlbum, searchSongs, searchAlbums, normKey, resolveAlbumTr
 import { canPickFolder, pickFilesOnly, pickAndScanFolder } from './scanFolder.js';
 import { renderAudioImport, audioImportReadout, onAudioImportChange } from './audioImport.js';
 import { packAdds, describeAdds } from './packContribution.js';
+import { holdSync } from '../autoSync.js';
 import { listAudioFiles, fingerprintOfHead } from '../audioSync/audioFileStore.js';
 import { libraryAudioKey, songAudioKeys, keysOfOtherSongs, readLibraryAudio } from '../audioSync/libraryAudio.js';
 import { listRecords, mediaKey } from '../audioSync/syncStore.js';
@@ -784,7 +785,7 @@ function renderTabsImport(container) {
         const row = state.rows.find((r) => r.id === rowId);
         if (act === 'choose') choose();
         else if (act === 'cancel-scan') { state.scanController?.abort(); }
-        else if (act === 'import') runImport();
+        else if (act === 'import') holdSync(runImport);
         else if (act === 'cancel-import') state.controller?.abort();
         else if (act === 'select-all' || act === 'select-none') {
             // Every row in view that has a song or album to go to; “Check this” rows count as looked at. Rows left out for
