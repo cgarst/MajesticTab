@@ -107,3 +107,16 @@ test('backupKind tells the new ZIP from the older single JSON document', () => {
     assert.equal(backupKind(enc.encode('﻿ \n{"app"')), 'json');
     assert.equal(backupKind(enc.encode('hello')), null);
 });
+
+test('a pack that is a Blob goes into the backup as a slice of it, not as bytes read into the page', async () => {
+    const big = await pack('s0', 3 * 1024 * 1024 + 123); // past the 1 MB read size
+    const sliced = [];
+    const realSlice = big.slice.bind(big);
+    big.slice = (...args) => { sliced.push(args); return realSlice(...args); };
+    const blob = await writeBackup({ libraryDoc: toLibraryDoc(records(1)), profileDoc: toProfileDoc({}), packs: [{ packId: 's0', data: big }] });
+    // one slice for the whole pack (plus the reads that check it), not one per megabyte copied into memory
+    assert.ok(sliced.some(([a, b]) => a === 0 && b === big.size), 'the pack was handed on whole');
+    const b = await openBackup(blobSource(blob));
+    const src = await b.packSource(b.packs[0]);
+    assert.deepEqual(await src.read(0, src.size), new Uint8Array(await big.arrayBuffer()));
+});

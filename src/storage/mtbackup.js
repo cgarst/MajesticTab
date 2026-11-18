@@ -35,7 +35,8 @@ export function backupKind(head) {
 }
 
 /** A ByteSource over a Blob (or File). */
-export const blobSource = (blob) => ({ size: blob.size, read: async (start, end) => new Uint8Array(await blob.slice(start, Math.min(end, blob.size)).arrayBuffer()) });
+// `blob` lets a writer hand a range on as a slice of the Blob, so the bytes never pass through the page's memory
+export const blobSource = (blob) => ({ size: blob.size, blob, read: async (start, end) => new Uint8Array(await blob.slice(start, Math.min(end, blob.size)).arrayBuffer()) });
 
 const asData = (data) => {
     if (data instanceof Uint8Array) return data;
@@ -87,6 +88,9 @@ export async function writeBackup({ libraryDoc, profileDoc, packs = [], soundFon
     const chunks = [];
     for (const part of parts) {
         if (part instanceof Uint8Array) chunks.push(part);
+        // A pack that is a Blob goes in as a slice of it: reading its bytes into chunks held the whole library in memory
+        // twice (once as chunks, once in the Blob made from them), and the webview was killed on a library of a few GB
+        else if (part.source.blob) chunks.push(part.source.blob.slice(part.start, part.end));
         else for (let at = part.start; at < part.end; at += CHUNK) chunks.push(await part.source.read(at, Math.min(part.end, at + CHUNK)));
     }
     return new Blob(chunks, { type: BACKUP_MEDIA_TYPE });
