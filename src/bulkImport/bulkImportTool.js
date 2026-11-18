@@ -15,6 +15,7 @@
 //   Audio files: a second mode on the same page (audioImport.js) matches a folder of audio files to songs already in the library.
 // The page's state lives in this module, so leaving Tools while the lookups run does not lose them.
 
+import { fillSongTrack } from '../libraryTrackNumbers.js';
 import { getAllSongs, saveSongToLibrary, getSongById, mapOpenFileToSong, findMatchingSongInLibrary, getAlbumTabOptions, addTabOptionToAlbum, DEFAULT_COLLECTION_ID } from '../libraryStore.js';
 import { readMpak, saveMpakToLibrary } from '../mpak.js';
 import { lookupMusicBrainzByIds } from '../musicbrainz.js';
@@ -525,18 +526,19 @@ async function songFor(pick) {
     }
     if (pick.songId) {
         const s = await getSongById(pick.songId);
-        if (s) return s;
+        if (s) return fillSongTrack(s);
     }
     const known = state.songs.find((s) => (pick.recordingMbid && s.recordingMbid === pick.recordingMbid)
         || (sameTitle(s.title, pick.title) && sameArtist(s.artist, pick.artist) && (!pick.album || sameTitle(s.album, pick.album))));
-    if (known) return known;
+    if (known) return fillSongTrack(known);
     const song = await saveSongToLibrary({
         title: pick.title, artist: pick.artist, artistMbid: pick.artistMbid, album: pick.album, albumMbid: pick.albumMbid,
         recordingMbid: pick.recordingMbid, year: pick.year, length: pick.length, coverUrl: pick.coverUrl,
         trackNumber: pick.trackNumber, mediumNumber: pick.mediumNumber, mediumTitle: pick.mediumTitle, mediumFormat: pick.mediumFormat
     }, DEFAULT_COLLECTION_ID);
     state.songs.push(song);
-    return song;
+    // A song found by name carries no track number: take it, and the disc, from the album's tracklist
+    return fillSongTrack(song);
 }
 
 /** A tab book goes on the album (under the library's own names when it has the album), not on a song. */

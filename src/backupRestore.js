@@ -18,7 +18,7 @@ import {
 } from './fileStore.js';
 import {
     ensureDefaultCollection, getAllLibraryData, importLibraryData, clearAllLibraryData,
-    reloadAllLibraryMetadata, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary, removeTabOptionFromSong
+    reloadAllLibraryMetadata, songsMissingTrackNumber, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary, removeTabOptionFromSong
 } from './libraryStore.js';
 import { findDuplicateSongs, findDuplicateTabs } from './libraryDuplicates.js';
 import { sha256 as sha256Bytes } from './mpak/core/index.js';
@@ -1336,6 +1336,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
 
     const songsMissingDuration = (libraryData.songs || []).filter(s => !s.length || s.length <= 0).length;
     const songsMissingCover = (libraryData.songs || []).filter(s => !s.coverUrl || s.coverUrl.includes('data:image/svg+xml')).length;
+    const songsMissingTracks = songsMissingTrackNumber(libraryData.songs).length;
     const uniqueAlbumsCount = new Set((libraryData.songs || []).map(s => `${(s.artist || '').toLowerCase().trim()}:::${(s.album || '').toLowerCase().trim()}`).filter(Boolean)).size;
 
     // A backup is a file the user keeps; it defaults to this device and is independent of the location chosen for Sync
@@ -1539,28 +1540,34 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <i class="bi-music-note-list text-info"></i> Library status
             </div>
             <div class="row g-2 text-white-50 small">
-              <div class="col-6 col-md-3">
+              <div class="col-6 col-md">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6" id="reloadStatTotalSongs">${libraryData.songs?.length || 0}</div>
                   <div class="text-truncate text-white-50" style="font-size:0.72rem;">Songs</div>
                 </div>
               </div>
-              <div class="col-6 col-md-3">
+              <div class="col-6 col-md">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6" id="reloadStatAlbums">${uniqueAlbumsCount}</div>
                   <div class="text-truncate text-white-50" style="font-size:0.72rem;">Albums</div>
                 </div>
               </div>
-              <div class="col-6 col-md-3">
+              <div class="col-6 col-md">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6 ${songsMissingDuration > 0 ? 'text-warning' : 'text-success'}" id="reloadStatMissingDuration">${songsMissingDuration}</div>
                   <div class="text-truncate text-white-50" style="font-size:0.72rem;">Missing track times</div>
                 </div>
               </div>
-              <div class="col-6 col-md-3">
+              <div class="col-6 col-md">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6 ${songsMissingCover > 0 ? 'text-warning' : 'text-success'}" id="reloadStatMissingCovers">${songsMissingCover}</div>
                   <div class="text-truncate text-white-50" style="font-size:0.72rem;">Missing cover art</div>
+                </div>
+              </div>
+              <div class="col-6 col-md">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6 ${songsMissingTracks > 0 ? 'text-warning' : 'text-success'}" id="reloadStatMissingTracks">${songsMissingTracks}</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Missing track numbers</div>
                 </div>
               </div>
             </div>
@@ -1575,6 +1582,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <div class="text-white-50 small" style="font-size: 0.78rem; line-height: 1.45;">
                   Performs a comprehensive refresh of all library metadata: queries MusicBrainz for canonical <strong>track durations</strong>, official track numbers, release years, and cover artwork, while re-analyzing all stored Guitar Pro tab files to extract accurate guitar and bass tunings and string counts.
                 </div>
+                <div class="text-white-50 small mt-2" style="font-size: 0.78rem; line-height: 1.45;">
+                  <strong>Fill in missing only</strong> fills what is blank, such as track numbers, times and covers, and changes nothing that is already set. It removes no songs and does not read your tab files again.
+                </div>
                 <div class="text-white-50 small mt-2 pt-2 border-top border-secondary border-opacity-25" style="font-size: 0.74rem;">
                   <i class="bi-shield-check text-success me-1"></i> Your attached tabs, custom tab assignments, and collections will remain completely intact.
                 </div>
@@ -1587,6 +1597,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
 
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="reloadCancelBtn">${activeReloadState.running ? 'Stop' : 'Cancel'}</button>
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="reloadFillBtn" title="Fill in what is blank and change nothing else" ${(activeReloadState.running || !libraryData.songs || libraryData.songs.length === 0) ? 'disabled' : ''}>
+              Fill in missing only
+            </button>
             <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="reloadExecuteBtn" ${(activeReloadState.running || !libraryData.songs || libraryData.songs.length === 0) ? 'disabled' : ''}>
               ${activeReloadState.running ? 'Reloading…' : 'Reload metadata'}
             </button>
@@ -3267,6 +3280,7 @@ function attachModalHandlers(modal, options = {}) {
 
     // --- RELOAD METADATA ACTION ---
     const reloadExecuteBtn = modal.querySelector('#reloadExecuteBtn');
+    const reloadFillBtn = modal.querySelector('#reloadFillBtn');
     const reloadCancelBtn = modal.querySelector('#reloadCancelBtn');
     const reloadStatusAlert = modal.querySelector('#reloadStatusAlert');
 
@@ -3287,6 +3301,7 @@ function attachModalHandlers(modal, options = {}) {
             reloadExecuteBtn.disabled = true;
             reloadExecuteBtn.textContent = 'Reloading…';
         }
+        if (reloadFillBtn) reloadFillBtn.disabled = true;
         if (reloadCancelBtn) reloadCancelBtn.textContent = 'Stop';
         updateReloadProgressUI(activeReloadState.progress);
     }
@@ -3305,12 +3320,14 @@ function attachModalHandlers(modal, options = {}) {
                 reloadExecuteBtn.disabled = false;
                 reloadExecuteBtn.textContent = 'Reload metadata';
             }
+            if (reloadFillBtn) reloadFillBtn.disabled = false;
         } else if (error) {
             showTaskResult(reloadStatusAlert, 'error', `Could not reload metadata. ${error.message}`);
             if (reloadExecuteBtn) {
                 reloadExecuteBtn.disabled = false;
                 reloadExecuteBtn.textContent = 'Try again';
             }
+            if (reloadFillBtn) reloadFillBtn.disabled = false;
         } else if (stats) {
             if (reloadStatusAlert) {
                 const details = [];
@@ -3318,13 +3335,14 @@ function attachModalHandlers(modal, options = {}) {
                 if (stats.updatedSongs > 0) details.push(`${stats.updatedSongs} songs updated`);
                 const scrubbedCount = stats.scrubbedNonCdTracks || stats.scrubbedDvdTracks || 0;
                 if (scrubbedCount > 0) details.push(`${scrubbedCount} non-CD (DVD/Vinyl) tracks removed`);
+                if (stats.addedTrackNumbers > 0) details.push(`${stats.addedTrackNumbers} track numbers filled in`);
                 if (stats.updatedTunings > 0) details.push(`${stats.updatedTunings} song tunings detected from tab files`);
                 if (stats.addedDurations > 0) details.push(`${stats.addedDurations} track durations added`);
                 if (stats.addedCovers > 0) details.push(`${stats.addedCovers} album covers added`);
                 const summaryText = details.length > 0 ? details.join(' · ') : 'Everything was already up to date';
 
                 showTaskResult(reloadStatusAlert, 'done',
-                    `<strong>Metadata reloaded</strong><span class="task-status-detail">${escapeHtml(summaryText)}</span>`,
+                    `<strong>${activeReloadState.fillOnly ? 'Missing data filled in' : 'Metadata reloaded'}</strong><span class="task-status-detail">${escapeHtml(summaryText)}</span>`,
                     { html: true });
             }
 
@@ -3335,6 +3353,11 @@ function attachModalHandlers(modal, options = {}) {
 
                 const statMissingDur = modal.querySelector('#reloadStatMissingDuration');
                 const statMissingCov = modal.querySelector('#reloadStatMissingCovers');
+                const statMissingTracks = modal.querySelector('#reloadStatMissingTracks');
+                if (statMissingTracks) {
+                    statMissingTracks.textContent = songsMissingTrackNumber(updatedLib.songs).length;
+                    statMissingTracks.className = 'text-white fw-bold fs-6';
+                }
                 if (statMissingDur) {
                     statMissingDur.textContent = updatedMissingDur;
                     statMissingDur.className = 'text-white fw-bold fs-6';
@@ -3352,6 +3375,7 @@ function attachModalHandlers(modal, options = {}) {
                         reloadExecuteBtn.disabled = false;
                         reloadExecuteBtn.textContent = 'Reload metadata';
                     }
+                    if (reloadFillBtn) reloadFillBtn.disabled = false;
                 }, 3000);
             }
         }
@@ -3367,10 +3391,11 @@ function attachModalHandlers(modal, options = {}) {
         }
     });
 
-    reloadExecuteBtn?.addEventListener('click', async () => {
+    const runReload = async (fillOnly) => {
         if (activeReloadState.running) return;
 
         activeReloadState.running = true;
+        activeReloadState.fillOnly = fillOnly;
         activeReloadState.abortController = new AbortController();
         activeReloadState.progress = {
             current: 0,
@@ -3383,6 +3408,7 @@ function attachModalHandlers(modal, options = {}) {
 
         reloadExecuteBtn.disabled = true;
         reloadExecuteBtn.textContent = 'Reloading…';
+        if (reloadFillBtn) reloadFillBtn.disabled = true;
         if (reloadCancelBtn) reloadCancelBtn.textContent = 'Stop';
         updateReloadProgressUI(activeReloadState.progress);
 
@@ -3395,7 +3421,8 @@ function attachModalHandlers(modal, options = {}) {
                     }
                 },
                 signal: activeReloadState.abortController.signal,
-                forceRefresh: true
+                forceRefresh: true,
+                fillOnly
             });
 
             const aborted = Boolean(activeReloadState.abortController?.signal?.aborted);
@@ -3412,7 +3439,9 @@ function attachModalHandlers(modal, options = {}) {
             activeReloadState.running = false;
             activeReloadState.abortController = null;
         }
-    });
+    };
+    reloadExecuteBtn?.addEventListener('click', () => runReload(false));
+    reloadFillBtn?.addEventListener('click', () => runReload(true));
 }
 
 /**

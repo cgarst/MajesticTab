@@ -2301,7 +2301,21 @@ export async function updateAlbumMetadataInLibrary(albumData, collectionId = nul
  * @param {boolean} [options.forceRefresh=true] - If true, clears session cache to force fresh MusicBrainz queries
  * @returns {Promise<object>} Stats summary of reloaded items
  */
-export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal = null, forceRefresh = true } = {}) {
+// The song fields a metadata reload can set. A fill-only reload keeps every one of these that already has a value.
+const RELOAD_FIELDS = ['artist', 'artistMbid', 'album', 'albumMbid', 'year', 'coverUrl', 'length', 'trackNumber', 'mediumNumber', 'mediumTitle', 'mediumFormat', 'recordingMbid'];
+const isBlankField = (key, value) => value == null || value === '' || value === 0 || (key === 'coverUrl' && String(value).includes('data:image/svg+xml'));
+
+/** The songs a metadata reload would fill in a track number for: on a real album, with no track number. Custom songs and singles have none to fill. */
+export function songsMissingTrackNumber(songs) {
+    return (songs || []).filter((s) => !s.isCustom && !s.isAlbumTabContainer && !s.trackNumber && s.album
+        && !['singles / other', 'unknown album', 'single', 'singles'].includes(String(s.album).trim().toLowerCase()));
+}
+
+/**
+ * @param {boolean} [fillOnly] fill in what is blank and change nothing else: no value that is already set is replaced, no song is
+ *   removed, and the stored tab files are not read again
+ */
+export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal = null, forceRefresh = true, fillOnly = false } = {}) {
     if (forceRefresh) {
         try {
             for (let i = sessionStorage.length - 1; i >= 0; i--) {
@@ -2313,7 +2327,11 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
         } catch {}
     }
 
-    const songs = await getAllSongs();
+    let songs = await getAllSongs();
+    // Fill-only works on the songs the library status counts as missing something (a time, a cover or a track number), and on no others
+    if (fillOnly && songs) {
+        songs = songs.filter((s) => !s.length || s.length <= 0 || isBlankField('coverUrl', s.coverUrl) || songsMissingTrackNumber([s]).length > 0);
+    }
     if (!songs || songs.length === 0) {
         return {
             totalSongs: 0,
@@ -2334,15 +2352,22 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
         addedCovers: 0,
         addedYears: 0,
         updatedTunings: 0,
+        addedTrackNumbers: 0,
         scrubbedNonCdTracks: 0,
         get scrubbedDvdTracks() { return this.scrubbedNonCdTracks; },
         errors: []
     };
 
     const scrubbedSongIds = new Set();
+    const snapshotFields = (song) => Object.fromEntries(RELOAD_FIELDS.map((k) => [k, song[k]]));
+    // Put back every value the reload replaced, keeping only what filled a blank. True when something was filled.
+    const keepFilled = (song, before) => {
+        for (const k of RELOAD_FIELDS) if (!isBlankField(k, before[k])) song[k] = before[k];
+        return RELOAD_FIELDS.some((k) => song[k] !== before[k]);
+    };
 
     // 0. Retroactively scrub any existing library songs that have explicit DVD/Blu-ray medium format or title
-    for (const song of songs) {
+    for (const song of fillOnly ? [] : songs) {
         if (!song.isCustom && isDvdOrBlurayMedium(song)) {
             try {
                 await deleteSongFromLibrary(song.id);
@@ -2465,7 +2490,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                         const isDvd = isDvdOrBlurayMedium(song);
                         const isVinylWithCd = hasCdMedia && isVinylOrTapeMedium(song);
 
-                        if (!song.isCustom && (isScrubbedRec || isScrubbedMed || isDvd || isVinylWithCd)) {
+                        if (!fillOnly && !song.isCustom && (isScrubbedRec || isScrubbedMed || isDvd || isVinylWithCd)) {
                             await deleteSongFromLibrary(song.id);
                             scrubbedSongIds.add(song.id);
                             stats.scrubbedNonCdTracks++;
@@ -2494,7 +2519,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                         }
 
                         // If not matched, but it was on a scrubbed medium number or vinyl medium when CD exists, delete it
-                        if (!matchedTrack && (isScrubbedMed || isVinylWithCd) && !song.isCustom) {
+                        if (!fillOnly && !matchedTrack && (isScrubbedMed || isVinylWithCd) && !song.isCustom) {
                             await deleteSongFromLibrary(song.id);
                             scrubbedSongIds.add(song.id);
                             stats.scrubbedNonCdTracks++;
@@ -2503,6 +2528,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
 
                         if (matchedTrack) {
                             let songUpdated = false;
+                            const before = snapshotFields(song);
 
                             // Update album-level fields
                             if (albumData.artist && song.artist !== albumData.artist) {
@@ -2563,6 +2589,8 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                                 songUpdated = true;
                             }
 
+                            if (fillOnly) songUpdated = keepFilled(song, before);
+                            if (songUpdated && isBlankField('trackNumber', before.trackNumber) && song.trackNumber) stats.addedTrackNumbers++;
                             if (songUpdated) {
                                 await saveSongToLibrary(song, song.collectionId);
                                 updatedSongMap.set(song.id, song);
@@ -2593,7 +2621,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
         if (signal?.aborted) break;
         if (scrubbedSongIds.has(song.id)) continue;
         if (song.isAlbumTabContainer || song.isCustom) continue;
-        if (!song.isCustom && isDvdOrBlurayMedium(song)) {
+        if (!fillOnly && !song.isCustom && isDvdOrBlurayMedium(song)) {
             try {
                 await deleteSongFromLibrary(song.id);
                 scrubbedSongIds.add(song.id);
@@ -2607,6 +2635,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
 
         try {
             let songUpdated = false;
+            const before = snapshotFields(song);
 
             if (song.recordingMbid) {
                 const url = `https://musicbrainz.org/ws/2/recording/${song.recordingMbid}?inc=artists+releases+media&fmt=json`;
@@ -2702,6 +2731,8 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                 }
             }
 
+            if (fillOnly) songUpdated = keepFilled(song, before);
+            if (songUpdated && isBlankField('trackNumber', before.trackNumber) && song.trackNumber) stats.addedTrackNumbers++;
             if (songUpdated) {
                 await saveSongToLibrary(song, song.collectionId);
                 updatedSongMap.set(song.id, song);
@@ -2718,6 +2749,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
         if (signal?.aborted) break;
         if (scrubbedSongIds.has(song.id)) continue;
         currentStep++;
+        if (fillOnly) continue;
         report(`${song.artist ? `${song.artist} - ` : ''}${song.title} (Scanning tabs)`, 'tuning');
         try {
             const tabUpdated = await enrichSongWithTabMetadata(song);
