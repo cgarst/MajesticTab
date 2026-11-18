@@ -196,6 +196,9 @@ export function loadAudioScan(result) {
 
 // --- Import ----------------------------------------------------------------------------------------------------------
 
+/** Audio files decoded and stored at once. Each is held in memory whole, plus its decoded copy. */
+const IMPORT_CONCURRENCY = 2;
+
 async function runImport() {
     state.songs = await getAllSongs().catch(() => state.songs);
     state.existingIds = new Set((await listAudioFiles().catch(() => [])).map((f) => f.id));
@@ -213,8 +216,8 @@ async function runImport() {
     let added = 0;
     let failed = 0;
     const filled = new Set(); // song|slot already given a file in this run
-    for (const row of todo) {
-        if (controller.signal.aborted) break;
+    const importRow = async (row) => {
+        if (controller.signal.aborted) return;
         const slotKey = `${row.pick.songId}|${slotOf(row)}`;
         // A file the person did not check does not replace one imported a moment ago for the same song and slot
         if (filled.has(slotKey) && !row.forced) {
@@ -222,7 +225,7 @@ async function runImport() {
             row.note = 'Skipped: another file went to this song';
             state.importDone++;
             notify(row.id);
-            continue;
+            return;
         }
         try {
             const song = await getSongById(row.pick.songId);
@@ -249,7 +252,22 @@ async function runImport() {
         }
         state.importDone++;
         notify(row.id);
+    };
+    // Rows of one song and slot go one after another (a failed file lets the next one take the slot); different songs
+    // overlap, so one file's decode and write is not waited on by the next. Two at a time keeps the decoded audio in memory small.
+    const groups = new Map();
+    for (const row of todo) {
+        const k = `${row.pick.songId}|${slotOf(row)}`;
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(row);
     }
+    const queue = [...groups.values()];
+    const worker = async () => {
+        while (queue.length && !controller.signal.aborted) {
+            for (const row of queue.shift()) await importRow(row);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(IMPORT_CONCURRENCY, queue.length) }, worker));
     state.phase = 'review';
     state.controller = null;
     const parts = [plural(added, 'audio file', 'audio files') + ' imported'];

@@ -67,6 +67,49 @@ export function newAudioId() {
 
 const stripData = ({ data, ...meta }) => meta;
 
+// The metadata of every file, kept in memory. Reading it from the database means walking every record, audio included
+// (gigabytes on a big library), and a save, a pack check or a bulk import row asks for it each time. One walk per
+// session fills it; every write below keeps it current. `null` until the first list.
+let metaCache = null;
+let metaLoading = null;
+
+let pendingOps = []; // writes that land while the first walk is running: it may have read the record before they did
+
+const cacheSet = (rec) => {
+    if (!rec) return;
+    const meta = stripData(rec);
+    if (metaCache) metaCache.set(rec.id, meta); else if (metaLoading) pendingOps.push(() => metaCache.set(rec.id, meta));
+};
+const cacheDelete = (id) => {
+    if (metaCache) metaCache.delete(id); else if (metaLoading) pendingOps.push(() => metaCache.delete(id));
+};
+
+async function loadMetaCache() {
+    if (metaCache) return metaCache;
+    metaLoading ||= (async () => {
+        const db = await getDb();
+        const all = await new Promise((resolve, reject) => {
+            const out = new Map();
+            const tx = db.transaction(STORE, 'readonly');
+            const req = tx.objectStore(STORE).openCursor();
+            req.onsuccess = () => {
+                const cursor = req.result;
+                if (!cursor) return;
+                out.set(cursor.value.id, stripData(cursor.value));
+                cursor.continue();
+            };
+            tx.oncomplete = () => resolve(out);
+            tx.onerror = () => reject(tx.error);
+            tx.onabort = () => reject(tx.error);
+        });
+        metaCache = all;
+        for (const op of pendingOps) op();
+        pendingOps = [];
+        return all;
+    })().finally(() => { metaLoading = null; });
+    return metaLoading;
+}
+
 /**
  * Stores `fileData` for a song. If a file with the same fingerprint is already stored it is reused (and linked to
  * the song) instead of saved twice. `info` carries what the caller measured: `{ durationMs, peaks }`.
@@ -86,28 +129,14 @@ export async function saveAudioFile({ name, type, data, songKey, durationMs = nu
     };
     if (generatedFrom) record.generatedFrom = generatedFrom;
     await request('readwrite', s => s.put(record));
+    cacheSet(record);
     return stripData(record);
 }
 
 /** Metadata of every stored file (no audio), newest first. */
 export async function listAudioFiles() {
-    // One record at a time: getAll() would hold the audio of every file in memory at once (hundreds of MB on a big library)
-    const db = await getDb();
-    const all = await new Promise((resolve, reject) => {
-        const out = [];
-        const tx = db.transaction(STORE, 'readonly');
-        const req = tx.objectStore(STORE).openCursor();
-        req.onsuccess = () => {
-            const cursor = req.result;
-            if (!cursor) return;
-            out.push(stripData(cursor.value));
-            cursor.continue();
-        };
-        tx.oncomplete = () => resolve(out);
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
-    });
-    return all.sort((a, b) => b.savedAt - a.savedAt);
+    const cache = await loadMetaCache();
+    return [...cache.values()].map((m) => ({ ...m, songKeys: [...(m.songKeys || [])] })).sort((a, b) => b.savedAt - a.savedAt);
 }
 
 export async function listAudioFilesForSong(songKey) {
@@ -129,6 +158,7 @@ export async function linkAudioFile(id, songKey) {
     if (!rec || rec.songKeys.includes(songKey)) return;
     rec.songKeys = [...rec.songKeys, songKey];
     await request('readwrite', s => s.put(rec));
+    cacheSet(rec);
 }
 
 /** Moves a file's link from one song key to another (the file is kept). */
@@ -137,6 +167,7 @@ export async function relinkAudioFile(id, fromKey, toKey) {
     if (!rec) return;
     rec.songKeys = [...new Set([...rec.songKeys.filter(k => k !== fromKey), toKey])];
     await request('readwrite', s => s.put(rec));
+    cacheSet(rec);
 }
 
 /** Removes the file for a song; the audio itself is deleted when no song uses it any more. */
@@ -144,13 +175,14 @@ export async function unlinkAudioFile(id, songKey) {
     const rec = await getAudioFile(id);
     if (!rec) return;
     rec.songKeys = rec.songKeys.filter(k => k !== songKey);
-    if (rec.songKeys.length) await request('readwrite', s => s.put(rec));
-    else await request('readwrite', s => s.delete(id));
+    if (rec.songKeys.length) { await request('readwrite', s => s.put(rec)); cacheSet(rec); }
+    else { await request('readwrite', s => s.delete(id)); cacheDelete(id); }
 }
 
 /** Writes a complete record as it is (used when restoring a backup, which keeps the original id). */
 export async function putAudioRecord(record) {
     await request('readwrite', s => s.put(record));
+    cacheSet(record);
 }
 
 /** Stores the waveform of a file that was restored without one. */
@@ -160,15 +192,19 @@ export async function setAudioPeaks(id, peaks, durationMs = null) {
     rec.peaks = peaks;
     if (durationMs !== null && rec.durationMs == null) rec.durationMs = durationMs;
     await request('readwrite', s => s.put(rec));
+    cacheSet(rec);
 }
 
 /** Deletes an audio file record by id. */
 export async function deleteAudioFile(id) {
     await request('readwrite', s => s.delete(id));
+    cacheDelete(id);
 }
 
 export async function clearAllAudioFiles() {
     await request('readwrite', s => s.clear());
+    metaCache?.clear();
+    pendingOps = [];
 }
 
 /** Cheap change detector for a file: its fingerprint covers the content, the size guards against truncation. */

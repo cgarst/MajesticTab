@@ -143,7 +143,9 @@ export function normalizeRecord(raw, key = null) {
         };
     const clean = (list) => list.map((p) => cleanPoint(p, anchorType)).filter(Boolean).sort((a, b) => a.timeMs - b.timeMs);
     const points = clean(rawPoints);
-    const restorePoints = Array.isArray(raw.restore?.points) ? clean(raw.restore.points) : [];
+    // A stored restore point that is the record's own points is kept as `{ same: true, savedAt }` (see serializeRecord)
+    const restorePoints = raw.restore?.same === true ? points.map((p) => ({ ...p }))
+        : Array.isArray(raw.restore?.points) ? clean(raw.restore.points) : [];
     const restore = restorePoints.length ? { points: restorePoints, savedAt: Number.isFinite(raw.restore.savedAt) ? raw.restore.savedAt : 0 } : null;
     return { version: AUDIO_SYNC_VERSION, media, anchorType, points, updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : 0, ...(restore ? { restore } : {}) };
 }
@@ -165,7 +167,11 @@ export function serializeRecord(rec) {
     }
     return {
         version: AUDIO_SYNC_VERSION, media: rec.media, anchorType: rec.anchorType, points: toSyncPoints(rec.points, rec.anchorType), updatedAt: rec.updatedAt,
-        ...(rec.restore ? { restore: { points: toSyncPoints(rec.restore.points, rec.anchorType), savedAt: rec.restore.savedAt } } : {}),
+        // A restore point equal to the points (a pack's, until the person edits) is stored as a marker, not a second copy:
+        // the copy doubled every record and the pack's stems each held one
+        ...(rec.restore ? { restore: samePoints(rec.restore.points, rec.points)
+            ? { same: true, savedAt: rec.restore.savedAt }
+            : { points: toSyncPoints(rec.restore.points, rec.anchorType), savedAt: rec.restore.savedAt } } : {}),
     };
 }
 
@@ -188,6 +194,10 @@ export function setSyncSharedFromOriginal(songKey, on, storage = recordStorage) 
     } catch { /* ignore */ }
 }
 
+let stemParentResolver = null;
+/** The player registers `(songKey, media) => parent media or null`: the recording a stem was split from, so a stem with no points of its own plays with its parent's. */
+export function setStemParentResolver(fn) { stemParentResolver = fn; }
+
 let slotMediaResolver = null;
 /** The player registers `(songKey) => ({ original, backing })` (media descriptors or null) so the store knows which recording is which. */
 export function setSlotMediaResolver(fn) { slotMediaResolver = fn; }
@@ -206,6 +216,14 @@ export function loadRecord(songKey, media, storage = recordStorage) {
     const stored = loadOwnRecord(songKey, media, storage);
     // A record with no points (cleared, but holding a restore point) is not a synced recording
     const own = stored?.points.length ? stored : null;
+    if (!own && stemParentResolver) {
+        let parent = null;
+        try { parent = stemParentResolver(songKey, media); } catch { parent = null; }
+        if (parent && mediaKey(parent) && mediaKey(parent) !== mediaKey(media)) {
+            const rec = loadOwnRecord(songKey, parent, storage);
+            if (rec?.points.length) return { ...rec, media: normalizeRecord({ ...rec, media }).media, inherited: true };
+        }
+    }
     if (own || !slotMediaResolver || !isSyncSharedFromOriginal(songKey, storage)) return own;
     let slots = null;
     try { slots = slotMediaResolver(songKey); } catch { slots = null; }

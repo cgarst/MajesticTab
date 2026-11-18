@@ -220,3 +220,36 @@ test('a text or PDF tab takes over the record an earlier version shared between 
     assert.deepEqual(txt.points.map((p) => p.line), [3]);
     assert.equal(txt.anchorType, 'text');
 });
+
+test('a restore point equal to the points is stored as a marker, not a second copy, and reads back whole', async () => {
+    const { serializeRecord } = await import('../../src/audioSync/syncStore.js');
+    const s = fakeStorage();
+    saveRecord('Song', local, pts, s, 1000, undefined, { restoreTo: pts });
+    const raw = JSON.parse(s.getItem(storageKey('Song', local)));
+    assert.deepEqual(raw.restore, { same: true, savedAt: 1000 });
+    const back = loadRecord('Song', local, s);
+    assert.equal(back.restore.points.length, 2);
+    assert.deepEqual(back.restore.points.map((p) => p.timeMs), [1000, 5000]);
+    // After an edit the original is kept in full
+    saveRecord('Song', local, [pts[0]], s, 2000);
+    const edited = JSON.parse(s.getItem(storageKey('Song', local)));
+    assert.equal(edited.points.length, 1);
+    assert.equal(edited.restore.points.length, 2);
+    assert.equal(serializeRecord(normalizeRecord(edited)).restore.points.length, 2);
+});
+
+test('a stem with no points of its own plays with its parent\'s', async () => {
+    const { setStemParentResolver } = await import('../../src/audioSync/syncStore.js');
+    const s = fakeStorage();
+    const lead = { kind: 'local', audioId: 'lead', name: 'a', durationMs: 1, fingerprint: 'f1' };
+    const stem = { kind: 'local', audioId: 'stem', name: 'b', durationMs: 1, fingerprint: 'f2' };
+    saveRecord('Song', lead, pts, s, 1000);
+    setStemParentResolver((key, media) => (media.audioId === 'stem' ? lead : null));
+    try {
+        const got = loadRecord('Song', stem, s);
+        assert.equal(got.inherited, true);
+        assert.equal(got.media.audioId, 'stem');
+        assert.equal(got.points.length, 2);
+        assert.equal(loadRecord('Song', local, s), null);
+    } finally { setStemParentResolver(null); }
+});

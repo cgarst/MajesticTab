@@ -20,7 +20,8 @@ import { createYouTubeSource } from './mediaSource.js';
 import { closeSheet } from '../ytSheet.js';
 import { preferredSlot, rememberLastSlot } from './libraryAudio.js';
 import { setActiveAudioMode, updateGlobalAudioControls } from '../utils/navigationUtils.js';
-import { loadRecord, SYNC_CHANGED_EVENT, setSlotMediaResolver } from './syncStore.js';
+import { loadRecord, SYNC_CHANGED_EVENT, setSlotMediaResolver, setStemParentResolver } from './syncStore.js';
+import { getRecordingMeta } from './recordingMeta.js';
 import { buildTimelineModel } from './timelineModel.js';
 import { playedBarsFromLookup, buildScoreTimeline } from './scorePositions.js';
 import { syncFit } from './pointCheck.js';
@@ -319,6 +320,16 @@ export function getActiveRecording() {
 }
 
 setSlotMediaResolver(() => ({ original: getMediaForSlot('original'), backing: getMediaForSlot('backing') }));
+// A stem a pack saved without sync points of its own (its points equal the lead stem's) plays with its parent's. The sync
+// key is the song key, or `score:<sha256>:<song key>` / `text:<song key>`; the recording meta is kept under the song key.
+setStemParentResolver((syncKey, media) => {
+    const songKey = String(syncKey).replace(/^score:[^:]*:/, '').replace(/^text:/, '');
+    const parent = getRecordingMeta(songKey, media)?.stemOf;
+    if (!parent) return null;
+    if (parent.startsWith('yt_')) return { kind: 'youtube', videoId: parent.slice(3) };
+    if (parent.startsWith('local_')) return { kind: 'local', audioId: parent.slice(6) };
+    return null;
+});
 
 export function updateRecordingSlots() {
     const songKey = getSongKey();

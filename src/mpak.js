@@ -1116,6 +1116,13 @@ export async function applyMpakExtras(data, opened, options = {}) {
     const syncDocsOf = (rec) => syncTargets
         .map((sc) => ({ sc, doc: typeof opened?.sync === 'function' ? opened.sync(rec.id, sc.id) : null }))
         .filter((x) => x.doc?.points?.length);
+    // A stem of a set that has the lead's own points needs no record: the player gives it its parent's (syncStore.js,
+    // setStemParentResolver). Saving one per stem copied the same points into a record each.
+    const sameAsLead = ({ sc, doc }, rec) => {
+        if (!stemSet || rec === stemSet.lead || !stemSet.members.includes(rec) || typeof opened?.sync !== 'function') return false;
+        const lead = opened.sync(stemSet.lead.id, sc.id);
+        return Boolean(lead?.points?.length) && lead.anchorType === doc.anchorType && JSON.stringify(lead.points) === JSON.stringify(doc.points);
+    };
     // The bars a score plays, repeats included, read from its file; null when it cannot be read
     const playedBarsCache = new Map();
     const playedBarsOf = async (sc) => {
@@ -1306,7 +1313,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
                 const media = { kind: 'local', audioId: meta.id, name: meta.name, durationMs: meta.durationMs ?? null, fingerprint: meta.fingerprint };
                 resolvedMedia.set(rec.id, media);
                 reportAudioProgress();
-                const docs = syncDocsOf(rec);
+                const docs = syncDocsOf(rec).filter((d) => !sameAsLead(d, rec));
                 if (docs.length) await saveSyncs(docs, media);
                 continue;
             }
