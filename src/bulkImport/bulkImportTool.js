@@ -22,7 +22,7 @@ import { saveStoredFile, getStoredFileRecord } from '../fileStore.js';
 import { sha256 } from '../mpak/core/index.js';
 import { detectFileMetadata } from '../utils/tuningUtils.js';
 import { showToast } from '../utils/toast.js';
-import { STRATEGIES, pairFile, baseNameOf, normName, sameArtist, sameTitle, looksLikeAlbumBook, VIA_LABEL } from './pairing.js';
+import { STRATEGIES, pairFile, pairFromPack, coversTitle, baseNameOf, normName, sameArtist, sameTitle, looksLikeAlbumBook, VIA_LABEL } from './pairing.js';
 import { lookup, lookupAlbum, searchSongs, searchAlbums, normKey, resolveAlbumTracklist, matchTrack } from './matcher.js';
 import { canPickFolder, pickFilesOnly, pickAndScanFolder } from './scanFolder.js';
 import { renderAudioImport, audioImportReadout, onAudioImportChange } from './audioImport.js';
@@ -92,6 +92,7 @@ listeners.add(() => {
 /** What a row is, for the page: ready (will be imported), attention (needs a look), or left out. */
 function verdict(row) {
     if (row.imported) return 'done';
+    if (row.stage === 'error' && !row.manual) return 'attention';
     if (row.stage !== 'done' && !row.manual) return 'wait';
     if (!row.pick) return 'attention';
     if (state.skipExisting && !row.forced && (row.entry.ext === 'mpak' && row.adds ? row.adds.total === 0 : row.hadTab)) return 'have';
@@ -271,6 +272,14 @@ function makeRow(entry, i) {
     return { id: `r${i}`, entry, kind: 'song', manualKind: false, hadTab: false, adds: null, addsSeq: 0, forced: false, parsed: null, stage: 'queued', status: 'none', pick: null, candidates: [], before: null, excluded: false, confirmed: false, manual: false, imported: '', note: '', error: '' };
 }
 
+/** The song written in a pack's manifest ({} when it has none, null when the pack cannot be read). Read once per row. */
+async function packSongOf(row) {
+    if (row.packSong === undefined) {
+        try { row.packSong = (await readMpak(await row.entry.getFile())).header?.song || {}; } catch { row.packSong = null; }
+    }
+    return row.packSong;
+}
+
 async function embeddedMeta(entry) {
     if (!/^gp[345x]?$/.test(entry.ext)) return null;
     try { return await detectFileMetadata(await entry.getFile(), entry.name); } catch { return null; }
@@ -282,10 +291,11 @@ async function resolveRow(row, signal) {
     notify(row.id);
     try {
         if (row.entry.ext === 'mpak') {
-            const file = await row.entry.getFile();
-            const { header } = await readMpak(file);
-            const mpakSong = header?.song || {};
-            row.parsed = pairFile(row.entry, state.strategy, (mpakSong.title || mpakSong.artist) ? mpakSong : null)
+            const mpakSong = await packSongOf(row);
+            if (!mpakSong) throw new Error('Could not read the pack');
+            // The pack names its own song, so that is the pairing; the file name is used only when the manifest has no artist
+            row.parsed = pairFromPack(mpakSong)
+                || pairFile(row.entry, state.strategy, (mpakSong.title || mpakSong.artist) ? mpakSong : null)
                 || (mpakSong.title ? {
                     artist: mpakSong.artist || '',
                     album: mpakSong.album || '',
@@ -377,11 +387,19 @@ async function resolveRow(row, signal) {
  */
 const ALBUM_GROUP_MIN = 3;
 async function resolveAlbumGroups(signal) {
-    if (state.strategy === 'metadata') return; // the pairing needs the files read first
     const groups = new Map();
     for (const row of state.rows) {
+        if (signal.aborted) return;
         if (row.manual || row.imported || row.stage === 'done') continue;
-        const parsed = pairFile(row.entry, state.strategy, null);
+        let parsed = null;
+        if (row.entry.ext === 'mpak') {
+            // A pack's album and song are in its manifest. A song the library already has is left to the per-file lookup.
+            const song = await packSongOf(row);
+            parsed = pairFromPack(song);
+            if (parsed && await findMatchingSongInLibrary(song).catch(() => null)) continue;
+        } else if (state.strategy !== 'metadata') { // that pairing needs the files read first
+            parsed = pairFile(row.entry, state.strategy, null);
+        }
         if (!parsed?.artist || !parsed.album || looksLikeAlbumBook(parsed, row.entry)) continue;
         const key = `${normKey(parsed.artist)}|${normName(parsed.album)}`;
         if (!groups.has(key)) groups.set(key, { artist: parsed.artist, album: parsed.album, items: [] });
@@ -394,14 +412,25 @@ async function resolveAlbumGroups(signal) {
         try { resolved = await resolveAlbumTracklist(g.artist, g.album, { songs: state.songs, signal }); }
         catch (err) { if (signal.aborted || err?.name === 'AbortError') return; console.warn('[Bulk import] Album lookup failed for', g.artist, g.album, err); }
         if (!resolved) continue;
-        for (const { row, parsed } of g.items) {
-            if (row.manual) continue;
-            const pick = matchTrack(parsed, resolved);
-            if (!pick) continue;
-            Object.assign(row, { parsed, kind: 'song', pick, status: 'match', candidates: [pick], stage: 'done', error: '' });
+        // Packs that are parts of one track ("A Change of Seasons" in seven packs) all read as that track, and a pack of two songs reads as one of them: those stay guesses
+        const matched = g.items.filter(({ row }) => !row.manual).map(({ row, parsed }) => ({ row, parsed, pick: matchTrack(parsed, resolved) })).filter((m) => m.pick);
+        const uses = new Map();
+        for (const m of matched) if (m.row.entry.ext === 'mpak') { const k = m.pick.recordingMbid || m.pick.title; uses.set(k, (uses.get(k) || 0) + 1); }
+        for (const { row, parsed, pick } of matched) {
+            const shared = row.entry.ext === 'mpak' && (uses.get(pick.recordingMbid || pick.title) > 1 || !coversTitle(pick.title, parsed.title));
+            Object.assign(row, { parsed, kind: 'song', pick, status: shared ? 'maybe' : 'match', candidates: [pick], stage: 'done', error: '' });
             markHad(row);
             notify(row.id);
         }
+    }
+}
+
+/** A lookup that failed (MusicBrainz busy, a dropped connection) is tried again, a little later each time, before the row gives up. */
+async function resolveWithRetry(row, signal) {
+    for (let attempt = 1; ; attempt++) {
+        await resolveRow(row, signal);
+        if (row.stage !== 'error' || signal?.aborted || attempt >= 3) return;
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
     }
 }
 
@@ -421,7 +450,7 @@ async function runLookups() {
     for (const row of state.rows) {
         if (controller.signal.aborted) break;
         if (row.manual || row.stage === 'done' || row.imported) continue;
-        await resolveRow(row, controller.signal);
+        await resolveWithRetry(row, controller.signal);
     }
     if (state.controller === controller) { state.lookingUp = false; state.controller = null; }
     markSiblings();
@@ -682,7 +711,7 @@ function renderTabsImport(container) {
               ${suggestionHtml(row)}
             </div>
             <span class="imp-state">${esc(statusText(row))}${via && row.pick && !row.manual && !row.imported && row.status !== 'library' ? ` · from ${esc(via)}` : ''}</span>
-            ${row.imported || busy ? '' : `<button type="button" class="ct-text imp-change" data-act="change" aria-expanded="${open}">${row.pick ? 'Change' : (row.kind === 'album' ? 'Find album' : 'Find song')}</button>`}
+            ${row.imported || busy ? '' : `${row.stage === 'error' ? '<button type="button" class="ct-text imp-retry" data-act="retry">Retry</button>' : ''}<button type="button" class="ct-text imp-change" data-act="change" aria-expanded="${open}">${row.pick ? 'Change' : (row.kind === 'album' ? 'Find album' : 'Find song')}</button>`}
           </div>
           ${open ? searchHtml(row) : ''}
         </div>`;
@@ -866,6 +895,10 @@ function renderTabsImport(container) {
             if (prev && prev !== row.id) patch(prev);
             patch(row.id);
             root.querySelector(`[data-row="${row.id}"] [data-act="search-text"]`)?.focus();
+        } else if (act === 'retry' && row) {
+            Object.assign(row, { stage: 'queued', error: '' });
+            patch(row.id);
+            resolveWithRetry(row, null).then(() => { markSiblings(); notify(); });
         } else if (act === 'close-search' && row) { state.openId = null; patch(row.id); root.querySelector(`[data-row="${row.id}"] [data-act="change"]`)?.focus(); }
         else if (act === 'search-go' && row) runSearch(row.id);
         else if (act === 'kind' && row) { searches.delete(row.id); setKind(row, btn.dataset.kind); patch(row.id); }

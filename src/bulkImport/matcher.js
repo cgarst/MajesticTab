@@ -3,7 +3,7 @@
 // Every result keeps its candidates so the page can offer them when the first choice is not the right one.
 
 import { searchMusicBrainz, getAlbumTracks } from '../musicbrainz.js';
-import { normName, sameArtist, sameTitle, closeTitle, titleSimilarity, stripArtistPrefix } from './pairing.js';
+import { normName, sameArtist, sameTitle, sameAlbum, hasVersionTag, closeTitle, titleSimilarity, stripArtistPrefix } from './pairing.js';
 
 const cache = new Map(); // search text -> candidates (a folder of one album asks MusicBrainz about each song once)
 
@@ -36,9 +36,13 @@ export function findInLibrary(parsed, songs) {
     return hits.map(fromLibrary);
 }
 
+const LENGTH_SLACK_MS = 3000;
 const rank = (c, parsed) => (closeTitle(c.title, parsed.title) ? 4 : 0)
     + (parsed.artist && sameArtist(c.artist, parsed.artist) ? 2 : 0)
-    + (parsed.album && sameTitle(c.album, parsed.album) ? 1 : 0);
+    + (parsed.album && sameAlbum(c.album, parsed.album) ? 1 : 0)
+    // Among the same song, the plain recording beats its "(original stereo mix)" or "(alternate album mix)" twin, and one as long as the file's wins
+    - (hasVersionTag(c.title) && !hasVersionTag(parsed.title) ? 0.5 : 0)
+    + (parsed.length && c.length && Math.abs(c.length - parsed.length) <= LENGTH_SLACK_MS ? 0.25 : 0);
 
 /**
  * @returns {Promise<{status: 'library'|'match'|'maybe'|'none', pick: object|null, candidates: object[]}>}
@@ -111,7 +115,8 @@ async function lookupTitle(parsed, { songs, signal }) {
     if (!found.length) return { status: 'none', pick: null, candidates: [] };
     const ranked = found.map((c, i) => ({ c, i, r: rank(c, parsed) })).sort((a, b) => b.r - a.r || a.i - b.i);
     const best = ranked[0];
-    const exact = parsed.artist ? best.r >= 6 : false;
+    // A pack names its album itself, so a song on some other release is a guess however well the title reads
+    const exact = parsed.artist ? Math.floor(best.r + 0.5) >= 6 && (parsed.via !== 'pack' || !parsed.album || sameAlbum(best.c.album, parsed.album)) : false;
     return { status: exact ? 'match' : 'maybe', pick: best.c, candidates: ranked.map((x) => x.c) };
 }
 
@@ -169,7 +174,7 @@ export async function lookupAlbum(parsed, { songs = [], signal } = {}) {
         const found = await searchAlbums([h.artist, album].filter(Boolean).join(' '), { signal });
         if (!found.length) continue;
         const ranked = found
-            .map((c, i) => ({ c, i, r: (closeTitle(c.title, album) ? 4 : 0) + (h.artist && sameArtist(c.artist, h.artist) ? 2 : 0) }))
+            .map((c, i) => ({ c, i, r: (closeTitle(c.title, album) || sameAlbum(c.title, album) ? 4 : 0) + (h.artist && sameArtist(c.artist, h.artist) ? 2 : 0) }))
             .sort((a, b) => b.r - a.r || a.i - b.i);
         const result = { status: h.artist && ranked[0].r >= 6 ? 'match' : 'maybe', pick: ranked[0].c, candidates: ranked.map((x) => x.c) };
         if (result.status === 'match') return result;

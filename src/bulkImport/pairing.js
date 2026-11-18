@@ -43,6 +43,7 @@ export function cleanSongTitle(title) {
         t = t.replace(/\s+(?:tabs?|chords?|guitar pro|gp\d?|pro)$/i, '')
             .replace(/\s+ver(?:sion)?\.?\s*\d+\w*(?:\s+[A-Za-z]{1,4})?$/i, '')
             .replace(/\s*\((?:majestic|\d{1,2})\)$/i, '')
+            .replace(/\s*[\(\[]stems?[\)\]]$/i, '')
             .replace(/\s*#[\d-]{6,}$/, '');
         if (t === before) break;
     }
@@ -121,6 +122,14 @@ export function parseFolders(dirs, baseName) {
     if (altTitle) out.altTitle = cleanSongTitle(altTitle);
     if (hyps.length > 1) out.alts = hyps.slice(1);
     return out;
+}
+
+/** The pairing a .mpak gives itself: the song written in its manifest, which is exact where its file name is not ("Artist - Song (stems).mpak"). */
+export function pairFromPack(song) {
+    const title = clean(song?.title);
+    const artist = clean(song?.artist);
+    if (!title || !artist) return null;
+    return { artist, album: cleanAlbumName(song.album), title, rawTitle: title, trackNumber: song.trackNumber || null, length: Number(song.length) || null, via: 'pack' };
 }
 
 /** The file's name without its extension. */
@@ -219,7 +228,9 @@ export function sameTitle(a, b) {
 const ROMAN = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10 };
 /** A title in the form two versions of it are compared in: no "(album mix)", no leading "The", "Part II" as "part 2". */
 function titleKey(s) {
-    const t = String(s ?? '').replace(/\s*[\(\[][^)\]]*\b(?:mix|version|remaster(?:ed)?|edit|mono|stereo|live|demo|alternate|bonus|album)\b[^)\]]*[\)\]]/gi, '');
+    let t = String(s ?? '').replace(/\s*[\(\[][^)\]]*\b(?:mix|version|remaster(?:ed)?|edit|mono|stereo|live|demo|alternate|bonus|album)\b[^)\]]*[\)\]]/gi, '');
+    // "Act II: Scene Seven: I. The Dance of Eternity" is the song "The Dance of Eternity": the labels in front go
+    t = t.replace(/^\s*(?:(?:act|scene)\s+[a-z0-9]+\s*:\s*)+/i, '').replace(/^\s*(?:[ivx]{1,4}|\d{1,2})\.\s+(?=\S)/i, '');
     return normName(t).replace(/^the /, '').replace(/\bpart (i{1,3}|iv|v|vi{1,3}|ix|x)\b/g, (_, r) => `part ${ROMAN[r]}`);
 }
 
@@ -237,8 +248,27 @@ export function closeTitle(a, b) {
     return short.split(' ').length >= 2 && long.endsWith(` ${short}`);
 }
 
+/** Does a track's title account for most of a pack's title? "Fatal Tragedy" is only half of the pack "Through My Words_Fatal Tragedy". */
+export function coversTitle(trackTitle, packTitle) {
+    const t = titleKey(trackTitle).split(' ').filter(Boolean).length;
+    const p = titleKey(packTitle).split(' ').filter(Boolean).length;
+    return !p || t / p >= 0.5;
+}
+
+/** Do two album names read as the same? "Pt." and "Part", a missing "the" and the commas MusicBrainz adds do not matter. */
+export function sameAlbum(a, b) {
+    const key = (x) => normName(x).replace(/^the /, '').replace(/\bpart\b/g, 'pt');
+    const x = key(a);
+    const y = key(b);
+    if (!x || !y) return false;
+    return x === y || titleKey(a) === titleKey(b) || titleSimilarity(a, b) >= 0.85;
+}
+
+/** Does a title carry a version tag ("(original stereo mix)", "(alternate album mix)") that is no part of the song's name? */
+export const hasVersionTag = (t) => /[\(\[][^)\]]*\b(?:mix|version|remaster(?:ed)?|edit|mono|stereo|live|demo|alternate|bonus)\b[^)\]]*[\)\]]/i.test(String(t ?? ''));
+
 /** Why a pairing was chosen, in the words the page shows. */
-export const VIA_LABEL = { metadata: 'file data', folders: 'folders', 'artist-song': 'file name', 'file name': 'file name' };
+export const VIA_LABEL = { pack: 'the pack', metadata: 'file data', folders: 'folders', 'artist-song': 'file name', 'file name': 'file name' };
 
 /**
  * Words audio files carry after the song: "(Official Audio)", "[HQ]", "(Remastered 2009)", "(Backing Track)", "(Karaoke)". Returns
