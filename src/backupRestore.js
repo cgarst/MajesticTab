@@ -16,9 +16,10 @@ import {
 } from './fileStore.js';
 import {
     ensureDefaultCollection, getAllLibraryData, importLibraryData, clearAllLibraryData,
-    reloadAllLibraryMetadata, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary
+    reloadAllLibraryMetadata, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary, removeTabOptionFromSong
 } from './libraryStore.js';
-import { findDuplicateSongs } from './libraryDuplicates.js';
+import { findDuplicateSongs, findDuplicateTabs } from './libraryDuplicates.js';
+import { sha256 as sha256Bytes } from './mpak/core/index.js';
 import { readLibraryAudio } from './audioSync/libraryAudio.js';
 import { findPooledSongs, readRememberedKeys, readRebuildMarks, markPacksForRebuild } from './packRepair.js';
 import { listAudioFiles } from './audioSync/audioFileStore.js';
@@ -1643,6 +1644,13 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             </div>
             <div id="duplicatesList"></div>
           </div>
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2">Tabs stored more than once</div>
+            <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+              A song with two or more tabs that are the same file, whatever they are called. One copy stays, the song's default tab first. The removal reaches your other devices at the next sync.
+            </div>
+            <div id="duplicateTabsList"></div>
+          </div>
           <div id="duplicatesStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="duplicatesCancelBtn">Close</button>
@@ -1865,7 +1873,7 @@ function attachModalHandlers(modal, options = {}) {
     const duplicatesDeleteBtn = modal.querySelector('#duplicatesDeleteBtn');
     const duplicatesStatusAlert = modal.querySelector('#duplicatesStatusAlert');
     const updateDuplicatesBtn = () => {
-        const n = duplicatesList.querySelectorAll('.dupe-check:checked').length;
+        const n = modal.querySelectorAll('#duplicatesTabContent .dupe-check:checked, #duplicatesTabContent .dupe-tab-check:checked').length;
         duplicatesDeleteBtn.disabled = n === 0;
         duplicatesDeleteBtn.textContent = `Remove selected${n ? ` · ${n}` : ''}`;
     };
@@ -1899,23 +1907,81 @@ function attachModalHandlers(modal, options = {}) {
         duplicatesList.querySelectorAll('.dupe-check').forEach((cb) => cb.addEventListener('change', updateDuplicatesBtn));
         updateDuplicatesBtn();
     };
+    const duplicateTabsList = modal.querySelector('#duplicateTabsList');
+    const tabHashes = new Map(); // stored file id -> { size, hash }
+    const storedInfo = async (tab) => {
+        if (!tab.fileStoreId) return null;
+        if (!tabHashes.has(tab.fileStoreId)) {
+            const rec = await getStoredFileRecord(tab.fileStoreId).catch(() => null);
+            tabHashes.set(tab.fileStoreId, { size: rec?.data ? (rec.size ?? rec.data.byteLength) : null, hash: tab.sha256 || null });
+        }
+        return tabHashes.get(tab.fileStoreId);
+    };
+    const renderDuplicateTabs = async () => {
+        let found = [];
+        try {
+            found = await findDuplicateTabs(await getAllSongs(), {
+                sizeOf: async (tab) => (await storedInfo(tab))?.size ?? null,
+                hashOf: async (tab) => {
+                    const info = await storedInfo(tab);
+                    if (!info || info.size == null) return null;
+                    if (!info.hash) { // read again rather than keep every file in memory
+                        const rec = await getStoredFileRecord(tab.fileStoreId).catch(() => null);
+                        if (rec?.data) info.hash = await sha256Bytes(new Uint8Array(rec.data));
+                    }
+                    return info.hash;
+                }
+            });
+        } catch (err) {
+            console.error('Failed to scan for duplicate tabs:', err);
+            duplicateTabsList.innerHTML = `<div class="text-danger small">Failed to scan: ${escapeHtml(err.message)}</div>`;
+            return;
+        }
+        tabHashes.clear(); // the files are large; do not hold them
+        if (found.length === 0) {
+            duplicateTabsList.innerHTML = '<div class="text-white-50 small">No song has the same tab stored twice.</div>';
+            updateDuplicatesBtn();
+            return;
+        }
+        duplicateTabsList.innerHTML = `
+          <div class="d-flex flex-column gap-2" style="max-height: 45vh; overflow-y: auto;">
+            ${found.map((g) => `
+              <div class="p-2 rounded-2 backup-stat-card">
+                <div class="small text-white text-truncate">${escapeHtml(g.song.title)}<span class="text-white-50"> · ${escapeHtml(g.song.artist)} · keeps ${escapeHtml(g.keep.name || 'a tab')}</span></div>
+                ${g.remove.map((t) => `
+                  <label class="d-flex align-items-center gap-2 mb-0 mt-1" style="cursor: pointer;">
+                    <input type="checkbox" class="form-check-input dupe-tab-check flex-shrink-0" data-song="${escapeHtml(g.song.id)}" data-tab="${escapeHtml(t.id)}" checked>
+                    <span class="small text-white-50 text-truncate">Remove ${escapeHtml(t.name || 'a tab')}</span>
+                  </label>`).join('')}
+              </div>`).join('')}
+          </div>`;
+        duplicateTabsList.querySelectorAll('.dupe-tab-check').forEach((cb) => cb.addEventListener('change', updateDuplicatesBtn));
+        updateDuplicatesBtn();
+    };
     modal.querySelector('#duplicatesCancelBtn')?.addEventListener('click', closeBackupModal);
     duplicatesDeleteBtn?.addEventListener('click', async () => {
         const ids = [...duplicatesList.querySelectorAll('.dupe-check:checked')].map((cb) => cb.dataset.id);
-        if (ids.length === 0) return;
+        const tabs = [...duplicateTabsList.querySelectorAll('.dupe-tab-check:checked')].map((cb) => ({ song: cb.dataset.song, tab: cb.dataset.tab }));
+        if (ids.length + tabs.length === 0) return;
         duplicatesDeleteBtn.disabled = true;
         duplicatesDeleteBtn.textContent = 'Removing…';
-        showTaskProgress(duplicatesStatusAlert, { label: 'Removing songs…', detail: `${ids.length} selected` });
+        showTaskProgress(duplicatesStatusAlert, { label: 'Removing duplicates…', detail: `${ids.length + tabs.length} selected` });
         try {
             for (const id of ids) await deleteSongFromLibrary(id);
-            showTaskResult(duplicatesStatusAlert, 'done', `Removed ${ids.length} ${ids.length === 1 ? 'song' : 'songs'}`);
+            for (const t of tabs) await removeTabOptionFromSong(t.song, t.tab);
+            const said = [];
+            if (ids.length) said.push(`${ids.length} ${ids.length === 1 ? 'song' : 'songs'}`);
+            if (tabs.length) said.push(`${tabs.length} ${tabs.length === 1 ? 'tab' : 'tabs'}`);
+            showTaskResult(duplicatesStatusAlert, 'done', `Removed ${said.join(' and ')}`);
         } catch (err) {
             console.error('Failed to remove duplicate songs:', err);
             showTaskResult(duplicatesStatusAlert, 'error', `Could not remove the songs. ${err.message}`);
         }
         await renderDuplicates();
+        await renderDuplicateTabs();
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
     });
-    renderDuplicates();
+    renderDuplicates().then(renderDuplicateTabs);
 
     // --- PACKS WITH EXTRA AUDIO ---
     const rebuildList = modal.querySelector('#rebuildList');

@@ -8,15 +8,18 @@
 //      MusicBrainz is always tried first, and a switch makes custom music the answer when nothing matches), or left out.
 //   4. Album tabs: a PDF that is a whole album's tab book (named for the album, or a "tab book") is paired with an album instead
 //      (MusicBrainz release groups) and imported as the album's tab book. Any row can be switched between the two.
+//   4b. Several files for one song: the best stays checked, the rest are left out with a note (markSiblings).
 //   5. Import: each paired file is stored and attached to its song (an existing library song, or a new one from the match), or to
-//      its album. A switch leaves out files whose song or album already has a tab.
+//      its album. A switch leaves out files whose song or album already has a tab,
+//      and a file whose exact bytes the song already has is skipped whatever its name.
 //   Audio files: a second mode on the same page (audioImport.js) matches a folder of audio files to songs already in the library.
 // The page's state lives in this module, so leaving Tools while the lookups run does not lose them.
 
 import { getAllSongs, saveSongToLibrary, getSongById, mapOpenFileToSong, findMatchingSongInLibrary, getAlbumTabOptions, addTabOptionToAlbum, DEFAULT_COLLECTION_ID } from '../libraryStore.js';
 import { readMpak, saveMpakToLibrary } from '../mpak.js';
 import { lookupMusicBrainzByIds } from '../musicbrainz.js';
-import { saveStoredFile } from '../fileStore.js';
+import { saveStoredFile, getStoredFileRecord } from '../fileStore.js';
+import { sha256 } from '../mpak/core/index.js';
 import { detectFileMetadata } from '../utils/tuningUtils.js';
 import { showToast } from '../utils/toast.js';
 import { STRATEGIES, pairFile, baseNameOf, normName, sameArtist, sameTitle, looksLikeAlbumBook, VIA_LABEL } from './pairing.js';
@@ -107,6 +110,7 @@ const baseStatusText = (row) => {
     if (row.stage === 'queued') return 'Waiting';
     if (row.stage === 'working') return 'Looking up…';
     if (row.stage === 'error') return 'Lookup failed';
+    if (row.dupOf && row.excluded && !row.forced) return `Same song as ${row.dupOf.entry.name}`;
     if (verdict(row) === 'have') return row.entry.ext === 'mpak' && row.adds ? 'Nothing new in it' : row.kind === 'album' ? 'Album already has a tab book' : 'Already has a tab';
     if (row.entry.ext === 'mpak' && row.adds?.total && row.status !== 'maybe') return describeAdds(row.adds);
     if (row.pick?.source === 'custom') return 'Custom music';
@@ -209,6 +213,58 @@ function markHadTab(row) {
             && ((p.songId && s.id === p.songId) || (p.recordingMbid && s.recordingMbid === p.recordingMbid)
                 || (sameTitle(s.title, p.title) && sameArtist(s.artist, artist) && (!p.album || sameTitle(s.album, p.album)))));
     }
+}
+
+// --- Several files for one song ---------------------------------------------------------------------------------------
+
+const FORMAT_RANK = ['gp', 'gp5', 'gpx', 'gp4', 'gp3', 'mscz', 'pdf', 'txt'];
+/** Files of one family compete for a song (a Guitar Pro file and a PDF of it are different tabs and both stay). */
+const familyOf = (ext) => (/^(gp[345x]?|mscz)$/.test(ext) ? 'score' : ext === 'pdf' ? 'pdf' : 'text');
+
+/**
+ * When several files in the folder go to the same song, the best one stays checked and the others are left out with a note
+ * saying which file they lost to (check one to import it anyway). The best is the person's own check, then the format, then
+ * the larger file. A row the person has already decided on is not changed.
+ */
+function markSiblings() {
+    const groups = new Map();
+    for (const r of state.rows) {
+        r.dupOf = null;
+        if (r.imported || !r.pick || r.kind === 'album' || r.entry.ext === 'mpak' || (r.stage !== 'done' && !r.manual)) continue;
+        const p = r.pick;
+        const who = p.songId || p.recordingMbid || [p.artist || 'Custom Music', p.title].map(normName).join('\u0000');
+        const key = `${who}\u0001${familyOf(r.entry.ext)}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(r);
+    }
+    const rank = (r) => { const i = FORMAT_RANK.indexOf(r.entry.ext); return i < 0 ? FORMAT_RANK.length : i; };
+    for (const list of groups.values()) {
+        if (list.length < 2) continue;
+        const best = [...list].sort((a, b) => ((b.forced || b.manual) - (a.forced || a.manual)) || (rank(a) - rank(b)) || ((b.entry.size || 0) - (a.entry.size || 0)) || a.entry.path.localeCompare(b.entry.path))[0];
+        for (const r of list) {
+            if (r === best) continue;
+            r.dupOf = best;
+            if (!r.dupSeen) { r.dupSeen = true; if (!r.forced) r.excluded = true; }
+        }
+    }
+}
+
+const hashCache = new Map(); // stored file id -> sha256 of its bytes
+async function hashOfBytes(buffer) { return sha256(new Uint8Array(buffer)); }
+
+/** Does the song already have a tab with exactly these bytes, whatever it is called? Sizes are compared first, so most checks read nothing. */
+async function songHasSameFile(song, file, fileHash) {
+    for (const t of song?.tabOptions || []) {
+        if (t.sha256) { if (t.sha256 === fileHash.value) return true; continue; }
+        if (!t.fileStoreId) continue;
+        try {
+            const rec = await getStoredFileRecord(t.fileStoreId);
+            if (!rec || (rec.size || rec.data?.byteLength) !== file.size) continue;
+            if (!hashCache.has(t.fileStoreId)) hashCache.set(t.fileStoreId, await hashOfBytes(rec.data));
+            if (hashCache.get(t.fileStoreId) === fileHash.value) return true;
+        } catch { /* a tab that cannot be read is not a match */ }
+    }
+    return false;
 }
 
 function makeRow(entry, i) {
@@ -368,6 +424,7 @@ async function runLookups() {
         await resolveRow(row, controller.signal);
     }
     if (state.controller === controller) { state.lookingUp = false; state.controller = null; }
+    markSiblings();
     notify();
 }
 
@@ -471,6 +528,7 @@ async function runImport() {
     // What already has a tab is judged by the library as it is now, before this import adds any
     state.songs = await getAllSongs().catch(() => state.songs);
     state.rows.forEach((r) => { if (!r.imported) markHadTab(r); });
+    markSiblings();
     audioFilesCache = null;
     for (const r of state.rows) if (!r.imported && r.entry.ext === 'mpak') await computeAdds(r);
     const todo = state.rows.filter((r) => verdict(r) === 'ready' && !r.imported);
@@ -509,9 +567,10 @@ async function runImport() {
                 if (i >= 0) state.songs[i] = (await getSongById(song.id)) || updated; else state.songs.push(updated);
                 row.imported = 'done';
                 added++;
-            } else if ((song.tabOptions || []).some((t) => t.name === file.name)) {
+            } else if (await songHasSameFile(state.songs.find((s) => s.id === song.id) || song, file, { value: await hashOfBytes(await file.arrayBuffer()) })) {
+                // Judged against the song as it is now, including tabs this run has added, and by content, not name
                 row.imported = 'skipped';
-                row.note = 'Already added';
+                row.note = 'Same file already added';
                 skipped++;
             } else {
                 const { song: updated } = await mapOpenFileToSong(file, song.id, file.name, 'local', row.entry.path);
@@ -821,8 +880,10 @@ function renderTabsImport(container) {
             row.forced = false;
             markHad(row);
             row.stage = 'done';
+            row.dupSeen = true; // a song the person chose is theirs: never left out as a sibling
+            markSiblings();
             state.openId = null;
-            patch(row.id);
+            render();
             root.querySelector(`[data-row="${row.id}"] [data-act="change"]`)?.focus();
         }
         else if (act === 'pick' && row) {
@@ -837,8 +898,10 @@ function renderTabsImport(container) {
             row.forced = false;
             markHad(row);
             row.stage = 'done';
+            row.dupSeen = true; // a song the person chose is theirs: never left out as a sibling
+            markSiblings();
             state.openId = null;
-            patch(row.id);
+            render();
             root.querySelector(`[data-row="${row.id}"] [data-act="change"]`)?.focus();
         }
     });
@@ -853,7 +916,8 @@ function renderTabsImport(container) {
             if (row) {
                 row.excluded = !t.checked;
                 if (t.checked) { row.confirmed = true; row.forced = true; }
-                patch(row.id);
+                markSiblings();
+                render();
             }
         }
     });

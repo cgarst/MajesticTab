@@ -37,3 +37,45 @@ export function findDuplicateSongs(songs, { hasAudio = () => false } = {}) {
     }
     return out.sort((a, b) => `${a.artist} ${a.album} ${a.title}`.localeCompare(`${b.artist} ${b.album} ${b.title}`));
 }
+
+/**
+ * Tabs of one song that are the same file stored more than once (a bulk import of a folder holding copies under different
+ * names, say). Only songs with two or more tabs are looked at, and a tab is hashed only when another tab of the song has the
+ * same size, so most songs read nothing. Tabs showing different pages of one file (a start or end page) are different tabs.
+ * `sizeOf(tab)` and `hashOf(tab)` are async and give null when the file is not there; such a tab is never called a copy.
+ * Per group: `keep` is the tab to keep (the song's default, else one with edited text, else the first) and `remove` the copies.
+ */
+export async function findDuplicateTabs(songs, { sizeOf, hashOf }) {
+    const out = [];
+    for (const song of songs) {
+        const tabs = Array.isArray(song?.tabOptions) ? song.tabOptions : [];
+        if (tabs.length < 2) continue;
+        const bySize = new Map();
+        for (const tab of tabs) {
+            const size = await sizeOf(tab);
+            if (size == null) continue;
+            const key = `${size}|${tab.startPage ?? ''}|${tab.endPage ?? ''}`;
+            if (!bySize.has(key)) bySize.set(key, []);
+            bySize.get(key).push(tab);
+        }
+        for (const same of bySize.values()) {
+            if (same.length < 2) continue;
+            const byHash = new Map();
+            for (const tab of same) {
+                const h = await hashOf(tab);
+                if (!h) continue;
+                if (!byHash.has(h)) byHash.set(h, []);
+                byHash.get(h).push(tab);
+            }
+            for (const copies of byHash.values()) {
+                if (copies.length < 2) continue;
+                const ordered = [...copies].sort((a, b) =>
+                    (b.id === song.defaultTabId) - (a.id === song.defaultTabId)
+                    || (!!b.editableText) - (!!a.editableText));
+                const [keep, ...remove] = ordered;
+                out.push({ song, keep, remove });
+            }
+        }
+    }
+    return out.sort((a, b) => `${a.song.artist} ${a.song.title}`.localeCompare(`${b.song.artist} ${b.song.title}`));
+}

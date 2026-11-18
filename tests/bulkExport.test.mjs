@@ -1,6 +1,6 @@
 // tests/bulkExport.test.mjs
 import assert from 'node:assert/strict';
-import { findDuplicateSongs } from '../src/libraryDuplicates.js';
+import { findDuplicateSongs, findDuplicateTabs } from '../src/libraryDuplicates.js';
 import {
     escapeCsvCell,
     toCsvRow,
@@ -213,6 +213,20 @@ assert(!lines[1].includes('timeMs'), 'Sync points must stay out of the CSV');
     const g2 = findDuplicateSongs([mk('m2', { mediumNumber: 2 }), mk('m1')], { hasAudio: (s) => s.id === 'm2' });
     assert.equal(g2[0].keep.id, 'm1');
     assert.equal(g2[0].remove.length, 0);
+}
+
+// 6f. duplicate tabs: same bytes under different names; different pages of one file are different tabs
+{
+    const files = { f1: [10, 'h1'], f2: [10, 'h1'], f3: [10, 'h2'], f4: [99, 'h9'], f5: [99, 'h9'] };
+    const opts = { sizeOf: async (t) => files[t.fileStoreId]?.[0] ?? null, hashOf: async (t) => files[t.fileStoreId]?.[1] ?? null };
+    const song = { id: 's', artist: 'A', title: 'T', defaultTabId: 'b', tabOptions: [
+        { id: 'a', name: 'a.gp', fileStoreId: 'f1' }, { id: 'b', name: 'b.gp', fileStoreId: 'f2' }, { id: 'c', name: 'c.gp', fileStoreId: 'f3' },
+        { id: 'd', name: 'book.pdf', fileStoreId: 'f4', startPage: 1 }, { id: 'e', name: 'book.pdf', fileStoreId: 'f5', startPage: 5 },
+        { id: 'g', name: 'gone.gp', fileStoreId: 'nope' }] };
+    const r = await findDuplicateTabs([song, { id: 'one', tabOptions: [{ id: 'x', fileStoreId: 'f1' }] }], opts);
+    assert.equal(r.length, 1);
+    assert.equal(r[0].keep.id, 'b'); // the default tab stays
+    assert.deepEqual(r[0].remove.map((t) => t.id), ['a']);
 }
 
 // 6b. buildSyncZipEntries
