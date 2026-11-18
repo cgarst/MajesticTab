@@ -20,7 +20,7 @@ import {
 } from './libraryStore.js';
 import { findDuplicateSongs } from './libraryDuplicates.js';
 import { readLibraryAudio } from './audioSync/libraryAudio.js';
-import { findPooledSongs, readRememberedKeys, markPacksForRebuild } from './packRepair.js';
+import { findPooledSongs, readRememberedKeys, readRebuildMarks, markPacksForRebuild } from './packRepair.js';
 import { listAudioFiles } from './audioSync/audioFileStore.js';
 import {
     getSaveProviders, saveToProvider, getPreferredStorage
@@ -1929,7 +1929,7 @@ function attachModalHandlers(modal, options = {}) {
     const renderRebuild = async () => {
         let found = [];
         try {
-            found = findPooledSongs({ songs: await getAllSongs(), audioFiles: await listAudioFiles(), keysBySong: readRememberedKeys() });
+            found = findPooledSongs({ songs: await getAllSongs(), audioFiles: await listAudioFiles(), keysBySong: readRememberedKeys(), rebuildMarks: readRebuildMarks() });
         } catch (err) {
             console.error('Failed to scan for packs with extra audio:', err);
             rebuildList.innerHTML = `<div class="text-danger small">Failed to scan: ${escapeHtml(err.message)}</div>`;

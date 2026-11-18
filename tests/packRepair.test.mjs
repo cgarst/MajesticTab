@@ -33,3 +33,11 @@ test('marking a song gives it a stamp, and only that song', () => {
     assert.equal(rebuildStampOf('a', storage), 5);
     assert.equal(rebuildStampOf('b', storage), 0);
 });
+
+test('a song already marked for rebuild is not listed again', () => {
+    const keysBySong = new Map([['a', ['X - A', 'tab']], ['b', ['X - B', 'tab']]]);
+    const songs = [{ id: 'a', artist: 'X', title: 'A' }, { id: 'b', artist: 'X', title: 'B' }];
+    const audioFiles = [{ id: '1', songKeys: ['X - A', 'tab'] }];
+    assert.deepEqual(findPooledSongs({ songs, audioFiles, keysBySong }).map((f) => f.song.id), ['a', 'b']);
+    assert.deepEqual(findPooledSongs({ songs, audioFiles, keysBySong, rebuildMarks: { a: 123 } }).map((f) => f.song.id), ['b']);
+});

@@ -29,16 +29,17 @@ export function readRememberedKeys(storage = localStorage) {
 /**
  * Songs with a remembered key that another song remembers too and that has stored audio linked to it: their packs hold files of
  * other songs. `audioFiles` is the stored files' metadata (listAudioFiles). Returns [{ song, keys, files }], `files` being how many
- * stored files are linked to those keys.
+ * stored files are linked to those keys. A song already marked for rebuild is left out: the audio and keys that flag it stay on
+ * this device after the rebuilt pack is sent, so the scan alone would list it again.
  */
-export function findPooledSongs({ songs, audioFiles, keysBySong }) {
+export function findPooledSongs({ songs, audioFiles, keysBySong, rebuildMarks = {} }) {
     const holders = new Map(); // key -> songs that remember it
     for (const [id, keys] of keysBySong) for (const k of new Set(keys.map(lower))) holders.set(k, (holders.get(k) || 0) + 1);
     const filesOfKey = new Map();
     for (const f of audioFiles) for (const k of new Set((f.songKeys || []).map(lower))) filesOfKey.set(k, (filesOfKey.get(k) || 0) + 1);
     const out = [];
     for (const song of songs) {
-        if (!song) continue;
+        if (!song || rebuildMarks[song.id]) continue;
         const own = lower(ownKeyOf(song));
         const shared = (keysBySong.get(song.id) || []).map(lower).filter((k) => k !== own && holders.get(k) > 1 && filesOfKey.get(k));
         if (!shared.length) continue;
