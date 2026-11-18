@@ -3794,8 +3794,8 @@ function renderSongRow(song, options = {}) {
         <div class="song-actions">
           ${!hasTabs
             ? `<button type="button" class="song-tabs-btn song-tabs-add" data-song-id="${song.id}" data-tabs-mode="add" aria-haspopup="dialog" aria-expanded="false">Add tab</button>`
-            : tabOptions.length > 1
-              ? `<button type="button" class="song-tabs-btn" data-song-id="${song.id}" data-tabs-mode="list" aria-haspopup="dialog" aria-expanded="false" aria-label="${tabOptions.length} tabs for ${escapeHtml(song.title)}. Choose one">${tabOptions.length} tabs <span class="song-tabs-chev" aria-hidden="true">\u203a</span></button>`
+            : tabOptions.length >= 1
+              ? `<button type="button" class="song-tabs-btn" data-song-id="${song.id}" data-tabs-mode="list" aria-haspopup="dialog" aria-expanded="false" aria-label="${tabOptions.length === 1 ? '1 tab' : tabOptions.length + ' tabs'} for ${escapeHtml(song.title)}. ${tabOptions.length === 1 ? 'Open it' : 'Choose one'}">${tabOptions.length === 1 ? '1 tab' : tabOptions.length + ' tabs'} <span class="song-tabs-chev" aria-hidden="true">\u203a</span></button>`
               : '<span class="song-tabs-spacer" aria-hidden="true"></span>'}
           <button type="button" class="btn btn-sm btn-theme-icon pin-song-btn ${isPinned ? 'text-warning' : 'text-muted'}" data-song-id="${song.id}" title="${isPinned ? 'Unpin song from collection' : 'Pin song to collection'}" aria-label="${isPinned ? 'Unpin song' : 'Pin song'}" aria-pressed="${isPinned}">
             <i class="bi-pin-angle${isPinned ? '-fill' : ''}"></i>
