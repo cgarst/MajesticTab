@@ -3677,8 +3677,9 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
   .tauri-windows:not(.window-fullscreen) .setpage::-webkit-scrollbar { width: 10px; }
   .tauri-windows:not(.window-fullscreen) .library-page-body::-webkit-scrollbar-track,
   .tauri-windows:not(.window-fullscreen) .setpage::-webkit-scrollbar-track { background: transparent; }
-  /* Chromium ignores margin on a scrollbar track, so Settings, Tools and the library start their scroll container below the buttons instead; the top padding shrinks so the content moves down less. */
-  .tauri-windows:not(.window-fullscreen) .setshell .setpage { margin-top: var(--bar-h); padding-top: 4px; }
+  /* Chromium ignores margin on a scrollbar track, so the library starts its scroll container below the buttons instead. */
+  /* Settings and Tools keep their layout; a transparent start button on the scrollbar pushes the track and thumb down below the caption buttons. */
+  .tauri-windows:not(.window-fullscreen) .setpage::-webkit-scrollbar-button:vertical:start:decrement { display: block; height: var(--bar-h); background: transparent; }
   .tauri-windows:not(.window-fullscreen) body.library-view-active .library-page-body { margin-top: var(--bar-h); padding-top: 0; }
   .tauri-windows:not(.window-fullscreen) .library-page-body::-webkit-scrollbar-thumb,
   .tauri-windows:not(.window-fullscreen) .setpage::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--accent-primary) 55%, transparent); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
