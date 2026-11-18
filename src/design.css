@@ -3670,9 +3670,15 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
   }
   .tauri-macos body.library-view-active #topBar { height: 36px; }
   .tauri-windows .setpage { padding-right: max(28px, calc(var(--wc-r, 0px) + 16px)); }
-  /* Windows: the caption buttons are --bar-h tall and float over the page. Start the page (and its scrollbar) below them so they never cover the search bar or the scrollbar's top. Settings and Tools (.setshell) keep their old layout, with their own right gutter. Fullscreen hides the buttons, so the gutter goes too. */
-  .tauri-windows body.library-view-active #libraryPage:not(:has(.setshell)) { padding-top: calc(var(--bar-h) - 24px); }
-  .tauri-windows.window-fullscreen body.library-view-active #libraryPage { padding-top: 0; }
+  /* Windows: the caption buttons are --bar-h tall and float over the page. The page content stays where it is; only the scrollbar track starts below the buttons, so they never cover the scrollbar's top. Library, Settings and Tools. Fullscreen hides the buttons, so the inset goes too. */
+  .tauri-windows:not(.window-fullscreen) .library-page-body,
+  .tauri-windows:not(.window-fullscreen) .setpage { scrollbar-width: auto; scrollbar-color: auto; }
+  .tauri-windows:not(.window-fullscreen) .library-page-body::-webkit-scrollbar,
+  .tauri-windows:not(.window-fullscreen) .setpage::-webkit-scrollbar { width: 10px; }
+  .tauri-windows:not(.window-fullscreen) .library-page-body::-webkit-scrollbar-track,
+  .tauri-windows:not(.window-fullscreen) .setpage::-webkit-scrollbar-track { background: transparent; margin-top: var(--bar-h); }
+  .tauri-windows:not(.window-fullscreen) .library-page-body::-webkit-scrollbar-thumb,
+  .tauri-windows:not(.window-fullscreen) .setpage::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--accent-primary) 55%, transparent); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
 }
 
 /* About: the one place the pick appears */
