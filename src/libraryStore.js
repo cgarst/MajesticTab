@@ -153,6 +153,8 @@ export function toggleArtistPinned(artistName) {
     }
     try {
         localStorage.setItem(PINNED_ARTISTS_STORAGE_KEY, JSON.stringify([...pinned]));
+        // Pinned artists sync with the settings, so tell auto-sync that something changed
+        globalThis.window?.dispatchEvent?.(new CustomEvent('majestictab:data-changed'));
     } catch {}
     return isNowPinned;
 }

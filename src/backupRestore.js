@@ -89,6 +89,7 @@ const BACKUP_SETTINGS_KEYS = [
     'majestictab_tab_sources',
     'majestictab_tab_sources_deleted',
     'majestictab_classtab_pins', // pinned Classical tab composers and pieces, by name
+    'majestictab_pinned_artists', // artists pinned in the library, by name (a pinned song is on its song record)
     'majestictab_custom_tuning_names',
     'gpDefaultStringsGuitar',
     'gpDefaultStringsBass',
