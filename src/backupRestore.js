@@ -2,10 +2,12 @@
 // Complete single-file Backup and Restore engine for MajesticTab.
 // Bundles all settings, custom extensions, downloaded tabs local store, and library hierarchy.
 
-import { collectAudioSync, mergeAudioSync, clearAudioSync } from './audioSync/syncStore.js';
+import { collectAudioSync, mergeAudioSync, clearAudioSync, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
+import { recordStorage, flushSyncRecords } from './audioSync/syncRecordStore.js';
+import { entryOf, planShrink, shrunkRestore, stemIsCopy, mediaKeyOf } from './audioSync/syncShrink.js';
 import { clearAllAudioFiles } from './audioSync/audioFileStore.js';
 import { isAudioChoiceKey, assignRestoredAudioSlot } from './audioSync/libraryAudio.js';
-import { isRecordingMetaKey } from './audioSync/recordingMeta.js';
+import { isRecordingMetaKey, listRecordingMeta } from './audioSync/recordingMeta.js';
 import {
     AUDIO_BACKUP_STORE, iterateAudioBackupEntries, audioBackupPlan, audioBackupOverview, restoreAudioEntry,
     LARGE_AUDIO_UPLOAD_BYTES, SINGLE_FILE_AUDIO_LIMIT
@@ -1232,7 +1234,7 @@ function leaveEmbeddedBackup() {
 
 /**
  * Open the Data Management modal
- * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'dupetabs'|'rebuild'|'cache'|'delete'} initialTab
+ * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'dupetabs'|'syncshrink'|'rebuild'|'cache'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup', options = {}) {
     // Data management lives in Settings, on the Library and backup page. There is no popup.
@@ -1667,6 +1669,22 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           </div>
         </div>
 
+        <!-- TAB: MAP RECORDS -->
+        <div id="syncshrinkTabContent" style="display: ${activeTab === 'syncshrink' ? 'block' : 'none'};">
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2">Map records stored twice</div>
+            <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+              Older imports saved a pack's map points twice in each record, and once more for every stem of a stem set. This keeps one copy. Nothing you edited changes, and a stem still plays with its parent's points. Create a backup first.
+            </div>
+            <div id="syncshrinkList"></div>
+          </div>
+          <div id="syncshrinkStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="syncshrinkCancelBtn">Close</button>
+            <button type="button" class="btn btn-sm btn-theme-danger px-4" id="syncshrinkBtn" disabled>Shrink selected</button>
+          </div>
+        </div>
+
         <!-- TAB: PACKS WITH EXTRA AUDIO -->
         <div id="rebuildTabContent" style="display: ${activeTab === 'rebuild' ? 'block' : 'none'};">
           <div class="backup-summary-box p-3 rounded-3 mb-3">
@@ -2013,6 +2031,124 @@ function attachModalHandlers(modal, options = {}) {
     renderDuplicates();
     // The tab scan reads files, so it runs only when its own task is the one open
     if (modal.querySelector('#dupetabsTabContent')?.style.display !== 'none') renderDuplicateTabs();
+
+    // --- MAP RECORDS ---
+    const syncshrinkList = modal.querySelector('#syncshrinkList');
+    const syncshrinkBtn = modal.querySelector('#syncshrinkBtn');
+    const syncshrinkStatusAlert = modal.querySelector('#syncshrinkStatusAlert');
+    const SYNC_PREFIX = 'audio_sync_';
+    const syncKeys = () => {
+        const out = [];
+        for (let i = 0; i < recordStorage.length; i++) {
+            const k = recordStorage.key(i);
+            if (k && k.startsWith(SYNC_PREFIX) && !k.startsWith(`${SYNC_PREFIX}share_`)) out.push(k);
+        }
+        return out;
+    };
+    // The recording a stem was split from, from what the pack said about it (kept under the song key, without a score's prefix)
+    const metaByKey = new Map();
+    const stemParentOf = (entry) => {
+        const mk = mediaKeyOf(entry.media);
+        if (!mk || !entry.key.endsWith(`_${mk}`)) return null;
+        let song;
+        try { song = decodeURIComponent(entry.key.slice(SYNC_PREFIX.length, entry.key.length - mk.length - 1)); } catch { return null; }
+        song = song.replace(/^score:[^:]*:/, '').replace(/^text:/, '');
+        if (!metaByKey.has(song)) metaByKey.set(song, listRecordingMeta(song));
+        return metaByKey.get(song)[mk]?.stemOf || null;
+    };
+    const scanSyncShrink = async () => {
+        metaByKey.clear();
+        const entries = [];
+        let n = 0;
+        for (const k of syncKeys()) {
+            const text = recordStorage.getItem(k);
+            const entry = typeof text === 'string' ? entryOf(k, text) : null;
+            if (entry) entries.push(entry);
+            if (++n % 100 === 0) await new Promise((r) => setTimeout(r, 0)); // let the page draw while the library is read
+        }
+        return planShrink(entries, { stemParentOf });
+    };
+    let syncshrinkPlan = null;
+    const updateSyncshrinkBtn = () => {
+        const n = syncshrinkList.querySelectorAll('.syncshrink-check:checked').length;
+        syncshrinkBtn.disabled = n === 0;
+    };
+    const renderSyncshrink = async () => {
+        syncshrinkList.innerHTML = '<div class="text-white-50 small">Scanning map records… this reads every record, so it can take a moment.</div>';
+        syncshrinkBtn.disabled = true;
+        try {
+            syncshrinkPlan = await scanSyncShrink();
+        } catch (err) {
+            console.error('Failed to scan map records:', err);
+            syncshrinkList.innerHTML = `<div class="text-danger small">Failed to scan: ${escapeHtml(err.message)}</div>`;
+            return;
+        }
+        const { restore, stems, restoreBytes, stemBytes } = syncshrinkPlan;
+        if (!restore.length && !stems.length) {
+            syncshrinkList.innerHTML = '<div class="text-white-50 small">No map record is stored twice.</div>';
+            updateSyncshrinkBtn();
+            return;
+        }
+        const row = (kind, count, bytes, one, many, note) => count ? `
+          <label class="d-flex align-items-start gap-2 mb-0 mt-1 p-2 rounded-2 backup-stat-card" style="cursor: pointer;">
+            <input type="checkbox" class="form-check-input syncshrink-check flex-shrink-0 mt-1" data-kind="${kind}" checked>
+            <span class="small text-white-50"><span class="text-white">${count} ${count === 1 ? one : many}</span> · ${formatBytes(bytes)}<br>${note}</span>
+          </label>` : '';
+        syncshrinkList.innerHTML = `
+          <div class="d-flex flex-column gap-2">
+            ${row('restore', restore.length, restoreBytes, 'record', 'records', 'Holds the pack\'s points a second time as its restore point. Restore original still works.')}
+            ${row('stems', stems.length, stemBytes, 'stem record', 'stem records', 'A stem with exactly its parent\'s points. It plays with the parent\'s.')}
+          </div>`;
+        syncshrinkList.querySelectorAll('.syncshrink-check').forEach((cb) => cb.addEventListener('change', updateSyncshrinkBtn));
+        updateSyncshrinkBtn();
+    };
+    modal.querySelector('#syncshrinkCancelBtn')?.addEventListener('click', closeBackupModal);
+    syncshrinkBtn?.addEventListener('click', async () => {
+        const kinds = new Set([...syncshrinkList.querySelectorAll('.syncshrink-check:checked')].map((cb) => cb.dataset.kind));
+        if (!kinds.size) return;
+        syncshrinkBtn.disabled = true;
+        syncshrinkBtn.textContent = 'Shrinking…';
+        showTaskProgress(syncshrinkStatusAlert, { label: 'Shrinking map records…', detail: 'Checking each record before it changes' });
+        let shrunk = 0, removed = 0, skipped = 0;
+        try {
+            // Read again: the list may be old, and each record is checked point for point before it is touched
+            const plan = await scanSyncShrink();
+            let n = 0;
+            if (kinds.has('stems')) {
+                for (const s of plan.stems) {
+                    const raw = (() => { try { return JSON.parse(recordStorage.getItem(s.key)); } catch { return null; } })();
+                    const parent = (() => { try { return JSON.parse(recordStorage.getItem(s.parentKey)); } catch { return null; } })();
+                    if (stemIsCopy(raw, parent)) { recordStorage.removeItem(s.key); removed++; } else skipped++;
+                    if (++n % 50 === 0) await new Promise((r) => setTimeout(r, 0));
+                }
+            }
+            if (kinds.has('restore')) {
+                for (const r of plan.restore) {
+                    const text = recordStorage.getItem(r.key);
+                    if (typeof text !== 'string') continue; // a stem copy removed above
+                    let next = null;
+                    try { next = shrunkRestore(JSON.parse(text)); } catch { next = null; }
+                    if (next) { recordStorage.setItem(r.key, JSON.stringify(next)); shrunk++; } else skipped++;
+                    if (++n % 50 === 0) await new Promise((r2) => setTimeout(r2, 0));
+                }
+            }
+            await flushSyncRecords();
+            window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+            window.dispatchEvent(new CustomEvent('majestictab:data-changed'));
+            const parts = [];
+            if (shrunk) parts.push(`${shrunk} ${shrunk === 1 ? 'record' : 'records'} shrunk`);
+            if (removed) parts.push(`${removed} stem ${removed === 1 ? 'record' : 'records'} removed`);
+            if (skipped) parts.push(`${skipped} left as they are`);
+            showTaskResult(syncshrinkStatusAlert, 'done', parts.join(' · ') || 'Nothing to change');
+        } catch (err) {
+            console.error('Failed to shrink map records:', err);
+            showTaskResult(syncshrinkStatusAlert, 'error', `Could not shrink the map records. ${err.message}`);
+        }
+        syncshrinkBtn.textContent = 'Shrink selected';
+        await renderSyncshrink();
+    });
+    // The scan reads every record, so it runs only when its own task is the one open
+    if (modal.querySelector('#syncshrinkTabContent')?.style.display !== 'none') renderSyncshrink();
 
     // --- PACKS WITH EXTRA AUDIO ---
     const rebuildList = modal.querySelector('#rebuildList');

@@ -45,3 +45,19 @@ test('a tab without a hash matches by name', async () => {
     const a = await packAdds({ manifest: { scores: manifest.scores, recordings: [] }, song, isSameFile: none, hasSync: () => true });
     assert.equal(a.scores, 0);
 });
+
+test('the parts of a stem set share the lead\'s sync: only the lead counts, and a library that has it needs nothing', async () => {
+    const sync = { sc: 'sync/x.json' };
+    const stems = {
+        scores: [{ id: 'sc', sha256: 'aa', name: 'Song.gp' }],
+        recordings: ['stem-1', 'stem-2', 'stem-3'].map((id, i) => ({ id, role: 'stem', sources: [{ type: 'file', path: `audio/${id}.m4a`, size: 10 + i }], sync })),
+    };
+    const song = { tabOptions: [{ sha256: 'aa', name: 'Song.gp' }] };
+    const fresh = await packAdds({ manifest: stems, song: null, isSameFile: none, hasSync: () => false });
+    assert.equal(fresh.sync, 1);
+    // the library holds the lead's record only (a part with the lead's points is not stored)
+    const have = new Set(['local_id10']);
+    const held = await packAdds({ manifest: stems, song, isSameFile: all, hasSync: (rec, media) => have.has(`local_${media.audioId}`) });
+    assert.equal(held.sync, 0);
+    assert.equal(held.total, 0);
+});
