@@ -3673,6 +3673,8 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
   /* Windows: the caption buttons are --bar-h tall and float over the page. The page content stays where it is; only the scrollbar track starts below the buttons, so they never cover the scrollbar's top. Library, Settings and Tools. Fullscreen hides the buttons, so the inset goes too. */
   .tauri-windows:not(.window-fullscreen) .library-page-body,
   .tauri-windows:not(.window-fullscreen) .setpage { scrollbar-width: auto; scrollbar-color: auto; }
+  /* scrollbar-width and scrollbar-color inherit, so the `auto` above reached the Settings and Tools list column (a sibling of .setpage inside the library body) and gave it the system scrollbar. Put the themed values back on it. */
+  .tauri-windows:not(.window-fullscreen) .setshell .setnav { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent-primary) 55%, transparent) transparent; }
   .tauri-windows:not(.window-fullscreen) .library-page-body::-webkit-scrollbar,
   .tauri-windows:not(.window-fullscreen) .setpage::-webkit-scrollbar { width: 10px; }
   .tauri-windows:not(.window-fullscreen) .library-page-body::-webkit-scrollbar-track,
