@@ -1232,7 +1232,7 @@ function leaveEmbeddedBackup() {
 
 /**
  * Open the Data Management modal
- * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'rebuild'|'cache'|'delete'} initialTab
+ * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'dupetabs'|'rebuild'|'cache'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup', options = {}) {
     // Data management lives in Settings, on the Library and backup page. There is no popup.
@@ -1644,6 +1644,15 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             </div>
             <div id="duplicatesList"></div>
           </div>
+          <div id="duplicatesStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="duplicatesCancelBtn">Close</button>
+            <button type="button" class="btn btn-sm btn-theme-danger px-4" id="duplicatesDeleteBtn" disabled>Remove selected</button>
+          </div>
+        </div>
+
+        <!-- TAB: DUPLICATE TABS -->
+        <div id="dupetabsTabContent" style="display: ${activeTab === 'dupetabs' ? 'block' : 'none'};">
           <div class="backup-summary-box p-3 rounded-3 mb-3">
             <div class="small fw-semibold text-white mb-2">Tabs stored more than once</div>
             <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
@@ -1651,10 +1660,10 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             </div>
             <div id="duplicateTabsList"></div>
           </div>
-          <div id="duplicatesStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+          <div id="dupetabsStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
           <div class="d-flex justify-content-end gap-2 pt-1">
-            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="duplicatesCancelBtn">Close</button>
-            <button type="button" class="btn btn-sm btn-theme-danger px-4" id="duplicatesDeleteBtn" disabled>Remove selected</button>
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="dupetabsCancelBtn">Close</button>
+            <button type="button" class="btn btn-sm btn-theme-danger px-4" id="dupetabsDeleteBtn" disabled>Remove selected</button>
           </div>
         </div>
 
@@ -1873,11 +1882,12 @@ function attachModalHandlers(modal, options = {}) {
     const duplicatesDeleteBtn = modal.querySelector('#duplicatesDeleteBtn');
     const duplicatesStatusAlert = modal.querySelector('#duplicatesStatusAlert');
     const updateDuplicatesBtn = () => {
-        const n = modal.querySelectorAll('#duplicatesTabContent .dupe-check:checked, #duplicatesTabContent .dupe-tab-check:checked').length;
+        const n = duplicatesList.querySelectorAll('.dupe-check:checked').length;
         duplicatesDeleteBtn.disabled = n === 0;
         duplicatesDeleteBtn.textContent = `Remove selected${n ? ` · ${n}` : ''}`;
     };
     const renderDuplicates = async () => {
+        duplicatesList.innerHTML = '<div class="text-white-50 small">Scanning your library…</div>';
         let groups = [];
         try {
             groups = findDuplicateSongs(await getAllSongs(), { hasAudio: (s) => readLibraryAudio(s.id).length > 0 });
@@ -1908,6 +1918,13 @@ function attachModalHandlers(modal, options = {}) {
         updateDuplicatesBtn();
     };
     const duplicateTabsList = modal.querySelector('#duplicateTabsList');
+    const dupetabsDeleteBtn = modal.querySelector('#dupetabsDeleteBtn');
+    const dupetabsStatusAlert = modal.querySelector('#dupetabsStatusAlert');
+    const updateDupeTabsBtn = () => {
+        const n = duplicateTabsList.querySelectorAll('.dupe-tab-check:checked').length;
+        dupetabsDeleteBtn.disabled = n === 0;
+        dupetabsDeleteBtn.textContent = `Remove selected${n ? ` · ${n}` : ''}`;
+    };
     const tabHashes = new Map(); // stored file id -> { size, hash }
     const storedInfo = async (tab) => {
         if (!tab.fileStoreId) return null;
@@ -1918,6 +1935,7 @@ function attachModalHandlers(modal, options = {}) {
         return tabHashes.get(tab.fileStoreId);
     };
     const renderDuplicateTabs = async () => {
+        duplicateTabsList.innerHTML = '<div class="text-white-50 small">Scanning tabs… this reads every song that has more than one tab, so it can take a moment.</div>';
         let found = [];
         try {
             found = await findDuplicateTabs(await getAllSongs(), {
@@ -1940,7 +1958,7 @@ function attachModalHandlers(modal, options = {}) {
         tabHashes.clear(); // the files are large; do not hold them
         if (found.length === 0) {
             duplicateTabsList.innerHTML = '<div class="text-white-50 small">No song has the same tab stored twice.</div>';
-            updateDuplicatesBtn();
+            updateDupeTabsBtn();
             return;
         }
         duplicateTabsList.innerHTML = `
@@ -1955,33 +1973,46 @@ function attachModalHandlers(modal, options = {}) {
                   </label>`).join('')}
               </div>`).join('')}
           </div>`;
-        duplicateTabsList.querySelectorAll('.dupe-tab-check').forEach((cb) => cb.addEventListener('change', updateDuplicatesBtn));
-        updateDuplicatesBtn();
+        duplicateTabsList.querySelectorAll('.dupe-tab-check').forEach((cb) => cb.addEventListener('change', updateDupeTabsBtn));
+        updateDupeTabsBtn();
     };
     modal.querySelector('#duplicatesCancelBtn')?.addEventListener('click', closeBackupModal);
     duplicatesDeleteBtn?.addEventListener('click', async () => {
         const ids = [...duplicatesList.querySelectorAll('.dupe-check:checked')].map((cb) => cb.dataset.id);
-        const tabs = [...duplicateTabsList.querySelectorAll('.dupe-tab-check:checked')].map((cb) => ({ song: cb.dataset.song, tab: cb.dataset.tab }));
-        if (ids.length + tabs.length === 0) return;
+        if (ids.length === 0) return;
         duplicatesDeleteBtn.disabled = true;
         duplicatesDeleteBtn.textContent = 'Removing…';
-        showTaskProgress(duplicatesStatusAlert, { label: 'Removing duplicates…', detail: `${ids.length + tabs.length} selected` });
+        showTaskProgress(duplicatesStatusAlert, { label: 'Removing duplicate songs…', detail: `${ids.length} selected` });
         try {
             for (const id of ids) await deleteSongFromLibrary(id);
-            for (const t of tabs) await removeTabOptionFromSong(t.song, t.tab);
-            const said = [];
-            if (ids.length) said.push(`${ids.length} ${ids.length === 1 ? 'song' : 'songs'}`);
-            if (tabs.length) said.push(`${tabs.length} ${tabs.length === 1 ? 'tab' : 'tabs'}`);
-            showTaskResult(duplicatesStatusAlert, 'done', `Removed ${said.join(' and ')}`);
+            showTaskResult(duplicatesStatusAlert, 'done', `Removed ${ids.length} ${ids.length === 1 ? 'song' : 'songs'}`);
         } catch (err) {
             console.error('Failed to remove duplicate songs:', err);
             showTaskResult(duplicatesStatusAlert, 'error', `Could not remove the songs. ${err.message}`);
         }
         await renderDuplicates();
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+    });
+    modal.querySelector('#dupetabsCancelBtn')?.addEventListener('click', closeBackupModal);
+    dupetabsDeleteBtn?.addEventListener('click', async () => {
+        const tabs = [...duplicateTabsList.querySelectorAll('.dupe-tab-check:checked')].map((cb) => ({ song: cb.dataset.song, tab: cb.dataset.tab }));
+        if (tabs.length === 0) return;
+        dupetabsDeleteBtn.disabled = true;
+        dupetabsDeleteBtn.textContent = 'Removing…';
+        showTaskProgress(dupetabsStatusAlert, { label: 'Removing duplicate tabs…', detail: `${tabs.length} selected` });
+        try {
+            for (const t of tabs) await removeTabOptionFromSong(t.song, t.tab);
+            showTaskResult(dupetabsStatusAlert, 'done', `Removed ${tabs.length} ${tabs.length === 1 ? 'tab' : 'tabs'}`);
+        } catch (err) {
+            console.error('Failed to remove duplicate tabs:', err);
+            showTaskResult(dupetabsStatusAlert, 'error', `Could not remove the tabs. ${err.message}`);
+        }
         await renderDuplicateTabs();
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
     });
-    renderDuplicates().then(renderDuplicateTabs);
+    renderDuplicates();
+    // The tab scan reads files, so it runs only when its own task is the one open
+    if (modal.querySelector('#dupetabsTabContent')?.style.display !== 'none') renderDuplicateTabs();
 
     // --- PACKS WITH EXTRA AUDIO ---
     const rebuildList = modal.querySelector('#rebuildList');
