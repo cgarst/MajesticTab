@@ -95,6 +95,7 @@ function verdict(row) {
     if (row.stage === 'error' && !row.manual) return 'attention';
     if (row.stage !== 'done' && !row.manual) return 'wait';
     if (!row.pick) return 'attention';
+    if (row.addsPending) return 'wait'; // what a pack adds is still being worked out: not yet "already has a tab" or ready
     if (state.skipExisting && !row.forced && (row.entry.ext === 'mpak' && row.adds ? row.adds.total === 0 : row.hadTab)) return 'have';
     if (row.excluded) return 'out';
     // A guess is not imported until the person has looked at it (checked it, or chosen a song)
@@ -111,6 +112,7 @@ const baseStatusText = (row) => {
     if (row.stage === 'queued') return 'Waiting';
     if (row.stage === 'working') return 'Looking up…';
     if (row.stage === 'error') return 'Lookup failed';
+    if (row.addsPending && row.pick) return 'Checking the pack…';
     if (row.dupOf && row.excluded && !row.forced) return `Same song as ${row.dupOf.entry.name}`;
     if (verdict(row) === 'have') return row.entry.ext === 'mpak' && row.adds ? 'Nothing new in it' : row.kind === 'album' ? 'Album already has a tab book' : 'Already has a tab';
     if (row.entry.ext === 'mpak' && row.adds?.total && row.status !== 'maybe') return describeAdds(row.adds);
@@ -153,6 +155,7 @@ async function headOf(file, opened, path) {
 async function computeAdds(row) {
     if (row.entry.ext !== 'mpak') return;
     const seq = (row.addsSeq = (row.addsSeq || 0) + 1);
+    row.addsPending = Boolean(row.pick);
     let adds = null;
     if (row.pick) {
         try {
@@ -187,7 +190,7 @@ async function computeAdds(row) {
             console.warn('[Bulk import] Could not tell what', row.entry.path, 'adds:', err);
         }
     }
-    if (row.addsSeq === seq) row.adds = adds;
+    if (row.addsSeq === seq) { row.adds = adds; row.addsPending = false; }
 }
 
 /** A song that is not on MusicBrainz: the names as the file gave them (or the person typed them), saved as custom music. */
@@ -269,7 +272,7 @@ async function songHasSameFile(song, file, fileHash) {
 }
 
 function makeRow(entry, i) {
-    return { id: `r${i}`, entry, kind: 'song', manualKind: false, hadTab: false, adds: null, addsSeq: 0, forced: false, parsed: null, stage: 'queued', status: 'none', pick: null, candidates: [], before: null, excluded: false, confirmed: false, manual: false, imported: '', note: '', error: '' };
+    return { id: `r${i}`, entry, kind: 'song', manualKind: false, hadTab: false, adds: null, addsSeq: 0, addsPending: false, forced: false, parsed: null, stage: 'queued', status: 'none', pick: null, candidates: [], before: null, excluded: false, confirmed: false, manual: false, imported: '', note: '', error: '' };
 }
 
 /** The song written in a pack's manifest ({} when it has none, null when the pack cannot be read). Read once per row. */
@@ -461,7 +464,7 @@ function restartLookups() {
     state.controller?.abort();
     for (const row of state.rows) {
         if (row.manual || row.imported) continue;
-        Object.assign(row, { stage: 'queued', status: 'none', pick: null, candidates: [], before: null, parsed: null, error: '', excluded: false, confirmed: false, forced: false, hadTab: false, adds: null });
+        Object.assign(row, { stage: 'queued', status: 'none', pick: null, candidates: [], before: null, parsed: null, error: '', excluded: false, confirmed: false, forced: false, hadTab: false, adds: null, addsPending: false });
         if (!row.manualKind) row.kind = 'song';
     }
     runLookups();
@@ -506,7 +509,7 @@ function setKind(row, kind) {
     if (row.kind === kind) return;
     row.kind = kind;
     row.manualKind = true;
-    Object.assign(row, { manual: false, excluded: false, confirmed: false, forced: false, hadTab: false, adds: null, before: null, pick: null, candidates: [], status: 'none', stage: 'queued' });
+    Object.assign(row, { manual: false, excluded: false, confirmed: false, forced: false, hadTab: false, adds: null, addsPending: false, before: null, pick: null, candidates: [], status: 'none', stage: 'queued' });
     notify(row.id);
     resolveRow(row, null);
 }
@@ -705,7 +708,7 @@ function renderTabsImport(container) {
         return `
         <div class="imp-row is-${v}${open ? ' is-open' : ''}" data-row="${row.id}">
           <div class="imp-line">
-            <input type="checkbox" class="form-check-input imp-check" data-act="include" aria-label="Import ${esc(row.entry.name)}" ${v === 'ready' ? 'checked' : ''} ${!row.pick || row.imported || busy ? 'disabled' : ''}>
+            <input type="checkbox" class="form-check-input imp-check" data-act="include" aria-label="Import ${esc(row.entry.name)}" ${v === 'ready' ? 'checked' : ''} ${!row.pick || row.imported || busy || v === 'wait' ? 'disabled' : ''}>
             <div class="imp-text">
               <span class="imp-file" title="${esc(row.entry.path)}">${esc(row.entry.path)}</span>
               ${suggestionHtml(row)}
