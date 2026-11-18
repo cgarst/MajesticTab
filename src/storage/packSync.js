@@ -233,7 +233,9 @@ function planFrom(read, mine, base, { hybrid = false, keepLocalPacks = new Set()
         }
         // In hybrid mode, SoundFonts and the Classtab archive stay remote-only until requested on demand (or hybrid is turned off)
         if (hybrid && (key.startsWith('s:') || key.startsWith('c:')) && d.action === ITEM_ACTION.DOWNLOAD) continue;
-        items.push({ key, kind: (m || r).kind, id: (m || r).id, name: (m || r).name || (m || r).id, size: (m || r).size || 0, ...d });
+        // A receive moves the store's copy, a send or a combine moves at most this device's
+        const size = d.action === ITEM_ACTION.DOWNLOAD ? (r?.size ?? m?.size ?? 0) : (m?.size ?? r?.size ?? 0);
+        items.push({ key, kind: (m || r).kind, id: (m || r).id, name: (m || r).name || (m || r).id, size, ...(m?.rebuilt ? { rebuilt: true } : {}), isNew: d.action === ITEM_ACTION.UPLOAD ? !r : d.action === ITEM_ACTION.DOWNLOAD ? !m : false, ...d });
     }
     return { firstSync: !base, items, unchanged };
 }

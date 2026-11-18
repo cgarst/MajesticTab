@@ -171,7 +171,11 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
                     // Only a song marked in Settings, Upkeep carries this, so no other fingerprint changes
                     ...(rebuildMarks[song.id] ? { rebuilt: rebuildMarks[song.id] } : {}),
                 });
-                out.set(`p:${packId}`, { kind: 'pack', id: packId, name: song.title, fp, time: song.addedAt || 0, hasAudio: songsWithAudio.has(songKey), ...(rebuildMarks[song.id] ? { rebuilt: true } : {}) });
+                // What a send would hold at most: the song's tab files and its audio (an estimate, the pack is not built here)
+                const sized = new Map(tabs.map((t) => [t.fileStoreId, fileById.get(t.fileStoreId)?.size || 0]));
+                for (const e of recording.forSong(songKey)) if (e.key.startsWith('audio_file_') && audioById.has(e.value)) sized.set(e.value, audioById.get(e.value).size || 0);
+                const size = [...sized.values()].reduce((a, b) => a + b, 0);
+                out.set(`p:${packId}`, { kind: 'pack', id: packId, name: song.title, fp, size, time: song.addedAt || 0, hasAudio: songsWithAudio.has(songKey), ...(rebuildMarks[song.id] ? { rebuilt: true } : {}) });
             }
             for (const f of fonts) out.set(`s:${f.id}`, { kind: 'soundfont', id: f.id, name: f.name, fp: `${f.size || 0}:${f.addedAt || 0}`, time: f.addedAt || 0, size: f.size || 0 });
             for (const c of classtab) out.set(`c:${c.id}`, { kind: 'classtab', id: c.id, name: c.name, fp: classtabFingerprint(c), time: c.addedAt || 0, size: c.size || 0 });

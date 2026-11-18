@@ -263,18 +263,26 @@ function counts(entries) {
     return `<p class="sync-counts">${entries.map(([n, label]) => `<span class="${n ? '' : 'is-zero'}"><strong>${n}</strong> ${label}</span>`).join('<span aria-hidden="true"> · </span>')}</p>`;
 }
 
-function section(changes, { title, note = '', open = false }) {
+const SECTION_OPEN_MAX = 40;
+
+/** One line with the most that a sync would send, when this device's songs have a known size. */
+function sendTotal(...lists) {
+    const bytes = lists.flat().reduce((acc, c) => acc + c.size, 0);
+    return bytes ? `<p class="sync-hint">Sends up to ${formatBytes(bytes)}. Files the location already has are not sent again.</p>` : '';
+}
+
+function section(changes, { title, note = '', open = false, upTo = false }) {
     if (!changes.length) return '';
     const bytes = changes.reduce((acc, c) => acc + c.size, 0);
     return `
-        <details class="sync-section" ${changes.length <= 8 || open ? 'open' : ''}>
-            <summary><span>${title} (${changes.length})</span>${bytes ? `<span class="sync-meta">${formatBytes(bytes)}</span>` : ''}</summary>
+        <details class="sync-section" ${changes.length <= SECTION_OPEN_MAX || open ? 'open' : ''}>
+            <summary><span>${title} (${changes.length})</span>${bytes ? `<span class="sync-meta">${upTo ? 'up to ' : ''}${formatBytes(bytes)}</span>` : ''}</summary>
             ${note ? `<div class="sync-hint">${note}</div>` : ''}
             <ul class="sync-rows">
                 ${changes.map(c => `
                     <li>
                         <span class="sync-row-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
-                        <span class="sync-row-note">${escapeHtml(c.reason)}${c.conflict ? ' · both changed' : ''}${c.size ? ` · ${formatBytes(c.size)}` : ''}</span>
+                        <span class="sync-row-note">${escapeHtml(c.reason)}${c.conflict ? ' · both changed' : ''}${c.size ? ` · ${c.upTo ? 'up to ' : ''}${formatBytes(c.size)}` : ''}</span>
                     </li>`).join('')}
             </ul>
         </details>`;
@@ -290,13 +298,13 @@ function otherSection(items, { title }) {
 }
 
 const REASON = {
-    [ITEM_ACTION.DOWNLOAD]: () => 'new or changed there',
-    [ITEM_ACTION.UPLOAD]: () => 'new or changed here',
+    [ITEM_ACTION.DOWNLOAD]: (i) => (i.isNew ? 'new there' : 'changed there'),
+    [ITEM_ACTION.UPLOAD]: (i) => (i.rebuilt ? 'rebuilt without other songs\' audio' : i.isNew ? 'new here' : 'changed here'),
     [ITEM_ACTION.MERGE]: () => 'changed on both sides, will be combined',
     [ITEM_ACTION.DELETE_LOCAL]: () => 'removed on another device',
     [ITEM_ACTION.DELETE_REMOTE]: () => 'removed here',
 };
-const asChange = (i) => ({ name: i.name, reason: REASON[i.action](i), size: i.size || 0, conflict: Boolean(i.conflict) });
+const asChange = (i) => ({ name: i.name, reason: REASON[i.action](i), size: i.size || 0, conflict: Boolean(i.conflict), upTo: i.action !== ITEM_ACTION.DOWNLOAD });
 
 export function getSyncPlaceLabel() {
     const target = getTarget();
@@ -343,11 +351,12 @@ function showReview(target, store, plan) {
         ${header}
         ${unusual ? `<div class="task-status task-status-error" role="alert"><strong>This removes ${removals} of ${total} songs</strong><span class="task-status-detail">If that isn't what you expect, cancel and check ${place} first.</span></div>` : ''}
         ${counts([[down.length, 'to receive'], [up.length, 'to send'], [merge.length, 'to combine'], [removeHere.length, 'removed here'], [removeThere.length, `removed from ${shortPlace(target)}`]])}
+        ${sendTotal(up, merge)}
         ${section(removeHere, { title: 'Removed from this device', open: true, note: `Removed from ${place} on another device.` })}
         ${section(removeThere, { title: `Removed from ${place}`, open: true, note: 'You removed these here.' })}
         ${section(down, { title: 'Received on this device' })}
-        ${section(merge, { title: 'Combined with the copy there' })}
-        ${section(up, { title: `Sent to ${place}` })}
+        ${section(merge, { title: 'Combined with the copy there', upTo: true })}
+        ${section(up, { title: `Sent to ${place}`, upTo: true })}
         <p class="sync-hint">
             Songs, collections, recents, setlists and settings follow the newest change on either side, and a removal on one side is carried to the other. When both sides changed a song, its tabs and recordings are combined and none is dropped.
         </p>`,

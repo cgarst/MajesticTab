@@ -152,6 +152,21 @@ test('a pack marked for rebuild is sent as built here: nothing of the store\'s c
     assert.equal((manifest.recordings || []).length, 0);
 });
 
+test('the plan says whether a send or a receive is new, how big it can be, and which songs were rebuilt', async () => {
+    const store = await newStore();
+    const a = fakeLocal(), baseA = memoryBaselines(), b = fakeLocal(), baseB = memoryBaselines();
+    a.addSong('one', 'One'); a.addSong('two', 'Two');
+    await sync(store, a, baseA); await sync(store, b, baseB);
+    a.addSong('three', 'Three');
+    a.editSong('one', (s) => s.scores.set('x.gp5', 'x'));
+    const items = a.items.bind(a);
+    a.items = async () => { const m = await items(); for (const [k, v] of m) { v.size = 1000; if (k === 'p:one') v.rebuilt = true; } return m; };
+    const plan = await planPackSync({ store, local: a, baselines: baseA, location: LOC });
+    const by = Object.fromEntries(plan.items.map((i) => [i.id, i]));
+    assert.deepEqual([by.three.action, by.three.isNew, by.three.size], [A.UPLOAD, true, 1000]);
+    assert.deepEqual([by.one.action, by.one.isNew, by.one.rebuilt], [A.UPLOAD, false, true]);
+});
+
 test('a device that already has the song but never synced merges instead of duplicating or overwriting', async () => {
     const store = await newStore();
     const a = fakeLocal(); a.addSong('one', 'One'); await sync(store, a, memoryBaselines());
