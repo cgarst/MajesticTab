@@ -189,3 +189,21 @@ test('a slow fade-in bar at the start of the score takes the many PDF beats it s
     assert.equal(res.points[1].timeMs, 10000);
     assert.equal(res.points[2].timeMs, 12000);
 });
+
+test('a PDF that steps by quarters in a slow intro and by eighths after it still lines up with the score', () => {
+    // 20 bars of 4/4 at 120 BPM (2000 ms each): the PDF has a point per quarter (500 ms) for bars 0-5, then one per eighth (250 ms)
+    const bars = [];
+    let tick = 0;
+    for (let i = 0; i < 20; i++) {
+        bars.push({ barIndex: i, start: tick, end: tick + 3840, num: 4, den: 4, tempoChanges: i === 0 ? [{ tick: 0, tempo: 120 }] : [] });
+        tick += 3840;
+    }
+    const offset = 2500;
+    const pdfPoints = [];
+    for (let i = 0; i < 24; i++) pdfPoints.push({ timeMs: offset + i * 500 });
+    for (let i = 0; i < 14 * 8; i++) pdfPoints.push({ timeMs: offset + 12000 + i * 250 });
+    const res = inferBarSyncFromPdf(buildScoreTimeline(bars), pdfPoints);
+    assert.ok(res);
+    assert.equal(res.points.length, 20);
+    for (const p of res.points) assert.equal(Math.abs(p.timeMs - (offset + p.barIndex * 2000)) <= 1, true, `bar ${p.barIndex} at ${p.timeMs}`);
+});

@@ -15,6 +15,8 @@ const CANDIDATE_UNITS = [
     { name: 'bar', ticks: null },
     // One step per beat of each bar's own meter: dotted quarters in 6/8, 9/8, 12/8 and 15/8, else the denominator note
     { name: 'beat', ticks: 'meter' },
+    // A PDF map can step by quarters in a slow intro and by eighths further on: each bar takes the unit nearest the PDF's pace there
+    { name: 'mixed', ticks: 'mixed' },
 ];
 
 const MAX_INTERVAL_RATIO_DEVIATION = 0.35;
@@ -37,7 +39,11 @@ const LONG_STEP_MAX_ERROR = 0.25;       // its PDF points must span about the st
 const LONG_STEP_ERROR_WEIGHT = 4;
 const MAX_FLAGGED_SHARE = 0.03;
 const ONSET_MATCH_WINDOW_MS = 120;
+const HEARD_ONSETS = 12;               // how many of the audio's first onsets must sit on score notes
 const MAX_BAR_SHIFTS = 4;
+const MIXED_UNIT_MARGIN = 20;           // a per-bar grid must out-place the best single unit by about two bars
+// A shift of the PDF against the score must win on the audio by this much (onset score about 0.03 times its weight): onsets of a dense stem match a note by chance
+const SHIFT_MARGIN = 5;
 const MAX_STEP_SHIFT = 8;                // the PDF may also start a beat or two off the score's first bar
 
 function tickToScoreMs(bar, tick) {
@@ -57,10 +63,43 @@ function beatTicks(bar) {
     return TICKS_PER_QUARTER * 4 / den;
 }
 
-function buildScoreGrid(timeline, fixedTicks) {
+/** The unit (in ticks, or null for one step per bar) of each bar that makes its steps last about as long as the PDF's gaps around that bar. */
+function mixedUnitTicks(timeline, times, anchors = null) {
+    const bars = timeline.bars;
+    const lastBar = bars[bars.length - 1];
+    const scale = lastBar.endMs > 0 ? (times[times.length - 1] - times[0]) / lastBar.endMs : 1;
+    const toTime = (scoreMs) => (anchors ? scoreMsToTimeMs(anchors, scoreMs) : times[0] + scoreMs * scale);
+    const units = bars.map((bar) => {
+        const tStart = toTime(bar.startMs);
+        const tEnd = toTime(bar.endMs);
+        const gaps = [];
+        for (let i = 0; i + 1 < times.length; i++) {
+            if (times[i] >= tStart && times[i] < tEnd) gaps.push(times[i + 1] - times[i]);
+        }
+        if (!gaps.length || !(tEnd > tStart) || !(bar.endMs > bar.startMs)) return undefined;
+        gaps.sort((a, b) => a - b);
+        const scoreGap = gaps[Math.floor(gaps.length / 2)] * (bar.endMs - bar.startMs) / (tEnd - tStart);
+        let best = null;
+        let bestErr = Infinity;
+        const barTicks = bar.endTick - bar.startTick;
+        for (const ticks of [TICKS_PER_QUARTER / 4, TICKS_PER_QUARTER / 2, TICKS_PER_QUARTER, TICKS_PER_QUARTER * 2, beatTicks(bar), null]) {
+            const stepMs = (ticks === null ? barTicks : ticks) * (bar.endMs - bar.startMs) / barTicks;
+            const err = Math.abs(Math.log(stepMs / scoreGap));
+            if (err < bestErr - 1e-9) { bestErr = err; best = ticks; }
+        }
+        return best;
+    });
+    // A bar with no PDF point of its own keeps the unit of the bar before it (or, at the start, of the first bar that has one)
+    const firstKnown = units.find((u) => u !== undefined);
+    let prev = firstKnown === undefined ? TICKS_PER_QUARTER : firstKnown;
+    return units.map((u) => { if (u !== undefined) prev = u; return prev; });
+}
+
+function buildScoreGrid(timeline, fixedTicks, times = null, anchors = null) {
     const grid = [];
+    const mixed = fixedTicks === 'mixed' ? mixedUnitTicks(timeline, times, anchors) : null;
     timeline.bars.forEach((bar, barIdx) => {
-        const unitTicks = fixedTicks === 'meter' ? beatTicks(bar) : fixedTicks;
+        const unitTicks = mixed ? mixed[barIdx] : fixedTicks === 'meter' ? beatTicks(bar) : fixedTicks;
         if (unitTicks === null) {
             grid.push({
                 barIdx,
@@ -313,12 +352,18 @@ function scoreAudioOnsetAlignment(timeline, points, noteScoreTimesMs, audioOnset
     }
     const hitRate = hits / sample.length;
 
-    const predFirstMs = scoreMsToTimeMs(anchors, sample[0]);
-    const firstAudioMs = audioOnsets.times[0];
-    const firstGapMs = Math.abs(firstAudioMs - predFirstMs);
-    const gapPenalty = firstGapMs > 250 ? Math.min(1, (firstGapMs - 250) / 1500) : 0;
-
-    return hitRate - gapPenalty;
+    // The recording may hold only some of the score's tracks (one guitar stem of a full score), so the score's first note need not sound
+    // first. What it plays must still land on the score's notes: take the audio's first onsets (up to the end of the sampled stretch)
+    // and count those that sit on a predicted note. This is what finds a PDF's extra leading bar when the stem enters a few bars in.
+    const predicted = sample.map((sMs) => scoreMsToTimeMs(anchors, sMs)).sort((a, b) => a - b);
+    const to = predicted[predicted.length - 1] + ONSET_MATCH_WINDOW_MS;
+    const heard = audioOnsets.times.filter((t) => t >= 0 && t <= to).slice(0, HEARD_ONSETS);
+    if (heard.length < 3) return hitRate - 0.5;
+    let heardHits = 0;
+    for (const t of heard) {
+        if (predicted.some((p) => Math.abs(p - t) <= ONSET_MATCH_WINDOW_MS)) heardHits++;
+    }
+    return (hitRate + 2 * heardHits / heard.length) / 3;
 }
 
 function evaluateAlignment(timeline, times, grid, isSysStart, unitName, totalSteps) {
@@ -361,10 +406,11 @@ export function inferBarSyncFromPdf(timeline, pdfPoints, options = {}) {
     let bestGrid = null;
     let bestUnit = null;
     for (const unit of CANDIDATE_UNITS) {
-        const grid = buildScoreGrid(timeline, unit.ticks);
+        const grid = buildScoreGrid(timeline, unit.ticks, times);
         const candidate = evaluateAlignment(timeline, times, grid, isSysStart, unit.name, grid.length);
         if (!candidate) continue;
-        if (!best || candidate.score > best.score) {
+        // The per-bar grid is a fallback for a PDF that steps at different paces: a single unit that fits as well keeps the place
+        if (!best || candidate.score > best.score + (unit.ticks === 'mixed' ? MIXED_UNIT_MARGIN : 0)) {
             best = candidate;
             bestGrid = grid;
             bestUnit = unit;
@@ -375,11 +421,7 @@ export function inferBarSyncFromPdf(timeline, pdfPoints, options = {}) {
 
     const { audioOnsets = null, noteScoreTimesMs = null } = options || {};
     if (audioOnsets?.times?.length && noteScoreTimesMs?.length && bestGrid) {
-        const stepsPerBar0 = bestUnit.ticks === null
-            ? 1
-            : bestUnit.ticks === 'meter'
-                ? Math.max(1, bestGrid.filter((g) => g.barIdx === 0).length)
-                : Math.max(1, Math.round((timeline.bars[0].endTick - timeline.bars[0].startTick) / bestUnit.ticks));
+        const stepsPerBar0 = Math.max(1, bestGrid.filter((g) => g.barIdx === 0).length);
 
         let bestAudioScore = best.score + scoreAudioOnsetAlignment(timeline, best.result.points, noteScoreTimesMs, audioOnsets) * 150;
         let bestResult = best.result;
@@ -392,11 +434,13 @@ export function inferBarSyncFromPdf(timeline, pdfPoints, options = {}) {
             const stepShift = Math.abs(signedShift);
             const shiftedTimes = shiftBars > 0 ? times.slice(stepShift) : times;
             const shiftedSys = shiftBars > 0 && isSysStart ? isSysStart.slice(stepShift) : isSysStart;
-            const shiftedGrid = shiftBars < 0 ? bestGrid.slice(stepShift) : bestGrid;
+            // A per-bar grid follows the PDF's pace, so it is built again for the shifted PDF
+            const sourceGrid = bestUnit.ticks === 'mixed' ? buildScoreGrid(timeline, 'mixed', shiftedTimes) : bestGrid;
+            const shiftedGrid = shiftBars < 0 ? sourceGrid.slice(stepShift) : sourceGrid;
             const cand = evaluateAlignment(timeline, shiftedTimes, shiftedGrid, shiftedSys, bestUnit.name, bestGrid.length);
             if (!cand) continue;
             const totalScore = cand.score + scoreAudioOnsetAlignment(timeline, cand.result.points, noteScoreTimesMs, audioOnsets) * 150;
-            if (totalScore > bestAudioScore) {
+            if (totalScore > bestAudioScore + SHIFT_MARGIN) {
                 bestAudioScore = totalScore;
                 bestResult = cand.result;
             }
