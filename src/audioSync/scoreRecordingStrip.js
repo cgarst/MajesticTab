@@ -10,7 +10,7 @@ import { loadRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { sessionPointsFor, isJamGuestFollowing, JAM_BRIDGE_EVENT } from './jamBridge.js';
 import { isTvMode } from '../tvMode.js';
 import { midiSynthActive } from '../classtab/midiSynth.js';
-import { isLooseFollowing, isFixingPosition, toggleFixPosition, LOOSE_EVENT } from './looseFollow.js';
+import { isLooseFollowing, nudgeLine, nudgeEnds, LOOSE_EVENT } from './looseFollow.js';
 import { openSyncSheet, syncStateText, describeSync, recordingName } from './syncSheet.js';
 
 const $ = (id) => document.getElementById(id);
@@ -75,14 +75,14 @@ export function initScoreRecordingStrip() {
     function draw(force = false) {
         const dur = rec && durationOf(rec);
         const loose = !points.length && isLooseFollowing();
-        const fixing = loose && isFixingPosition();
-        const key = `${recKey}|${points.length}|${summary.full}|${summary.flaggedBar}|${canAuthor()}|${dur}|${loose}|${fixing}`;
+        const key = `${recKey}|${points.length}|${summary.full}|${summary.flaggedBar}|${canAuthor()}|${dur}|${loose}|${loose ? nudgeEnds() : ''}`;
         if (!force && key === drawnKey) return;
         drawnKey = key;
         strip.classList.toggle('is-synced', points.length > 0);
+        strip.classList.toggle('is-loose', loose);
         const n = points.length;
-        const label = !n ? (loose ? (fixing ? 'Tap the bar you hear' : 'Loose follow') : 'Not mapped') : syncStateText(n, summary, fromHost);
-        const hint = !n ? (loose ? 'The page keeps up with the recording by its length. Fix position corrects it; Sync maps it exactly.' : 'The recording plays on its own. The cursor won’t follow it until you add map points.') : '';
+        const label = !n ? (loose ? 'Rough follow' : 'Not mapped') : syncStateText(n, summary, fromHost);
+        const hint = !n ? (loose ? 'The page keeps up with the recording by its length. Sync maps it exactly.' : 'The recording plays on its own. The cursor won’t follow it until you add map points.') : '';
         if (!canAuthor()) {
             statusEl.textContent = label;
             if (hint) statusEl.title = hint;
@@ -90,8 +90,9 @@ export function initScoreRecordingStrip() {
             actionsEl.innerHTML = '';
         } else {
             // One door: the status label itself opens the Sync sheet
-            statusEl.textContent = '';
+            statusEl.textContent = loose ? label : '';
             statusEl.removeAttribute('title');
+            if (loose) statusEl.title = hint;
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'ct-text';
@@ -100,15 +101,28 @@ export function initScoreRecordingStrip() {
             if (hint) btn.title = hint;
             btn.setAttribute('aria-label', loose ? 'Sync: map the recording exactly' : `${label} — open map options`);
             if (loose) {
-                // Loose follow: the status says so, Fix position corrects the estimate, Sync is the exact map
-                statusEl.textContent = label;
-                const fix = document.createElement('button');
-                fix.type = 'button';
-                fix.className = 'ct-text';
-                fix.dataset.act = 'fix';
-                fix.textContent = fixing ? 'Cancel' : 'Fix position';
-                fix.setAttribute('aria-pressed', String(fixing));
-                actionsEl.replaceChildren(fix, btn);
+                // Rough follow: the status says so, Earlier | Later adjust the estimate a line at a time, and Sync (the one
+                // door to the Sync sheet) replaces the estimate with an exact map
+                const [canEarlier, canLater] = nudgeEnds();
+                const part = (act, text, title, disabled) => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'ct-text';
+                    b.dataset.act = act;
+                    b.textContent = text;
+                    b.title = title;
+                    b.disabled = disabled;
+                    return b;
+                };
+                const group = document.createElement('div');
+                group.className = 'rec-loose';
+                group.setAttribute('role', 'group');
+                group.setAttribute('aria-label', 'Move the page’s place');
+                group.append(part('earlier', 'Earlier', 'The recording is further back: move the marker up a line', !canEarlier), part('later', 'Later', 'The recording is further on: move the marker down a line', !canLater));
+                btn.textContent = 'Sync';
+                btn.title = 'Map the recording exactly';
+                btn.setAttribute('aria-label', 'Sync: map the recording exactly');
+                actionsEl.replaceChildren(group, btn);
             } else actionsEl.replaceChildren(btn);
         }
         marksEl.replaceChildren();
@@ -131,7 +145,7 @@ export function initScoreRecordingStrip() {
     actionsEl.addEventListener('click', (e) => {
         const act = e.target.closest('[data-act]');
         if (!act || !rec) return;
-        if (act.dataset.act === 'fix') { toggleFixPosition(); return; }
+        if (act.dataset.act === 'earlier' || act.dataset.act === 'later') { nudgeLine(act.dataset.act === 'later' ? 1 : -1); return; }
         const key = recKey;
         const opened = rec;
         openSyncSheet({

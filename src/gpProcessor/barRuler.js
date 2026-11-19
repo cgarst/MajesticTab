@@ -492,6 +492,12 @@ export function initBarRuler() {
                     if (bpm) $('dockBpm').textContent = String(Math.round(bpm * factor));
                 } catch (_) { /* keep the last tempo */ }
             }
+        } else if (e.type === 'estimate') {
+            // Loose follow: a recording with no sync points, placed by its length. Display only (no saved position).
+            if (!model) return;
+            ensureTimeline();
+            const at = model.timeline ? tickToPosition(model.timeline, e.tick) : null;
+            if (at) { current = { bar: at.barIndex + 1, pos: at.pos }; updateHead(); }
         } else if (e.type === 'loop') {
             updateLoop();
             updateHead();

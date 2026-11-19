@@ -6597,5 +6597,20 @@ body.gp-file-active #synthTrackModeContainer { display: none !important; }
 .rec-slot-empty[hidden] { display: none; }
 
 /* ---- Loose follow: a recording with no sync points. The reading marker (shared with the text tabs) glides down the score ---- */
-body.loose-fixing #output { cursor: pointer; }
-.rec-actions .ct-text[aria-pressed="true"] { color: var(--ink); background: var(--s3); }
+
+/* Rough follow on the recording bar: a status, an Earlier | Later group that adjusts it, and Sync, which replaces it */
+.rec-loose { display: inline-flex; align-items: stretch; background: var(--s2); border-radius: var(--r-control); overflow: hidden; }
+.rec-loose .ct-text { border-radius: 0; min-height: 28px; padding: 0 12px; font-size: 13px; white-space: nowrap; transition: background-color var(--dur-fast), color var(--dur-fast); }
+.rec-loose .ct-text + .ct-text { box-shadow: inset 1px 0 0 var(--s3); }
+@media (hover: hover) { .rec-loose .ct-text:hover { background: var(--s3); } }
+.rec-loose .ct-text:active { background: var(--s3); color: var(--ink); }
+.rec-loose .ct-text:focus-visible { outline-offset: -2px; }
+.rec-strip.is-loose .rec-actions { align-items: center; gap: 8px; }
+/* Phones: a row of its own under the progress track: the status on the left, the group and Sync on the right, 44px tall */
+body.phone-reader:not(.library-view-active) .rec-strip.is-loose { flex-wrap: wrap; row-gap: 4px; }
+body.phone-reader:not(.library-view-active) .rec-strip.is-loose .rec-end { display: flex; flex: 1 1 100%; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+body.phone-reader:not(.library-view-active) .rec-strip.is-loose .rec-status { flex: 1 1 auto; font-size: 13px; }
+body.phone-reader:not(.library-view-active) .rec-strip.is-loose .rec-actions { flex: none; }
+body.phone-reader:not(.library-view-active) .rec-strip.is-loose .rec-actions .ct-text { min-height: 44px; padding: 0 14px; font-size: 14px; }
+body.phone-reader:not(.library-view-active) .rec-strip.is-loose .rec-actions .ct-text::after { display: none; }
+@media (prefers-reduced-motion: reduce) { .rec-loose .ct-text { transition: none; } }

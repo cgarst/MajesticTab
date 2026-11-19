@@ -136,6 +136,14 @@ export function onTransportEvent(cb) {
     return () => transportListeners.delete(cb);
 }
 
+/**
+ * Tells the bar ruler where a recording with no sync points is estimated to be (loose follow). It is only a display:
+ * the synth's position, the saved resume bar and the cursor are untouched.
+ */
+export function emitEstimatedPosition(tick) {
+    emitTransportEvent('estimate', { tick });
+}
+
 function emitTransportEvent(type, detail = {}) {
     transportListeners.forEach((cb) => {
         try { cb({ type, ...detail }); } catch (e) { console.error('[Synth Player] transport listener error:', e); }

@@ -4,21 +4,18 @@
 // plays it) and a reading marker, the one the text tabs have, glides down the left edge of the score at that pace. It is
 // not tied to a staff group: it sweeps down through the line of music the estimate is in and on into the next, the page
 // scrolls to keep it in view (or turns when it reaches the end of the page), and there is no cursor, because the estimate
-// is off by a few bars. "Fix position" lets the player tap the bar being heard, which adds an anchor (recording time to
-// score time) and bends the estimate through it. Anchors are app-internal (localStorage), never part of an exported pack.
+// is off by a few bars. Nothing is stored: a recording that needs to be exact gets sync points (Sync).
 
 import { getActiveRecording } from './realAudioController.js';
 import { getSongKey, playerState } from '../soundPlayer.js';
 import { loadRecord } from './syncStore.js';
 import { isJamGuestFollowing } from './jamBridge.js';
 import { midiSynthActive } from '../classtab/midiSynth.js';
-import { getMidiTickLookup, setScoreClickOverride } from '../gpProcessor/gpPlayer.js';
+import { getMidiTickLookup, emitEstimatedPosition, onUserSeekTick } from '../gpProcessor/gpPlayer.js';
 import { followTarget, glide } from '../textSync/readingLine.js';
 import { buildBeatMap } from './beatMap.js';
 import { createCursorGlide } from './cursorGlide.js';
-import { buildScoreTimeline, playedBarsFromLookup, scoreMsToPosition, scoreMsToTick } from './scorePositions.js';
-import { mediaToScore } from './syncMap.js';
-import { addAnchor, estimatePoints } from './looseAnchors.js';
+import { buildScoreTimeline, playedBarsFromLookup, scoreMsToPosition, scoreMsToTick, tickToScoreMs } from './scorePositions.js';
 
 export const LOOSE_EVENT = 'majestictab:loose-follow';
 
@@ -34,30 +31,21 @@ let place = null;        // the line of music the marker is in: { parent, top, h
 let drawnY = null;
 let holdUntil = 0;
 let lastScoreMs = -1;
+let offsetMs = 0;        // Earlier / Later: a shift of the estimate, kept until the recording is sought or changes
+let offsetRec = '';
+let lastT = null;
+let lastEst = 0;
+let lastEmitTick = -1;
+let seekGuardUntil = 0;
+let ends = [false, false]; // whether there is a line before / after the one the estimate is in
 let active = false;
-let fixing = false;
-let anchorsKey = '';
-let anchors = [];
 
 export const isLooseFollowing = () => active;
-export const isFixingPosition = () => fixing;
+/** [a line before, a line after] the current one, for Earlier and Later */
+export const nudgeEnds = () => ends;
 
 const emit = () => window.dispatchEvent(new Event(LOOSE_EVENT));
 
-// ---- Anchors ----
-const storeKey = (rec) => `majestictab_loose_${getSongKey()}|${JSON.stringify(rec.media)}`;
-function readAnchors(rec) {
-    const key = storeKey(rec);
-    if (key === anchorsKey) return anchors;
-    anchorsKey = key;
-    try { anchors = JSON.parse(localStorage.getItem(key) || '[]').filter((a) => Number.isFinite(a?.timeMs) && Number.isFinite(a?.scoreMs)); } catch (_) { anchors = []; }
-    return anchors;
-}
-function writeAnchors(rec, list) {
-    anchors = list;
-    anchorsKey = storeKey(rec);
-    try { localStorage.setItem(anchorsKey, JSON.stringify(list)); } catch (_) { /* private window: the anchors last for the session */ }
-}
 // ---- Context: the score's played bars and beats, rebuilt when the score or its layout changes ----
 function context() {
     const api = window.gpApi;
@@ -72,6 +60,11 @@ function context() {
     shownKey = '';
     api.renderFinished?.on(() => { shownKey = ''; });
     return ctx;
+}
+
+function systemIndexOf(api, barIndex) {
+    const systems = api.renderer?.boundsLookup?.staffSystems || [];
+    return { i: systems.findIndex((sys) => (sys.bars || []).some((b) => b.index === barIndex)), n: systems.length };
 }
 
 function systemBars(api, barIndex) {
@@ -95,49 +88,6 @@ function ensureMark() {
     return mark;
 }
 
-// ---- Fix position: tap the bar being heard ----
-let offMouseDown = null;
-function anchorAt(beat) {
-    const c = ctx;
-    const index = beat?.voice?.bar?.masterBar?.index;
-    const current = getActiveRecording();
-    if (!c || !current || index == null) return;
-    const t = current.source.getTimeMs() || 0;
-    const here = mediaToScore(estimatePoints(readAnchors(current), durationOf(current), c.total), t);
-    const choices = c.timeline.bars.filter((b) => b.barIndex === index);
-    if (!choices.length) return;
-    const bar = choices.reduce((best, b) => (Math.abs(b.startMs - here) < Math.abs(best.startMs - here) ? b : best));
-    writeAnchors(current, addAnchor(readAnchors(current), { timeMs: t, scoreMs: bar.startMs }));
-    setFixing(false);
-    shownKey = '';
-}
-function setFixing(on) {
-    if (fixing === on) return;
-    fixing = on;
-    document.body.classList.toggle('loose-fixing', on);
-    offMouseDown?.();
-    offMouseDown = null;
-    if (on) {
-        // Scroll layout: the score's click goes to the override. Page layout: the beat press is heard here and the tap
-        // is kept from turning the page (the same flag a click on a beat sets).
-        setScoreClickOverride(anchorAt);
-        const api = window.gpApi;
-        const handler = (beat) => {
-            if (!document.getElementById('pageModeRadio')?.checked || !beat) return;
-            window.__lastBeatClickTime = Date.now();
-            anchorAt(beat);
-        };
-        api?.beatMouseDown?.on(handler);
-        offMouseDown = () => api?.beatMouseDown?.off?.(handler);
-    } else {
-        setScoreClickOverride(null);
-    }
-    emit();
-}
-export function toggleFixPosition() {
-    setFixing(!fixing);
-}
-
 const durationOf = (rec) => rec.source.durationMs || (rec.kind === 'youtube' && playerState.duration ? playerState.duration * 1000 : null);
 
 // ---- The loop ----
@@ -153,7 +103,6 @@ function eligible() {
 }
 
 function stop() {
-    if (fixing) setFixing(false);
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
     if (mark) mark.hidden = true;
     curRec = null;
@@ -183,8 +132,17 @@ function frame(now) {
     const dt = Math.min(0.1, lastAt ? (now - lastAt) / 1000 : 0.016);
     lastAt = now;
 
-    const points = estimatePoints(readAnchors(rec), durationOf(rec), c.total);
-    const scoreMs = Math.min(c.total, Math.max(0, mediaToScore(points, rec.source.getTimeMs() || 0)));
+    const t = rec.source.getTimeMs() || 0;
+    const recKey = JSON.stringify(rec.media);
+    // A different recording, or a seek (the clock jumps), starts the estimate afresh
+    if (recKey !== offsetRec || (lastT != null && Math.abs(t - lastT) > 1500 && performance.now() > seekGuardUntil)) offsetMs = 0;
+    offsetRec = recKey;
+    lastT = t;
+    const scoreMs = Math.min(c.total, Math.max(0, t / durationOf(rec) * c.total + offsetMs));
+    lastEst = scoreMs;
+    // The bar ruler and the bar readout follow the estimate too
+    const estTick = scoreMsToTick(c.timeline, scoreMs);
+    if (estTick !== lastEmitTick) { lastEmitTick = estTick; emitEstimatedPosition(estTick); }
     const pos = scoreMsToPosition(c.timeline, scoreMs);
     if (!pos) return;
     const bars = systemBars(c.api, pos.barIndex);
@@ -202,6 +160,9 @@ function frame(now) {
         if (!cursor?.parentElement) return;
         const from = drawnY;
         place = { parent: cursor.parentElement, top: parseFloat(cursor.style.top) || 0, h: parseFloat(cursor.style.height) || 100, bars };
+        const si = systemIndexOf(c.api, pos.barIndex);
+        const next = [si.i > 0, si.i >= 0 && si.i < si.n - 1];
+        if (next[0] !== ends[0] || next[1] !== ends[1]) { ends = next; emit(); }
         const was = shownKey;
         shownKey = key;
         // The marker eases from where it was to the new line instead of jumping
@@ -246,9 +207,41 @@ function lineY(pl, pos) {
     return pl.parent.getBoundingClientRect().top + pl.top + f * pl.h;
 }
 
+/** Moves the estimate to the start of the next (dir 1) or previous (dir -1) line of music. */
+export function nudgeLine(dir) {
+    const c = ctx;
+    if (!c || !curRec) return;
+    const systems = c.api.renderer?.boundsLookup?.staffSystems || [];
+    const pos = scoreMsToPosition(c.timeline, lastEst);
+    const i = systems.findIndex((sys) => (sys.bars || []).some((b) => b.index === pos?.barIndex));
+    const first = systems[i + dir]?.bars?.[0]?.index;
+    if (i < 0 || first == null) return;
+    const starts = c.timeline.bars.filter((b) => b.barIndex === first).map((b) => b.startMs);
+    const ahead = starts.filter((ms) => (dir > 0 ? ms > lastEst : ms < lastEst));
+    if (!ahead.length) return;
+    const target = dir > 0 ? Math.min(...ahead) : Math.max(...ahead);
+    offsetMs += target + 1 - lastEst;
+}
+
 function scoreMsToTickIn(c, scoreMs) { return scoreMsToTick(c.timeline, scoreMs); }
 
+/**
+ * The bar ruler (or a click on the score) was moved to `tick`: the recording goes to where the estimate would put that
+ * bar, keeping any Earlier / Later shift, so the score and the ruler stay where they were put and play on from there.
+ */
+function seekToEstimate(tick) {
+    const rec = curRec;
+    const c = ctx;
+    if (!active || !rec || !c) return;
+    const dur = durationOf(rec);
+    const target = tickToScoreMs(c.timeline, tick);
+    const ms = Math.min(dur, Math.max(0, (target - offsetMs) / c.total * dur));
+    seekGuardUntil = performance.now() + 800; // the clock jumps here: it is not a seek that drops the shift
+    lastT = ms;
+    rec.source.seek(ms);
+}
+
 export function initLooseFollow() {
+    onUserSeekTick(seekToEstimate);
     setInterval(tick, 250);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && fixing) setFixing(false); });
 }
