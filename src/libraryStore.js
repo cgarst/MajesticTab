@@ -582,7 +582,8 @@ export async function deleteAlbumFromLibrary(artistName, albumTitle, collectionI
  */
 export async function deleteSongFromLibrary(songId) {
     const db = await getDB();
-    const fileIds = collectFileStoreIds([await getSongById(songId)]);
+    const gone = await getSongById(songId);
+    const fileIds = collectFileStoreIds([gone]);
     await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_SONGS, 'readwrite');
         const store = tx.objectStore(STORE_SONGS);
@@ -591,7 +592,13 @@ export async function deleteSongFromLibrary(songId) {
         req.onerror = () => reject(req.error);
     });
     await deleteOrphanedStoredFiles(fileIds);
+    if (gone) await purgeAudioOf(gone);
     return true;
+}
+
+/** Drops a song's backing tracks and other audio choices once it has no tab left. */
+async function purgeAudioOf(song) {
+    try { await (await import('./audioSync/libraryAudio.js')).purgeSongAudio(song); } catch { /* optional */ }
 }
 
 /**
@@ -812,6 +819,7 @@ export async function removeTabOptionFromSong(songId, tabOptionId, { withSet = f
     await saveSongToLibrary(song, song.collectionId);
     const removedFileIds = removed.map((t) => t.fileStoreId).filter(Boolean);
     if (removedFileIds.length) await deleteOrphanedStoredFiles(removedFileIds);
+    if (!song.tabOptions.length) await purgeAudioOf(song);
 }
 
 /**

@@ -238,3 +238,40 @@ export async function adoptLibraryAudio(songId, songKey) {
         window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
     }
 }
+
+/**
+ * Forget everything a library song kept for its audio: the files linked to its keys (deleted when no other song uses them), the
+ * Original and Backing choices, the sources, the video choices and the attachments. Called when the song's last tab goes, so a
+ * tab added again later starts clean. A key another song also remembers is left alone.
+ */
+export async function purgeSongAudio(song) {
+    if (!song?.id) return;
+    const { listAudioFiles, unlinkAudioFile } = await import('./audioFileStore.js');
+    const others = keysOfOtherSongs(song.id);
+    const keys = songAudioKeys(song).filter((k) => !others.has(String(k).toLowerCase()));
+    const encoded = new Set(keys.map((k) => encodeURIComponent(String(k).toLowerCase())));
+    const lower = new Set(keys.map((k) => String(k).toLowerCase()));
+    const attached = new Set(readLibraryAudio(song.id).map((e) => e.audioId));
+    try {
+        for (const meta of await listAudioFiles()) {
+            const own = (meta.songKeys || []).filter((k) => lower.has(String(k).toLowerCase()));
+            if (!own.length && !attached.has(meta.id)) continue;
+            for (const k of own) await unlinkAudioFile(meta.id, k);
+        }
+    } catch { /* optional */ }
+    try {
+        const prefixes = ['audio_file_', 'audio_file_last_', 'real_audio_source_', 'real_audio_last_slot_', 'yt_track_'];
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const name = localStorage.key(i);
+            if (!name) continue;
+            const hit = prefixes.some((pre) => {
+                if (!name.startsWith(pre)) return false;
+                const rest = name.slice(pre.length);
+                return [...encoded].some((e) => rest === e || rest.startsWith(`${e}_`));
+            });
+            if (hit) localStorage.removeItem(name);
+        }
+        localStorage.removeItem(REGISTRY(song.id));
+        localStorage.removeItem(SONG_KEYS(song.id));
+    } catch { /* optional */ }
+}
