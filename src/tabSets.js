@@ -175,3 +175,26 @@ export function planTabSetMigration(songs, options = {}) {
     }
     return { changes, report };
 }
+
+/**
+ * What it takes to undo a migration plan: for each change, the set fields the tab has now, so applying them puts it back
+ * (null clears a field). `songs` are the song records the plan was made from.
+ */
+export function undoRecordFor(changes, songs) {
+    const tabs = new Map();
+    for (const s of songs || []) for (const t of s?.tabOptions || []) tabs.set(`${s.id}\u0000${t.id}`, t);
+    return (changes || []).map((c) => {
+        const t = tabs.get(`${c.songId}\u0000${c.tabId}`) || {};
+        return { songId: c.songId, tabId: c.tabId, origin: isStr(t.origin) ? t.origin : null, variantOf: isStr(t.variantOf) ? t.variantOf : null };
+    });
+}
+
+/** Groups a flat list of `{ songId, tabId, origin, variantOf }` into one list of patches for each song, for `applyTabSetPatches`. */
+export function patchesBySong(items) {
+    const bySong = new Map();
+    for (const { songId, ...patch } of items || []) {
+        if (!bySong.has(songId)) bySong.set(songId, []);
+        bySong.get(songId).push(patch);
+    }
+    return bySong;
+}

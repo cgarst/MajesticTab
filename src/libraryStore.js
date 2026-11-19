@@ -706,6 +706,31 @@ export async function addTabOptionToSong(songId, tabOption) {
 }
 
 /**
+ * Sets or clears the set fields (`origin`, `variantOf`) of several tabs of one song in a single save. `patches` is
+ * `[{ tabId, origin?, variantOf? }]`: a key that is present sets the field to a non-empty string and clears it for null or
+ * an empty value; a key that is absent leaves the field as it is. Unknown tab ids are skipped. Returns how many tabs changed.
+ */
+export async function applyTabSetPatches(songId, patches) {
+    const song = await getSongById(songId);
+    if (!song || !Array.isArray(song.tabOptions)) return 0;
+    let changed = 0;
+    for (const patch of patches || []) {
+        const tab = song.tabOptions.find((t) => t.id === patch.tabId);
+        if (!tab) continue;
+        let touched = false;
+        for (const key of ['origin', 'variantOf']) {
+            if (!(key in patch)) continue;
+            const had = tab[key];
+            if (typeof patch[key] === 'string' && patch[key]) tab[key] = patch[key]; else delete tab[key];
+            if (tab[key] !== had) touched = true;
+        }
+        if (touched) changed += 1;
+    }
+    if (changed) await saveSongToLibrary(song, song.collectionId);
+    return changed;
+}
+
+/**
  * Update an existing tab option on a song
  */
 export async function updateTabOptionOnSong(songId, tabOptionId, updates = {}) {

@@ -155,3 +155,12 @@ test('import: a pack with no origin, and a head that is already a variant, are l
     await linkImportedSets(st2.song, added(tabs, ['Pub', 'Pub']), st2);
     assert.equal(tabs[1].variantOf, undefined, 'a variant is never made of a head that is itself a variant');
 });
+
+test('undoRecordFor and patchesBySong: the record restores what each tab had, grouped by song', async () => {
+    const { undoRecordFor, patchesBySong } = await import('../src/tabSets.js');
+    const songs = [{ id: 's', tabOptions: [{ id: 'a' }, { id: 'b', origin: 'X', variantOf: 'a' }] }];
+    const changes = [{ songId: 's', tabId: 'a', origin: 'Pub', variantOf: null }, { songId: 's', tabId: 'b', origin: 'Pub', variantOf: 'a' }];
+    const rec = undoRecordFor(changes, songs);
+    assert.deepEqual(rec, [{ songId: 's', tabId: 'a', origin: null, variantOf: null }, { songId: 's', tabId: 'b', origin: 'X', variantOf: 'a' }]);
+    assert.deepEqual([...patchesBySong(changes)], [['s', [{ tabId: 'a', origin: 'Pub', variantOf: null }, { tabId: 'b', origin: 'Pub', variantOf: 'a' }]]]);
+});

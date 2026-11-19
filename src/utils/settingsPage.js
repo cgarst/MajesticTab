@@ -434,6 +434,7 @@ export function initSettingsPage() {
                 const sync = await import('../syncUi.js');
                 return btn.getAttribute('aria-expanded') === 'true' ? sync.closeSyncModal() : sync.openSyncModal();
             }
+            if (tab === 'tabsets') return (await import('../tabSetsUi.js')).toggleTabSetsTask(slot);
             const mod = await import('../backupRestore.js');
             if (btn.getAttribute('aria-expanded') === 'true') mod.closeBackupModal();
             else mod.openBackupModal(tab);
@@ -458,6 +459,7 @@ export function initSettingsPage() {
         ...[taskRow('reload', 'Reload library metadata', 'Refresh covers, durations and album details.', 'Reload'),
             taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Review', false, 'Review orphaned files'),
             taskRow('duplicates', 'Duplicate songs', 'Find songs listed more than once, such as a second disc of the same album.', 'Review', false, 'Review duplicate songs'),
+            taskRow('tabsets', 'Tab sets', 'Put the notation and tablature of one part in a single row, so a song lists once.', 'Review', false, 'Review tab sets'),
             taskRow('dupetabs', 'Duplicate tabs', 'Find tabs stored twice under one song, whatever they are called.', 'Review', false, 'Review duplicate tabs'),
             taskRow('missing', 'Missing files', 'Find tabs whose file is no longer stored on this device.', 'Review', false, 'Review missing files'),
             taskRow('syncshrink', 'Map records', 'Shrink map points that older imports saved more than once.', 'Review', false, 'Review map records'),
