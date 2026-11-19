@@ -14,7 +14,7 @@ import {
 } from '../soundPlayer.js';
 import {
     isAudioFileAvailable, isAudioFilePlaying, playPauseAudioFile, pauseAudioFile,
-    rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, renderAudioFile, renderAudioFileList, getLocalRecording, openAudioSource
+    rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, carryStemSetToSlot, renderAudioFile, renderAudioFileList, getLocalRecording, openAudioSource
 } from './audioFilePlayer.js';
 import { createYouTubeSource } from './mediaSource.js';
 import { closeSheet } from '../ytSheet.js';
@@ -454,6 +454,8 @@ export function updateRealAudioPanelView() {
  */
 export function switchRealAudioSlot(slot) {
     if (slot !== 'original' && slot !== 'backing') return;
+    // A stem set that is playing stays the sound in the other slot (its mutes follow the slot)
+    if (slot !== state.slot && getSlotSource(state.slot) === 'local' && carryStemSetToSlot(slot)) setSlotSource('local', slot);
     state.slot = slot;
     rememberLastSlot(getSongKey(), slot);
 

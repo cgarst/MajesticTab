@@ -752,6 +752,25 @@ function startRelink(media) {
 
 // --- Panel & Exports -----------------------------------------------------------------------------------------------
 
+/**
+ * Playing a stem set and switching to the other sound keeps the same stem set: the other slot takes the set's lead file
+ * (the sound then applies its own mutes) unless it already holds a file of its own that is not part of this set.
+ * Returns true when the slot now holds the set.
+ */
+export function carryStemSetToSlot(slot) {
+    const songKey = getSongKey();
+    const id = state.currentId;
+    if (!songKey || !id || (slot !== 'original' && slot !== 'backing') || slot === state.currentSlot) return false;
+    const stems = stemsOfFile(id);
+    if (!stems) return false;
+    try {
+        const held = localStorage.getItem(SLOT_FILE_KEY(songKey, slot));
+        if (held && held !== id && !stems.some((m) => m.audioId === held)) return false;
+        localStorage.setItem(SLOT_FILE_KEY(songKey, slot), id);
+    } catch { return false; }
+    return true;
+}
+
 export function setAudioFileSlot(slot) {
     if (slot !== 'original' && slot !== 'backing') return;
     state.currentSlot = slot;
