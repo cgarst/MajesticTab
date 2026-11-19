@@ -2559,6 +2559,17 @@ export async function goLibraryTab(tab) {
     await renderLibraryModal();
 }
 
+// Choosing a destination closes whatever dialog, modal or popup is open, even when that destination is already showing.
+// Every dialog already closes on Escape, so each visible one is sent that key rather than reaching into its module.
+function dismissOpenDialogs() {
+    const isOpen = (el) => el.getClientRects().length > 0 && el.getAttribute('aria-hidden') !== 'true';
+    const sel = '[role="dialog"][aria-modal="true"], .theme-modal-backdrop, .downloader-batch-popover';
+    for (let i = 0; i < 5; i++) {
+        if (![...document.querySelectorAll(sel)].some(isOpen)) break;
+        (document.activeElement || document).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+    }
+}
+
 // Phone-only bottom nav (CSS hides it elsewhere); created once and kept in sync with the active view
 function syncLibraryBottomNav() {
     let nav = document.getElementById('libraryBottomNav');
@@ -2578,6 +2589,7 @@ function syncLibraryBottomNav() {
             const tab = e.target.closest('[data-lib-tab], #libraryNavSettingsBtn');
             if (!tab) return;
             closeToolsMenu();
+            dismissOpenDialogs();
             return goLibraryTab(tab.id === 'libraryNavSettingsBtn' ? 'settings' : tab.dataset.libTab);
         });
         document.body.appendChild(nav);
