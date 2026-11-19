@@ -162,14 +162,18 @@ function initVolumePopover() {
     const phone = window.matchMedia('(max-width: 640px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px)');
     const panelBody = (id, sel) => document.querySelector(`#${id} ${sel}`);
     const placeVolume = () => {
-        if (!phone.matches && !isTabletop()) { if (section.parentNode !== pop) pop.append(section); return; }
+        if (!phone.matches && !isTabletop()) {
+            if (section.parentNode !== pop) pop.append(section);
+            section.classList.remove('panel-volume');
+            return;
+        }
+        section.classList.add('panel-volume');
         const yt = $('ytDropdownPanel');
         const ytOpen = yt && yt.style.display !== 'none' && getComputedStyle(yt).display !== 'none';
         const host = ytOpen ? panelBody('ytDropdownPanel', '.yt-panel-body') : panelBody('synthDropdownPanel', '.synth-panel-body');
         if (host && section.parentNode !== host) host.prepend(section);
         else if (host && host.firstChild !== section) host.prepend(section);
     };
-    section.classList.add('panel-volume');
     ['synthDropdownPanel', 'ytDropdownPanel'].forEach((id) => {
         const el = $(id);
         if (el) new MutationObserver(placeVolume).observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
