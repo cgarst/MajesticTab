@@ -406,6 +406,20 @@ export async function getCachedArtUrl(url) {
  * Clear persistent artwork cache and session MusicBrainz API query cache
  * @returns {Promise<number>} Number of cache items removed
  */
+/** Bytes the persistent album artwork cache takes up (Settings, Data management, storage diagram). */
+export async function artCacheBytes() {
+    if (typeof caches === 'undefined') return 0;
+    try {
+        const cache = await caches.open(ART_CACHE_NAME);
+        let total = 0;
+        for (const req of await cache.keys()) {
+            const res = await cache.match(req);
+            if (res) total += (await res.blob()).size;
+        }
+        return total;
+    } catch (_) { return 0; }
+}
+
 export async function clearArtCache() {
     for (const objUrl of artMemoryCache.values()) {
         if (typeof objUrl === 'string' && objUrl.startsWith('blob:')) {

@@ -6502,3 +6502,31 @@ input[type=range]::-moz-range-thumb,
 /* A disc heading in a multi-disc album: a quiet line of grey text above its tracks, not a box */
 .library-disc-header { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 12px 16px 4px; font-size: 13px; color: var(--ink2); }
 .library-disc-header .library-disc-count { color: var(--ink2); opacity: .8; }
+
+/* ---------- Storage diagram (Settings, Data management): two bars to one scale, one hue per kind ----------
+   The one place besides the bar ruler's section families where hue is allowed: the kinds must be told apart at a glance. */
+.stor { display: flex; flex-direction: column; gap: 14px; padding: 14px; margin: 0 0 4px; background: var(--s2); border-radius: var(--r); }
+.stor-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.stor-head b { font-weight: 500; font-size: 15px; color: var(--ink); flex: 1; min-width: 0; }
+.stor-head span { font-size: 13px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.stor-refresh { background: transparent; border: 0; padding: 0 8px; min-height: 24px; color: var(--ink2); font-size: 13px; font-weight: 500; border-radius: var(--r-control, 8px); }
+@media (hover: hover) { .stor-refresh:hover:not(:disabled) { background: var(--s3); color: var(--ink); } }
+.stor-refresh:focus-visible { outline: 2px solid var(--hue); outline-offset: 1px; }
+@media (pointer: coarse) { .stor-refresh { min-height: 44px; min-width: 44px; margin: -10px 0; } }
+.stor-track { display: flex; gap: 2px; height: 12px; border-radius: var(--r-control, 8px); overflow: hidden; background: var(--s3); }
+.stor-track { position: relative; }
+.stor-load { position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: color-mix(in srgb, var(--ink) 18%, var(--s3)); border-radius: inherit; transform: translateX(-100%); animation: task-progress-slide 1.4s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .stor-load { animation: none; transform: none; width: 100%; opacity: .5; } }
+.stor-seg { display: block; height: 100%; flex: none; min-width: 2px; }
+.stor-k0 { background: oklch(0.68 0.14 250); }
+.stor-k1 { background: oklch(0.68 0.14 45); }
+.stor-k2 { background: oklch(0.68 0.14 155); }
+.stor-k3 { background: oklch(0.68 0.14 320); }
+.stor-k4 { background: oklch(0.68 0.14 95); }
+.stor-note { margin: -6px 0 0; font-size: 13px; color: var(--ink2); }
+.stor-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.stor-foot .stor-legend { flex: 1; min-width: 0; }
+.stor-refresh { flex: none; margin-left: auto; }
+.stor-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--ink2); }
+.stor-legend li { display: inline-flex; align-items: center; gap: 8px; }
+.stor-key { display: block; width: 10px; height: 10px; border-radius: 3px; flex: none; }

@@ -15,6 +15,7 @@ import { isAutoSyncEnabled, setAutoSyncEnabled, triggerAutoSync, STATE_CHANGED_E
 import { isHybridSyncEnabled, setHybridSyncEnabled } from '../packSyncLocal.js';
 import { getSyncPlaceLabel, evictLocalFilesFromSettings, estimateReclaimableForTarget } from '../syncUi.js';
 import { formatBytes } from '../backupRestore.js';
+import { createStorageDiagram } from './storageUsage.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -448,6 +449,8 @@ export function initSettingsPage() {
     const syncTask = taskRow('sync', 'Sync with cloud storage', 'Keep this device and your backup location matching.', 'Not synced');
     panes.appearance.appendChild(group('Library', makeHideNoTabSongsRow()));
     panes.cloud.appendChild(group('Cloud storage', ...syncTask, makeAutoSyncRow(), makeHybridSyncRow(), makeEvictLocalFilesRow()));
+    // Storage first: what is on this device and what is in cloud storage
+    panes.library.appendChild(createStorageDiagram());
     panes.library.appendChild(taskGroup('Back up and restore',
         ...[taskRow('backup', 'Create a backup', 'Save your library to one file you keep.', 'Create'),
             taskRow('restore', 'Restore from a backup', 'Bring a backup file back.', 'Restore')]));
