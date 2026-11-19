@@ -19,7 +19,7 @@ import { adoptUnassignedAudio, detachLibraryAudio } from './libraryAudio.js';
 import { isJamHosting, JAM_BRIDGE_EVENT } from './jamBridge.js';
 import { isRemoveMode, setRecordingsPresent, REC_REMOVE_MODE_EVENT } from './removeMode.js';
 import { listRecords, loadRecord, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './syncStore.js';
-import { listRecordingMeta, forgetRecordingMeta, orderRecordings, roleLabel, tracksNote } from './recordingMeta.js';
+import { listRecordingMeta, forgetRecordingMeta, setRecordingMeta, roleAfterMove, orderRecordings, roleLabel, tracksNote } from './recordingMeta.js';
 import { mountSyncRow } from './audioSyncUi.js';
 import { createStemSource, createStreamingStemSource, applyMutes, applyLevels, getMutedIds, setMutedIds, resetMutedIds, defaultMutedIds, getLevels, setLevel, resetLevels, stemsOfMeta, loadRecordingPeaks } from './stemSet.js';
 import { getInstrumentMode } from '../utils/tuningUtils.js';
@@ -458,6 +458,27 @@ async function removeFile(id) {
     await refreshFiles();
 }
 
+/**
+ * Moves a file to the other part (Full band or Backing) by changing its role: Backing lists the backing role, Full band the rest.
+ * A part that played it lets go of it, and the other part takes it when that part has no file yet.
+ */
+function moveFile(id, toSlot) {
+    const songKey = getSongKey();
+    const media = { kind: 'local', audioId: id };
+    const meta = state.files.find((f) => f.id === id);
+    const prev = listRecordingMeta(songKey)[mediaKey(media)];
+    setRecordingMeta(songKey, media, { ...(prev || {}), role: roleAfterMove(prev?.role, toSlot), label: prev?.label || String(meta?.name || '').replace(/\.[^.]+$/, '') || undefined });
+    const from = toSlot === 'backing' ? 'original' : 'backing';
+    try {
+        if (localStorage.getItem(SLOT_FILE_KEY(songKey, from)) === id) {
+            localStorage.removeItem(SLOT_FILE_KEY(songKey, from));
+            if (!localStorage.getItem(SLOT_FILE_KEY(songKey, toSlot))) localStorage.setItem(SLOT_FILE_KEY(songKey, toSlot), id);
+        }
+    } catch { /* optional */ }
+    window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+    render();
+}
+
 /** Sync points of each local recording of this song, by file id. */
 function syncedFiles() {
     return listRecords(getSongKey()).filter(r => r.media.kind === 'local' && r.points.length)
@@ -537,7 +558,9 @@ export function buildFileRows({ include = () => true, selected, beforeSelect = n
                 removeFile(f.id);
             }, 'rec-text-btn vrow-remove');
             if (state.armedRemoval === f.id) rm.classList.add('is-armed');
-            actions = [rm];
+            const toSlot = (meta?.role === 'backing') ? 'original' : 'backing';
+            const mv = actionButton('Move this file to the other part', toSlot === 'backing' ? 'Move to Backing' : 'Move to Full band', () => moveFile(f.id, toSlot), 'rec-text-btn vrow-move');
+            actions = stems ? [rm] : [mv, rm];
         } else {
             actions = [];
         }

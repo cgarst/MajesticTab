@@ -7,7 +7,7 @@ import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, mediaKey, SYN
 import { songHasLocalAudio, songHasLocalSlot, preferredSlot } from './audioSync/libraryAudio.js';
 import { slotSourceKey } from './stemdeck/backingCandidates.js';
 import { listHistory, rememberVideo, forgetVideo } from './audioSync/videoHistory.js';
-import { listRecordingMeta, forgetRecordingMeta, orderRecordings, roleLabel, tracksNote } from './audioSync/recordingMeta.js';
+import { listRecordingMeta, forgetRecordingMeta, getRecordingMeta, setRecordingMeta, roleAfterMove, orderRecordings, roleLabel, tracksNote } from './audioSync/recordingMeta.js';
 import { showToast } from './utils/toast.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 import { packSongKey, plainSongKey } from './mpakSession.js';
@@ -1212,7 +1212,17 @@ export function getVideoChoices(slot = playerState.trackMode) {
     listHistory(songKey, slot).forEach((e) => add(e.videoId, e.lastUsedAt));
     const saved = localStorage.getItem(getStorageKey(slot));
     if (saved) add(saved, 1);
-    getSyncedVideos().filter((v) => slotOfKind(v.kind) === slot).forEach((v) => add(v.videoId, v.updatedAt, { count: v.count, origin: v.origin }));
+    // A video with map points joins the part its source tagged it for, unless the person has put it in a part (a part's remembered
+    // videos or saved one): then it is listed there only, so a mapped Backing video is not also under Full band
+    // Failing both, the pack's role for it (a pack's backing video has no source tag in its label), then the source's tag
+    const placed = (videoId) => ['original', 'backing'].filter((s) => listedIn(songKey, s, videoId));
+    const roles = listRecordingMeta(songKey);
+    getSyncedVideos().filter((v) => {
+        const where = placed(v.videoId);
+        if (where.length) return where.includes(slot);
+        const role = roles[mediaKey({ kind: 'youtube', videoId: v.videoId })]?.role;
+        return (role ? (role === 'backing' ? 'backing' : 'original') : slotOfKind(v.kind)) === slot;
+    }).forEach((v) => add(v.videoId, v.updatedAt, { count: v.count, origin: v.origin }));
     const metas = listRecordingMeta(songKey);
     return orderRecordings([...byId.values()], (c) => mediaKey({ kind: 'youtube', videoId: c.videoId }), metas, (a, b) => b.lastUsedAt - a.lastUsedAt)
         .map(({ item, meta, nested }) => ({ ...item, ...(meta ? { meta } : {}), ...(nested ? { nested: true } : {}) }));
@@ -1245,6 +1255,14 @@ function videoRow({ videoId, count, meta, nested }, current, { remove = false, a
     btn.append(rd, t);
     row.append(btn);
     if (remove) {
+        const other = slot === 'backing' ? 'original' : 'backing';
+        const mv = document.createElement('button');
+        mv.type = 'button';
+        mv.className = 'btn rec-text-btn vrow-move';
+        mv.dataset.moveVideoId = videoId;
+        mv.dataset.moveVideoSlot = slot;
+        mv.textContent = other === 'backing' ? 'Move to Backing' : 'Move to Full band';
+        row.append(mv);
         const rm = document.createElement('button');
         rm.type = 'button';
         rm.className = 'btn rec-text-btn vrow-remove';
@@ -1309,10 +1327,44 @@ function removeVideoChoice(videoId, slot = playerState.trackMode) {
 }
 
 /**
+ * Moves a video to the other part (Full band or Backing). Its map points belong to the video and go with it. A pack's
+ * description of it (role) follows the part, so the list does not put it back.
+ */
+function moveVideoChoice(videoId, from) {
+    const songKey = getSongKey();
+    if (!songKey || !videoId) return;
+    const to = from === 'backing' ? 'original' : 'backing';
+    const synced = new Set(getSyncedVideos().map((v) => v.videoId));
+    const wasCurrent = from === playerState.trackMode && (playerState.currentVideoId === videoId || localStorage.getItem(getStorageKey(from)) === videoId);
+    forgetVideo(songKey, from, videoId);
+    rememberVideo(songKey, to, videoId, (vid) => synced.has(vid));
+    if (localStorage.getItem(getStorageKey(from)) === videoId) {
+        localStorage.removeItem(getStorageKey(from));
+        if (!localStorage.getItem(getStorageKey(to))) localStorage.setItem(getStorageKey(to), videoId);
+    }
+    const media = { kind: 'youtube', videoId };
+    const prev = getRecordingMeta(songKey, media);
+    if (prev) setRecordingMeta(songKey, media, { ...prev, role: roleAfterMove(prev.role, to) });
+    window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+    disarm();
+    if (wasCurrent) {
+        const next = getVideoChoices(from).find((c) => c.videoId !== videoId);
+        if (next) bindSyncedVideo(next.videoId); else removeYouTubeVideo();
+    }
+    renderSyncedVideos();
+}
+
+/**
  * A press inside a list of remembered videos: Remove (a video with sync points takes a second press) or pick the video.
  * `beforePick` runs first, so a list that belongs to the other slot can make that slot the active one.
  */
 export function handleVideoListClick(e, beforePick = null) {
+    const mv = e.target.closest('[data-move-video-id]');
+    if (mv) {
+        e.stopPropagation();
+        moveVideoChoice(mv.dataset.moveVideoId, mv.dataset.moveVideoSlot || playerState.trackMode);
+        return;
+    }
     const rm = e.target.closest('[data-remove-video-id]');
     if (rm) {
         e.stopPropagation();

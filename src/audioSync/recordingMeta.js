@@ -121,6 +121,12 @@ export function metaOfPackRecording(rec, index, keyOfId = () => null, primarySco
     return cleanMeta(meta);
 }
 
+/**
+ * The role a recording has after the person moves it to a part ('original' is Full band, 'backing' is Backing). The Backing
+ * list holds the backing role and Full band every other, so a move changes the role only as far as that needs.
+ */
+export const roleAfterMove = (role, toSlot) => (toSlot === 'backing' ? 'backing' : (!role || role === 'backing' ? 'alternate' : role));
+
 // Roles in list order. The rest of the known and unknown roles (live, cover, solo, lesson, click ...) sit between the
 // alternates and the backing tracks; a recording the pack never described comes last.
 const ROLE_RANK = { original: 0, alternate: 1, backing: 3, stem: 4 };

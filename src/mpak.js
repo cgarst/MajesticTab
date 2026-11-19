@@ -675,6 +675,34 @@ export async function buildMpak(file, options = {}) {
         console.warn('[mpak] could not add the song\'s other audio files:', e);
     }
 
+    // The other videos the song remembers in each part (the slot loop wrote only the chosen one): a recording of their own, with
+    // their sync points, and the role of the part they are listed in
+    try {
+        const { listHistory } = await import('./audioSync/videoHistory.js');
+        const { getRecordingMeta } = await import('./audioSync/recordingMeta.js');
+        const packedVideos = new Set(manifest.recordings.flatMap((r) => r.sources.filter((x) => x.type === 'youtube').map((x) => x.videoId)));
+        let v = 0;
+        for (const slot of SLOTS) {
+            for (const { videoId } of listHistory(songKey, slot)) {
+                if (!YT_ID_RE.test(videoId) || packedVideos.has(videoId)) continue;
+                packedVideos.add(videoId);
+                v += 1;
+                const media = { kind: 'youtube', videoId };
+                const said = getRecordingMeta(songKey, media);
+                const recording = {
+                    id: `video-${v}`,
+                    role: slot === 'backing' ? 'backing' : (said?.role && said.role !== 'backing' ? said.role : 'alternate'),
+                    ...(said?.label ? { label: said.label } : {}),
+                    sources: [{ type: 'youtube', videoId }],
+                };
+                attachSyncs(recording, mediaKey(media));
+                manifest.recordings.push(recording);
+            }
+        }
+    } catch (e) {
+        console.warn('[mpak] could not add the song\'s other videos:', e);
+    }
+
     // The first recording is the default (SPEC section 7), and the slots are visited original first.
     if (manifest.recordings.some((r) => r.id === 'original')) {
         const backing = manifest.recordings.find((r) => r.id === 'backing');
@@ -1339,11 +1367,18 @@ export async function applyMpakExtras(data, opened, options = {}) {
             const ytSrc = (rec.sources || []).find((s) => s.type === 'youtube' && s.videoId);
             if (!ytSrc) continue;
             const syncDocs = syncDocsOf(rec);
-            if (!syncDocs.length) continue;
             const media = { kind: 'youtube', videoId: ytSrc.videoId, ...(rec.label ? { label: rec.label } : {}) };
             const key = mediaKey(media);
             if (!key || taken.has(key)) continue;
             taken.add(key);
+            if (!syncDocs.length) {
+                // A video with no map points is remembered in the part its role is for, so the player lists it
+                const { rememberVideo } = await import('./audioSync/videoHistory.js');
+                const part = rec.role === 'backing' ? 'backing' : 'original';
+                for (const k of allKeys) rememberVideo(k, part, String(ytSrc.videoId));
+                resolvedMedia.set(rec.id, media);
+                continue;
+            }
             await saveSyncs(syncDocs, media);
             resolvedMedia.set(rec.id, media);
         } catch (e) {

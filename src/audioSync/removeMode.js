@@ -1,4 +1,4 @@
-// One "Remove recordings…" toggle for the recordings list: it puts Remove beside every audio file and every video.
+// One "Edit recordings…" toggle for the recordings list: it puts Move (to the other part) and Remove beside every audio file and every video.
 // The button is shared; each list reports whether it has rows, and re-renders on REC_REMOVE_MODE_EVENT.
 
 export const REC_REMOVE_MODE_EVENT = 'rec-remove-mode-changed';
@@ -18,7 +18,7 @@ function refresh() {
     const any = present.files || present.videos;
     btn.hidden = !any;
     if (!any) btn.setAttribute('aria-pressed', 'false');
-    btn.textContent = isRemoveMode() ? 'Done' : 'Remove recordings…';
+    btn.textContent = isRemoveMode() ? 'Done' : 'Edit recordings…';
 }
 
 /** A list reports whether it has any rows to remove. */

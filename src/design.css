@@ -5737,6 +5737,7 @@ body.library-view-active .yt-sheet { display: none !important; }
 .yt-danger-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .yt-danger-row .rec-text-btn { color: var(--danger) !important; }
 
+.vrow-move { flex: none; align-self: center; background: transparent !important; border: 0 !important; min-height: 44px; max-width: 35%; text-align: right; white-space: normal; }
 .vrow .slot .t b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Library rows: file type and audio sit with the meta; on a narrow row the artist/album and tuning give way, these stay whole */
