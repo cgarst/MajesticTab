@@ -196,6 +196,8 @@ function dialogOpen() {
 }
 
 function currentlyWanted() {
+    // The boot screen in index.html covers the whole window: the native rail and search field wait until it is gone
+    if (document.getElementById('bootSplash')) return false;
     return document.body.classList.contains('library-view-active') &&
            !document.body.classList.contains('downloader-active') &&
            !dialogOpen();
