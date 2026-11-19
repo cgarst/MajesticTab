@@ -282,3 +282,12 @@ export function setNativeTabActive(key) {
 
 export const setNativeNavActive = setNativeTabActive;
 export const syncNativeSearch = syncSearch;
+
+// The "/" shortcut: the web field is hidden while the native one is up, so the key focuses the native field instead.
+// Returns true when it did (macOS only; the iOS bar has no keyboard shortcut path).
+export function focusNativeSearch() {
+    if (state !== 'on' || !document.body.classList.contains('native-search') || document.body.classList.contains('native-search-pane')) return false;
+    if (isIOSDevice()) return false;
+    invoke('focus_search').catch(() => {});
+    return true;
+}

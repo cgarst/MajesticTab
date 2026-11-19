@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-focus-search"
+description = "Enables the focus_search command without any pre-configured scope."
+commands.allow = ["focus_search"]
+
+[[permission]]
+identifier = "deny-focus-search"
+description = "Denies the focus_search command without any pre-configured scope."
+commands.deny = ["focus_search"]

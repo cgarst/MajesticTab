@@ -62,6 +62,32 @@ Denies the configure command without any pre-configured scope.
 <tr>
 <td>
 
+`apple-nav:allow-focus-search`
+
+</td>
+<td>
+
+Enables the focus_search command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`apple-nav:deny-focus-search`
+
+</td>
+<td>
+
+Denies the focus_search command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `apple-nav:allow-search`
 
 </td>

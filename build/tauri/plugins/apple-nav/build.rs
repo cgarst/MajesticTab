@@ -4,7 +4,7 @@ use std::process::Command;
 
 fn main() {
     println!("cargo:rerun-if-changed=ios/Sources/AppleNavPlugin.swift");
-    tauri_plugin::Builder::new(&["configure", "select", "visibility", "appearance", "search"])
+    tauri_plugin::Builder::new(&["configure", "select", "visibility", "appearance", "search", "focus_search"])
         .ios_path("ios")
         .build();
 

@@ -277,29 +277,118 @@ final class MacRailView: NSVisualEffectView {
 final class SearchState: ObservableObject {
     @Published var query: String = ""
     @Published var placeholder: String = "Search any artist, song, or album"
+    @Published var focusTick: Int = 0
     var onSearchChange: ((String) -> Void)?
     var onSubmit: (() -> Void)?
+    var onEscape: (() -> Void)?
+}
+
+// A plain AppKit field instead of SwiftUI's TextField: the SwiftUI one draws its text a pixel or two differently
+// once the field editor takes over, so the text moved when the bar gained focus.
+final class FocusAwareTextField: NSTextField {
+    var onFocusChange: ((Bool) -> Void)?
+    override func becomeFirstResponder() -> Bool {
+        let ok = super.becomeFirstResponder()
+        if ok { onFocusChange?(true) }
+        return ok
+    }
+}
+
+struct GlassTextField: NSViewRepresentable {
+    @Binding var text: String
+    var placeholder: String
+    var focusTick: Int
+    @Binding var isFocused: Bool
+    var onSubmit: (() -> Void)?
+    var onEscape: (() -> Void)?
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> FocusAwareTextField {
+        let field = FocusAwareTextField()
+        field.isBordered = false
+        field.isBezeled = false
+        field.drawsBackground = false
+        field.focusRingType = .none
+        field.font = .systemFont(ofSize: 15)
+        field.cell?.usesSingleLineMode = true
+        field.cell?.lineBreakMode = .byTruncatingTail
+        field.delegate = context.coordinator
+        field.onFocusChange = { [weak coordinator = context.coordinator] focused in
+            DispatchQueue.main.async { coordinator?.parent.isFocused = focused }
+        }
+        field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        context.coordinator.lastTick = focusTick
+        return field
+    }
+
+    func updateNSView(_ field: FocusAwareTextField, context: Context) {
+        context.coordinator.parent = self
+        if field.stringValue != text { field.stringValue = text }
+        if field.placeholderString != placeholder { field.placeholderString = placeholder }
+        if context.coordinator.lastTick != focusTick {
+            context.coordinator.lastTick = focusTick
+            field.window?.makeFirstResponder(field)
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: GlassTextField
+        var lastTick = 0
+        init(_ parent: GlassTextField) { self.parent = parent }
+
+        func controlTextDidChange(_ obj: Notification) {
+            guard let field = obj.object as? NSTextField else { return }
+            parent.text = field.stringValue
+        }
+
+        func controlTextDidEndEditing(_ obj: Notification) {
+            DispatchQueue.main.async { self.parent.isFocused = false }
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            if selector == #selector(NSResponder.insertNewline(_:)) {
+                parent.onSubmit?()
+                return true
+            }
+            if selector == #selector(NSResponder.cancelOperation(_:)) {
+                parent.onEscape?()
+                return true
+            }
+            return false
+        }
+    }
 }
 
 struct MacLiquidGlassSearchBar: View {
     @ObservedObject var state: SearchState
-    @FocusState private var isFocused: Bool
+    @State private var isFocused = false
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(.secondary)
                 .font(.system(size: 15, weight: .medium))
-            TextField(state.placeholder, text: $state.query)
-                .textFieldStyle(.plain)
-                .font(.system(size: 15))
-                .focused($isFocused)
-                .onChange(of: state.query) { _, newValue in
-                    state.onSearchChange?(newValue)
-                }
-                .onSubmit {
-                    state.onSubmit?()
-                }
+            GlassTextField(
+                text: $state.query,
+                placeholder: state.placeholder,
+                focusTick: state.focusTick,
+                isFocused: $isFocused,
+                onSubmit: { state.onSubmit?() },
+                onEscape: { state.onEscape?() }
+            )
+            .onChange(of: state.query) { _, newValue in
+                state.onSearchChange?(newValue)
+            }
+            if state.query.isEmpty && !isFocused {
+                Text("/")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4))
+            }
             if !state.query.isEmpty {
                 Button(action: {
                     state.query = ""
@@ -562,6 +651,12 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
         railView?.settingsButton?.tintColor = color
     }
 
+    func focusSearch() {
+        guard searchWanted, let hosting = searchHostingView, !hosting.isHidden else { return }
+        window?.makeKeyAndOrderFront(nil)
+        searchState.focusTick += 1
+    }
+
     func setSearch(visible: Bool, placeholder: String?, text: String?, y: Double?, x: Double?, width: Double?) {
         searchWanted = visible
         guard let win = window, let contentView = win.contentView else { return }
@@ -574,6 +669,16 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
         if visible && searchHostingView == nil {
             searchState.onSearchChange = { [weak self] query in
                 self?.sendEvent(["type": "search", "text": query])
+            }
+            searchState.onEscape = { [weak self] in
+                // Give the keyboard back to the page so its own shortcuts (including "/") work again
+                guard let win = self?.window, let cv = win.contentView else { return }
+                func findWebView(_ view: NSView) -> WKWebView? {
+                    if let wv = view as? WKWebView { return wv }
+                    for sub in view.subviews { if let f = findWebView(sub) { return f } }
+                    return nil
+                }
+                if let wv = findWebView(cv) { win.makeFirstResponder(wv) }
             }
             searchState.onSubmit = { [weak self] in
                 self?.sendEvent(["type": "submit"])
@@ -705,6 +810,14 @@ public func appleNavMacAppearance(
     runOnMainAsync {
         let plugin = Unmanaged<MacNavPlugin>.fromOpaque(pluginPtr).takeUnretainedValue()
         plugin.setAppearance(dark: dark, tint: tint)
+    }
+}
+
+@_cdecl("apple_nav_mac_focus_search")
+public func appleNavMacFocusSearch(pluginPtr: UnsafeMutableRawPointer) {
+    runOnMainAsync {
+        let plugin = Unmanaged<MacNavPlugin>.fromOpaque(pluginPtr).takeUnretainedValue()
+        plugin.focusSearch()
     }
 }
 

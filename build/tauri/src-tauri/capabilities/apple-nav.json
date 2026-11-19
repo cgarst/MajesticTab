@@ -9,6 +9,7 @@
     "apple-nav:allow-select",
     "apple-nav:allow-visibility",
     "apple-nav:allow-appearance",
-    "apple-nav:allow-search"
+    "apple-nav:allow-search",
+    "apple-nav:allow-focus-search"
   ]
 }

@@ -1,7 +1,7 @@
 // libraryModal.js
 // Artwork-rich MusicBrainz-powered Tab Library Page aligned to themes.
 
-import { initNativeTabBar, setNativeTabActive, syncNativeSearch } from './nativeTabBar.js';
+import { initNativeTabBar, setNativeTabActive, syncNativeSearch, focusNativeSearch } from './nativeTabBar.js';
 import { mountSettingsPage, parkSettingsPage } from './utils/settingsPage.js';
 import {
     getCollections, getLibraryHierarchy, getLibraryTuningsHierarchy,
@@ -2191,6 +2191,10 @@ function bindLibrarySearchShortcut() {
         if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
         const t = e.target;
         if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        if (document.querySelector('.library-page-view .library-search-bar .search-input:not([disabled])') && focusNativeSearch()) {
+            e.preventDefault();
+            return;
+        }
         const input = document.querySelector('.library-page-view .library-search-bar .search-input:not([disabled])');
         if (!input || input.offsetParent === null) return;
         e.preventDefault();

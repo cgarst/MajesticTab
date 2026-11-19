@@ -33,6 +33,7 @@ mod desktop {
                 dark: bool,
                 tint_hex: *const c_char,
             );
+            fn apple_nav_mac_focus_search(plugin_ptr: *mut c_void);
             fn apple_nav_mac_search(
                 plugin_ptr: *mut c_void,
                 visible: bool,
@@ -121,6 +122,10 @@ mod desktop {
                     c_tint.as_ref().map(|c| c.as_ptr()).unwrap_or(std::ptr::null()),
                 )
             }
+        }
+
+        pub fn focus_search(plugin: *mut c_void) {
+            unsafe { apple_nav_mac_focus_search(plugin) }
         }
 
         pub fn search(
@@ -236,6 +241,21 @@ mod desktop {
     }
 
     #[tauri::command]
+    pub fn focus_search<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+        #[cfg(target_os = "macos")]
+        {
+            if let Ok(plugin) = macos_ffi::get_or_create_plugin(&app) {
+                macos_ffi::focus_search(plugin);
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = app;
+        }
+        Ok(())
+    }
+
+    #[tauri::command]
     pub fn search<R: Runtime>(
         app: AppHandle<R>,
         visible: bool,
@@ -278,6 +298,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 desktop::visibility,
                 desktop::appearance,
                 desktop::search,
+                desktop::focus_search,
             ])
             .build()
     }
