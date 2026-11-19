@@ -108,6 +108,7 @@ function stop() {
     curRec = null;
     place = null;
     drawnY = null;
+    scrollPos = null;
     shownKey = '';
     document.body.classList.remove('loose-follow');
     if (active) { active = false; emit(); }
@@ -123,6 +124,7 @@ function tick() {
 }
 
 let lastAt = 0;
+let scrollPos = null;    // the page's scroll as a fraction: the browser rounds what is written to scrollTop, which eats a slow glide's small steps
 function frame(now) {
     raf = requestAnimationFrame(frame);
     const rec = curRec;
@@ -185,7 +187,10 @@ function frame(now) {
         if (target != null) {
             const before = output.scrollTop;
             const far = Math.abs(target - before) > viewH * 1.2 || matchMedia('(prefers-reduced-motion: reduce)').matches;
-            output.scrollTop = far ? Math.max(0, lineDoc - viewH * 0.2) : glide(before, target, dt);
+            // Keep our own fractional position unless something else (the user, a seek) moved the page
+            if (scrollPos == null || Math.abs(scrollPos - before) > 1.5) scrollPos = before;
+            scrollPos = far ? Math.max(0, lineDoc - viewH * 0.2) : glide(scrollPos, target, dt);
+            output.scrollTop = scrollPos;
             yDrawn = y - (output.scrollTop - before);
         }
     }
