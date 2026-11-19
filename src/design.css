@@ -6537,3 +6537,61 @@ input[type=range]::-moz-range-thumb,
 .stor-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--ink2); }
 .stor-legend li { display: inline-flex; align-items: center; gap: 8px; }
 .stor-key { display: block; width: 10px; height: 10px; border-radius: 3px; flex: none; }
+
+/* ==========================================================================
+   Sound: what you play is in the dock (Full band | Backing); where it comes from is the switch at the top of the panels
+   (Synth | Original). Each panel then runs: the parts, set up, and last the audio latency. See soundSwitch.js.
+   ========================================================================== */
+/* Synth and Original stay in the dock only as hidden state (which sound is selected); the Sound panel's switch presses them */
+.dock-src #mobileSynthToggleBtn, .dock-src #mobileYtToggleBtn { display: none !important; }
+.dock-src .mobile-dock-btn[hidden] { display: none !important; }
+.dock-src .mobile-dock-btn[aria-pressed="true"] { background: var(--s3) !important; color: var(--ink) !important; }
+.dock-src .mobile-dock-btn:disabled { opacity: 0.38; pointer-events: none; }
+/* Narrow phones keep "Full band" and "Backing" on one line */
+.dock-src #dockFullBandBtn .audio-src-label, .dock-src #dockBackingBtn .audio-src-label { display: inline !important; white-space: nowrap; }
+
+/* The panel's header is the Synth | Original switch; the old title and the source glyphs are not shown */
+#synthDropdownPanel .synth-panel-header > div:not(.sound-source):not(:last-child),
+#ytDropdownPanel .yt-panel-header > div:not(.sound-source):not(:last-child) { display: none !important; }
+#synthDropdownPanel .sound-source, #ytDropdownPanel .sound-source { flex: 1; min-width: 0; margin-right: 8px; width: auto; display: flex; }
+#synthDropdownPanel .sound-source .btn, #ytDropdownPanel .sound-source .btn { flex: 1; justify-content: center; }
+#synthDropdownPanel .sound-source .btn:disabled, #ytDropdownPanel .sound-source .btn:disabled { opacity: 0.38; }
+
+/* Synth: the track-mode radios stay as state (the dock and the Guitars only action press them); only the text-tab Hear choice shows */
+#synthTrackGpGroup { display: none !important; }
+body.gp-file-active #synthTrackModeContainer { display: none !important; }
+#synthGuitarsOnlyBtn[aria-pressed="true"] { color: var(--ink) !important; }
+#synthGuitarsOnlyBtn:disabled { opacity: 0.38; }
+
+/* Original: the slot rows are state the dock presses; the recordings list and Add fold under one row */
+#recSlotField[hidden] { display: none !important; }
+.af-more > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 44px; padding: 0 12px; margin-bottom: 8px; border-radius: var(--r-control); background: var(--s3);
+  color: var(--ink); font-size: 14px; font-weight: 600;
+}
+.af-more > summary::-webkit-details-marker { display: none; }
+.af-more > summary::after {
+  content: ''; width: 7px; height: 7px; border-right: 2px solid var(--ink2); border-bottom: 2px solid var(--ink2);
+  transform: translateY(-2px) rotate(45deg); transition: transform var(--dur-fast) var(--ease-out); flex: none;
+}
+.af-more[open] > summary::after { transform: translateY(1px) rotate(-135deg); }
+.af-more > summary:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+@media (hover: hover) { .af-more > summary:hover { background: var(--s2); filter: brightness(1.12); } }
+/* Open, the recordings list already has its own heading; the row above it names the group */
+.af-more[open] > summary { background: transparent; padding-left: 0; }
+.af-more[open] #recListLabel { display: none; }
+@media (prefers-reduced-motion: reduce) { .af-more > summary::after { transition: none; } }
+
+/* Audio latency is last in both panels: a set-once value, the same row for every sound */
+#synthLatencySection, #ytLatencySection { margin-top: 20px; margin-bottom: 0 !important; }
+
+/* Recordings, one group per part. The active part is the one in ink; the lists the panel always kept are hidden state */
+#realAudioRecordings > #recListLabel, #realAudioRecordings > #recEmbeddedList, #realAudioRecordings > #afFileSection,
+#realAudioRecordings > #ytVideoSection { display: none !important; }
+.rec-slot-group { margin-bottom: 16px; }
+.rec-slot-head { margin: 0 0 6px; font: 600 13px system-ui, sans-serif; color: var(--ink2); }
+.rec-slot-group[aria-current="true"] .rec-slot-head { color: var(--ink); }
+.rec-slot-group .rec-slots { margin-bottom: 0; }
+.rec-slot-empty { margin: 0; padding: 4px 0 0; font-size: 13px; color: var(--ink2); }
+.rec-slot-empty[hidden] { display: none; }

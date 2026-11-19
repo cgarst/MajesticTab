@@ -171,8 +171,9 @@ function initVolumePopover() {
         const yt = $('ytDropdownPanel');
         const ytOpen = yt && yt.style.display !== 'none' && getComputedStyle(yt).display !== 'none';
         const host = ytOpen ? panelBody('ytDropdownPanel', '.yt-panel-body') : panelBody('synthDropdownPanel', '.synth-panel-body');
-        if (host && section.parentNode !== host) host.prepend(section);
-        else if (host && host.firstChild !== section) host.prepend(section);
+        // Output sits last in the panel: the volume, then the audio latency
+        const latency = host?.querySelector('#synthLatencySection, #ytLatencySection');
+        if (host && (section.parentNode !== host || section.nextElementSibling !== (latency || null))) host.insertBefore(section, latency || null);
     };
     ['synthDropdownPanel', 'ytDropdownPanel'].forEach((id) => {
         const el = $(id);

@@ -505,9 +505,12 @@ function actionButton(label, text, onClick, className = 'rec-text-btn') {
     return b;
 }
 
-function render() {
-    const list = $('afFileList');
-    if (!list) return;
+/**
+ * The rows for the audio files of one slot, in the order recordingMeta.js defines. `include(file, metas)` says which files the
+ * slot lists, `selected(id)` which one it plays, and `beforeSelect` runs before a row is pressed (the Sound panel lists both
+ * slots at once, so a row of the other slot first makes that slot the active one).
+ */
+export function buildFileRows({ include = () => true, selected, beforeSelect = null } = {}) {
     const synced = syncedFiles();
     const countOf = (id) => synced.find(s => s.audioId === id)?.count || 0;
     const removeMode = isRemoveMode();
@@ -517,10 +520,10 @@ function render() {
     const inSet = new Set(Object.values(metas).flatMap((m) => (stemsOfMeta(m) || []).map((s) => s.audioId)));
     const leads = new Set(Object.entries(metas).filter(([, m]) => stemsOfMeta(m)).map(([k]) => k));
     const isPart = (f) => !state.stemFallback && inSet.has(f.id) && !leads.has(mediaKey({ kind: 'local', audioId: f.id }));
-    const ordered = orderRecordings(state.files.filter((f) => !isPart(f)), (f) => mediaKey({ kind: 'local', audioId: f.id }), metas);
-    const rows = ordered.map(({ item: f, meta, nested }) => {
+    const ordered = orderRecordings(state.files.filter((f) => !isPart(f) && include(f, metas)), (f) => mediaKey({ kind: 'local', audioId: f.id }), metas);
+    return ordered.map(({ item: f, meta, nested }) => {
         const count = countOf(f.id);
-        const detail = [roleLabel(meta), 'Audio file', tracksNote(meta), f.durationMs ? clock(f.durationMs) : 'Unknown length', megabytes(f.size), pointsLabel(count)].filter(Boolean).join(' · ');
+        const detail = [roleLabel(meta), 'Audio file', tracksNote(meta), f.durationMs ? clock(f.durationMs) : 'Unknown length', megabytes(f.size), pointsLabel(count)].filter(Boolean).join(' \u00b7 ');
         let actions;
         if (removeMode) {
             const rm = actionButton('Remove this file', state.armedRemoval === f.id ? `Delete ${count} map points too?` : 'Remove', () => {
@@ -533,18 +536,30 @@ function render() {
         } else {
             actions = [];
         }
-        const row = fileRow({ title: meta?.label || f.name, detail, selected: f.id === state.currentId && fileSourceActive(), onSelect: removeMode ? null : () => selectFile(f.id), actions });
+        const row = fileRow({
+            title: meta?.label || f.name, detail, selected: selected ? selected(f.id) : (f.id === state.currentId && fileSourceActive()),
+            onSelect: removeMode ? null : () => { beforeSelect?.(); selectFile(f.id); }, actions
+        });
         if (nested) row.classList.add('vrow-nested');
         return row;
     });
-    for (const m of state.missing) {
-        rows.push(fileRow({
-            title: m.name || 'Audio file',
-            detail: 'Not on this device. Choose the same file to use its map points.',
-            missing: true,
-            actions: [actionButton('Choose the file again', 'Relink', () => startRelink(m), 'btn-theme-outline')]
-        }));
-    }
+}
+
+/** The files that were attached on another device and are not here: a row to choose the file again. */
+export function buildMissingFileRows() {
+    return state.missing.map((m) => fileRow({
+        title: m.name || 'Audio file',
+        detail: 'Not on this device. Choose the same file to use its map points.',
+        missing: true,
+        actions: [actionButton('Choose the file again', 'Relink', () => startRelink(m), 'btn-theme-outline')]
+    }));
+}
+
+function render() {
+    const list = $('afFileList');
+    if (!list) return;
+    const rows = buildFileRows();
+    rows.push(...buildMissingFileRows());
     list.replaceChildren(...rows);
     if ($('afFileSection')) $('afFileSection').hidden = rows.length === 0;
     setRecordingsPresent('files', state.files.length > 0);

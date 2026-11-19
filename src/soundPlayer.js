@@ -1285,21 +1285,40 @@ function removeVideoChoice(videoId) {
     renderSyncedVideos();
 }
 
-function initVideoList() {
-    document.getElementById('ytVideoList')?.addEventListener('click', (e) => {
-        const rm = e.target.closest('[data-remove-video-id]');
-        if (rm) {
-            e.stopPropagation();
-            const id = rm.dataset.removeVideoId;
-            const count = getVideoChoices().find((c) => c.videoId === id)?.count || 0;
-            // A video with sync points takes a second press: it would delete them
-            if (count > 0 && armedRemoval !== id) { arm('remove', id); renderSyncedVideos(); return; }
-            removeVideoChoice(id);
-            return;
-        }
-        const row = e.target.closest('[data-video-id]');
-        if (row && !isRemoveMode()) bindSyncedVideo(row.dataset.videoId);
+/**
+ * A press inside a list of remembered videos: Remove (a video with sync points takes a second press) or pick the video.
+ * `beforePick` runs first, so a list that belongs to the other slot can make that slot the active one.
+ */
+export function handleVideoListClick(e, beforePick = null) {
+    const rm = e.target.closest('[data-remove-video-id]');
+    if (rm) {
+        e.stopPropagation();
+        const id = rm.dataset.removeVideoId;
+        const count = getVideoChoices().find((c) => c.videoId === id)?.count || 0;
+        // A video with sync points takes a second press: it would delete them
+        if (count > 0 && armedRemoval !== id) { arm('remove', id); renderSyncedVideos(); return; }
+        removeVideoChoice(id);
+        return;
+    }
+    const row = e.target.closest('[data-video-id]');
+    if (row && !isRemoveMode()) { beforePick?.(); bindSyncedVideo(row.dataset.videoId); }
+}
+
+/** The rows for one slot's remembered videos, whichever slot is active; the Sound panel lists both slots at once. */
+export function buildVideoRows(slot) {
+    const choices = getVideoChoices(slot);
+    const current = localStorage.getItem(getStorageKey(slot)) || (slot === playerState.trackMode ? playerState.currentVideoId : null);
+    const active = !slotUsesOwnAudio(slot);
+    // A video a pack gave a role belongs to the part that role is for, even when it was also played in the other slot
+    const belongs = (c) => !c.meta?.role || (c.meta.role === 'backing') === (slot === 'backing') || c.videoId === current;
+    return choices.filter(belongs).map((c) => {
+        if (!getVideoInfo(c.videoId)) lookupVideoInfo(c.videoId);
+        return videoRow(c, current, { remove: isRemoveMode(), active });
     });
+}
+
+function initVideoList() {
+    document.getElementById('ytVideoList')?.addEventListener('click', (e) => handleVideoListClick(e));
     window.addEventListener(REC_REMOVE_MODE_EVENT, () => { disarm(); renderSyncedVideos(); });
     window.addEventListener(SYNC_CHANGED_EVENT, () => renderSyncedVideos());
 }

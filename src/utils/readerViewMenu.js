@@ -8,6 +8,7 @@ import { gamepadManager, READING_MODE_KEY } from './gamepadManager.js';
 import { PHONE_READER_QUERY } from './viewModeUtils.js';
 import { isTabletop } from '../foldState.js';
 import { showPanel, hidePanel, isShown, placePanel, outsideTapCloses } from './readerPanels.js';
+import { initSoundSwitch } from './soundSwitch.js';
 import { textState, setTextLayoutMode, setTextVersion, renderTextPage } from '../textProcessor/textHandler.js';
 import { gpState, setGpLayoutMode, renderGPPage } from '../gpProcessor/gpHandler.js';
 const $ = (id) => document.getElementById(id);
@@ -15,6 +16,7 @@ const $ = (id) => document.getElementById(id);
 export function initReaderViewMenu() {
     initPhoneChrome();
     initSoundButton();
+    initSoundSwitch();
     arrangeSongPanel();
     initPracticePanels();
     const toggleBtn = $('viewToggleBtn');
@@ -56,9 +58,9 @@ export function initReaderViewMenu() {
 }
 
 
-// ---- Sound: the labelled button opens the settings of the sound selected in the dock (Synth audio or Original audio).
-// The two panels keep their own contents and chrome; this only chooses which one the word opens, and the dock's switch
-// decides the selection.
+// ---- Sound: the labelled button opens the settings of the selected sound (Synth or Original).
+// The two panels keep their own contents and chrome; this only chooses which one the word opens, and the Synth | Original switch
+// at the top of the panels (soundSwitch.js) decides the selection.
 function initSoundButton() {
     const btn = $('soundToggleBtn');
     const synthPanel = $('synthDropdownPanel');
@@ -85,7 +87,7 @@ function initSoundButton() {
         else $(original ? 'ytToggleBtn' : 'synthToggleBtn')?.click();
     });
 
-    // Like the other menus: a press outside or Escape closes it. The Synth | Original switch is left alone, since it
+    // Like the other menus: a press outside or Escape closes it. The Synth | Original switch (in the panels) and the dock's Full band | Backing are left alone, since the first
     // swaps the panel to the other sound.
     const closeOpen = () => {
         if (isShown(synthPanel)) $('synthPanelCloseBtn')?.click();

@@ -298,6 +298,12 @@ let ytSource = null;
  * The media descriptor is the one the sync points are stored under.
  */
 /** The media attached to the Original slot (YouTube, local file, or audio in the file), even when its player is not loaded yet; null when none. */
+/** What a slot plays now, whichever slot is active: `{ kind: 'embedded' }`, `{ kind: 'local', audioId }`, `{ kind: 'youtube', videoId }` or null. */
+export function slotSelection(slot) {
+    if (slot === 'original' && getSlotSource('original') === 'embedded') return { kind: 'embedded' };
+    return getMediaForSlot(slot);
+}
+
 /** 'original' or 'backing': the slot the Sound panel and the dock follow. */
 export const getActiveSlot = () => state.slot;
 
