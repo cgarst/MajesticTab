@@ -791,12 +791,11 @@
     </div>
 
     <!-- Everything about choosing and adding recordings. Open, except while a stem set is the sound (soundSwitch.js closes it then) -->
-    <details id="afMore" class="af-more" open>
-      <summary id="afMoreSummary">Recordings</summary>
+    <div id="afMore">
       <!-- The recordings for this tab, one list: the audio in the file, then audio files, then videos. Each keeps its own sync points; pressing one makes it the sound. -->
       <div id="realAudioRecordings" class="mb-3">
         <div class="rec-label small mb-1" id="recListLabel">Recordings for this tab</div>
-        <!-- One group per part, Full band and Backing, built by audioSync/slotRecordings.js; the lists below keep the active part's rows as hidden state -->
+        <!-- One expandable section per part, Full band and Backing, built by audioSync/slotRecordings.js; the lists below keep the active part's rows as hidden state -->
         <div id="recBySlot"></div>
         <div id="recEmbeddedList" class="rec-slots" role="radiogroup" aria-labelledby="recListLabel" hidden></div>
         <div id="afFileSection" hidden>
@@ -818,22 +817,25 @@
           <input type="file" id="afFileInput" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" hidden>
           <span class="small text-white-50 text-truncate" id="afStatus" role="status"></span>
         </div>
-        <!-- Add a video: one field. A link or video ID is added as it is; anything else is a search whose first match is added. -->
+        <!-- Add a video: one field, and a button for each part it can go to. A link or video ID is added as it is; anything else is a search whose first match is added. -->
         <div class="yt-add" role="group" aria-labelledby="ytAddLabel">
           <div class="rec-label small mb-1" id="ytAddLabel">Add a video</div>
           <div class="yt-query-bar mb-1">
             <div class="input-group input-group-sm yt-query-group">
               <input type="text" id="ytSearchQueryInput" class="form-control yt-query-input" placeholder="Search YouTube or paste a link" aria-label="Search YouTube or paste a YouTube link, to add a video" aria-describedby="ytAddHint" autocomplete="off" spellcheck="false">
-              <button class="btn rec-text-btn yt-query-btn" id="ytRedoSearchBtn" type="button" title="Add the video from this link, or the first match for this search">Add</button>
               <button class="btn rec-text-btn yt-query-reset-btn" id="ytResetQueryBtn" type="button" title="Reset to the song's own search" aria-label="Reset search" style="display: none;"><i class="bi-x-lg" aria-hidden="true"></i></button>
               <a class="btn rec-text-btn yt-ext-btn" id="ytExternalLink" href="#" target="_blank" title="Open this search on YouTube" aria-label="Open this search on YouTube" rel="noopener noreferrer"><i class="bi-box-arrow-up-right" aria-hidden="true"></i></a>
             </div>
           </div>
-          <p class="small text-muted mb-3" id="ytAddHint">Search by song or paste a link: either adds the video to the list below, where it keeps its own map points.</p>
+          <div class="yt-add-to" role="group" aria-label="Add the video to">
+            <button type="button" class="btn btn-sm rec-text-btn" id="ytAddFullBtn" title="Add the video from this link, or the first match for this search, to Full band">Add to Full band</button>
+            <button type="button" class="btn btn-sm rec-text-btn" id="ytAddBackingBtn" title="Add the video from this link, or the first match for this search, to Backing">Add to Backing</button>
+          </div>
+          <p class="small text-muted mb-3 mt-1" id="ytAddHint">Paste a link or search by song, then choose where it goes. The video keeps its own map points.</p>
         </div>
       </div>
 
-    </details>
+    </div>
 
     <!-- The sync controls the dock bar and the Sync sheet drive (hidden; see syncSheet.js) -->
     <div id="ytSyncRow" class="mb-3 rec-sync-proxy" hidden>

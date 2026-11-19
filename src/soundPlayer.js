@@ -435,6 +435,18 @@ export function buildQuery(mode = playerState.trackMode) {
 }
 
 /**
+ * True while the add-a-video field still holds the search the app wrote for the part that is open (nothing typed or pasted).
+ * The Add to Full band and Add to Backing buttons then search for that part's own default (Backing's is "... guitar backing
+ * track") instead of reusing the other part's text.
+ */
+export function addVideoFieldUntouched() {
+    return (document.getElementById('ytSearchQueryInput')?.value || '').trim() === buildQuery(playerState.trackMode);
+}
+
+/** Asks the add-a-video field to be added (the Add to Full band and Add to Backing buttons send it after switching the part). */
+export const ADD_VIDEO_EVENT = 'majestictab:add-video-field';
+
+/**
  * Synchronize the query input field and reset button with current query state
  */
 export function updateQueryInputUI() {
@@ -1212,11 +1224,11 @@ const videoSubline = (id, count, meta) => [roleLabel(meta), 'YouTube', getVideoI
 function disarm() { clearTimeout(armTimer); armedRemoval = null; }
 function arm(kind, id) {
     disarm();
-    if (kind === 'remove') armedRemoval = id;
+    if (kind === 'remove') armedRemoval = id; // `part|video`
     armTimer = setTimeout(() => { disarm(); renderSyncedVideos(); }, 4000);
 }
 
-function videoRow({ videoId, count, meta, nested }, current, { remove = false, active = true } = {}) {
+function videoRow({ videoId, count, meta, nested }, current, { remove = false, active = true, slot = playerState.trackMode } = {}) {
     const row = document.createElement('div');
     row.className = nested ? 'vrow vrow-nested' : 'vrow';
     const btn = document.createElement('button');
@@ -1237,8 +1249,10 @@ function videoRow({ videoId, count, meta, nested }, current, { remove = false, a
         rm.type = 'button';
         rm.className = 'btn rec-text-btn vrow-remove';
         rm.dataset.removeVideoId = videoId;
-        rm.textContent = armedRemoval === videoId ? `Delete ${count} map points too?` : 'Remove';
-        if (armedRemoval === videoId) rm.classList.add('is-armed');
+        rm.dataset.removeVideoSlot = slot; // a listing is a video in one part: the same video in the other part is its own listing
+        const armed = armedRemoval === `${slot}|${videoId}`;
+        rm.textContent = armed ? `Delete ${count} map points too?` : 'Remove';
+        if (armed) rm.classList.add('is-armed');
         row.append(rm);
     }
     return row;
@@ -1266,20 +1280,29 @@ export async function renderSyncedVideos() {
 }
 
 /** Removes a video from the list, and its sync points with it; if it was the current one, the next most recent takes over. */
-function removeVideoChoice(videoId) {
+/** Whether a part still lists the video: in its remembered videos or as the one it has saved. */
+function listedIn(songKey, slot, videoId) {
+    return listHistory(songKey, slot).some((e) => e.videoId === videoId) || localStorage.getItem(getStorageKey(slot)) === videoId;
+}
+
+/**
+ * Removes one listing: the video in one part. The same video in the other part is its own listing and stays. Its map points
+ * belong to the video, so a listing that shows them (the part the points are tagged for) takes the second press first, and
+ * deleting them is what removes that listing; the pack's description of the recording goes only when no part lists it any more.
+ */
+function removeVideoChoice(videoId, slot = playerState.trackMode) {
     const songKey = getSongKey();
     if (!songKey || !videoId) return;
-    const wasCurrent = playerState.currentVideoId === videoId || localStorage.getItem(getStorageKey()) === videoId;
-    for (const slot of ['original', 'backing']) {
-        forgetVideo(songKey, slot, videoId);
-        forgetRecordingMeta(songKey, { kind: 'youtube', videoId });
-        if (localStorage.getItem(getStorageKey(slot)) === videoId) localStorage.removeItem(getStorageKey(slot));
-    }
-    deleteRecord(songKey, { kind: 'youtube', videoId });
+    const wasCurrent = slot === playerState.trackMode && (playerState.currentVideoId === videoId || localStorage.getItem(getStorageKey(slot)) === videoId);
+    forgetVideo(songKey, slot, videoId);
+    if (localStorage.getItem(getStorageKey(slot)) === videoId) localStorage.removeItem(getStorageKey(slot));
+    const shownWithPoints = getVideoChoices(slot).find((c) => c.videoId === videoId)?.count > 0;
+    if (shownWithPoints) deleteRecord(songKey, { kind: 'youtube', videoId });
+    if (!['original', 'backing'].some((other) => listedIn(songKey, other, videoId))) forgetRecordingMeta(songKey, { kind: 'youtube', videoId });
     window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
     disarm();
     if (wasCurrent) {
-        const next = getVideoChoices().find((c) => c.videoId !== videoId);
+        const next = getVideoChoices(slot).find((c) => c.videoId !== videoId);
         if (next) bindSyncedVideo(next.videoId); else removeYouTubeVideo();
     }
     renderSyncedVideos();
@@ -1294,10 +1317,11 @@ export function handleVideoListClick(e, beforePick = null) {
     if (rm) {
         e.stopPropagation();
         const id = rm.dataset.removeVideoId;
-        const count = getVideoChoices().find((c) => c.videoId === id)?.count || 0;
+        const slot = rm.dataset.removeVideoSlot || playerState.trackMode;
+        const count = getVideoChoices(slot).find((c) => c.videoId === id)?.count || 0;
         // A video with sync points takes a second press: it would delete them
-        if (count > 0 && armedRemoval !== id) { arm('remove', id); renderSyncedVideos(); return; }
-        removeVideoChoice(id);
+        if (count > 0 && armedRemoval !== `${slot}|${id}`) { arm('remove', `${slot}|${id}`); renderSyncedVideos(); return; }
+        removeVideoChoice(id, slot);
         return;
     }
     const row = e.target.closest('[data-video-id]');
@@ -1313,7 +1337,7 @@ export function buildVideoRows(slot) {
     const belongs = (c) => !c.meta?.role || (c.meta.role === 'backing') === (slot === 'backing') || c.videoId === current;
     return choices.filter(belongs).map((c) => {
         if (!getVideoInfo(c.videoId)) lookupVideoInfo(c.videoId);
-        return videoRow(c, current, { remove: isRemoveMode(), active });
+        return videoRow(c, current, { remove: isRemoveMode(), active, slot });
     });
 }
 
@@ -1633,7 +1657,6 @@ export function initYouTubePlayer() {
 
     // Query Override and Redo Search controls
     const queryInput = document.getElementById('ytSearchQueryInput');
-    const redoSearchBtn = document.getElementById('ytRedoSearchBtn');
     const resetQueryBtn = document.getElementById('ytResetQueryBtn');
 
     resetQueryBtn?.addEventListener('click', (e) => {
@@ -1643,12 +1666,19 @@ export function initYouTubePlayer() {
 
     // One field for adding a video: a YouTube link or video ID is added as it is, anything else is a search whose first
     // match is added. Either way the video goes onto the list of videos for this recording.
-    const handleInput = () => {
-        const text = (queryInput?.value || '').trim();
+    const handleInput = (typed = null, useDefault = false) => {
+        // Switching the part resets the field to that part's search, so the buttons pass on what was typed before they switched
+        const text = (typeof typed === 'string' ? typed : (queryInput?.value || '')).trim();
         if (!text) return;
 
         if (playerState.isSearching) {
             cancelYouTubeSearch();
+        }
+
+        // Nothing was typed: search for the part's own default (the part is already switched to)
+        if (useDefault) {
+            redoSearchWithQuery(getDefaultQuery(playerState.trackMode));
+            return;
         }
 
         const videoId = extractVideoId(text);
@@ -1666,20 +1696,9 @@ export function initYouTubePlayer() {
         }
     };
 
-    redoSearchBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        handleInput();
-    });
-    queryInput?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            handleInput();
-        }
-    });
-    // A pasted link is added at once; pasted words are left for the person to edit and search
-    queryInput?.addEventListener('paste', () => {
-        setTimeout(() => { if (extractVideoId((queryInput.value || '').trim())) handleInput(); }, 50);
-    });
+    // The part the video goes to is chosen with the buttons (Add to Full band, Add to Backing): nothing is added by Enter or a
+    // paste. The buttons switch the part first (slotRecordings.js), then ask for the field to be added.
+    window.addEventListener(ADD_VIDEO_EVENT, (e) => handleInput(e.detail?.text, Boolean(e.detail?.useDefault)));
 
     // Listen for YouTube iframe postMessage events (currentTime and player state)
     window.addEventListener('message', (event) => {

@@ -20,7 +20,6 @@ export function initSoundSwitch() {
     initSourceSwitch();
     initPartToggle();
     initSlotRecordings();
-    initMoreDisclosure();
     initGuitarsOnly();
 }
 
@@ -128,22 +127,6 @@ function initPartToggle() {
     });
     watch(document.body, ['class'], sync);
     onMixerChange(sync);
-    sync();
-}
-
-// ---- Under the stems, the recordings list and Add fold away; with no stems they are the panel ----
-function initMoreDisclosure() {
-    const details = $('afMore');
-    const summary = $('afMoreSummary');
-    const stems = $('afStemSection');
-    if (!details || !summary || !stems) return;
-    let was = null;
-    const sync = () => {
-        const stemsShown = !stems.hidden;
-        if (stemsShown !== was) { details.open = !stemsShown; was = stemsShown; }
-        summary.textContent = stemsShown ? 'Other recordings' : 'Recordings';
-    };
-    watch(stems, ['hidden'], sync);
     sync();
 }
 

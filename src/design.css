@@ -6565,36 +6565,36 @@ body.gp-file-active #synthTrackModeContainer { display: none !important; }
 
 /* Original: the slot rows are state the dock presses; the recordings list and Add fold under one row */
 #recSlotField[hidden] { display: none !important; }
-.af-more > summary {
+.rec-part > summary {
   list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px;
   min-height: 44px; padding: 0 12px; margin-bottom: 8px; border-radius: var(--r-control); background: var(--s3);
   color: var(--ink); font-size: 14px; font-weight: 600;
 }
-.af-more > summary::-webkit-details-marker { display: none; }
-.af-more > summary::after {
+.rec-part > summary::-webkit-details-marker { display: none; }
+.rec-part > summary::after {
   content: ''; width: 7px; height: 7px; border-right: 2px solid var(--ink2); border-bottom: 2px solid var(--ink2);
   transform: translateY(-2px) rotate(45deg); transition: transform var(--dur-fast) var(--ease-out); flex: none;
 }
-.af-more[open] > summary::after { transform: translateY(1px) rotate(-135deg); }
-.af-more > summary:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
-@media (hover: hover) { .af-more > summary:hover { background: var(--s2); filter: brightness(1.12); } }
+.rec-part[open] > summary::after { transform: translateY(1px) rotate(-135deg); }
+.rec-part > summary:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+@media (hover: hover) { .rec-part > summary:hover { background: var(--s2); filter: brightness(1.12); } }
 /* Open, the recordings list already has its own heading; the row above it names the group */
-.af-more[open] > summary { background: transparent; padding-left: 0; }
-.af-more[open] #recListLabel { display: none; }
-@media (prefers-reduced-motion: reduce) { .af-more > summary::after { transition: none; } }
+.rec-part[open] > summary { background: transparent; padding-left: 0; }
+#recListLabel { display: none; }
+@media (prefers-reduced-motion: reduce) { .rec-part > summary::after { transition: none; } }
 
 /* Audio latency is last in both panels: a set-once value, the same row for every sound */
 #synthLatencySection, #ytLatencySection { margin-top: 20px; margin-bottom: 0 !important; }
 
-/* Recordings, one group per part. The active part is the one in ink; the lists the panel always kept are hidden state */
+/* Recordings: one expandable section per part, Full band and Backing, each row naming what that part plays. The lists the
+   panel always kept are hidden state */
 #realAudioRecordings > #recListLabel, #realAudioRecordings > #recEmbeddedList, #realAudioRecordings > #afFileSection,
 #realAudioRecordings > #ytVideoSection { display: none !important; }
-.rec-slot-group { margin-bottom: 16px; }
-.rec-slot-head { margin: 0 0 6px; font: 600 13px system-ui, sans-serif; color: var(--ink2); }
-.rec-slot-group[aria-current="true"] .rec-slot-head { color: var(--ink); }
-.rec-slot-group .rec-slots { margin-bottom: 0; }
-.rec-slot-empty { margin: 0; padding: 4px 0 0; font-size: 13px; color: var(--ink2); }
-.rec-slot-empty[hidden] { display: none; }
+.rec-part > summary .rec-part-now { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; font-size: 13px; color: var(--ink2); }
+.rec-part[open] > summary .rec-part-now { display: none; }
+.rec-part .rec-slots { margin-bottom: 8px; }
+.rec-part-empty { margin: 0 0 8px; padding: 0; font-size: 13px; color: var(--ink2); }
+.rec-part-empty[hidden] { display: none; }
 
 /* ---- Loose follow: a recording with no sync points. The reading marker (shared with the text tabs) glides down the score ---- */
 
@@ -6614,3 +6614,12 @@ body.phone-reader:not(.library-view-active) .rec-strip.is-loose .rec-actions { f
 body.phone-reader:not(.library-view-active) .rec-strip.is-loose .rec-actions .ct-text { min-height: 44px; padding: 0 14px; font-size: 14px; }
 body.phone-reader:not(.library-view-active) .rec-strip.is-loose .rec-actions .ct-text::after { display: none; }
 @media (prefers-reduced-motion: reduce) { .rec-loose .ct-text { transition: none; } }
+
+/* Add a video: one button for each part it can go to */
+.yt-add-to { display: flex; gap: 8px; }
+.yt-add-to .btn { flex: 1 1 0; }
+@media (pointer: coarse) { .yt-add-to .btn { min-height: 44px; } }
+body.phone-reader .yt-add-to .btn { min-height: 44px; }
+#ytDropdownPanel .yt-add-to .rec-text-btn { background: var(--s2) !important; border-radius: var(--r-control); color: var(--ink); text-align: center; }
+@media (hover: hover) { #ytDropdownPanel .yt-add-to .rec-text-btn:hover { background: var(--s3) !important; } }
+#ytDropdownPanel .yt-add-to .rec-text-btn:active { background: var(--s3) !important; }
