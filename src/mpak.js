@@ -1065,7 +1065,8 @@ export async function applyMpakExtras(data, opened, options = {}) {
     const { decodePeaks } = await import('./audioSync/peaks.js');
     const { attachLibraryAudio, attachLibraryAudioAlternate } = await import('./audioSync/libraryAudio.js');
     const { saveRecord, loadRecord, samePoints, setSyncSharedFromOriginal, mediaKey, SYNC_CHANGED_EVENT } = await import('./audioSync/syncStore.js');
-    const { setRecordingMeta, metaOfPackRecording } = await import('./audioSync/recordingMeta.js');
+    const { setRecordingMeta, metaOfPackRecording, listRecordingMeta } = await import('./audioSync/recordingMeta.js');
+    const { stemsOfMeta } = await import('./audioSync/stemSet.js');
     const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
     const totalAudioFiles = (data?.recordings || []).filter((r) => (r.sources || []).some((s) => s.type === 'file' && s.path && opened?.entries?.includes(s.path))).length;
     let savedAudioCount = 0;
@@ -1197,7 +1198,11 @@ export async function applyMpakExtras(data, opened, options = {}) {
         try {
             const syncDocs = syncDocsOf(rec);
             const hasSync = syncDocs.length > 0;
-            const takenId = options.keepExistingSlots ? slotTakenBy(slot) : null;
+            let takenId = options.keepExistingSlots ? slotTakenBy(slot) : null;
+            // A song whose two sounds share one stem set has its lead in the Backing slot only as the default: a backing
+            // recording of the pack's own takes the slot (a file the person chose for it stays)
+            if (takenId && slot === 'backing' && rec.role === 'backing' && slotTakenBy('original') === takenId
+                && stemsOfMeta(listRecordingMeta(primaryKey)[mediaKey({ kind: 'local', audioId: takenId })])) takenId = null;
 
             // One recording in both slots (a set of stems): the file is stored once, the second slot points at it
             const already = resolvedMedia.get(rec.id);

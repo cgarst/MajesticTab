@@ -1234,3 +1234,39 @@ test('saveMpakToLibrary and buildMpak roundtrip a stem-only pack with all stems 
     assert.ok(exportedSet.members[1].sync || exportedSet.members[1].syncFrom === exportedSet.lead.id);
     assert.ok(exportedSet.members[2].sync || exportedSet.members[2].syncFrom === exportedSet.lead.id);
 });
+
+// A song whose two sounds share one stem set, and a pack that has a backing recording of its own
+async function applyStemsAndBacking(seed) {
+    lsMap.clear();
+    const { setRecordingMeta } = await import('../../src/audioSync/recordingMeta.js');
+    const songKey = 'Band - Stems Song';
+    const lead = await saveAudioFile({ name: 'lead.m4a', type: 'audio/mp4', data: new Uint8Array(8).fill(1).buffer, songKey });
+    const part = await saveAudioFile({ name: 'part.m4a', type: 'audio/mp4', data: new Uint8Array(8).fill(2).buffer, songKey });
+    const mine = await saveAudioFile({ name: 'mine.mp3', type: 'audio/mpeg', data: new Uint8Array(8).fill(3).buffer, songKey });
+    setRecordingMeta(songKey, { kind: 'local', audioId: lead.id }, { role: 'original', label: 'All stems', stems: [{ audioId: lead.id, label: 'lead' }, { audioId: part.id, label: 'part' }] });
+    localStorage.setItem(`audio_file_${enc(songKey)}_original`, lead.id);
+    localStorage.setItem(`real_audio_source_${enc(songKey)}_original`, 'local');
+    localStorage.setItem(`audio_file_${enc(songKey)}_backing`, seed({ lead, mine }));
+    localStorage.setItem(`real_audio_source_${enc(songKey)}_backing`, 'local');
+    const bytes = new Map([['audio/lead.m4a', new Uint8Array(8).fill(1)], ['audio/part.m4a', new Uint8Array(8).fill(2)], ['audio/backing.mp3', new Uint8Array(8).fill(9)]]);
+    const stem = (id, path) => ({ id, role: 'stem', label: id, sources: [{ type: 'file', path, mime: 'audio/mp4' }] });
+    const data = {
+        scores: [{ id: 'gp', format: 'gp', name: 'x.gp' }],
+        recordings: [stem('stem-1', 'audio/lead.m4a'), stem('stem-2', 'audio/part.m4a'), { id: 'audio-1', role: 'backing', sources: [{ type: 'file', path: 'audio/backing.mp3', mime: 'audio/mpeg' }] }],
+    };
+    const opened = { entries: [...bytes.keys()], file: async (p) => bytes.get(p), sync: () => null };
+    await applyMpakExtras(data, opened, { songKey, applyToActiveReader: false, keepExistingSlots: true });
+    return { songKey, lead, mine, back: localStorage.getItem(`audio_file_${enc(songKey)}_backing`) };
+}
+
+test('a pack\'s own backing recording takes the Backing slot when the slot only holds the stem set\'s lead', async () => {
+    const r = await applyStemsAndBacking(({ lead }) => lead.id);
+    assert.notEqual(r.back, r.lead.id);
+    const rec = await getAudioFile(r.back);
+    assert.equal(rec.name, 'backing.mp3');
+});
+
+test('a backing file the person chose stays in the Backing slot when a pack with its own backing is added', async () => {
+    const r = await applyStemsAndBacking(({ mine }) => mine.id);
+    assert.equal(r.back, r.mine.id);
+});
