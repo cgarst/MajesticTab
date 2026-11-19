@@ -27,11 +27,18 @@ const SKIP_PDF_START_COST = 0.6;
 const pdfStartSkipCost = (n) => Math.min(n, FREE_PDF_START_SKIPS) * SKIP_START_COST + Math.max(0, n - FREE_PDF_START_SKIPS) * SKIP_PDF_START_COST;
 const SKIP_END_COST = 0.1;
 const SKIP_STEP_COST = 0.45;
-const SYS_BREAK_OFF_BAR_PENALTY = 0.75;
+// The PDF's line breaks do not say where the score's bars are when the two barline the same music differently (5/4 + 6/4 in one, 6/4 + 6/4 in the other), so they only break ties
+const SYS_BREAK_OFF_BAR_PENALTY = 0;
 const MAX_DP_BAND = 48;
+const LONG_STEP_RATIO = 2.5;            // a score step this many times the PDF's usual gap can take several PDF points
+const MAX_LONG_STEP_POINTS = 40;
+const LONG_STEP_COST = 0.05;
+const LONG_STEP_MAX_ERROR = 0.25;       // its PDF points must span about the step's own time, so the count they take is pinned down
+const LONG_STEP_ERROR_WEIGHT = 4;
 const MAX_FLAGGED_SHARE = 0.03;
 const ONSET_MATCH_WINDOW_MS = 120;
 const MAX_BAR_SHIFTS = 4;
+const MAX_STEP_SHIFT = 8;                // the PDF may also start a beat or two off the score's first bar
 
 function tickToScoreMs(bar, tick) {
     let seg = bar.segments[0];
@@ -110,7 +117,13 @@ function alignSequences(times, grid, isSysStart = null) {
     // Flat Float64Array per row would be tiny; band-offset rows keep memory O(N * band)
     const rowWidth = 2 * band + 1;
     const dp = new Float64Array(N * rowWidth).fill(INF);
-    const parent = new Int8Array(N * rowWidth); // 1 = diag, 2 = left (skip S), 3 = up (skip P)
+    const parent = new Int16Array(N * rowWidth); // 1 = diag, 2 = left (skip S), 3 = up (skip P), 4 + k = one long step taking k PDF points
+
+    // A score step far longer than the PDF's usual beat (a slow fade-in bar written at a crawl) stands for several PDF points
+    const gaps = [];
+    for (let i = 1; i < N; i++) gaps.push(times[i] - times[i - 1]);
+    gaps.sort((a, b) => a - b);
+    const medianGap = gaps[Math.floor(gaps.length / 2)] || 0;
 
     const colOffset = (i) => Math.round((i * (M - 1)) / Math.max(1, N - 1));
     const cellIdx = (i, j) => {
@@ -164,6 +177,16 @@ function alignSequences(times, grid, isSysStart = null) {
                     const sysPen = isSysStart?.[i] && !grid[j].isBarStart ? SYS_BREAK_OFF_BAR_PENALTY : 0;
                     const cost = dp[diagIdx] + stepCost + sysPen;
                     if (cost < best) { best = cost; bestOp = 1; }
+                    if (medianGap > 0 && ds > medianGap * LONG_STEP_RATIO) {
+                        for (let k = 2; k <= MAX_LONG_STEP_POINTS && k <= i; k++) {
+                            const fromIdx = cellIdx(i - k, j - 1);
+                            if (fromIdx < 0) continue;
+                            const e = Math.abs((times[i] - times[i - k]) / ds - 1);
+                            if (e > LONG_STEP_MAX_ERROR) continue;
+                            const longCost = dp[fromIdx] + e * LONG_STEP_ERROR_WEIGHT + LONG_STEP_COST;
+                            if (longCost < best) { best = longCost; bestOp = 3 + k; }
+                        }
+                    }
                 }
             }
             dp[curIdx] = best;
@@ -196,6 +219,10 @@ function alignSequences(times, grid, isSysStart = null) {
             j--;
         } else if (op === 3) {
             i--;
+        } else if (op > 3) {
+            map[i] = j;
+            i -= op - 3;
+            j--;
         } else {
             map[i] = j;
             break;
@@ -357,9 +384,12 @@ export function inferBarSyncFromPdf(timeline, pdfPoints, options = {}) {
         let bestAudioScore = best.score + scoreAudioOnsetAlignment(timeline, best.result.points, noteScoreTimesMs, audioOnsets) * 150;
         let bestResult = best.result;
 
-        for (let shiftBars = -MAX_BAR_SHIFTS; shiftBars <= MAX_BAR_SHIFTS; shiftBars++) {
-            if (shiftBars === 0) continue;
-            const stepShift = Math.abs(shiftBars) * stepsPerBar0;
+        const shifts = new Set();
+        for (let k = 1; k <= MAX_BAR_SHIFTS; k++) { shifts.add(k * stepsPerBar0); shifts.add(-k * stepsPerBar0); }
+        for (let k = 1; k <= MAX_STEP_SHIFT; k++) { shifts.add(k); shifts.add(-k); }
+        for (const signedShift of shifts) {
+            const shiftBars = Math.sign(signedShift);
+            const stepShift = Math.abs(signedShift);
             const shiftedTimes = shiftBars > 0 ? times.slice(stepShift) : times;
             const shiftedSys = shiftBars > 0 && isSysStart ? isSysStart.slice(stepShift) : isSysStart;
             const shiftedGrid = shiftBars < 0 ? bestGrid.slice(stepShift) : bestGrid;

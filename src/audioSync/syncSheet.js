@@ -185,7 +185,7 @@ function render() {
                 if (media.kind === 'local' && media.audioId) {
                     try {
                         const file = await getAudioFile(media.audioId);
-                        const buf = file ? await file.arrayBuffer() : null;
+                        const buf = file?.data ? (file.data.arrayBuffer ? await file.data.arrayBuffer() : file.data) : null;
                         const audioOnsets = buf ? await decodeOnsets(buf) : null;
                         const noteScoreTimesMs = collectScoreNoteTimes(found.score, found.timeline);
                         if (audioOnsets?.times?.length && noteScoreTimesMs.length) {

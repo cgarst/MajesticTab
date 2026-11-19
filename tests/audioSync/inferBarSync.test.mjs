@@ -171,3 +171,21 @@ test('the PDF\'s first point stays on the score\'s first bar instead of skipping
     assert.ok(res);
     assert.equal(res.points[0].timeMs, 0);
 });
+
+test('a slow fade-in bar at the start of the score takes the many PDF beats it stands for', () => {
+    // Bar 0 is 4/4 written at 24 BPM (10 s); the PDF spends 20 beats (500 ms each) on it, then 39 bars of 4/4 at 120 BPM
+    const bars = [];
+    let tick = 0;
+    for (let i = 0; i < 40; i++) {
+        bars.push({ barIndex: i, start: tick, end: tick + 3840, num: 4, den: 4, tempoChanges: i === 0 ? [{ tick: 0, tempo: 24 }] : i === 1 ? [{ tick: 3840, tempo: 120 }] : [] });
+        tick += 3840;
+    }
+    // 20 beats for bar 0 (0..10 s), then 39 bars x 4 beats at 500 ms
+    const pdfPoints = Array.from({ length: 20 + 156 }, (_, i) => ({ timeMs: i * 500 }));
+    const res = inferBarSyncFromPdf(buildScoreTimeline(bars), pdfPoints);
+    assert.ok(res);
+    assert.equal(res.points[0].timeMs, 0);
+    assert.equal(res.points[1].barIndex, 1);
+    assert.equal(res.points[1].timeMs, 10000);
+    assert.equal(res.points[2].timeMs, 12000);
+});
