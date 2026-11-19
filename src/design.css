@@ -6640,3 +6640,21 @@ body.phone-reader .yt-add-to .btn { min-height: 44px; }
   .add-stems-file { grid-column: 1 / -1; }
   .add-stems-actions .btn { min-height: 44px; }
 }
+
+
+/* ==========================================================================
+   Boot screen (index.html, removed by main.js once the app is ready). It paints before the CDN files arrive, so it uses
+   only theme tokens from the local stylesheets; the inline script in the head applies the saved theme first.
+   ========================================================================== */
+#bootSplash {
+  position: fixed; inset: 0; z-index: 2147483000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  background: var(--ground); color: var(--ink2);
+  font: 500 14px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+#bootSplash.boot-done { opacity: 0; pointer-events: none; }
+#bootSplash .boot-bar { width: 120px; height: 2px; border-radius: 1px; background: var(--s3); overflow: hidden; }
+#bootSplash .boot-bar::after { content: ""; display: block; width: 40%; height: 100%; background: var(--ink2); animation: bootSlide 1.1s ease-in-out infinite; }
+@keyframes bootSlide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { #bootSplash .boot-bar::after { animation: none; width: 100%; opacity: 0.5; } }

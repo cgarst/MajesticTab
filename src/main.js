@@ -1283,7 +1283,7 @@ async function initApp() {
         const splash = document.getElementById('bootSplash');
         if (splash) {
             splash.classList.add('boot-done');
-            setTimeout(() => splash.remove(), 300);
+            setTimeout(() => splash.remove(), 200);
         }
     }
 }
