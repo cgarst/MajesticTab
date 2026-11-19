@@ -460,6 +460,8 @@ export function updateRealAudioPanelView() {
  */
 export function switchRealAudioSlot(slot) {
     if (slot !== 'original' && slot !== 'backing') return;
+    // Playing now: the other slot's sound takes over where this one is, whichever mix of file, stems, video or embedded audio
+    const playingFrom = slot !== state.slot ? snapshotPlayback() : null;
     // A stem set that is playing stays the sound in the other slot (its mutes follow the slot)
     if (slot !== state.slot && getSlotSource(state.slot) === 'local' && carryStemSetToSlot(slot)) setSlotSource('local', slot);
     state.slot = slot;
@@ -477,6 +479,68 @@ export function switchRealAudioSlot(slot) {
     // Update panel view and dock icon
     updateRealAudioPanelView();
     updateGlobalAudioControls();
+    if (playingFrom) carryPlaybackOver(playingFrom, slot);
+}
+
+let handoffGen = 0;
+
+/** Where the sound that is playing now is, or null when nothing real is playing. */
+function snapshotPlayback() {
+    if (!isRealAudioPlaying()) return null;
+    const source = getRealAudioActiveSource();
+    let timeMs = 0;
+    try {
+        if (source === 'embedded') timeMs = embedded.source?.getTimeMs() || 0;
+        else if (source === 'local') timeMs = getLocalRecording()?.source.getTimeMs() || 0;
+        else timeMs = (jamYouTubeControl.snapshot().timeSec || 0) * 1000;
+    } catch { /* start from the cursor */ }
+    return { timeMs };
+}
+
+/**
+ * Keeps the audio going after a slot switch. A stem set shared by both slots already plays on (only its mutes change); any
+ * other change (a different file, a video, the file's own audio) stopped or left the old sound, so the new slot's sound is
+ * started here and the old one paused. A recording with map points finds its place from the cursor when it plays; one without
+ * is moved to the time the old one had reached.
+ */
+async function carryPlaybackOver(from, slot) {
+    const token = ++handoffGen;
+    const stale = () => token !== handoffGen || state.slot !== slot;
+    const target = getRealAudioActiveSource();
+    const media = target === 'embedded' ? null : getMediaForSlot(slot);
+    if (target !== 'embedded' && !media) return; // nothing attached to that slot: leave the sound as it is
+    const mapped = Boolean(media && loadRecord(getSongKey(), media)?.points.length);
+    try {
+        if (target === 'embedded') {
+            pauseYouTube();
+            pauseAudioFile();
+            if (!embedded.source?.isPlaying()) await playPauseEmbeddedAudio();
+        } else if (target === 'local') {
+            pauseYouTube();
+            if (isAudioFilePlaying()) return;
+            await playPauseAudioFile();
+            if (stale()) { pauseAudioFile(); return; }
+            const local = getLocalRecording()?.source;
+            if (!mapped && local) local.seek(from.timeMs);
+        } else {
+            pauseAudioFile();
+            embedded.playGen++;
+            embedded.source?.pause();
+            // The video loads and plays by itself (the track mode change started it); if the player does not take it up, start it
+            for (let waited = 0; waited < 8000; waited += 250) {
+                if (stale()) return;
+                const snap = jamYouTubeControl.snapshot();
+                if (snap.playing && snap.videoId === media.videoId) break;
+                if (waited >= 2500 && snap.videoId === media.videoId && !snap.buffering) jamYouTubeControl.play();
+                await new Promise((r) => setTimeout(r, 250));
+            }
+            if (!stale() && !mapped && Math.abs(jamYouTubeControl.snapshot().timeSec * 1000 - from.timeMs) > 1500) {
+                jamYouTubeControl.seek(from.timeMs / 1000);
+            }
+        }
+    } catch (e) {
+        console.warn('[Real Audio] could not carry the sound to the other part:', e);
+    }
 }
 
 /**
@@ -533,6 +597,7 @@ export function isRealAudioPlaying() {
 let countingIn = null;
 
 export function playPauseRealAudio() {
+    handoffGen++; // the person's own press settles what plays: stop carrying a sound over
     if (countingIn) { clearTimeout(countingIn); countingIn = null; return; }
     // With sync data and the count-in on, a bar of clicks at the recording's tempo comes before it starts
     if (synthPlayerState.countInEnabled && !isRealAudioPlaying()) {
@@ -553,6 +618,7 @@ export function playPauseRealAudio() {
 }
 
 export function pauseRealAudio() {
+    handoffGen++; // a pause ends a sound that was being carried to the other slot
     if (countingIn) { clearTimeout(countingIn); countingIn = null; }
     pauseYouTube();
     pauseAudioFile();
