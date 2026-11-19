@@ -300,6 +300,15 @@ export function listRecords(songKey, storage = recordStorage) {
 
 /** Every stored `pdf` record for `songKey` and `media` (under `score:<sha256>:<songKey>` or `text:<songKey>`), newest first. */
 export function listPdfRecordsForMedia(songKey, media, storage = recordStorage) {
+    const own = listOwnPdfRecordsForMedia(songKey, media, storage);
+    if (own.length || !stemParentResolver) return own;
+    // A stem whose map equals its parent's has no record of its own (it plays with the parent's), so its PDF map is the parent's
+    let parent = null;
+    try { parent = stemParentResolver(songKey, media); } catch { parent = null; }
+    return parent && mediaKey(parent) && mediaKey(parent) !== mediaKey(media) ? listOwnPdfRecordsForMedia(songKey, parent, storage) : own;
+}
+
+function listOwnPdfRecordsForMedia(songKey, media, storage) {
     const m = mediaKey(media);
     if (!songKey || !m) return [];
     const encodedSong = encodeURIComponent(String(songKey).toLowerCase());
