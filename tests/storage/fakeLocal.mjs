@@ -20,7 +20,7 @@ export function fakeLocal() {
         state,
         addSong(id, title, scores = { 'a.gp5': 'one' }, extra = {}) {
             state.songs.set(id, { id, title, scores: new Map(Object.entries(scores)), audio: null, sync: null, added: Date.now(), ...extra });
-            state.records.songs.push({ id, title, collectionId: 'default', pinned: false, addedAt: Date.now(), tabOptions: [], packId: null });
+            state.records.songs.push({ id, title, collectionId: 'default', pinned: false, addedAt: Date.now(), tabOptions: Object.keys(scores).map((name) => ({ id: `tab_${name}`, title: name })), packId: null });
         },
         editSong(id, fn) { fn(state.songs.get(id)); },
         removeSong(id) { state.songs.delete(id); state.records.songs = state.records.songs.filter((s) => s.id !== id); },
