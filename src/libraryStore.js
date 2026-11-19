@@ -1080,7 +1080,9 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
         fileType: file.name.split('.').pop().toLowerCase(),
         sourceUrl: file.sourceUrl || null,
         sourceWebsite: file.sourceWebsite || null,
-        sha256: contentSha256
+        sha256: contentSha256,
+        // The set a pack score belongs to (src/tabSets.js); the importer links the tabs of one pack once all are added
+        ...(file.mpakOrigin ? { origin: file.mpakOrigin } : {})
     };
 
     const addedOption = await addTabOptionToSong(songId, tabOption);

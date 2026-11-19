@@ -15,6 +15,7 @@ import {
     buildMpak as coreBuildMpak,
 } from './mpak/core/index.js';
 import { decodeText } from './utils/decodeText.js';
+import { linkSets } from './tabSets.js';
 import { newPackId } from './mpakSession.js';
 import { toSyncPoints, fromSyncPoints } from './audioSync/syncStore.js';
 import { fitBarPoints } from './audioSync/fitBarPoints.js';
@@ -767,6 +768,7 @@ function scoreFileOf(entry, bytes) {
     const file = new File([bytes], name, { type: MIME_BY_FORMAT[entry.format] || 'application/octet-stream' });
     if (entry.sha256) file.contentSha256 = entry.sha256;
     if (entry.label) file.mpakLabel = entry.label;
+    if (typeof entry.origin === 'string' && entry.origin) file.mpakOrigin = entry.origin; // SPEC section 6.4: scores of one origin are a set
     // `instruments` is informational and only for scores that carry no tuning of their own (SPEC section 6): take the
     // first entry that lists a tuning.
     const instrumentTuning = (entry.instruments || []).find((i) => Array.isArray(i?.tuning) && i.tuning.length)?.tuning;
@@ -1436,6 +1438,40 @@ async function findTabOfScore(song, file, entry) {
 }
 
 /**
+ * Gives the tabs that a pack added their set (src/tabSets.js): each tab takes its score's `origin`, and the scores of one
+ * origin in this pack link to the first of them (the primary score when it is one). Sets are per file: a tab the song
+ * already had from another pack is not pulled into this pack's set, and a tab that is already in a set keeps it, so adding
+ * the same pack again changes nothing. `tabOptions` is the Map from each score's file to its tab, in pack order; the tabs in
+ * it are updated in place. Returns the song as stored afterwards, or null when nothing changed. `store` is for tests: the
+ * `updateTabOptionOnSong` and `getSongById` it uses.
+ */
+export async function linkImportedSets(song, tabOptions, store = null) {
+    const items = [...tabOptions].map(([file, tab]) => ({ tab, origin: file?.mpakOrigin || null })).filter((x) => x.tab?.id);
+    if (!items.some((x) => x.origin)) return null;
+    const updates = new Map();
+    const want = (tab) => { if (!updates.has(tab.id)) updates.set(tab.id, {}); return updates.get(tab.id); };
+    for (const { tab, origin } of items) if (origin && !tab.origin) want(tab).origin = origin;
+    const links = linkSets(items.filter((x) => x.origin).map((x) => ({ id: x.tab.id, origin: x.origin })));
+    const byId = new Map(items.map((x) => [x.tab.id, x.tab]));
+    for (const [variantId, headId] of links) {
+        const variant = byId.get(variantId);
+        const head = byId.get(headId);
+        if (variant.variantOf || head.variantOf) continue; // already in a set: it keeps it, and a variant is never a head
+        want(variant).variantOf = headId;
+    }
+    if (!updates.size) return null;
+    const { updateTabOptionOnSong, getSongById } = store || await import('./libraryStore.js');
+    for (const [tabId, patch] of updates) {
+        try {
+            Object.assign(byId.get(tabId), await updateTabOptionOnSong(song.id, tabId, patch) || patch);
+        } catch (e) {
+            console.warn('[mpak] could not put the', tabId, 'tab in its set:', e);
+        }
+    }
+    return getSongById(song.id);
+}
+
+/**
  * Saves an .mpak bundle to the library, using its MusicBrainz IDs (`recordingMbid`, `artistMbid`, `albumMbid`)
  * and song metadata to either:
  *   - Add the song in the proper Artist > Album > Song hierarchy (querying MusicBrainz by ID when needed), or
@@ -1543,6 +1579,8 @@ export async function saveMpakToLibrary(input, options = {}) {
             console.warn('[mpak] could not add the', other.score.id, 'score to the song:', e);
         }
     }
+
+    song = (await linkImportedSets(song, tabOptions)) || song;
 
     const mainKey = (song.artist && song.title)
         ? `${song.artist} - ${song.title}`

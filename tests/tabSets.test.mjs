@@ -102,3 +102,56 @@ test('planTabSetMigration: counts rows before and after and lists songs to look 
     assert.deepEqual(report.multiSet, [{ songId: 's2', title: 'Two', sets: 2 }]);
     assert.ok(changes.every((c) => c.songId === 's1' || c.songId === 's2'));
 });
+
+// ---- The import links the tabs a pack added ----
+
+globalThis.localStorage ??= { getItem: () => null, setItem() {}, removeItem() {}, key: () => null, length: 0 };
+const { linkImportedSets } = await import('../src/mpak.js');
+
+// A song store in memory with the one update the importer uses
+function fakeStore(tabs) {
+    const song = { id: 's', tabOptions: tabs };
+    return {
+        song,
+        async updateTabOptionOnSong(_id, tabId, updates) {
+            const t = song.tabOptions.find((x) => x.id === tabId);
+            for (const k of ['origin', 'variantOf']) if (updates[k] !== undefined) { if (updates[k]) t[k] = updates[k]; else delete t[k]; }
+            return t;
+        },
+        async getSongById() { return song; },
+    };
+}
+const added = (tabs, origins) => new Map(tabs.map((t, i) => [{ mpakOrigin: origins[i] }, t]));
+
+test('import: the scores of one origin become a set headed by the first, others stay alone', async () => {
+    const tabs = [{ id: 'gp' }, { id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'mine' }];
+    const st = fakeStore(tabs);
+    const out = await linkImportedSets(st.song, added(tabs, [null, 'Pub', 'Pub', 'Pub', null]), st);
+    assert.ok(out);
+    assert.deepEqual(tabs.map((t) => [t.id, t.origin ?? null, t.variantOf ?? null]),
+        [['gp', null, null], ['a', 'Pub', null], ['b', 'Pub', 'a'], ['c', 'Pub', 'a'], ['mine', null, null]]);
+});
+
+test('import: adding the same pack again changes nothing', async () => {
+    const tabs = [{ id: 'a', origin: 'Pub' }, { id: 'b', origin: 'Pub', variantOf: 'a' }];
+    const st = fakeStore(tabs);
+    assert.equal(await linkImportedSets(st.song, added(tabs, ['Pub', 'Pub']), st), null);
+    assert.deepEqual(tabs, [{ id: 'a', origin: 'Pub' }, { id: 'b', origin: 'Pub', variantOf: 'a' }]);
+});
+
+test('import: tabs the song had from an older import take the origin, and a set from another pack is not pulled in', async () => {
+    const tabs = [{ id: 'old1', origin: 'Pub' }, { id: 'old2', origin: 'Pub', variantOf: 'old1' }, { id: 'n1' }, { id: 'n2' }];
+    const st = fakeStore(tabs);
+    await linkImportedSets(st.song, added(tabs.slice(2), ['Pub', 'Pub']), st);
+    assert.deepEqual(tabs.map((t) => [t.id, t.variantOf ?? null]), [['old1', null], ['old2', 'old1'], ['n1', null], ['n2', 'n1']]);
+});
+
+test('import: a pack with no origin, and a head that is already a variant, are left as they are', async () => {
+    const plain = [{ id: 'a' }, { id: 'b' }];
+    const st = fakeStore(plain);
+    assert.equal(await linkImportedSets(st.song, added(plain, [null, null]), st), null);
+    const tabs = [{ id: 'h', origin: 'Pub', variantOf: 'x' }, { id: 'v', origin: 'Pub' }];
+    const st2 = fakeStore(tabs);
+    await linkImportedSets(st2.song, added(tabs, ['Pub', 'Pub']), st2);
+    assert.equal(tabs[1].variantOf, undefined, 'a variant is never made of a head that is itself a variant');
+});
