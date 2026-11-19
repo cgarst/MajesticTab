@@ -58,23 +58,65 @@ async function fillTabHashes(songs) {
 }
 
 /**
+ * Songs whose files are not on this device are in the backup too when the sync location holds their pack: the pack is
+ * downloaded whole (audio included) and added as it is. A song neither has is listed in `skipped`, so the result says
+ * what the file lacks instead of leaving it out silently.
+ */
+async function packFromSyncStore(songs, packs, skipped, onProgress) {
+    if (!songs.length) return;
+    const noFile = 'its files are not on this device and no copy was found in the sync location';
+    let store = null, why = noFile;
+    try {
+        const { getTarget, openSyncStore } = await import('./syncBackend.js');
+        const target = getTarget();
+        if (target) {
+            const opened = await openSyncStore(target, { interactive: false });
+            if (opened?.status === 'ready') store = opened.store;
+            else why = `its files are only in the sync location, which is not reachable (${opened?.status || 'unavailable'})`;
+        }
+    } catch (err) { why = `its files are only in the sync location, which could not be opened (${err.message})`; }
+    const { isPackId } = await import('./mpak.js');
+    const { createPackStore } = await import('./storage/packStore.js');
+    const have = new Set(packs.map((p) => p.packId));
+    let n = 0;
+    for (const song of songs) {
+        onProgress({ phase: 'cloud', current: ++n, total: songs.length, name: song.title });
+        const packId = isPackId(song.id) ? song.id : (isPackId(song.packId) ? song.packId : null);
+        if (!packId) { skipped.push({ id: song.id, title: song.title, reason: noFile }); continue; }
+        if (have.has(packId)) continue;
+        if (!store) { skipped.push({ id: song.id, title: song.title, reason: why }); continue; }
+        try {
+            const pack = await createPackStore(store).open(packId);
+            packs.push({ packId, songId: song.id, data: await pack.toMpak({ includeAudio: true }) });
+            have.add(packId);
+        } catch (err) {
+            console.warn('[mtbackup] could not fetch', song.title, err);
+            skipped.push({ id: song.id, title: song.title, reason: err.name === 'NotFoundError' ? noFile : err.message });
+        }
+    }
+}
+
+/**
  * Builds a .mtbackup of everything on this device. Resolves to { blob, filename, summary, skipped } where `skipped` lists
  * songs whose pack could not be built (the rest of the backup is still written).
  */
 export async function createMtBackup({ onProgress = () => {} } = {}) {
     const records = await getAllLibraryData();
     const packs = [], skipped = [];
+    const unpacked = []; // songs with a tab and no file of it on this device (hybrid sync gives the files up to the cloud copy)
     let n = 0;
     for (const song of records.songs) {
         onProgress({ phase: 'songs', current: ++n, total: records.songs.length, name: song.title });
         try {
             const pack = await buildSongPack(song);
             if (pack) packs.push({ packId: pack.packId, songId: song.id, data: pack.blob });
+            else if ((song.tabOptions || []).length) unpacked.push(song);
         } catch (err) {
             console.warn('[mtbackup] could not pack', song.title, err);
             skipped.push({ id: song.id, title: song.title, reason: err.message });
         }
     }
+    await packFromSyncStore(unpacked, packs, skipped, onProgress);
     // Read again: building a pack may have given a song a pack id of its own
     const library = await getAllLibraryData();
     await fillTabHashes(library.songs);

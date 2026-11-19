@@ -2610,6 +2610,8 @@ function attachModalHandlers(modal, options = {}) {
                 onProgress: ({ phase, current, total, name }) => {
                     if (phase === 'songs' && total > 0) {
                         showTaskProgress(backupStatusAlert, { label: 'Packaging songs…', detail: `${current} of ${total}${name ? ` · ${name}` : ''}`, value: Math.round((current / total) * 80) });
+                    } else if (phase === 'cloud' && total > 0) {
+                        showTaskProgress(backupStatusAlert, { label: 'Downloading songs kept in the cloud…', detail: `${current} of ${total}${name ? ` · ${name}` : ''}`, value: 80 + Math.round((current / total) * 10) });
                     } else if (phase === 'writing') {
                         showTaskProgress(backupStatusAlert, { label: 'Writing the backup file…', value: 90 });
                     }
