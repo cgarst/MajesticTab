@@ -1,5 +1,5 @@
 // settingsPage.js
-// Settings as a page: a title, a section list (Library and backup, Player, Appearance, Reading, Controls, Sound,
+// Settings as a page: a title, a section list (Cloud sync, Data management, Player, Appearance, Reading, Controls, Sound,
 // About) and grouped rows (title, one line of help, the control). The controls are the ones already in the
 // settings markup, moved into rows, so their ids and handlers keep working. Things you change while playing
 // (size, paper, pages) live in the reader's View menu, not here. Notation and the usual guitar are defaults here; the
@@ -19,14 +19,14 @@ import { formatBytes } from '../backupRestore.js';
 const $ = (id) => document.getElementById(id);
 
 const SECTIONS = [
-    { id: 'library', label: 'Library and backup', icon: 'bi-collection' },
+    { id: 'cloud', label: 'Cloud sync', icon: 'bi-cloud' },
+    { id: 'library', label: 'Data management', icon: 'bi-collection' },
     { id: 'player', label: 'Player', icon: 'bi-person' },
     { id: 'appearance', label: 'Appearance', icon: 'bi-palette' },
     { id: 'reading', label: 'Reading', icon: 'bi-book' },
     { id: 'controls', label: 'Controls', icon: 'bi-controller' },
     { id: 'websearch', label: 'Web search', icon: 'bi-globe2', nativeOnly: true },
     { id: 'sound', label: 'Sound', icon: 'bi-soundwave' },
-    { id: 'classtab', label: 'Classical tab', icon: 'bi-music-note-list' },
     { id: 'updates', label: 'Updates', icon: 'bi-arrow-repeat' },
     { id: 'about', label: 'About', icon: 'bi-info-circle' }
 ];
@@ -409,7 +409,7 @@ export function initSettingsPage() {
         panes.sound.appendChild(sfSection);
     }
 
-    // Library and backup
+    // Cloud sync, and Data management (backup, upkeep). The Library switch lives in Appearance.
     // The data tasks are rows like every other setting. Choosing one opens it in place under its row, and only one
     // is open at a time. They are the same screens the old popup had.
     const taskRow = (tab, title, help, label, danger, name = title) => {
@@ -446,8 +446,8 @@ export function initSettingsPage() {
         return g;
     };
     const syncTask = taskRow('sync', 'Sync with cloud storage', 'Keep this device and your backup location matching.', 'Not synced');
-    panes.library.appendChild(group('Library', makeHideNoTabSongsRow()));
-    panes.library.appendChild(group('Cloud storage', ...syncTask, makeAutoSyncRow(), makeHybridSyncRow(), makeEvictLocalFilesRow()));
+    panes.appearance.appendChild(group('Library', makeHideNoTabSongsRow()));
+    panes.cloud.appendChild(group('Cloud storage', ...syncTask, makeAutoSyncRow(), makeHybridSyncRow(), makeEvictLocalFilesRow()));
     panes.library.appendChild(taskGroup('Back up and restore',
         ...[taskRow('backup', 'Create a backup', 'Save your library to one file you keep.', 'Create'),
             taskRow('restore', 'Restore from a backup', 'Bring a backup file back.', 'Restore')]));
@@ -456,8 +456,12 @@ export function initSettingsPage() {
             taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Review', false, 'Review orphaned files'),
             taskRow('duplicates', 'Duplicate songs', 'Find songs listed more than once, such as a second disc of the same album.', 'Review', false, 'Review duplicate songs'),
             taskRow('dupetabs', 'Duplicate tabs', 'Find tabs stored twice under one song, whatever they are called.', 'Review', false, 'Review duplicate tabs'),
+            taskRow('missing', 'Missing files', 'Find tabs whose file is no longer stored on this device.', 'Review', false, 'Review missing files'),
             taskRow('syncshrink', 'Map records', 'Shrink map points that older imports saved more than once.', 'Review', false, 'Review map records'),
             taskRow('rebuild', 'Packs with extra audio', 'Find songs whose pack holds audio of other songs, and send them again.', 'Review', false, 'Review packs with extra audio')]));
+    // Classical tab sits in Data management, above the Danger zone; renderClasstabPane fills it
+    const classtabHost = el('div', 'classtab-host');
+    panes.library.appendChild(classtabHost);
     const danger = taskGroup('Danger zone',
         ...[taskRow('cache', 'Clear cached data', 'Covers and downloads, kept only to load faster.', 'Clear', true),
             taskRow('delete', 'Delete all data', 'Removes your library, setlists and settings from this device.', 'Delete', true)]);
@@ -466,13 +470,13 @@ export function initSettingsPage() {
     // keep the originals referenced so their ids stay unique if anything still looks them up
     void syncBtn; void moreData; void clearCache; void deleteAll; void backupBtn; void restoreBtn;
 
-    // Classical tab: what the downloaded archive takes up, updating it, who it comes from, and removing it.
+    // Classical tab (in Data management): what the downloaded archive takes up, updating it, who it comes from, and removing it.
     let classtabBusy = false;
     const renderClasstabPane = async () => {
         const { getCatalogRecord, removeArchive } = await import('../classtab/archive.js');
         const { formatUpdated } = await import('../classtab/catalog.js');
         const rec = await getCatalogRecord();
-        const pane = panes.classtab;
+        const pane = classtabHost;
         pane.replaceChildren();
         const credit = async () => {
             const { CLASSTAB_HOME } = await import('../classtab/download.js');
@@ -485,11 +489,10 @@ export function initSettingsPage() {
             });
             const r = row('Source', 'Tabs and MIDI files from classtab.org, a free archive of classical guitar tabs.', open);
             r.classList.add('srow-task');
-            return group('About the archive', r);
+            return r;
         };
         if (!rec) {
-            pane.appendChild(group('Archive', row('No archive', 'Download the Classtab archive from the Classical tab browser in Tools.')));
-            pane.appendChild(await credit());
+            pane.appendChild(group('Classical tab', row('No archive', 'Download the Classtab archive from the Classical tab browser in Tools.'), await credit()));
             return;
         }
         const mb = (rec.bytes / 1048576).toFixed(1);
@@ -536,11 +539,6 @@ export function initSettingsPage() {
             classtabBusy = false;
             renderClasstabPane();
         });
-        pane.appendChild(group('Archive',
-            row('Size on this device', `${mb} MB \u00b7 ${rec.counts.pieces.toLocaleString()} pieces by ${rec.counts.composers.toLocaleString()} composers`),
-            row('Update archive', `Last updated ${formatUpdated(rec.updatedAt)}. Downloads the archive again. Your songs stay.`, upd),
-            row('Backup', 'Not part of your backup. Download it again anytime. Songs you added to your library are backed up.')));
-        pane.appendChild(await credit());
         const btn = el('button', 'btn btn-sm srow-ghost srow-hit is-danger', 'Remove');
         btn.type = 'button';
         btn.setAttribute('aria-label', 'Remove archive');
@@ -554,11 +552,14 @@ export function initSettingsPage() {
             clearTimeout(armed);
             await removeArchive();
         });
-        const r = row('Remove archive', 'Deletes the downloaded archive. Songs you added to your library stay as they are.', btn);
-        r.classList.add('srow-task');
-        const danger = group('Danger zone', r);
-        danger.classList.add('danger');
-        pane.appendChild(danger);
+        const removeRow = row('Remove archive', 'Deletes the downloaded archive. Songs you added to your library stay as they are.', btn);
+        removeRow.classList.add('srow-task');
+        pane.appendChild(group('Classical tab',
+            row('Size on this device', `${mb} MB \u00b7 ${rec.counts.pieces.toLocaleString()} pieces by ${rec.counts.composers.toLocaleString()} composers`),
+            row('Update archive', `Last updated ${formatUpdated(rec.updatedAt)}. Downloads the archive again. Your songs stay.`, upd),
+            row('Backup', 'Not part of your backup. Download it again anytime. Songs you added to your library are backed up.'),
+            await credit(),
+            removeRow));
     };
     renderClasstabPane();
     import('../classtab/archive.js').then((m) => m.onArchiveChange(renderClasstabPane));
@@ -672,7 +673,7 @@ export function initSettingsPage() {
     });
     // Wide: a section is always showing. Narrow: start on the list.
     const wide = () => window.matchMedia('(min-width: 900px)').matches;
-    show('library');
+    show('cloud');
     if (!wide()) {
         wrap.dataset.pane = 'list';
         shell.dataset.pane = 'list';

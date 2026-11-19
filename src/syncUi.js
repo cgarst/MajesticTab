@@ -1,5 +1,5 @@
 // syncUi.js
-// The Sync task: a row in Settings (Library and backup) that opens in place under its row. One tap, then a single review of exactly what will change
+// The Sync task: a row in Settings (Cloud sync and Data management) that opens in place under its row. One tap, then a single review of exactly what will change
 // (see syncEngine.js), one confirmation, and a short result. The sync location is remembered.
 import { planSync, applySync, clearSyncBase } from './syncEngine.js';
 import { UPGRADE_MARKER_NAME } from './incrementalBackup.js';

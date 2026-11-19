@@ -21,6 +21,8 @@ import {
     reloadAllLibraryMetadata, songsMissingTrackNumber, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary, removeTabOptionFromSong
 } from './libraryStore.js';
 import { findDuplicateSongs, findDuplicateTabs } from './libraryDuplicates.js';
+import { findMissingTabFiles } from './libraryMissingFiles.js';
+import { isPackId } from './mpak.js';
 import { sha256 as sha256Bytes } from './mpak/core/index.js';
 import { readLibraryAudio } from './audioSync/libraryAudio.js';
 import { findPooledSongs, readRememberedKeys, readRebuildMarks, markPacksForRebuild } from './packRepair.js';
@@ -1171,7 +1173,7 @@ function getOrCreateModal() {
         modal.className = 'theme-modal-backdrop';
         modal.setAttribute('role', 'dialog');
         modal.setAttribute('aria-modal', 'true');
-        modal.setAttribute('aria-label', 'Library and backup');
+        modal.setAttribute('aria-label', 'Data management');
         document.body.appendChild(modal);
     }
     modalElement = modal;
@@ -1193,8 +1195,10 @@ export async function getSettingsDataHost(tab) {
         navBtn.click();
         await wait(450);
     }
-    for (let i = 0; i < 30 && !document.querySelector('.setnav [data-section="library"]'); i++) await wait(100);
-    const section = document.querySelector('.setnav [data-section="library"]');
+    // The sync task is in Cloud sync; every other data task is in Data management
+    const sectionId = tab === 'sync' ? 'cloud' : 'library';
+    for (let i = 0; i < 30 && !document.querySelector(`.setnav [data-section="${sectionId}"]`); i++) await wait(100);
+    const section = document.querySelector(`.setnav [data-section="${sectionId}"]`);
     if (section && section.getAttribute('aria-current') !== 'true') section.click();
     return document.querySelector(`.data-task-slot[data-task="${tab}"]`);
 }
@@ -1235,10 +1239,10 @@ function leaveEmbeddedBackup() {
 
 /**
  * Open the Data Management modal
- * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'dupetabs'|'syncshrink'|'rebuild'|'cache'|'delete'} initialTab
+ * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'dupetabs'|'missing'|'syncshrink'|'rebuild'|'cache'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup', options = {}) {
-    // Data management lives in Settings, on the Library and backup page. There is no popup.
+    // Data management lives in Settings, on the Data management page. There is no popup.
     const host = await getSettingsDataHost(initialTab);
     if (host) return mountBackupInSettings(host, initialTab, options);
     console.warn('[Data] Settings is not available; cannot open', initialTab);
@@ -1683,6 +1687,22 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           </div>
         </div>
 
+        <!-- TAB: MISSING FILES -->
+        <div id="missingTabContent" style="display: ${activeTab === 'missing' ? 'block' : 'none'};">
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2">Tabs whose file is missing</div>
+            <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+              Tabs that list a file this device no longer holds, so they cannot open. With hybrid sync on, cloud storage is checked too: a tab whose file is still there is left unselected, and a tab kept only in cloud storage is listed only when its pack is gone from there. Removing an entry leaves the song in your library.
+            </div>
+            <div id="missingList"></div>
+          </div>
+          <div id="missingStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="missingCancelBtn">Close</button>
+            <button type="button" class="btn btn-sm btn-theme-danger px-4" id="missingDeleteBtn" disabled>Remove selected</button>
+          </div>
+        </div>
+
         <!-- TAB: MAP RECORDS -->
         <div id="syncshrinkTabContent" style="display: ${activeTab === 'syncshrink' ? 'block' : 'none'};">
           <div class="backup-summary-box p-3 rounded-3 mb-3">
@@ -2045,6 +2065,103 @@ function attachModalHandlers(modal, options = {}) {
     renderDuplicates();
     // The tab scan reads files, so it runs only when its own task is the one open
     if (modal.querySelector('#dupetabsTabContent')?.style.display !== 'none') renderDuplicateTabs();
+
+    const missingList = modal.querySelector('#missingList');
+    const missingDeleteBtn = modal.querySelector('#missingDeleteBtn');
+    const missingStatusAlert = modal.querySelector('#missingStatusAlert');
+    const updateMissingBtn = () => {
+        const n = missingList.querySelectorAll('.missing-check:checked').length;
+        missingDeleteBtn.disabled = n === 0;
+        missingDeleteBtn.textContent = `Remove selected${n ? ` · ${n}` : ''}`;
+    };
+    // With hybrid sync the files may live only in cloud storage, so that copy is checked too. Null when hybrid is off,
+    // the location cannot be reached without asking, or it holds no synced library; `note` says why.
+    const readRemotePacks = async () => {
+        const { isHybridSyncEnabled } = await import('./packSyncLocal.js');
+        if (!isHybridSyncEnabled()) return { packs: null, note: '' };
+        const { getTarget, openSyncStore } = await import('./syncBackend.js');
+        const target = getTarget();
+        if (!target) return { packs: null, note: '' };
+        try {
+            const opened = await openSyncStore(target, { interactive: false });
+            if (opened.status !== 'ready') return { packs: null, note: 'Cloud storage could not be reached, so only this device was checked.' };
+            const { probeLocation, LOCATION } = await import('./storage/upgrade.js');
+            const probe = await probeLocation({ legacy: opened.legacy, current: opened.store });
+            if (probe.state !== LOCATION.CURRENT && probe.state !== LOCATION.BOTH) {
+                return { packs: null, note: 'Cloud storage holds no synced library yet, so only this device was checked.' };
+            }
+            const packs = new Set();
+            for (const e of await opened.store.list('packs/')) {
+                const m = /^packs\/([^/]+)\/manifest\.json$/.exec(e.path);
+                if (m) packs.add(m[1]);
+            }
+            return { packs, note: '' };
+        } catch (err) {
+            console.warn('[Data] Missing files: cloud check failed', err);
+            return { packs: null, note: 'Cloud storage could not be reached, so only this device was checked.' };
+        }
+    };
+    const renderMissing = async () => {
+        missingList.innerHTML = '<div class="text-white-50 small">Checking your tabs…</div>';
+        let found = [];
+        let note = '';
+        try {
+            const stored = await getAllStoredFiles();
+            const remote = await readRemotePacks();
+            note = remote.note;
+            found = findMissingTabFiles(await getAllSongs(), new Set(stored.map((f) => f.id)), {
+                remotePackIds: remote.packs,
+                packIdOf: (s) => (isPackId(s.id) ? s.id : (isPackId(s.packId) ? s.packId : null))
+            });
+        } catch (err) {
+            console.error('Failed to scan for missing files:', err);
+            missingList.innerHTML = `<div class="text-danger small">Failed to scan: ${escapeHtml(err.message)}</div>`;
+            return;
+        }
+        const noteHtml = note ? `<div class="small text-white-50 mb-2">${escapeHtml(note)}</div>` : '';
+        if (found.length === 0) {
+            missingList.innerHTML = `${noteHtml}<div class="text-white-50 small">Every tab has its file.</div>`;
+            updateMissingBtn();
+            return;
+        }
+        // Gone on the device and in cloud storage is checked; a copy still in cloud storage, or a guess, is not
+        const why = (g) => (g.inCloud ? 'a copy is in cloud storage, so sync can bring it back'
+            : g.kind === 'cloud' ? 'not on this device or in cloud storage'
+                : g.tabs.length === g.songTabCount ? 'no tab left after removal' : '');
+        missingList.innerHTML = `${noteHtml}
+          <div class="d-flex flex-column gap-2" style="max-height: 45vh; overflow-y: auto;">
+            ${found.map((g) => `
+              <div class="p-2 rounded-2 backup-stat-card">
+                <div class="small text-white text-truncate">${escapeHtml(g.song.title || 'Untitled')}<span class="text-white-50"> · ${escapeHtml(g.song.artist || '')}</span></div>
+                ${why(g) ? `<div class="small text-white-50">${escapeHtml(why(g)[0].toUpperCase() + why(g).slice(1))}</div>` : ''}
+                ${g.tabs.map((t) => `
+                  <label class="d-flex align-items-center gap-2 mb-0 mt-1" style="cursor: pointer;">
+                    <input type="checkbox" class="form-check-input missing-check flex-shrink-0" data-song="${escapeHtml(g.song.id)}" data-tab="${escapeHtml(t.id)}" ${g.inCloud ? '' : 'checked'}>
+                    <span class="small text-white-50 text-truncate">Remove ${escapeHtml(t.name || 'a tab')}</span>
+                  </label>`).join('')}
+              </div>`).join('')}
+          </div>`;
+        missingList.querySelectorAll('.missing-check').forEach((cb) => cb.addEventListener('change', updateMissingBtn));
+        updateMissingBtn();
+    };
+    modal.querySelector('#missingCancelBtn')?.addEventListener('click', closeBackupModal);
+    missingDeleteBtn?.addEventListener('click', async () => {
+        const tabs = [...missingList.querySelectorAll('.missing-check:checked')].map((cb) => ({ song: cb.dataset.song, tab: cb.dataset.tab }));
+        if (tabs.length === 0) return;
+        missingDeleteBtn.disabled = true;
+        missingDeleteBtn.textContent = 'Removing…';
+        showTaskProgress(missingStatusAlert, { label: 'Removing tabs with no file…', detail: `${tabs.length} selected` });
+        try {
+            for (const t of tabs) await removeTabOptionFromSong(t.song, t.tab);
+            showTaskResult(missingStatusAlert, 'done', `Removed ${tabs.length} ${tabs.length === 1 ? 'tab' : 'tabs'}`);
+        } catch (err) {
+            console.error('Failed to remove tabs with no file:', err);
+            showTaskResult(missingStatusAlert, 'error', `Could not remove the tabs. ${err.message}`);
+        }
+        await renderMissing();
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+    });
+    if (modal.querySelector('#missingTabContent')?.style.display !== 'none') renderMissing();
 
     // --- MAP RECORDS ---
     const syncshrinkList = modal.querySelector('#syncshrinkList');

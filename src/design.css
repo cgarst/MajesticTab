@@ -2159,7 +2159,7 @@ body.fretboard-open {
 .shelf-item.active::before { left: 50%; top: auto; bottom: 0; margin: 0 0 0 -3px; }
 
 /* ---------- Data management: one task at a time, tone steps instead of outlines ----------
-   Settings, Library and backup opens the right task directly, there is no popup or tab strip. */
+   Settings, Data management opens the right task directly, there is no popup or tab strip. */
 .backup-stat-card, .restore-mode-card, .backup-provider-option, .drive-backup-item, .backup-dropzone, #restoreInspectionCard {
   background: var(--s2) !important; border: 0 !important; box-shadow: none !important;
 }
@@ -2726,7 +2726,7 @@ body.fretboard-open {
 .backup-summary-box { background: var(--s2) !important; border: 0 !important; box-shadow: none !important; }
 .backup-summary-box i { display: none; }
 
-/* ---------- Data tasks live on the Settings page (Library and backup) ---------- */
+/* ---------- Data tasks live on the Settings page (Cloud sync and Data management) ---------- */
 .data-task-back { display: inline-flex; background: transparent !important; border: 0 !important; color: var(--ink2) !important; padding-left: 0 !important; margin: 4px 0 8px; }
 .data-task-back::before { content: "\2039"; margin-right: 6px; font-size: 18px; line-height: 1; }
 #backupModal.is-embedded,
