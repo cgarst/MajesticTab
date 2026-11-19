@@ -1049,7 +1049,7 @@ async function openNativePayload(opened) {
 }
 
 // --- INITIALIZATION ---
-async function initApp() {
+async function initAppInner() {
     // Debug: Always log that we're starting
     console.log('[App Init] DOMContentLoaded fired');
     console.log('[App Init] Current URL:', window.location.href);
@@ -1227,7 +1227,7 @@ async function initApp() {
         const route = getRouteFromUrl();
         if (!isAuthRedirect && !route && !document.documentElement.classList.contains('jam-web-guest')) {
             console.log('[Normal Mode] Opening Tab Library as default home page');
-            openLibraryModal('library');
+            bootRender = openLibraryModal('library');
         }
     }
 
@@ -1268,6 +1268,24 @@ async function initApp() {
     setupTapClickNavigation(output, getNavigationConfig);
     initPageStrip(getNavigationConfig);
     initTextSync({ getConfig: getNavigationConfig, getCurrentFile });
+}
+
+let bootRender = null;
+
+// The boot screen in index.html stays up until the library (or the opened file) is on screen
+async function initApp() {
+    try {
+        await initAppInner();
+        await bootRender;
+    } catch (error) {
+        console.error('[App Init] failed:', error);
+    } finally {
+        const splash = document.getElementById('bootSplash');
+        if (splash) {
+            splash.classList.add('boot-done');
+            setTimeout(() => splash.remove(), 300);
+        }
+    }
 }
 
 // Modules with top-level await (channel.js) can finish evaluating after DOMContentLoaded has fired.

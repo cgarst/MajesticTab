@@ -5,8 +5,10 @@
 <title>MajesticTab</title>
 <meta name="theme-color" content="#06050a">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<!-- Loaded without blocking the first paint: the boot screen covers the page until the app is ready -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" media="print" onload="this.media='all'">
+<noscript><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"></noscript>
 <script>if (document.querySelector('meta[name="majestictab-jam-host"]') && !window.__TAURI__) document.documentElement.classList.add('jam-web-guest');</script>
 <link href="style.css" rel="stylesheet">
 <link href="tuner/tuner.css" rel="stylesheet">
@@ -18,10 +20,20 @@
 <link rel="manifest" href="site.webmanifest" />
 <link rel="icon" href="icons/favicon.ico" type="image/x-icon" />
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<style>
+/* Boot screen: inline so it paints before any stylesheet or CDN script has arrived. main.js removes it once the app is ready. */
+#bootSplash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#06050a;color:#b9b6c6;font:500 14px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;transition:opacity .2s ease}
+#bootSplash.boot-done{opacity:0;pointer-events:none}
+#bootSplash .boot-bar{width:120px;height:2px;border-radius:1px;background:rgba(255,255,255,.12);overflow:hidden}
+#bootSplash .boot-bar::after{content:"";display:block;width:40%;height:100%;background:#b9b6c6;animation:bootSlide 1.1s ease-in-out infinite}
+@keyframes bootSlide{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
+@media (prefers-reduced-motion:reduce){#bootSplash .boot-bar::after{animation:none;width:100%;opacity:.5}}
+</style>
 </head>
 <body class="library-view-active">
+  <div id="bootSplash" role="status" aria-live="polite"><div class="boot-bar" aria-hidden="true"></div><span>Loading</span></div>
   <div id="updateBanner" class="update-banner" hidden role="status">
     <i class="bi bi-cloud-arrow-down-fill update-banner-icon"></i>
     <div class="update-banner-content">
