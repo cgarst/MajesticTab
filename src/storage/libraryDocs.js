@@ -12,6 +12,7 @@
 // does not strip what a newer one wrote. Device-local ids (file store ids, Drive file ids) never leave the device.
 
 import { updateJson, readJsonIfExists } from './contract.js';
+import { linkSets, deriveLegacySets } from '../tabSets.js';
 
 export const LIBRARY_FORMAT = 'majestictab_library';
 export const PROFILE_FORMAT = 'majestictab_profile';
@@ -111,6 +112,7 @@ const tabFromScore = (s, createdAt) => ({
     stringCount: null, fileType: s.format, startPage: Number.isInteger(s.startPage) ? s.startPage : null,
     endPage: Number.isInteger(s.endPage) ? s.endPage : null, isAlbumRange: false, isDefault: false,
     sourceUrl: null, sourceWebsite: null, sha256: s.sha256 || null, addedAt: createdAt,
+    ...(typeof s.origin === 'string' && s.origin ? { origin: s.origin } : {}),
 });
 
 /**
@@ -121,8 +123,21 @@ export function songFromManifest(packId, manifest, { collectionId = 'default', n
     const m = manifest.song || {};
     const created = Date.parse(manifest.createdAt) || now;
     const scores = (manifest.scores || []);
-    const tabs = scores.flatMap((s) => [s, ...(s.alternates || [])]).map((s) => tabFromScore(s, created));
+    // An alternate is in the set of its parent (MusicPackSpec section 6.4)
+    const tabs = scores.flatMap((s) => [s, ...(s.alternates || []).map((a) => (a.origin || !s.origin ? a : { ...a, origin: s.origin }))])
+        .map((s) => tabFromScore(s, created));
     if (tabs[0]) tabs[0].isDefault = true;
+    // Sets (src/tabSets.js): from the scores' `origin`, or, for a pack made before it existed, from the tab names
+    if (tabs.some((t) => t.origin)) {
+        for (const [id, head] of linkSets(tabs)) tabs.find((t) => t.id === id).variantOf = head;
+    } else {
+        const { changes } = deriveLegacySets({ tabOptions: tabs });
+        for (const c of changes) {
+            const t = tabs.find((x) => x.id === c.tabId);
+            t.origin = c.origin;
+            if (c.variantOf) t.variantOf = c.variantOf;
+        }
+    }
     return {
         id: packId, packId: manifest.id === packId ? null : packId, collectionId,
         title: m.title || 'Untitled Song', artist: m.artist || 'Unknown Artist', artistMbid: m.artistMbid || null,

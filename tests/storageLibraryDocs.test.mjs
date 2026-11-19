@@ -140,3 +140,42 @@ test('an index default tab that matches nothing falls back to the first tab', ()
     const out = applyIndexToSong({ id: 'p', tabOptions: [] }, { id: 'x', defaultTabId: 'gone', tabOptions: [{ id: 't1', sha256: null, name: 'n' }] });
     assert.equal(out.defaultTabId, 't1');
 });
+
+// ---- Tab sets: origin and variantOf (src/tabSets.js) ----
+
+const pdfScore = (id, label, origin) => ({ id, label, path: `score/${id}.pdf`, format: 'pdf', sha256: id.padEnd(64, '0').slice(0, 64), ...(origin ? { origin } : {}) });
+
+test('a rebuilt song links the scores of one origin into a set, and leaves the others alone', () => {
+    const m = { ...manifest, scores: [
+        { id: 'gp', path: 'score/a.gp5', format: 'gp5', sha256: 'b'.repeat(64) },
+        pdfScore('g1t', 'Guitar 1 (Tablature)', 'Pub'), pdfScore('g1s', 'Guitar 1 (Score)', 'Pub'), pdfScore('mine', 'My chart'),
+    ] };
+    const s = songFromManifest('pack-1', m);
+    assert.deepEqual(s.tabOptions.map((t) => [t.id, t.origin ?? null, t.variantOf ?? null]), [['gp', null, null], ['g1t', 'Pub', null], ['g1s', 'Pub', 'g1t'], ['mine', null, null]]);
+});
+
+test('an alternate is in the set of its parent', () => {
+    const m = { ...manifest, scores: [{ ...pdfScore('p', 'Main', 'Pub'), alternates: [pdfScore('easy', 'Easy')] }] };
+    const s = songFromManifest('pack-1', m);
+    assert.deepEqual(s.tabOptions.map((t) => [t.id, t.origin, t.variantOf ?? null]), [['p', 'Pub', null], ['easy', 'Pub', 'p']]);
+});
+
+test('a pack without origin gets its sets from the tab names, so a rebuilt library groups as before', () => {
+    const m = { ...manifest, scores: [
+        pdfScore('guitar-1-tablature', 'Guitar 1 (Tablature)'), pdfScore('guitar-1-score', 'Guitar 1 (Score)'),
+        pdfScore('guitar-2-tablature', 'Guitar 2 (Tablature)'), pdfScore('guitar-2-score', 'Guitar 2 (Score)'),
+    ] };
+    const s = songFromManifest('pack-1', m);
+    assert.deepEqual(s.tabOptions.map((t) => t.variantOf ?? null), [null, 'guitar-1-tablature', 'guitar-1-tablature', 'guitar-1-tablature']);
+    assert.ok(s.tabOptions.every((t) => t.origin === 'Jammit'));
+});
+
+test('origin and variantOf travel through the library index, a merge and an index import', () => {
+    const tabs = [{ id: 'h', name: 'H', origin: 'Pub', fileStoreId: 'x' }, { id: 'v', name: 'V', origin: 'Pub', variantOf: 'h', fileStoreId: 'y' }];
+    const doc = toLibraryDoc({ songs: [song({ tabOptions: tabs })] });
+    assert.deepEqual(doc.songs[0].tabOptions.map((t) => [t.origin, t.variantOf ?? null, 'fileStoreId' in t]), [['Pub', null, false], ['Pub', 'h', false]]);
+    const merged = mergeSong(song({ tabOptions: tabs }), song({ tabOptions: [] }));
+    assert.equal(merged.tabOptions.find((t) => t.id === 'v').variantOf, 'h');
+    const applied = applyIndexToSong({ id: 'p', tabOptions: [] }, fromLibraryDoc(doc).songs[0]);
+    assert.equal(applied.tabOptions.find((t) => t.id === 'v').variantOf, 'h');
+});

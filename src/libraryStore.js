@@ -659,6 +659,9 @@ export async function addTabOptionToSong(songId, tabOption) {
         sha256: tabOption.sha256 || null,
         addedAt: tabOption.addedAt || Date.now()
     };
+    // The set the tab belongs to (src/tabSets.js). Only written when there is one, so a tab outside a set has neither field.
+    if (typeof tabOption.origin === 'string' && tabOption.origin) newOption.origin = tabOption.origin;
+    if (typeof tabOption.variantOf === 'string' && tabOption.variantOf) newOption.variantOf = tabOption.variantOf;
 
     if (!Array.isArray(song.tabOptions)) {
         song.tabOptions = [];
@@ -670,6 +673,9 @@ export async function addTabOptionToSong(songId, tabOption) {
         newOption.sourceUrl = newOption.sourceUrl || song.tabOptions[existingIdx].sourceUrl || null;
         newOption.sourceWebsite = newOption.sourceWebsite || song.tabOptions[existingIdx].sourceWebsite || null;
         newOption.addedAt = song.tabOptions[existingIdx].addedAt || tabOption.addedAt || Date.now();
+        // Saving the same tab again (a re-import, a new file) keeps its set unless the caller says otherwise
+        if (!newOption.origin && song.tabOptions[existingIdx].origin) newOption.origin = song.tabOptions[existingIdx].origin;
+        if (!newOption.variantOf && song.tabOptions[existingIdx].variantOf) newOption.variantOf = song.tabOptions[existingIdx].variantOf;
         song.tabOptions[existingIdx] = newOption;
     } else {
         song.tabOptions.push(newOption);
@@ -727,6 +733,11 @@ export async function updateTabOptionOnSong(songId, tabOptionId, updates = {}) {
     if (updates.sha256 !== undefined) tab.sha256 = updates.sha256;
     if (updates.providerId !== undefined) tab.providerId = updates.providerId;
     if (updates.preferredStringCount !== undefined) tab.preferredStringCount = updates.preferredStringCount;
+    // null clears the field: a tab leaves its set
+    for (const key of ['origin', 'variantOf']) {
+        if (updates[key] === undefined) continue;
+        if (typeof updates[key] === 'string' && updates[key]) tab[key] = updates[key]; else delete tab[key];
+    }
 
     await saveSongToLibrary(song, song.collectionId);
     return tab;
