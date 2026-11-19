@@ -492,6 +492,24 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
         return popupWV
     }
 
+    // This plugin replaces the webview's own UI delegate, which is the one that opens the file chooser for
+    // <input type="file">. Without this method WebKit shows nothing when a page clicks such an input.
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = parameters.allowsDirectories
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.resolvesAliases = true
+        let finish: (NSApplication.ModalResponse) -> Void = { response in
+            completionHandler(response == .OK ? panel.urls : nil)
+        }
+        if let win = webView.window {
+            panel.beginSheetModal(for: win, completionHandler: finish)
+        } else {
+            finish(panel.runModal())
+        }
+    }
+
     func webViewDidClose(_ webView: WKWebView) {
         if let win = webView.window, win != self.window {
             win.close()
