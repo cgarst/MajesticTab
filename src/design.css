@@ -6590,6 +6590,7 @@ body.gp-file-active #synthTrackModeContainer { display: none !important; }
    panel always kept are hidden state */
 #realAudioRecordings > #recListLabel, #realAudioRecordings > #recEmbeddedList, #realAudioRecordings > #afFileSection,
 #realAudioRecordings > #ytVideoSection { display: none !important; }
+.rec-part > summary > span:first-child { flex: none; white-space: nowrap; }
 .rec-part > summary .rec-part-now { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; font-size: 13px; color: var(--ink2); }
 .rec-part[open] > summary .rec-part-now { display: none; }
 .rec-part .rec-slots { margin-bottom: 8px; }
