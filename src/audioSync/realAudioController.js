@@ -26,7 +26,7 @@ import { buildTimelineModel } from './timelineModel.js';
 import { playedBarsFromLookup, buildScoreTimeline } from './scorePositions.js';
 import { syncFit } from './pointCheck.js';
 import {
-    getMidiTickLookup, synthPlayerState, playClick, pauseSynthPlayer, clearSynthHighlights, isSynthPlaying, onTransportEvent
+    getMidiTickLookup, synthPlayerState, playClick, pauseSynthPlayer, clearSynthHighlights, isSynthPlaying, onTransportEvent, followSeekToBar
 } from '../gpProcessor/gpPlayer.js';
 import { startAudioSync, stopAudioSync, getAudioSyncSession } from './audioSyncController.js';
 
@@ -494,7 +494,9 @@ function snapshotPlayback() {
         else if (source === 'local') timeMs = getLocalRecording()?.source.getTimeMs() || 0;
         else timeMs = (jamYouTubeControl.snapshot().timeSec || 0) * 1000;
     } catch { /* start from the cursor */ }
-    return { timeMs };
+    // A recording with sync points is the clock for the cursor, so the cursor's tick is the note it is on
+    const tick = getAudioSyncSession() ? window.gpApi?.tickPosition : null;
+    return { timeMs, tick: Number.isFinite(tick) ? tick : null };
 }
 
 /**
@@ -515,13 +517,15 @@ async function carryPlaybackOver(from, slot) {
             pauseYouTube();
             pauseAudioFile();
             if (!embedded.source?.isPlaying()) await playPauseEmbeddedAudio();
+            if (!stale() && from.tick != null && getAudioSyncSession()) followSeekToBar(from.tick, null);
         } else if (target === 'local') {
             pauseYouTube();
             if (isAudioFilePlaying()) return;
             await playPauseAudioFile();
             if (stale()) { pauseAudioFile(); return; }
             const local = getLocalRecording()?.source;
-            if (!mapped && local) local.seek(from.timeMs);
+            if (mapped && from.tick != null) followSeekToBar(from.tick, null);
+            else if (!mapped && local) local.seek(from.timeMs);
         } else {
             pauseAudioFile();
             embedded.playGen++;
@@ -534,7 +538,8 @@ async function carryPlaybackOver(from, slot) {
                 if (waited >= 2500 && snap.videoId === media.videoId && !snap.buffering) jamYouTubeControl.play();
                 await new Promise((r) => setTimeout(r, 250));
             }
-            if (!stale() && !mapped && Math.abs(jamYouTubeControl.snapshot().timeSec * 1000 - from.timeMs) > 1500) {
+            if (!stale() && mapped && from.tick != null) followSeekToBar(from.tick, null);
+            else if (!stale() && !mapped && Math.abs(jamYouTubeControl.snapshot().timeSec * 1000 - from.timeMs) > 1500) {
                 jamYouTubeControl.seek(from.timeMs / 1000);
             }
         }
