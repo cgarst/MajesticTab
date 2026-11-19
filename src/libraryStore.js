@@ -1456,6 +1456,11 @@ export async function updateLibrarySongFromScore({ fileName, title, artist, albu
 
 export const MAX_RECENTS_LIMIT = 15;
 
+/** The recents id of a song: recents are per song, not per tab. */
+function recentIdForSong(songId) {
+    return `${songId}_recent`;
+}
+
 /**
  * Add or update a recently opened file with library/metadata enrichment.
  * Only library files are added to recents. Non-library files return null.
@@ -1547,9 +1552,8 @@ export async function addRecentOpened(fileInfo) {
     }
 
     const db = await getDB();
-    const id = (fileInfo.librarySongId && fileInfo.tabId)
-        ? `${fileInfo.librarySongId}_tab_${fileInfo.tabId}`
-        : (fileInfo.id || `${fileInfo.librarySongId}_${fileInfo.name || Date.now()}`);
+    // One recent per song: opening another of its tabs moves the song's entry and records that tab
+    const id = recentIdForSong(fileInfo.librarySongId);
 
     const recent = {
         id,
@@ -1577,6 +1581,14 @@ export async function addRecentOpened(fileInfo) {
     return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_RECENTS, 'readwrite');
         const store = tx.objectStore(STORE_RECENTS);
+        // Drop the per-tab records an earlier version stored for this song
+        const sweep = store.openCursor();
+        sweep.onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (!cursor) return;
+            if (cursor.value && cursor.value.librarySongId === recent.librarySongId && cursor.value.id !== id) cursor.delete();
+            cursor.continue();
+        };
         const req = store.put(recent);
         req.onsuccess = () => {
             // Prune stored recents beyond MAX_RECENTS_LIMIT (15)
@@ -1629,6 +1641,7 @@ export async function getRecents(limit = MAX_RECENTS_LIMIT) {
     });
 
     const songCache = new Map();
+    const seenSongs = new Set();
     const validRecents = [];
     const idsToPurge = [];
     let validCount = 0;
@@ -1638,6 +1651,13 @@ export async function getRecents(limit = MAX_RECENTS_LIMIT) {
             if (r?.id) idsToPurge.push(r.id);
             continue;
         }
+
+        // Older versions kept one recent per tab; only the newest of a song's records shows
+        if (seenSongs.has(r.librarySongId)) {
+            if (r.id) idsToPurge.push(r.id);
+            continue;
+        }
+        seenSongs.add(r.librarySongId);
 
         let song = songCache.get(r.librarySongId);
         if (song === undefined) {
