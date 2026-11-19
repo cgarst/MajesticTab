@@ -97,6 +97,7 @@ function checkScore(t, at, ck) {
   ck(`${at}/sha256`, isStr(t.sha256) && SHA.test(t.sha256), 'is required and must be lowercase hex sha256');
   if ('size' in t) ck(`${at}/size`, isInt(t.size) && t.size >= 0, 'must be an integer >= 0');
   if ('name' in t) ck(`${at}/name`, isStr(t.name), 'must be a string');
+  if ('origin' in t) ck(`${at}/origin`, isStr(t.origin) && t.origin.length >= 1, 'must be a non-empty string');
   if ('pages' in t) ck(`${at}/pages`, isInt(t.pages) && t.pages >= 1, 'must be an integer >= 1');
   if ('startPage' in t) ck(`${at}/startPage`, isInt(t.startPage) && t.startPage >= 1, 'must be an integer >= 1');
   if ('endPage' in t) ck(`${at}/endPage`, isInt(t.endPage) && t.endPage >= 1, 'must be an integer >= 1');

@@ -318,6 +318,7 @@ export async function otherLibraryScores(file) {
             out.push({
                 file: f,
                 label: t.name && t.name !== f.name ? t.name : undefined,
+                origin: typeof t.origin === 'string' && t.origin ? t.origin : undefined,
                 tuning: t.tuningSource === 'user' ? t.tuning : null,
                 startPage: Number.isInteger(t.startPage) ? t.startPage : undefined,
                 endPage: Number.isInteger(t.endPage) ? t.endPage : undefined,
@@ -330,7 +331,7 @@ export async function otherLibraryScores(file) {
 /**
  * Builds a v1 .mpak bundle for the open song. Returns `{ blob, filename }`. The open tab is the primary score. The song's
  * other tabs that are stored on this device go in as more scores, each with its own sync; `options.scores` replaces that
- * list (inputs `{ file, label?, tuning?, startPage?, endPage?, pages? }`).
+ * list (inputs `{ file, label?, origin?, tuning?, startPage?, endPage?, pages? }`).
  */
 export async function buildMpak(file, options = {}) {
     const { getAudioFile } = await import('./audioSync/audioFileStore.js');
@@ -393,7 +394,9 @@ export async function buildMpak(file, options = {}) {
     const usedScorePaths = new Set();
     let barSyncTaken = false;
     const seenScores = new Set();
-    const inputs = [{ file, tuning: await manualTuning(file), startPage: options.startPage ?? file.mpakPageRange?.startPage ?? file.startPage, endPage: options.endPage ?? file.mpakPageRange?.endPage ?? file.endPage, pages: options.pages ?? file.mpakPageRange?.pages }, ...(options.scores ?? await otherLibraryScores(file))];
+    // The open tab's set (src/tabSets.js): from its library tab, else from the pack it was opened from
+    const primaryOrigin = libSong?.tabOptions?.find((t) => t.id === file?.tabId)?.origin || file?.mpakOrigin || undefined;
+    const inputs = [{ file, origin: primaryOrigin, tuning: await manualTuning(file), startPage: options.startPage ?? file.mpakPageRange?.startPage ?? file.startPage, endPage: options.endPage ?? file.mpakPageRange?.endPage ?? file.endPage, pages: options.pages ?? file.mpakPageRange?.pages }, ...(options.scores ?? await otherLibraryScores(file))];
     for (const input of inputs) {
         const sFile = input.file;
         const format = inferTabFormat(sFile);
@@ -419,6 +422,7 @@ export async function buildMpak(file, options = {}) {
         files.set(path, bytes);
         const entry = { id, path, format, sha256: await sha256(bytes), name: sName };
         if (input.label) entry.label = input.label;
+        if (typeof input.origin === 'string' && input.origin) entry.origin = input.origin; // SPEC section 6.4
         const tuningArr = toManifestTuning(input.tuning);
         if (tuningArr) entry.instruments = [{ tuning: tuningArr }];
         if (trimmed) {

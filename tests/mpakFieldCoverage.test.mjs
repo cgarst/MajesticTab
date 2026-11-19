@@ -132,3 +132,30 @@ test('a song whose id is too long for a pack gets another id, which is not the m
     const kept = await buildMpak(score, { song: { ...long, packId: 'kept-pack-id' }, songKey: 'Test Artist - Roundtrip Song', scores: [] });
     assert.equal((await readMpak(new Uint8Array(await kept.blob.arrayBuffer()))).header.id, 'kept-pack-id');
 });
+
+test('a tab in a set writes its origin into the pack, a tab outside one writes none (SPEC section 6.4)', async () => {
+    const file = (name, text) => Object.assign(new File([new TextEncoder().encode(text)], name, { type: 'text/plain' }), { librarySongId: librarySong.id });
+    const open = Object.assign(file('a.txt', 'e|--0--|\n'), { tabId: 'tab_a' });
+    const song = { ...librarySong, tabOptions: [
+        { id: 'tab_a', name: 'A', origin: 'Pub', fileType: 'txt' },
+        { id: 'tab_b', name: 'B', origin: 'Pub', variantOf: 'tab_a', fileType: 'txt' },
+        { id: 'tab_c', name: 'C', fileType: 'txt' },
+    ] };
+    const out = await buildMpak(open, { song, songKey: 'Test Artist - Roundtrip Song', scores: [
+        { file: file('b.txt', 'e|--1--|\n'), label: 'B', origin: 'Pub' },
+        { file: file('c.txt', 'e|--2--|\n'), label: 'C' },
+    ] });
+    const { header: h } = await readMpak(new Uint8Array(await out.blob.arrayBuffer()));
+    assert.deepEqual(h.scores.map((s) => [s.label || s.name, s.origin ?? null]), [['a.txt', 'Pub'], ['B', 'Pub'], ['C', null]]);
+    // the open tab's origin comes from its library tab, and a pack opened from a file brings its own
+    const viaFile = await buildMpak(Object.assign(file('x.txt', 'e|--3--|\n'), { tabId: 'none', mpakOrigin: 'FromPack' }), { song, songKey: 'Test Artist - Roundtrip Song', scores: [] });
+    assert.equal((await readMpak(new Uint8Array(await viaFile.blob.arrayBuffer()))).header.scores[0].origin, 'FromPack');
+});
+
+test('the reader refuses an empty or non-string origin (SPEC section 6.4)', async () => {
+    const { manifestSchemaErrors } = await import('../src/mpak/core/check.js');
+    const base = { format: 'mpak', version: 1, scores: [{ id: 'a', path: 'score/a.txt', format: 'txt', sha256: '0'.repeat(64) }] };
+    assert.equal(manifestSchemaErrors({ ...base, scores: [{ ...base.scores[0], origin: 'Pub' }] }).length, 0);
+    assert.ok(manifestSchemaErrors({ ...base, scores: [{ ...base.scores[0], origin: '' }] }).length > 0);
+    assert.ok(manifestSchemaErrors({ ...base, scores: [{ ...base.scores[0], origin: 7 }] }).length > 0);
+});
