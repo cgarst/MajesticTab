@@ -653,3 +653,45 @@ test('preserveRemoteAudio drops audio files explicitly removed by the user while
     assert.deepEqual(updated.audioInfo().map((a) => a.path), ['audio/keep.mp3']);
     assert.deepEqual(updated.manifest.recordings.map((r) => r.id), ['audio-2']);
 });
+
+test('a hybrid upload keeps the store\'s scores that this device lists as tabs but holds no file for', async () => {
+    const store = await newStore();
+    const enc = (t) => new TextEncoder().encode(t);
+    const gp = enc('gp-data'), pdf = enc('pdf-data');
+    const manifest = {
+        format: 'mpak', version: 1, id: 's1', createdAt: new Date().toISOString(),
+        scores: [{ id: 'gp', path: 'score/song.gp', format: 'gp', size: gp.length, sha256: await sha256(gp) }],
+    };
+    const packs = createPackStore(store);
+    await packs.write('s1', new Map([['manifest.json', enc(JSON.stringify(manifest))], ['score/song.gp', gp]]));
+    await writeJson(store, 'library.json', toLibraryDoc({ songs: [{ id: 's1', title: 'Song One', tabOptions: [{ id: 'gp', name: 'song.gp' }] }] }));
+    const local = fakeLocal(), baselines = memoryBaselines();
+    local.state.songs.set('s1', { id: 's1', title: 'Song One', scores: new Map([['song.gp', 'gp-data']]), audio: null, sync: null, added: Date.now() });
+    local.state.records.songs.push({ id: 's1', title: 'Song One', collectionId: 'default', pinned: false, addedAt: Date.now(), tabOptions: [{ id: 'gp', name: 'song.gp' }], packId: null });
+    await applyPackSync({ store, local, baselines, location: LOC, hybrid: true });
+
+    // The device now holds only a PDF it added; the Guitar Pro file was freed
+    const gpHash = await sha256(gp);
+    const origReadItem = local.readItem.bind(local);
+    local.readItem = async (key) => {
+        if (key !== 'p:s1') return origReadItem(key);
+        const m = { ...manifest, scores: [{ id: 'pdf', path: 'score/song.pdf', format: 'pdf', size: pdf.length, sha256: await sha256(pdf) }] };
+        return { files: new Map([['manifest.json', enc(JSON.stringify(m))], ['score/song.pdf', pdf]]), removedAudio: [], unstoredScoreHashes: [gpHash] };
+    };
+    local.editSong('s1', (s) => { s.sync = 'pdf-added'; });
+    const res = await applyPackSync({ store, local, baselines, location: LOC, hybrid: true });
+    assert.equal(res.failed.length, 0);
+    const after = await packs.open('s1');
+    assert.deepEqual(after.manifest.scores.map((t) => t.path).sort(), ['score/song.gp', 'score/song.pdf']);
+    assert.deepEqual(after.warnings, []);
+
+    // A score that is not on the list stays out: the user removed it
+    local.readItem = async (key) => {
+        if (key !== 'p:s1') return origReadItem(key);
+        const m = { ...manifest, scores: [{ id: 'pdf', path: 'score/song.pdf', format: 'pdf', size: pdf.length, sha256: await sha256(pdf) }] };
+        return { files: new Map([['manifest.json', enc(JSON.stringify(m))], ['score/song.pdf', pdf]]), removedAudio: [], unstoredScoreHashes: [] };
+    };
+    local.editSong('s1', (s) => { s.sync = 'gp-removed'; });
+    await applyPackSync({ store, local, baselines, location: LOC, hybrid: true });
+    assert.deepEqual((await packs.open('s1')).manifest.scores.map((t) => t.path), ['score/song.pdf']);
+});

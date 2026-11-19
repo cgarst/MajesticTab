@@ -29,3 +29,26 @@ export function findMissingTabFiles(songs, storedIds, { remotePackIds = null, pa
     }
     return out.sort((a, b) => `${a.song.artist} ${a.song.album} ${a.song.title}`.localeCompare(`${b.song.artist} ${b.song.album} ${b.song.title}`));
 }
+
+/**
+ * Tabs with no local file whose score the song's pack in cloud storage no longer lists, so no device can get them. The pack
+ * lost the score when it was rebuilt on a device that did not hold the file. Pure: `remoteScoreHashes` maps a pack id to
+ * the Set of score hashes its manifest lists, and only packs the caller read are judged. A tab without a hash is skipped,
+ * because there is nothing to compare. Each result has `kind: 'unreachable'`.
+ */
+export function findUnreachableTabs(songs, remoteScoreHashes, { packIdOf = () => null } = {}) {
+    const out = [];
+    for (const song of songs) {
+        const pid = packIdOf(song);
+        const listed = pid ? remoteScoreHashes.get(pid) : null;
+        if (!listed) continue;
+        const tabs = (Array.isArray(song?.tabOptions) ? song.tabOptions : []).filter((t) => t && !t.fileStoreId && t.sha256 && !listed.has(t.sha256));
+        if (tabs.length) out.push({ song, tabs, songTabCount: (song.tabOptions || []).length, kind: 'unreachable', inCloud: false });
+    }
+    return out;
+}
+
+/** Songs worth a manifest read: the ones with a tab that has a hash but no local file. */
+export function songsWithUnstoredTabs(songs, packIdOf) {
+    return songs.filter((s) => packIdOf(s) && (s.tabOptions || []).some((t) => t && !t.fileStoreId && t.sha256));
+}

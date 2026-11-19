@@ -13,16 +13,17 @@ import {
     LARGE_AUDIO_UPLOAD_BYTES, SINGLE_FILE_AUDIO_LIMIT
 } from './audioSync/audioBackup.js';
 import {
-    getDB, STORE_NAME, getAllStoredFiles, getStoredFileRecord, clearAllStoredFiles,
+    getDB, STORE_NAME, getAllStoredFiles, getStoredFileRecord, clearAllStoredFiles, saveStoredFile,
     arrayBufferToBase64, arrayBufferToBase64Async, base64ToArrayBuffer
 } from './fileStore.js';
 import {
     ensureDefaultCollection, getAllLibraryData, importLibraryData, clearAllLibraryData,
-    reloadAllLibraryMetadata, songsMissingTrackNumber, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary, removeTabOptionFromSong
+    reloadAllLibraryMetadata, songsMissingTrackNumber, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary, removeTabOptionFromSong, updateTabOptionOnSong
 } from './libraryStore.js';
 import { findDuplicateSongs, findDuplicateTabs } from './libraryDuplicates.js';
-import { findMissingTabFiles } from './libraryMissingFiles.js';
+import { findMissingTabFiles, findUnreachableTabs, songsWithUnstoredTabs } from './libraryMissingFiles.js';
 import { isPackId } from './mpak.js';
+import { findTabFiles, restoreTabFiles } from './unreachableRepair.js';
 import { sha256 as sha256Bytes } from './mpak/core/index.js';
 import { readLibraryAudio } from './audioSync/libraryAudio.js';
 import { findPooledSongs, readRememberedKeys, readRebuildMarks, markPacksForRebuild } from './packRepair.js';
@@ -1692,13 +1693,14 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="backup-summary-box p-3 rounded-3 mb-3">
             <div class="small fw-semibold text-white mb-2">Tabs whose file is missing</div>
             <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
-              Tabs that list a file this device no longer holds, so they cannot open. With hybrid sync on, cloud storage is checked too: a tab whose file is still there is left unselected, and a tab kept only in cloud storage is listed only when its pack is gone from there. Removing an entry leaves the song in your library.
+              Tabs that list a file this device no longer holds, so they cannot open. With hybrid sync on, cloud storage is checked too: a tab whose file is still there is left unselected, and a tab kept only in cloud storage is listed only when its pack is gone from there, or when the pack no longer lists its score. Removing an entry leaves the song in your library.
             </div>
             <div id="missingList"></div>
           </div>
           <div id="missingStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="missingCancelBtn">Close</button>
+            <button type="button" class="btn btn-sm btn-theme-primary px-4" id="missingRestoreBtn" style="display:none;">Find files in cloud storage</button>
             <button type="button" class="btn btn-sm btn-theme-danger px-4" id="missingDeleteBtn" disabled>Remove selected</button>
           </div>
         </div>
@@ -2069,6 +2071,10 @@ function attachModalHandlers(modal, options = {}) {
     const missingList = modal.querySelector('#missingList');
     const missingDeleteBtn = modal.querySelector('#missingDeleteBtn');
     const missingStatusAlert = modal.querySelector('#missingStatusAlert');
+    const missingRestoreBtn = modal.querySelector('#missingRestoreBtn');
+    // Tabs the cloud pack no longer lists: where to look for their files, and what the last search found
+    let restoreCtx = null;
+    let restoreFound = null;
     const updateMissingBtn = () => {
         const n = missingList.querySelectorAll('.missing-check:checked').length;
         missingDeleteBtn.disabled = n === 0;
@@ -2095,12 +2101,55 @@ function attachModalHandlers(modal, options = {}) {
                 const m = /^packs\/([^/]+)\/manifest\.json$/.exec(e.path);
                 if (m) packs.add(m[1]);
             }
-            return { packs, note: '' };
+            return { packs, store: opened.store, note: '' };
         } catch (err) {
             console.warn('[Data] Missing files: cloud check failed', err);
             return { packs: null, note: 'Cloud storage could not be reached, so only this device was checked.' };
         }
     };
+    const updateRestoreBtn = () => {
+        if (!missingRestoreBtn) return;
+        const n = restoreCtx ? restoreCtx.groups.reduce((c, g) => c + g.tabs.length, 0) : 0;
+        missingRestoreBtn.style.display = n ? '' : 'none';
+        missingRestoreBtn.disabled = false;
+        missingRestoreBtn.textContent = restoreFound ? `Restore ${restoreFound.found.length} ${restoreFound.found.length === 1 ? 'tab' : 'tabs'}` : `Find files in cloud storage · ${n}`;
+    };
+    // First press searches cloud storage and says what it found; the second restores what was found
+    missingRestoreBtn?.addEventListener('click', async () => {
+        if (!restoreCtx) return;
+        missingRestoreBtn.disabled = true;
+        try {
+            if (!restoreFound) {
+                showTaskProgress(missingStatusAlert, { label: 'Looking for the files in cloud storage…' });
+                restoreFound = await findTabFiles(restoreCtx.store, restoreCtx.groups, {
+                    packIdOf: restoreCtx.packIdOf,
+                    onProgress: ({ current, total }) => showTaskProgress(missingStatusAlert, { label: 'Looking for the files in cloud storage…', detail: `${current} of ${total}`, value: total ? (current / total) * 100 : null }),
+                });
+                const { found: ok, notFound } = restoreFound;
+                showTaskResult(missingStatusAlert, ok.length ? 'done' : 'error', `${ok.length} ${ok.length === 1 ? 'file' : 'files'} found${notFound.length ? `, ${notFound.length} not found` : ''}.${ok.length ? ' Restore them to this device, then sync to fix the cloud copy.' : ''}`);
+                if (!ok.length) restoreFound = null;
+                updateRestoreBtn();
+                if (!ok.length) missingRestoreBtn.disabled = false;
+                return;
+            }
+            const todo = restoreFound.found;
+            showTaskProgress(missingStatusAlert, { label: 'Restoring files…', detail: `0 of ${todo.length}` });
+            const res = await restoreTabFiles(todo, {
+                saveFile: saveStoredFile,
+                linkTab: updateTabOptionOnSong,
+                onProgress: ({ current, total }) => showTaskProgress(missingStatusAlert, { label: 'Restoring files…', detail: `${current} of ${total}`, value: total ? (current / total) * 100 : null }),
+            });
+            restoreFound = null;
+            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+            await renderMissing();
+            showTaskResult(missingStatusAlert, res.failed.length ? 'error' : 'done', `Restored ${res.restored} ${res.restored === 1 ? 'tab' : 'tabs'}${res.failed.length ? `, ${res.failed.length} failed. ${res.failed[0].reason}` : '. Sync to send them to cloud storage'}`);
+        } catch (err) {
+            console.error('Failed to restore tab files:', err);
+            restoreFound = null;
+            showTaskResult(missingStatusAlert, 'error', `Could not restore the files. ${err.message}`);
+            updateRestoreBtn();
+        }
+    });
     const renderMissing = async () => {
         missingList.innerHTML = '<div class="text-white-50 small">Checking your tabs…</div>';
         let found = [];
@@ -2109,10 +2158,27 @@ function attachModalHandlers(modal, options = {}) {
             const stored = await getAllStoredFiles();
             const remote = await readRemotePacks();
             note = remote.note;
-            found = findMissingTabFiles(await getAllSongs(), new Set(stored.map((f) => f.id)), {
-                remotePackIds: remote.packs,
-                packIdOf: (s) => (isPackId(s.id) ? s.id : (isPackId(s.packId) ? s.packId : null))
-            });
+            restoreCtx = null;
+            restoreFound = null;
+            const songs = await getAllSongs();
+            const packIdOf = (s) => (isPackId(s.id) ? s.id : (isPackId(s.packId) ? s.packId : null));
+            found = findMissingTabFiles(songs, new Set(stored.map((f) => f.id)), { remotePackIds: remote.packs, packIdOf });
+            // A tab with no local file is fine only while the cloud pack still lists its score
+            if (remote.packs && remote.store) {
+                const hashes = new Map();
+                for (const s of songsWithUnstoredTabs(songs, packIdOf)) {
+                    const pid = packIdOf(s);
+                    if (!remote.packs.has(pid) || hashes.has(pid)) continue;
+                    try {
+                        const manifest = JSON.parse(new TextDecoder().decode(await remote.store.read(`packs/${pid}/manifest.json`)));
+                        hashes.set(pid, new Set((manifest.scores || []).flatMap((t) => [t, ...(t.alternates || [])]).map((x) => x.sha256).filter(Boolean)));
+                    } catch (err) { console.warn('[Data] Missing files: could not read the manifest of', pid, err); }
+                }
+                const unreachable = findUnreachableTabs(songs, hashes, { packIdOf });
+                if (unreachable.length) restoreCtx = { store: remote.store, groups: unreachable, packIdOf };
+                found = [...found, ...unreachable]
+                    .sort((a, b) => `${a.song.artist} ${a.song.album} ${a.song.title}`.localeCompare(`${b.song.artist} ${b.song.album} ${b.song.title}`));
+            }
         } catch (err) {
             console.error('Failed to scan for missing files:', err);
             missingList.innerHTML = `<div class="text-danger small">Failed to scan: ${escapeHtml(err.message)}</div>`;
@@ -2122,10 +2188,12 @@ function attachModalHandlers(modal, options = {}) {
         if (found.length === 0) {
             missingList.innerHTML = `${noteHtml}<div class="text-white-50 small">Every tab has its file.</div>`;
             updateMissingBtn();
+            updateRestoreBtn();
             return;
         }
         // Gone on the device and in cloud storage is checked; a copy still in cloud storage, or a guess, is not
-        const why = (g) => (g.inCloud ? 'a copy is in cloud storage, so sync can bring it back'
+        const why = (g) => (g.kind === 'unreachable' ? 'cloud storage no longer lists this score and this device does not hold it. Add the file to the song again, then sync. Removing the entry loses it'
+            : g.inCloud ? 'a copy is in cloud storage, so sync can bring it back'
             : g.kind === 'cloud' ? 'not on this device or in cloud storage'
                 : g.tabs.length === g.songTabCount ? 'no tab left after removal' : '');
         missingList.innerHTML = `${noteHtml}
@@ -2136,13 +2204,14 @@ function attachModalHandlers(modal, options = {}) {
                 ${why(g) ? `<div class="small text-white-50">${escapeHtml(why(g)[0].toUpperCase() + why(g).slice(1))}</div>` : ''}
                 ${g.tabs.map((t) => `
                   <label class="d-flex align-items-center gap-2 mb-0 mt-1" style="cursor: pointer;">
-                    <input type="checkbox" class="form-check-input missing-check flex-shrink-0" data-song="${escapeHtml(g.song.id)}" data-tab="${escapeHtml(t.id)}" ${g.inCloud ? '' : 'checked'}>
+                    <input type="checkbox" class="form-check-input missing-check flex-shrink-0" data-song="${escapeHtml(g.song.id)}" data-tab="${escapeHtml(t.id)}" ${g.inCloud || g.kind === 'unreachable' ? '' : 'checked'}>
                     <span class="small text-white-50 text-truncate">Remove ${escapeHtml(t.name || 'a tab')}</span>
                   </label>`).join('')}
               </div>`).join('')}
           </div>`;
         missingList.querySelectorAll('.missing-check').forEach((cb) => cb.addEventListener('change', updateMissingBtn));
         updateMissingBtn();
+        updateRestoreBtn();
     };
     modal.querySelector('#missingCancelBtn')?.addEventListener('click', closeBackupModal);
     missingDeleteBtn?.addEventListener('click', async () => {

@@ -433,6 +433,7 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
         if (item.kind === 'pack') {
             const itemHybrid = hybrid && !keepLocalPacks.has(item.id);
             if (itemHybrid && expectRemote !== undefined && !mine.get(item.key)?.rebuilt) await preserveRemoteAudio(packs, item.id, data);
+            if (expectRemote !== undefined && data.unstoredScoreHashes?.length) await preserveRemoteScores(packs, item.id, data);
             await packs.write(item.id, Object.fromEntries(data.files), { manifestIfVersion: expectRemote ?? null });
         } else {
             await store.write(blobPath(item.key), data.bytes, expectRemote === undefined ? { ifVersion: null } : { ifVersion: expectRemote });
@@ -543,6 +544,56 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
     baselines.set(location, { syncedAt: Date.now(), items: nextItems, records: records.fps });
     const { fps, ...recordStats } = records;
     return { ...out, records: recordStats };
+}
+
+/**
+ * Keeps the store's scores that this device lists as tabs but no longer holds. A hybrid device frees a song's files once they
+ * are in the store; a score added to that song later (a PDF from a pack, say) would otherwise upload a pack of the new score
+ * only and the freed ones would drop out of manifest.json, leaving their files in the folder with nothing naming them.
+ * `data.unstoredScoreHashes` holds the hashes of the song's tabs with no file here. A score the user removed is not on that
+ * list, so it stays removed. Sync files are carried over for recordings this pack still has.
+ */
+async function preserveRemoteScores(packs, packId, data) {
+    const want = new Set(data.unstoredScoreHashes || []);
+    let remote;
+    try { remote = await packs.open(packId); } catch (_) { return; }
+    const manifest = JSON.parse(new TextDecoder().decode(data.files.get('manifest.json')));
+    manifest.scores = manifest.scores || [];
+    const flat = (m) => (m.scores || []).flatMap((t) => [t, ...(t.alternates || [])]);
+    const haveHash = new Set(flat(manifest).map((t) => t.sha256));
+    const haveId = new Set(flat(manifest).map((t) => t.id));
+    let changed = false;
+    for (const t of remote.manifest.scores || []) {
+        if (!t.sha256 || !want.has(t.sha256) || haveHash.has(t.sha256)) continue;
+        let bytes;
+        try { bytes = await remote.file(t.path); } catch (_) { continue; }
+        if (!bytes) continue;
+        let path = t.path;
+        if (data.files.has(path)) path = `score/${t.id}-${t.path.split('/').pop()}`;
+        if (data.files.has(path)) continue;
+        let id = t.id;
+        while (haveId.has(id)) id = `${id}-kept`;
+        const { alternates: _alternates, ...rest } = t;
+        manifest.scores.push({ ...rest, id, path });
+        data.files.set(path, bytes);
+        haveHash.add(t.sha256); haveId.add(id);
+        changed = true;
+        for (const rec of remote.manifest.recordings || []) {
+            const syncPath = rec.sync?.[t.id];
+            const mine = syncPath && (manifest.recordings || []).find((r) => r.id === rec.id);
+            if (!mine || mine.sync?.[id]) continue;
+            let sb;
+            try { sb = await remote.file(syncPath); } catch (_) { continue; }
+            if (!sb) continue;
+            const target = data.files.has(syncPath) ? `sync/${rec.id}-${id}.json` : syncPath;
+            if (data.files.has(target)) continue;
+            data.files.set(target, sb);
+            manifest.entries = manifest.entries || {};
+            if (remote.manifest.entries?.[syncPath]) manifest.entries[target] = remote.manifest.entries[syncPath];
+            mine.sync = { ...(mine.sync || {}), [id]: target };
+        }
+    }
+    if (changed) data.files.set('manifest.json', new TextEncoder().encode(JSON.stringify(manifest)));
 }
 
 /**

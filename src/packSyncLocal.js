@@ -213,7 +213,14 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
                     files.set(e.name, await readEntry(source, e, {}));
                 }
             }
-            return { files, removedAudio: getRemovedAudio(songKeyOf(song)) };
+            // Tabs the song lists but this device holds no file for (a hybrid device frees them): the upload keeps the store's copy of those scores
+            const unstoredScoreHashes = [];
+            for (const t of song.tabOptions || []) {
+                if (!t.sha256) continue;
+                const held = t.fileStoreId ? (await getStoredFile(t.fileStoreId))?.file : null;
+                if (!held) unstoredScoreHashes.push(t.sha256);
+            }
+            return { files, removedAudio: getRemovedAudio(songKeyOf(song)), unstoredScoreHashes };
         },
 
         async clearRemovedAudio(key) {
