@@ -395,8 +395,11 @@ export async function buildMpak(file, options = {}) {
     let barSyncTaken = false;
     const seenScores = new Set();
     // The open tab's set (src/tabSets.js): from its library tab, else from the pack it was opened from
-    const primaryOrigin = libSong?.tabOptions?.find((t) => t.id === file?.tabId)?.origin || file?.mpakOrigin || undefined;
-    const inputs = [{ file, origin: primaryOrigin, tuning: await manualTuning(file), startPage: options.startPage ?? file.mpakPageRange?.startPage ?? file.startPage, endPage: options.endPage ?? file.mpakPageRange?.endPage ?? file.endPage, pages: options.pages ?? file.mpakPageRange?.pages }, ...(options.scores ?? await otherLibraryScores(file))];
+    const primaryTab = libSong?.tabOptions?.find((t) => t.id === file?.tabId);
+    const primaryOrigin = primaryTab?.origin || file?.mpakOrigin || undefined;
+    // The open tab's name, when it is not just its file name, as the other scores carry theirs (otherLibraryScores)
+    const primaryLabel = (primaryTab?.name && primaryTab.name !== file?.name ? primaryTab.name : file?.mpakLabel) || undefined;
+    const inputs = [{ file, label: primaryLabel, origin: primaryOrigin, tuning: await manualTuning(file), startPage: options.startPage ?? file.mpakPageRange?.startPage ?? file.startPage, endPage: options.endPage ?? file.mpakPageRange?.endPage ?? file.endPage, pages: options.pages ?? file.mpakPageRange?.pages }, ...(options.scores ?? await otherLibraryScores(file))];
     for (const input of inputs) {
         const sFile = input.file;
         const format = inferTabFormat(sFile);
@@ -960,7 +963,7 @@ function rememberPackScores(unpacked) {
     const entries = all.map(({ score: sc, file }) => {
         const pages = (sc.startPage && sc.endPage) ? `Pages ${sc.startPage}\u2013${sc.endPage}` : '';
         const kind = sc.format === 'pdf' ? 'PDF' : sc.format === 'txt' ? 'Text' : 'Guitar Pro';
-        return { id: sc.id, file, name: sc.label || sc.name || file.name, detail: [kind, pages].filter(Boolean).join(' \u00b7 ') };
+        return { id: sc.id, file, name: sc.label || sc.name || file.name, detail: [kind, pages].filter(Boolean).join(' \u00b7 '), ...(typeof sc.origin === 'string' && sc.origin ? { origin: sc.origin } : {}) };
     });
     for (const e of entries) {
         if (e.file !== tabFile) { e.file.mpakSong = header.song; if (isPackId(header.id)) e.file.mpakId = header.id; }
@@ -974,10 +977,10 @@ export function otherPackScores(file) {
     return pack ? pack.entries.filter((e) => e.file !== file).map(({ id, name, detail }) => ({ id, name, detail })) : [];
 }
 
-/** All scores of the pack the open file came from, as `[{ id, name, detail, current }]`; empty when it is not from a pack. */
+/** All scores of the pack the open file came from, as `[{ id, name, detail, origin?, current }]`; empty when it is not from a pack. */
 export function packScoresOf(file) {
     const pack = file && packScores.get(file);
-    return pack ? pack.entries.map(({ id, name, detail, file: f }) => ({ id, name, detail, current: f === file })) : [];
+    return pack ? pack.entries.map(({ id, name, detail, origin, file: f }) => ({ id, name, detail, ...(origin ? { origin } : {}), current: f === file })) : [];
 }
 
 /** Opens another score of the pack the open file came from. */

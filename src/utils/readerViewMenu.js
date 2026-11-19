@@ -528,7 +528,7 @@ function arrangeSongPanel() {
                 otherTabs.hidden = scores.length <= 1;
                 if (scores.length <= 1) return;
                 let currentId = '';
-                for (const sc of scores) {
+                const optionOfScore = (sc) => {
                     const opt = document.createElement('option');
                     opt.value = sc.id;
                     opt.textContent = sc.detail ? `${sc.name || 'Score'} \u00b7 ${sc.detail}` : (sc.name || 'Score');
@@ -537,7 +537,25 @@ function arrangeSongPanel() {
                         opt.dataset.current = 'true';
                         currentId = sc.id;
                     }
-                    scoreSelect.appendChild(opt);
+                    return opt;
+                };
+                // The scores of one origin are a set (src/tabSets.js), listed together under its name as the library lists them
+                const { linkSets } = await import('../tabSets.js');
+                if (mySeq !== scoreSyncSeq) return;
+                const variantOf = linkSets(scores.map((sc) => ({ id: sc.id, origin: sc.origin })));
+                const variantsOfHead = new Map();
+                for (const [id, headId] of variantOf) {
+                    if (!variantsOfHead.has(headId)) variantsOfHead.set(headId, []);
+                    variantsOfHead.get(headId).push(scores.find((sc) => sc.id === id));
+                }
+                for (const sc of scores) {
+                    if (variantOf.has(sc.id)) continue;
+                    const members = variantsOfHead.get(sc.id);
+                    if (!members?.length) { scoreSelect.appendChild(optionOfScore(sc)); continue; }
+                    const g = document.createElement('optgroup');
+                    g.label = sc.origin;
+                    for (const m of [sc, ...members]) g.appendChild(optionOfScore(m));
+                    scoreSelect.appendChild(g);
                 }
                 if (currentId) scoreSelect.value = currentId;
                 activeScoreSwitch = (id) => {
