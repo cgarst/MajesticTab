@@ -277,8 +277,8 @@ export const localBaselines = {
 };
 
 /** Downloads a remote pack (scores and optionally audio) on demand and updates the baseline so it is not re-uploaded. */
-export async function fetchPackOnDemand(store, packId, { includeAudio = !isHybridSyncEnabled(), baselines = localBaselines, location = null, targetSongId = null } = {}) {
-    const pack = await createPackStore(store).open(packId);
+export async function fetchPackOnDemand(store, packId, { includeAudio = !isHybridSyncEnabled(), baselines = localBaselines, location = null, targetSongId = null, onProgress = null } = {}) {
+    const pack = await createPackStore(store).open(packId, { onProgress });
     const blob = await pack.toMpak({ includeAudio });
     await saveMpakToLibrary(blob, { targetSongId, queryMusicBrainz: false });
     if (location) {

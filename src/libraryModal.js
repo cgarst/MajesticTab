@@ -4566,7 +4566,16 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
                             } else {
                                 setCurrentLoadingProgress(40, 'Downloading…');
                                 const { fetchPackOnDemand, isHybridSyncEnabled } = await import('./packSyncLocal.js');
-                                await fetchPackOnDemand(store, packId, { includeAudio: !isHybridSyncEnabled(), location: locationOf(target, store), targetSongId: song.id });
+                                const mb = (n) => (n / 1048576).toFixed(n >= 10485760 ? 0 : 1);
+                                await fetchPackOnDemand(store, packId, {
+                                    includeAudio: !isHybridSyncEnabled(),
+                                    location: locationOf(target, store),
+                                    targetSongId: song.id,
+                                    onProgress: ({ loaded, total }) => {
+                                        const frac = total > 0 ? Math.min(1, loaded / total) : 0;
+                                        setCurrentLoadingProgress(40 + frac * 50, total > 0 ? `Downloading · ${mb(loaded)} of ${mb(total)} MB` : 'Downloading…');
+                                    },
+                                });
                                 setCurrentLoadingProgress(90, 'Opening…');
                                 const refreshed = await getSongById(song.id);
                                 const tabs = refreshed?.tabOptions || [];

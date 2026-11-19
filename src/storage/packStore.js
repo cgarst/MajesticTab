@@ -43,6 +43,8 @@ export function expectedFiles(manifest) {
     return out;
 }
 
+const PROGRESS_CHUNK = 2 * 1024 * 1024;
+
 export function createPackStore(store, { root = 'packs' } = {}) {
     const dirOf = (packId) => `${root}/${checkPackId(packId)}`;
 
@@ -56,7 +58,7 @@ export function createPackStore(store, { root = 'packs' } = {}) {
     }
 
     /** Reads every non-audio file of the pack and opens them as an archive. */
-    async function openOnce(packId) {
+    async function openOnce(packId, onProgress) {
         const dir = dirOf(packId);
         const manifestEntry = await store.stat(`${dir}/manifest.json`);
         if (!manifestEntry) throw new NotFoundError(`No such pack: ${packId}`);
@@ -69,9 +71,28 @@ export function createPackStore(store, { root = 'packs' } = {}) {
         const listing = await store.list(`${dir}/`);
         const present = new Map(listing.map((e) => [e.path.slice(dir.length + 1), e]));
         const light = [{ name: 'manifest.json', data: manifestBytes }];
-        for (const [name] of present) {
-            if (name === 'manifest.json' || isAudio(name)) continue;
-            light.push({ name, data: await store.read(`${dir}/${name}`) });
+        const wanted = [...present].filter(([name]) => name !== 'manifest.json' && !isAudio(name));
+        const total = wanted.reduce((sum, [, e]) => sum + (e.size || 0), 0);
+        let loaded = 0;
+        if (onProgress) onProgress({ loaded, total });
+        for (const [name, e] of wanted) {
+            let data;
+            if (onProgress && e.size > PROGRESS_CHUNK) {
+                // A large score: read it in ranges so the caller can show bytes arriving
+                const parts = [];
+                for (let start = 0; start < e.size; start += PROGRESS_CHUNK) {
+                    const part = await store.read(`${dir}/${name}`, { range: { start, end: Math.min(start + PROGRESS_CHUNK, e.size) } });
+                    parts.push(part);
+                    loaded += byteLengthOf(part);
+                    onProgress({ loaded, total: Math.max(total, loaded) });
+                }
+                data = await concatParts(parts);
+            } else {
+                data = await store.read(`${dir}/${name}`);
+                loaded += byteLengthOf(data) || e.size || 0;
+                if (onProgress) onProgress({ loaded, total: Math.max(total, loaded) });
+            }
+            light.push({ name, data });
         }
         const opened = await openMpak(bytesSource(await concatParts((await zipParts(light)).parts)));
         // Audio is not in the light archive on purpose; what is missing from the store is reported by audioInfo
@@ -85,10 +106,10 @@ export function createPackStore(store, { root = 'packs' } = {}) {
         return { manifest, opened, warnings, present, version: manifestEntry.version, dir };
     }
 
-    async function open(packId) {
-        let r = await openOnce(packId);
+    async function open(packId, { onProgress } = {}) {
+        let r = await openOnce(packId, onProgress);
         // SPEC 3.2: a size or hash mismatch may be a writer still at work; read once more before reporting it
-        if (r.warnings.some((w) => /sha256|size/.test(w))) r = await openOnce(packId);
+        if (r.warnings.some((w) => /sha256|size/.test(w))) r = await openOnce(packId, onProgress);
         const { manifest, opened, warnings, present, version, dir } = r;
         if (manifest.id !== undefined && manifest.id !== packId) warnings.push(`manifest id ${manifest.id} differs from the folder ${packId}`);
         const audioEntry = (path) => {
