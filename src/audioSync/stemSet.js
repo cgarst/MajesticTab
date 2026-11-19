@@ -18,6 +18,10 @@ import { decodeFlux, combineFlux } from './refineOffset.js';
 import { listRecordingMeta } from './recordingMeta.js';
 import { mediaKey } from './syncStore.js';
 
+/** Sent when a sound's muted parts are saved or reset, so a list that says how many are muted can follow. */
+export const STEM_MUTES_EVENT = 'majestictab:stem-mutes';
+const announce = () => { try { window.dispatchEvent(new Event(STEM_MUTES_EVENT)); } catch { /* not in a page */ } };
+
 const MUTES_PREFIX = 'stem_mutes_';
 const mutesKey = (songKey, slot) => `${MUTES_PREFIX}${encodeURIComponent(String(songKey).toLowerCase())}_${slot}`;
 
@@ -40,11 +44,13 @@ export function getMutedIds(songKey, slot, stems, instrumentMode, storage = loca
 
 export function setMutedIds(songKey, slot, ids, storage = localStorage) {
     try { storage.setItem(mutesKey(songKey, slot), JSON.stringify([...new Set(ids)])); } catch { /* optional */ }
+    announce();
 }
 
 /** Forgets the person's choice for a sound, so it starts from its default again. */
 export function resetMutedIds(songKey, slot, storage = localStorage) {
     try { storage.removeItem(mutesKey(songKey, slot)); } catch { /* optional */ }
+    announce();
 }
 
 const levelsKey = (songKey, slot) => `stem_levels_${encodeURIComponent(String(songKey).toLowerCase())}_${slot}`;

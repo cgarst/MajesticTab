@@ -790,7 +790,7 @@
       <div id="afStemList" class="d-flex flex-column gap-1" role="group" aria-labelledby="afStemLabel"></div>
     </div>
 
-    <!-- Everything about choosing and adding recordings. Open, except while a stem set is the sound (soundSwitch.js closes it then) -->
+    <!-- Everything about choosing and adding recordings: the Full band and Backing sections (slotRecordings.js), then Add audio file and Add a video -->
     <div id="afMore">
       <!-- The recordings for this tab, one list: the audio in the file, then audio files, then videos. Each keeps its own sync points; pressing one makes it the sound. -->
       <div id="realAudioRecordings" class="mb-3">
@@ -815,6 +815,8 @@
         <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
           <button type="button" class="btn btn-sm rec-text-btn" id="afChooseBtn">Add audio file</button>
           <input type="file" id="afFileInput" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" hidden>
+          <button type="button" class="btn btn-sm rec-text-btn" id="afAddStemsBtn" title="Make a set of stems from several audio files">Add stems</button>
+          <input type="file" id="afStemsInput" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" multiple hidden>
           <span class="small text-white-50 text-truncate" id="afStatus" role="status"></span>
         </div>
         <!-- Add a video: one field, and a button for each part it can go to. A link or video ID is added as it is; anything else is a search whose first match is added. -->
@@ -1345,6 +1347,24 @@
       </div>
     </header>
     <div class="theme-modal-body" id="syncSheetBody"></div>
+  </section>
+</div>
+
+<div id="addStemsModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="addStemsTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card add-stems-card">
+    <header class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="addStemsTitle">Add stems</h2>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="addStemsModalCloseBtn" aria-label="Close">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+    <div class="theme-modal-body" id="addStemsBody"></div>
   </section>
 </div>
 

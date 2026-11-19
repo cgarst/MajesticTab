@@ -27,6 +27,7 @@ import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtil
 import { initYouTubePlayer, updateActiveSong } from './soundPlayer.js';
 import { initAudioSyncUi } from './audioSync/audioSyncUi.js';
 import { initAudioFilePlayer, updateSongForAudioFile } from './audioSync/audioFilePlayer.js';
+import { initAddStems } from './audioSync/addStems.js';
 import { initRealAudioController, updateSongForRealAudio } from './audioSync/realAudioController.js';
 import { restoreDebugBackup } from './debugRestore.js';
 import { initSoundFontPanel } from './gpProcessor/soundFontPanel.js';
@@ -1079,6 +1080,7 @@ async function initApp() {
     initYouTubePlayer();
     initAudioSyncUi();
     initAudioFilePlayer();
+    initAddStems();
     initRealAudioController();
     import('./audioSync/libraryAudio.js').then((m) => m.adoptAllUnassignedAudio()).catch(() => {});
     initSynthPlayer();

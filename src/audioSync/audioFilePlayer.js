@@ -510,7 +510,7 @@ function actionButton(label, text, onClick, className = 'rec-text-btn') {
  * slot lists, `selected(id)` which one it plays, and `beforeSelect` runs before a row is pressed (the Sound panel lists both
  * slots at once, so a row of the other slot first makes that slot the active one).
  */
-export function buildFileRows({ include = () => true, selected, beforeSelect = null } = {}) {
+export function buildFileRows({ include = () => true, selected, beforeSelect = null, slot = null } = {}) {
     const synced = syncedFiles();
     const countOf = (id) => synced.find(s => s.audioId === id)?.count || 0;
     const removeMode = isRemoveMode();
@@ -523,7 +523,12 @@ export function buildFileRows({ include = () => true, selected, beforeSelect = n
     const ordered = orderRecordings(state.files.filter((f) => !isPart(f) && include(f, metas)), (f) => mediaKey({ kind: 'local', audioId: f.id }), metas);
     return ordered.map(({ item: f, meta, nested }) => {
         const count = countOf(f.id);
-        const detail = [roleLabel(meta), 'Audio file', tracksNote(meta), f.durationMs ? clock(f.durationMs) : 'Unknown length', megabytes(f.size), pointsLabel(count)].filter(Boolean).join(' \u00b7 ');
+        // A set of stems says, under Backing, how many of its parts that sound starts without (the person's own mix once changed)
+        const stems = stemsOfMeta(meta);
+        const mutedNote = stems && slot === 'backing'
+            ? `${getMutedIds(getSongKey(), 'backing', stems, getInstrumentMode()).length} of ${stems.length} stems muted`
+            : '';
+        const detail = [roleLabel(meta), 'Audio file', mutedNote || tracksNote(meta), f.durationMs ? clock(f.durationMs) : 'Unknown length', megabytes(f.size), pointsLabel(count)].filter(Boolean).join(' \u00b7 ');
         let actions;
         if (removeMode) {
             const rm = actionButton('Remove this file', state.armedRemoval === f.id ? `Delete ${count} map points too?` : 'Remove', () => {
@@ -850,6 +855,20 @@ export async function updateSongForAudioFile({ final = false } = {}) {
     setStatus('');
     await refreshFiles();
     updateGlobalAudioControls();
+}
+
+/**
+ * Makes a set of stems added from loose files (addStems.js) the sound of both parts, as a pack of stems is: the lead's file is
+ * the one both parts play. Its recording info (`stems`) is already saved.
+ */
+export async function adoptStemSet(leadMeta) {
+    const songKey = getSongKey();
+    try {
+        localStorage.setItem(SLOT_FILE_KEY(songKey, 'original'), leadMeta.id);
+        localStorage.setItem(SLOT_FILE_KEY(songKey, 'backing'), leadMeta.id);
+        localStorage.setItem(LAST_FILE_KEY(songKey), leadMeta.id);
+    } catch { /* optional */ }
+    await finishAdd(leadMeta);
 }
 
 export function initAudioFilePlayer() {

@@ -6623,3 +6623,20 @@ body.phone-reader .yt-add-to .btn { min-height: 44px; }
 #ytDropdownPanel .yt-add-to .rec-text-btn { background: var(--s2) !important; border-radius: var(--r-control); color: var(--ink); text-align: center; }
 @media (hover: hover) { #ytDropdownPanel .yt-add-to .rec-text-btn:hover { background: var(--s3) !important; } }
 #ytDropdownPanel .yt-add-to .rec-text-btn:active { background: var(--s3) !important; }
+
+/* Add stems: the sheet that makes a set of stems from loose files */
+.add-stems-card { max-width: min(560px, calc(100vw - 24px)) !important; }
+.add-stems-intro, .add-stems-foot { margin: 0 0 12px; font-size: 13px; color: var(--ink2); }
+.add-stems-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.add-stems-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 110px; gap: 8px; align-items: center; padding: 8px; border-radius: var(--r-control); background: var(--s2); }
+.add-stems-file { display: flex; flex-direction: column; min-width: 0; font-size: 13px; color: var(--ink); }
+.add-stems-file > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.add-stems-meta { font-size: 12px; color: var(--ink2); }
+.add-stems-notes p { margin: 0 0 6px; font-size: 13px; color: var(--ink); }
+.add-stems-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.add-stems-go:disabled { opacity: .5; }
+@media (max-width: 640px) {
+  .add-stems-row { grid-template-columns: 1fr 1fr; }
+  .add-stems-file { grid-column: 1 / -1; }
+  .add-stems-actions .btn { min-height: 44px; }
+}

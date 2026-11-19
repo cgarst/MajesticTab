@@ -17,6 +17,7 @@ import { switchRealAudioSlot, switchRealAudioSource, getActiveSlot, slotSelectio
 import { buildFileRows, buildMissingFileRows } from './audioFilePlayer.js';
 import { buildVideoRows, handleVideoListClick, addVideoFieldUntouched, ADD_VIDEO_EVENT } from '../soundPlayer.js';
 import { mediaKey, SYNC_CHANGED_EVENT } from './syncStore.js';
+import { stemsOfMeta, STEM_MUTES_EVENT } from './stemSet.js';
 import { REC_REMOVE_MODE_EVENT } from './removeMode.js';
 import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
 
@@ -78,9 +79,12 @@ export function initSlotRecordings() {
             const rows = [];
             if (slot === 'original' && hasEmbeddedAudio()) rows.push(embeddedRow(sel?.kind === 'embedded', goHere));
             rows.push(...buildFileRows({
+                slot,
                 include: (f, metas) => {
-                    const role = metas[mediaKey({ kind: 'local', audioId: f.id })]?.role;
-                    return (role === 'backing' ? 'backing' : 'original') === slot || (sel?.kind === 'local' && sel.audioId === f.id);
+                    const meta = metas[mediaKey({ kind: 'local', audioId: f.id })];
+                    // A set of stems is both parts' sound: Full band hears all of it, Backing starts without the guitars
+                    if (stemsOfMeta(meta)) return true;
+                    return (meta?.role === 'backing' ? 'backing' : 'original') === slot || (sel?.kind === 'local' && sel.audioId === f.id);
                 },
                 selected: (id) => sel?.kind === 'local' && sel.audioId === id,
                 beforeSelect: goHere
@@ -142,7 +146,7 @@ export function initSlotRecordings() {
             window.dispatchEvent(new CustomEvent(ADD_VIDEO_EVENT, { detail: { text, useDefault } }));
         });
     });
-    [SYNC_CHANGED_EVENT, REC_REMOVE_MODE_EVENT, AUDIO_FILES_CHANGED_EVENT].forEach((evt) => window.addEventListener(evt, queue));
+    [SYNC_CHANGED_EVENT, REC_REMOVE_MODE_EVENT, AUDIO_FILES_CHANGED_EVENT, STEM_MUTES_EVENT].forEach((evt) => window.addEventListener(evt, queue));
     render();
     arrange();
 }
