@@ -482,7 +482,47 @@ export class FretboardView {
             });
         }
 
+        // Faded copies of played notes sit under the live markers
+        this.trailGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        this.trailGroup.setAttribute('class', 'fretboard-trail');
+        this.trailGroup.setAttribute('aria-hidden', 'true');
+        this.svg.appendChild(this.trailGroup);
         this.svg.appendChild(poolGroup);
+    }
+
+    /** Turn the trail on or off, and set how long a played note takes to fade (ms). */
+    setTrail(enabled, fadeMs) {
+        this.trailEnabled = Boolean(enabled);
+        if (fadeMs) this.trailMs = fadeMs;
+        if (!this.trailEnabled) this.clearTrail();
+    }
+
+    clearTrail() {
+        if (this.trailGroup) this.trailGroup.textContent = '';
+    }
+
+    /** Leave a copy of each marker now showing, fading out over the trail time, before they are redrawn. */
+    leaveTrail() {
+        if (!this.trailEnabled || !this.trailGroup) return;
+        const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const ms = this.trailMs || 2000;
+        for (const marker of this.markerPool) {
+            const el = marker.element;
+            if (el.style.display === 'none') continue;
+            const key = el.getAttribute('transform');
+            for (const old of [...this.trailGroup.children]) {
+                if (old.getAttribute('transform') === key) old.remove();
+            }
+            const copy = el.cloneNode(true);
+            copy.setAttribute('class', 'fretboard-note-marker fretboard-trail-marker');
+            this.trailGroup.appendChild(copy);
+            const fade = reduceMotion || !copy.animate
+                ? null
+                : copy.animate([{ opacity: 0.5 }, { opacity: 0 }], { duration: ms, easing: 'linear', fill: 'forwards' });
+            if (fade) fade.onfinish = () => copy.remove();
+            else setTimeout(() => copy.remove(), ms);
+        }
+        while (this.trailGroup.children.length > 80) this.trailGroup.firstChild.remove();
     }
 
     /**
@@ -497,6 +537,7 @@ export class FretboardView {
         const partPicks = new Map();
         let poolIdx = 0;
         this.clearPickReach();
+        this.leaveTrail();
 
         for (const note of notes) {
             const atString = note.string;
@@ -725,6 +766,7 @@ export class FretboardView {
      */
     clearActiveNotes() {
         this.clearPickReach();
+        this.clearTrail();
         for (const marker of this.markerPool) {
             marker.element.style.display = 'none';
         }

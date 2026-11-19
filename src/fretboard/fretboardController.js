@@ -19,6 +19,7 @@ function portraitOpen() {
     try { return localStorage.getItem(STORAGE_KEY_OPEN) === 'true'; } catch (_) { return false; }
 }
 const STORAGE_KEY_MODE = 'majestictab_fretboard_display_mode';
+const STORAGE_KEY_TRAIL = 'majestictab_fretboard_trail';
 const STORAGE_KEY_LH = 'majestictab_fretboard_left_handed';
 const STORAGE_KEY_FLIP = 'majestictab_fretboard_flip_strings';
 
@@ -28,6 +29,7 @@ class FretboardController {
         this.isOpen = false;
         this.isScoreAvailable = false;
         this.displayMode = 'notes'; // 'notes' | 'frets'
+        this.trailEnabled = false; // played notes linger and fade for about a bar
         this.isLeftHanded = false;
         this.isFlipped = false; // false = Standard (high string on top, as in tab), true = Upside down (low on top)
 
@@ -57,6 +59,7 @@ class FretboardController {
             this.isOpen = isLandscapePhone() ? false : portraitOpen();
             const savedMode = localStorage.getItem(STORAGE_KEY_MODE);
             this.displayMode = savedMode === 'frets' ? 'frets' : 'notes';
+            this.trailEnabled = localStorage.getItem(STORAGE_KEY_TRAIL) === 'true';
             this.isLeftHanded = localStorage.getItem(STORAGE_KEY_LH) === 'true';
             this.isFlipped = localStorage.getItem(STORAGE_KEY_FLIP) === null ? false : localStorage.getItem(STORAGE_KEY_FLIP) === 'true';
         } catch (_) {
@@ -77,6 +80,7 @@ class FretboardController {
 
         this.bindEvents();
         this.updateModeUI();
+        this.updateTrailUI();
         this.updateLeftHandedUI();
         this.updateFlippedUI();
 
@@ -89,6 +93,7 @@ class FretboardController {
             isFlipped: this.isFlipped,
             displayMode: this.displayMode
         });
+        this.view?.setTrail(this.trailEnabled);
     }
 
     bindEvents() {
@@ -109,6 +114,14 @@ class FretboardController {
                     this.setDisplayMode(mode);
                 }
             });
+        });
+
+        // Trail toggle: played notes linger and fade for about a bar
+        document.getElementById('fretboardTrailBtn')?.addEventListener('click', () => {
+            this.trailEnabled = !this.trailEnabled;
+            try { localStorage.setItem(STORAGE_KEY_TRAIL, String(this.trailEnabled)); } catch (_) {}
+            this.view?.setTrail(this.trailEnabled);
+            this.updateTrailUI();
         });
 
         // Left-handed toggle button
@@ -263,6 +276,22 @@ class FretboardController {
         if (this.lastBeatNotes?.length) {
             this.view?.updateActiveNotes(this.lastBeatNotes, this.displayMode);
         }
+    }
+
+    updateTrailUI() {
+        const btn = document.getElementById('fretboardTrailBtn');
+        if (!btn) return;
+        btn.classList.toggle('active', this.trailEnabled);
+        btn.setAttribute('aria-pressed', String(this.trailEnabled));
+    }
+
+    /** Length of the bar the beats sit in, in ms at the current tempo and speed (one bar fades out). */
+    barDurationMs(beat) {
+        const mb = beat?.voice?.bar?.masterBar;
+        const bpm = mb?.tempoAutomation?.value || mb?.score?.tempo || 120;
+        const beats = (mb?.timeSignatureNumerator || 4) * 4 / (mb?.timeSignatureDenominator || 4);
+        const speed = this.currentApi?.playbackSpeed || 1;
+        return Math.max(500, Math.min(8000, beats * 60000 / bpm / speed));
     }
 
     updateModeUI() {
@@ -702,6 +731,7 @@ class FretboardController {
         this.lastBeatNotes = compositeNotes;
 
         if (this.isOpen) {
+            this.view?.setTrail(this.trailEnabled, this.barDurationMs(activeBeats.find(Boolean)));
             this.view?.updateActiveNotes(compositeNotes, this.displayMode);
 
             if (fretCount > 0) {

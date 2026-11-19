@@ -2689,6 +2689,7 @@ body.fretboard-open {
 .fretboard-dock-header { gap: 12px; }
 .fretboard-dock-left { flex: 1 1 0 !important; min-width: 0; }
 .fretboard-dock-center { order: 2; flex: none !important; }
+.fretboard-dock-center { gap: 16px; }
 .fretboard-dock-right { order: 3; flex: none !important; }
 .library-song-row .song-cover { width: 44px; height: 44px; border-radius: var(--r); object-fit: cover; flex: none; background: var(--s3); }
 .setsec .defaults-pills { flex: 0 1 auto; max-width: none; }
