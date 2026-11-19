@@ -6,6 +6,7 @@ import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, g
 import { detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode, tuningKeyOf, visibleTuningsForSong } from './utils/tuningUtils.js';
 import { canReplaceTuning } from './utils/tabTuningMeta.js';
 import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, filterInstrumentalBonusDiscs, lookupMusicBrainzByIds } from './musicbrainz.js';
+import { takeTabs } from './tabSets.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
 
@@ -794,20 +795,23 @@ export async function togglePinSong(songId) {
 }
 
 /**
- * Remove a tab option from a song
+ * Remove a tab option from a song. `withSet` removes the whole set when the tab heads one (the library's Remove on a
+ * row, which stands for its set); the default removes just that tab, and the next tab of its set becomes the head.
  */
-export async function removeTabOptionFromSong(songId, tabOptionId) {
+export async function removeTabOptionFromSong(songId, tabOptionId, { withSet = false } = {}) {
     const song = await getSongById(songId);
     if (!song || !Array.isArray(song.tabOptions)) return;
 
-    const removedFileId = song.tabOptions.find(t => t.id === tabOptionId)?.fileStoreId;
-    song.tabOptions = song.tabOptions.filter(t => t.id !== tabOptionId);
-    if (song.defaultTabId === tabOptionId) {
+    const { kept, taken: removed } = takeTabs(song.tabOptions, tabOptionId, withSet);
+    song.tabOptions = kept;
+    const removedIds = new Set(removed.map((t) => t.id));
+    if (removedIds.has(song.defaultTabId)) {
         song.defaultTabId = song.tabOptions[0]?.id || null;
     }
     recomputeSongTunings(song);
     await saveSongToLibrary(song, song.collectionId);
-    if (removedFileId) await deleteOrphanedStoredFiles([removedFileId]);
+    const removedFileIds = removed.map((t) => t.fileStoreId).filter(Boolean);
+    if (removedFileIds.length) await deleteOrphanedStoredFiles(removedFileIds);
 }
 
 /**
@@ -848,25 +852,28 @@ export async function collapseDuplicateTextTabs() {
  * Re-assign a tab to another song (for example after a bulk import filed it under the wrong one). The tab keeps its
  * id, file and name, so sync points and setlist entries that point at it keep working. Returns the moved tab.
  */
-export async function moveTabOptionToSong(fromSongId, tabOptionId, toSongId) {
+export async function moveTabOptionToSong(fromSongId, tabOptionId, toSongId, { withSet = false } = {}) {
     if (!fromSongId || !toSongId || fromSongId === toSongId) return null;
     const from = await getSongById(fromSongId);
     const to = await getSongById(toSongId);
     const tab = from?.tabOptions?.find(t => t.id === tabOptionId);
     if (!from || !to || !tab) return null;
 
-    from.tabOptions = from.tabOptions.filter(t => t.id !== tabOptionId);
-    if (from.defaultTabId === tabOptionId) from.defaultTabId = from.tabOptions[0]?.id || null;
+    // `withSet` moves a head together with its set (the library's Move on a row); otherwise just the tab, and the set it left stays together
+    const { kept, taken: moved } = takeTabs(from.tabOptions, tabOptionId, withSet);
+    from.tabOptions = kept;
+    if (moved.some(t => t.id === from.defaultTabId)) from.defaultTabId = from.tabOptions[0]?.id || null;
     recomputeSongTunings(from);
 
     if (!Array.isArray(to.tabOptions)) to.tabOptions = [];
-    const duplicate = tab.fileStoreId && to.tabOptions.some(t => t.fileStoreId === tab.fileStoreId && t.name === tab.name && t.startPage === tab.startPage);
-    if (!duplicate) {
-        to.tabOptions.push({ ...tab, isDefault: false });
-        if (!to.defaultTabId) to.defaultTabId = tab.id;
-        if (tab.stringCount && (!to.stringCount || tab.stringCount > to.stringCount)) to.stringCount = tab.stringCount;
-        recomputeSongTunings(to);
+    for (const m of moved) {
+        const duplicate = m.fileStoreId && to.tabOptions.some(t => t.fileStoreId === m.fileStoreId && t.name === m.name && t.startPage === m.startPage);
+        if (duplicate) continue;
+        to.tabOptions.push({ ...m, isDefault: false });
+        if (!to.defaultTabId) to.defaultTabId = m.id;
+        if (m.stringCount && (!to.stringCount || m.stringCount > to.stringCount)) to.stringCount = m.stringCount;
     }
+    recomputeSongTunings(to);
     for (const t of to.tabOptions) t.isDefault = (t.id === to.defaultTabId);
     for (const t of from.tabOptions) t.isDefault = (t.id === from.defaultTabId);
 

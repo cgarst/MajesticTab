@@ -43,6 +43,7 @@ import { songHasSyncPoints } from './audioSync/syncStore.js';
 import { songHasLocalSlot, songAudioKeys, readLibraryAudio } from './audioSync/libraryAudio.js';
 import { isNative, openTabDownloader } from './tabDownloader.js';
 import { openSongTabPicker, closeSongTabPicker, isSongTabPickerOpen } from './songTabPicker.js';
+import { visibleTabs, setOf } from './tabSets.js';
 
 export const HIDE_NO_TAB_SONGS_KEY = 'majestictab_hide_no_tab_songs';
 
@@ -3643,16 +3644,17 @@ async function toggleSongTabsPicker(anchor, songId, mode, { forceOpen = false } 
         on: {
             openTab: (tab) => loadSongTab(song, tab),
             makeDefault: async (tabId) => { await setDefaultTabOption(songId, tabId); showToast('Set default tab', 'success'); await renderView(); },
-            removeTab: async (tabId) => { await removeTabOptionFromSong(songId, tabId); await renderView(); },
+            removeTab: async (tabId, opts) => { await removeTabOptionFromSong(songId, tabId, opts); await renderView(); },
             listSongs: async () => (await getAllSongs())
                 .filter(x => !x.isAlbumTabContainer)
                 .map(x => ({ id: x.id, title: x.title, artist: x.artist, album: x.album }))
                 .sort((x, y) => (x.artist || '').localeCompare(y.artist || '') || (x.album || '').localeCompare(y.album || '') || (x.title || '').localeCompare(y.title || '')),
             moveTab: async (tabId, toSongId) => {
                 const target = await getSongById(toSongId);
-                const moved = await moveTabOptionToSong(songId, tabId, toSongId);
+                const setIds = setOf(song, tabId).map(t => t.id);
+                const moved = await moveTabOptionToSong(songId, tabId, toSongId, { withSet: true });
                 if (!moved) { showToast('Could not move the tab.', 'danger'); return; }
-                await retargetSetlistTab(tabId, songId, toSongId);
+                for (const id of (setIds.length ? setIds : [tabId])) await retargetSetlistTab(id, songId, toSongId);
                 showToast(`Moved to ${target?.title || 'the song'}`, 'success');
                 await renderView();
             },
@@ -3670,6 +3672,8 @@ function renderSongRow(song, options = {}) {
     const pdfPagesNoun = selectedArtist?.isCustom ? 'Book' : 'Album';
     const tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
     const hasTabs = tabOptions.length > 0;
+    // The tabs of a set (the notation and tablature of each part of one pack) are listed as one: the player's Tabs menu has the rest
+    const listedTabCount = visibleTabs(song).length;
     const tunings = visibleTuningsForSong(song, Array.isArray(song.tunings) ? song.tunings : []).filter(t => isTuningMatchingInstrument(t));
     const durationText = formatTrackDuration(song.length);
     const isPinned = Boolean(song.pinned);
@@ -3765,7 +3769,7 @@ function renderSongRow(song, options = {}) {
           ${!hasTabs
             ? `<button type="button" class="song-tabs-btn song-tabs-add" data-song-id="${song.id}" data-tabs-mode="add" aria-haspopup="dialog" aria-expanded="false">Add tab</button>`
             : tabOptions.length >= 1
-              ? `<button type="button" class="song-tabs-btn" data-song-id="${song.id}" data-tabs-mode="list" aria-haspopup="dialog" aria-expanded="false" aria-label="${tabOptions.length === 1 ? '1 tab' : tabOptions.length + ' tabs'} for ${escapeHtml(song.title)}. ${tabOptions.length === 1 ? 'Open it' : 'Choose one'}">${tabOptions.length === 1 ? '1 tab' : tabOptions.length + ' tabs'} <span class="song-tabs-chev" aria-hidden="true">\u203a</span></button>`
+              ? `<button type="button" class="song-tabs-btn" data-song-id="${song.id}" data-tabs-mode="list" aria-haspopup="dialog" aria-expanded="false" aria-label="${listedTabCount === 1 ? '1 tab' : listedTabCount + ' tabs'} for ${escapeHtml(song.title)}. ${listedTabCount === 1 ? 'Open it' : 'Choose one'}">${listedTabCount === 1 ? '1 tab' : listedTabCount + ' tabs'} <span class="song-tabs-chev" aria-hidden="true">\u203a</span></button>`
               : '<span class="song-tabs-spacer" aria-hidden="true"></span>'}
           <button type="button" class="btn btn-sm btn-theme-icon pin-song-btn ${isPinned ? 'text-warning' : 'text-muted'}" data-song-id="${song.id}" title="${isPinned ? 'Unpin song from collection' : 'Pin song to collection'}" aria-label="${isPinned ? 'Unpin song' : 'Pin song'}" aria-pressed="${isPinned}">
             <i class="bi-pin-angle${isPinned ? '-fill' : ''}"></i>

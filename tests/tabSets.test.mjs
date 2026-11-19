@@ -164,3 +164,19 @@ test('undoRecordFor and patchesBySong: the record restores what each tab had, gr
     assert.deepEqual(rec, [{ songId: 's', tabId: 'a', origin: null, variantOf: null }, { songId: 's', tabId: 'b', origin: 'X', variantOf: 'a' }]);
     assert.deepEqual([...patchesBySong(changes)], [['s', [{ tabId: 'a', origin: 'Pub', variantOf: null }, { tabId: 'b', origin: 'Pub', variantOf: 'a' }]]]);
 });
+
+test('takeTabs: a head taken alone hands its set to the next tab, a variant just leaves, withSet takes them all', async () => {
+    const { takeTabs } = await import('../src/tabSets.js');
+    const mk = () => [{ id: 'gp' }, { id: 'h' }, { id: 'v1', variantOf: 'h' }, { id: 'v2', variantOf: 'h' }];
+    let r = takeTabs(mk(), 'h');
+    assert.deepEqual(r.taken.map((t) => t.id), ['h']);
+    assert.deepEqual(r.kept.map((t) => [t.id, t.variantOf ?? null]), [['gp', null], ['v1', null], ['v2', 'v1']]);
+    r = takeTabs(mk(), 'v1');
+    assert.deepEqual(r.kept.map((t) => [t.id, t.variantOf ?? null]), [['gp', null], ['h', null], ['v2', 'h']]);
+    assert.equal(r.taken[0].variantOf, undefined, 'the tab that left is on its own');
+    r = takeTabs(mk(), 'h', true);
+    assert.deepEqual(r.taken.map((t) => t.id), ['h', 'v1', 'v2']);
+    assert.deepEqual(r.kept.map((t) => t.id), ['gp']);
+    assert.deepEqual(takeTabs(mk(), 'gp').taken.map((t) => t.id), ['gp']);
+    assert.deepEqual(takeTabs(mk(), 'nope').taken, []);
+});

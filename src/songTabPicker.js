@@ -3,6 +3,8 @@
 // several: the same list opens, moves, removes and sets the default. A floating panel beside the control on wide windows, a sheet above the
 // tab bar on phones. The row itself never grows; the choice is made here, on demand.
 
+import { resolveSets } from './tabSets.js';
+
 const SHEET_QUERY = '(max-width: 576px)';
 // Sources shown first, as the intent ("find it" or "I have it"); the rest sit under "More sources"
 const PRIMARY_PROVIDERS = ['local'];
@@ -51,13 +53,16 @@ function placePanel(p) {
  * @param {function(tab):string} o.tabMeta   grey meta text for a tab (pages, tuning)
  * @param {function(tab):boolean} o.isSynced
  * @param {boolean} o.canEditRange  show "Edit pages" for album-PDF tabs
- * @param {Object}  o.on            { addText() (optional: "Enter as text"), openTab(tab), makeDefault(tabId), removeTab(tabId), editRange(tab), addFrom(providerId), listSongs(), moveTab(tabId, songId) }
+ * @param {Object}  o.on            { addText() (optional: "Enter as text"), openTab(tab), makeDefault(tabId), removeTab(tabId, { withSet }), editRange(tab), addFrom(providerId), listSongs(), moveTab(tabId, songId) }
  *                                  listSongs (optional) returns [{ id, title, artist, album }] to choose from; with it, manage mode offers "Move"
  */
 export function openSongTabPicker(o) {
     closeSongTabPicker({ restoreFocus: false });
     const tabs = Array.isArray(o.song.tabOptions) ? o.song.tabOptions : [];
     const defaultId = o.song.defaultTabId || tabs[0]?.id || null;
+    // A set of tabs (src/tabSets.js) is one row: its head. Remove and Move on the row act on the whole set.
+    const { heads, variantsOf, headIdOf } = resolveSets(tabs);
+    const defaultHeadId = headIdOf.get(defaultId) || defaultId;
     const startMode = tabs.length === 0 ? 'add' : o.mode;
     let mode = startMode;
 
@@ -92,9 +97,10 @@ export function openSongTabPicker(o) {
         return `
           ${isSheet ? `<h2 class="tabpick-title">Tabs<span class="tabpick-sub"> · ${esc(o.song.title)}</span></h2>` : ''}
           <ul class="tabpick-list">
-            ${tabs.map((t) => {
-                const isDef = t.id === defaultId;
-                const meta = o.tabMeta(t);
+            ${heads.map((t) => {
+                const isDef = t.id === defaultHeadId;
+                const inSet = (variantsOf.get(t.id) || []).length;
+                const meta = [o.tabMeta(t), inSet ? `${inSet + 1} in this set` : ''].filter(Boolean).join(' \u00b7 ');
                 const canRange = o.canEditRange && Boolean(t.isAlbumRange || t.startPage);
                 return `<li class="tabpick-item${isDef ? ' is-default' : ''}" data-tab-id="${esc(t.id)}">
                   <button type="button" class="tabpick-row tabpick-open" data-act="open" data-tab-id="${esc(t.id)}">
@@ -107,7 +113,7 @@ export function openSongTabPicker(o) {
                       ? '<span class="tabpick-state">Opens first</span>'
                       : `<button type="button" class="tabpick-act tabpick-makedef" data-act="default" data-tab-id="${esc(t.id)}" aria-label="Make ${esc(t.name)} the default tab">Make default</button>`}
                   ${o.on.listSongs && o.on.moveTab ? `<button type="button" class="tabpick-act" data-act="move" data-tab-id="${esc(t.id)}">Move</button>` : ''}
-                  <button type="button" class="tabpick-act tabpick-danger" data-act="remove" data-tab-id="${esc(t.id)}" data-name="${esc(t.name)}">Remove</button>
+                  <button type="button" class="tabpick-act tabpick-danger" data-act="remove" data-tab-id="${esc(t.id)}" data-name="${esc(t.name)}"${inSet ? ` data-set-size="${inSet + 1}"` : ''}>Remove</button>
                 </li>`;
             }).join('')}
           </ul>
@@ -174,12 +180,13 @@ export function openSongTabPicker(o) {
             // Destructive: the second press confirms
             if (btn.dataset.confirming !== 'true') {
                 btn.dataset.confirming = 'true';
-                btn.textContent = 'Press again to remove';
-                btn.setAttribute('aria-label', `Press again to remove ${btn.dataset.name}`);
+                const n = Number(btn.dataset.setSize) || 0;
+                btn.textContent = n ? `Press again to remove ${n} tabs` : 'Press again to remove';
+                btn.setAttribute('aria-label', n ? `Press again to remove ${btn.dataset.name} and the ${n - 1} others in its set` : `Press again to remove ${btn.dataset.name}`);
                 return;
             }
             closeSongTabPicker({ restoreFocus: false });
-            o.on.removeTab(tab.id);
+            o.on.removeTab(tab.id, { withSet: true });
         }
     }
     root.addEventListener('click', onClick);

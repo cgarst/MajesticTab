@@ -198,3 +198,27 @@ export function patchesBySong(items) {
     }
     return bySong;
 }
+
+/**
+ * Takes a tab out of a list of tab options. Returns `{ kept, taken }` and edits the set links of the tabs it keeps. A tab in a
+ * set is taken alone by default: when it is the head, the next tab of its set becomes the head so the others stay together,
+ * and a variant simply leaves its set. With `withSet`, a head takes its whole set. A tab in no set is just itself. A taken
+ * tab that left alone has no `variantOf` any more.
+ */
+export function takeTabs(tabOptions, tabId, withSet = false) {
+    const list = Array.isArray(tabOptions) ? tabOptions : [];
+    const { variantsOf } = resolveSets(list);
+    const variants = variantsOf.get(tabId) || [];
+    const ids = new Set([tabId]);
+    if (withSet) {
+        for (const v of variants) ids.add(v.id);
+    } else if (variants.length) {
+        const [head, ...rest] = variants;
+        delete head.variantOf;
+        for (const v of rest) v.variantOf = head.id;
+    }
+    const taken = list.filter((t) => ids.has(t.id));
+    const kept = list.filter((t) => !ids.has(t.id));
+    if (!withSet) for (const t of taken) delete t.variantOf;
+    return { kept, taken };
+}

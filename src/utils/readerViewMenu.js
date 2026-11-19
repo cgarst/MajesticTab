@@ -553,7 +553,7 @@ function arrangeSongPanel() {
             const { visibleTuningLabel } = await import('../utils/tuningUtils.js');
             if (mySeq !== scoreSyncSeq) return;
             let currentTabId = '';
-            for (const t of tabs) {
+            const optionFor = (t) => {
                 const opt = document.createElement('option');
                 opt.value = t.id;
                 const pages = (t.startPage && t.endPage) ? `Pages ${t.startPage}\u2013${t.endPage}` : '';
@@ -565,7 +565,23 @@ function arrangeSongPanel() {
                     opt.dataset.current = 'true';
                     currentTabId = t.id;
                 }
-                scoreSelect.appendChild(opt);
+                return opt;
+            };
+            // The tabs of a set (src/tabSets.js) sit together under the name of their origin; the others stand alone
+            const { resolveSets } = await import('../tabSets.js');
+            if (mySeq !== scoreSyncSeq) return;
+            const { heads, variantsOf } = resolveSets(tabs);
+            const groupNames = new Map();
+            for (const head of heads) {
+                const members = variantsOf.get(head.id) || [];
+                if (!members.length) { scoreSelect.appendChild(optionFor(head)); continue; }
+                const base = head.origin || 'Set';
+                const n = (groupNames.get(base) || 0) + 1;
+                groupNames.set(base, n);
+                const g = document.createElement('optgroup');
+                g.label = n > 1 ? `${base} ${n}` : base;
+                for (const t of [head, ...members]) g.appendChild(optionFor(t));
+                scoreSelect.appendChild(g);
             }
             if (currentTabId) scoreSelect.value = currentTabId;
             activeScoreSwitch = async (tabId) => {
