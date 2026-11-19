@@ -43,6 +43,7 @@ export function buildScoreTimeline(playedBars, defaultTempo = 120) {
         seen.set(bar.barIndex, occurrence + 1);
         advance(bar.start);
         const entry = { barIndex: bar.barIndex, occurrence, startTick: bar.start, endTick: bar.end, startMs: ms, segments: [] };
+        if (Number.isFinite(bar.num) && Number.isFinite(bar.den)) { entry.num = bar.num; entry.den = bar.den; }
         const changes = [...bar.tempoChanges].sort((a, b) => a.tick - b.tick);
         let segTick = bar.start;
         let segMs = ms;

@@ -13,11 +13,18 @@ const CANDIDATE_UNITS = [
     { name: 'quarter', ticks: TICKS_PER_QUARTER },
     { name: 'half', ticks: TICKS_PER_QUARTER * 2 },
     { name: 'bar', ticks: null },
+    // One step per beat of each bar's own meter: dotted quarters in 6/8, 9/8, 12/8 and 15/8, else the denominator note
+    { name: 'beat', ticks: 'meter' },
 ];
 
 const MAX_INTERVAL_RATIO_DEVIATION = 0.35;
 const MIN_REGULAR_SHARE = 0.75;
 const SKIP_START_COST = 0.1;
+// A PDF may open with a count-in bar the score lacks (a few points), but its first point is otherwise the start of its first
+// bar: skipping more than a bar's worth of its first points is dear
+const FREE_PDF_START_SKIPS = 8;
+const SKIP_PDF_START_COST = 0.6;
+const pdfStartSkipCost = (n) => Math.min(n, FREE_PDF_START_SKIPS) * SKIP_START_COST + Math.max(0, n - FREE_PDF_START_SKIPS) * SKIP_PDF_START_COST;
 const SKIP_END_COST = 0.1;
 const SKIP_STEP_COST = 0.45;
 const SYS_BREAK_OFF_BAR_PENALTY = 0.75;
@@ -35,9 +42,18 @@ function tickToScoreMs(bar, tick) {
 }
 
 /** Expands `timeline.bars` into a grid of `{ barIdx, barIndex, occurrence, tick, scoreMs, isBarStart }`. */
-function buildScoreGrid(timeline, unitTicks) {
+/** The ticks of one beat in a bar: a dotted quarter in a compound meter (6/8, 9/8, 12/8, 15/8), else the denominator note. */
+function beatTicks(bar) {
+    const { num, den } = bar;
+    if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return TICKS_PER_QUARTER;
+    if (den === 8 && num >= 6 && num % 3 === 0) return TICKS_PER_QUARTER * 1.5;
+    return TICKS_PER_QUARTER * 4 / den;
+}
+
+function buildScoreGrid(timeline, fixedTicks) {
     const grid = [];
     timeline.bars.forEach((bar, barIdx) => {
+        const unitTicks = fixedTicks === 'meter' ? beatTicks(bar) : fixedTicks;
         if (unitTicks === null) {
             grid.push({
                 barIdx,
@@ -111,7 +127,7 @@ function alignSequences(times, grid, isSysStart = null) {
     }
     for (let i = 1; i < Math.min(N, band + 1); i++) {
         const idx = cellIdx(i, 0);
-        if (idx >= 0) dp[idx] = i * SKIP_START_COST;
+        if (idx >= 0) dp[idx] = pdfStartSkipCost(i);
     }
 
     for (let i = 1; i < N; i++) {
@@ -334,7 +350,9 @@ export function inferBarSyncFromPdf(timeline, pdfPoints, options = {}) {
     if (audioOnsets?.times?.length && noteScoreTimesMs?.length && bestGrid) {
         const stepsPerBar0 = bestUnit.ticks === null
             ? 1
-            : Math.max(1, Math.round((timeline.bars[0].endTick - timeline.bars[0].startTick) / bestUnit.ticks));
+            : bestUnit.ticks === 'meter'
+                ? Math.max(1, bestGrid.filter((g) => g.barIdx === 0).length)
+                : Math.max(1, Math.round((timeline.bars[0].endTick - timeline.bars[0].startTick) / bestUnit.ticks));
 
         let bestAudioScore = best.score + scoreAudioOnsetAlignment(timeline, best.result.points, noteScoreTimesMs, audioOnsets) * 150;
         let bestResult = best.result;

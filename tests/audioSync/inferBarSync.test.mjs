@@ -137,3 +137,37 @@ test('detects leading GP rest bar when audio/PDF start at bar 1 using audio onse
     assert.equal(res.points[0].barIndex, 1);
     assert.equal(res.points[0].timeMs, 0);
 });
+
+test('infers bar sync from PDF points that follow each bar\'s own beat: dotted quarters in 12/8, quarters in 4/4', () => {
+    const bars = [];
+    let tick = 0;
+    // 4/4 (2000 ms), 4/4, 12/8 (3000 ms), 12/8, 4/4, 12/8, 12/8, 4/4, 4/4, 12/8 at 120 BPM
+    const meters = [[4, 4], [4, 4], [12, 8], [12, 8], [4, 4], [12, 8], [12, 8], [4, 4], [4, 4], [12, 8]];
+    const expected = [];
+    let ms = 4000;
+    const pdfPoints = [];
+    meters.forEach(([num, den], i) => {
+        const len = num * 3840 / den;
+        bars.push({ barIndex: i, start: tick, end: tick + len, num, den, tempoChanges: i === 0 ? [{ tick: 0, tempo: 120 }] : [] });
+        tick += len;
+        expected.push(ms);
+        const beats = den === 8 ? num / 3 : num;
+        const step = (len * 60000 / (120 * 960)) / beats;
+        for (let b = 0; b < beats; b++) pdfPoints.push({ timeMs: Math.round(ms + b * step) });
+        ms += Math.round(len * 60000 / (120 * 960));
+    });
+    const res = inferBarSyncFromPdf(buildScoreTimeline(bars), pdfPoints);
+    assert.ok(res, 'a map that is one point per beat of a mixed-meter score is read');
+    assert.equal(res.unit, 'beat');
+    assert.equal(res.fit.placed, 10);
+    assert.deepEqual(res.points.map((p) => p.timeMs), expected);
+});
+
+test('the PDF\'s first point stays on the score\'s first bar instead of skipping a long stretch of the PDF', () => {
+    const tl = makeMixedTimeline();
+    // 30 quarter beats from 0 ms: the first bar starts at 0, not 15 steps in
+    const pdfPoints = Array.from({ length: 30 }, (_, i) => ({ timeMs: i * 500 }));
+    const res = inferBarSyncFromPdf(tl, pdfPoints);
+    assert.ok(res);
+    assert.equal(res.points[0].timeMs, 0);
+});
