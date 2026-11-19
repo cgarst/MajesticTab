@@ -5020,6 +5020,13 @@ body > #controllerHelpModal { display: none; }
     animation: tabpickSheetIn var(--dur-base) var(--ease-out);
   }
   .tabpick.is-closing { animation: tabpickSheetOut var(--dur-fast) ease-in forwards; }
+  /* A tab row is two lines: the name and its details on top, the actions in a line below, so a long file name never shares the line with them */
+  .tabpick-item { flex-wrap: wrap; row-gap: 0; padding-bottom: 4px; }
+  .tabpick-item .tabpick-row { flex: 1 1 100%; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 2px; }
+  .tabpick-item .tabpick-meta { flex: 1 1 100%; white-space: normal; }
+  .tabpick-item .tabpick-act, .tabpick-item .tabpick-state { margin-left: 6px; padding: 0 8px; }
+  .tabpick-item .tabpick-act:last-child { margin-left: auto; }
+  .tabpick-item .tabpick-state { display: inline-flex; align-items: center; min-height: 44px; }
 }
 @keyframes tabpickSheetIn { from { transform: translate3d(0, 24px, 0); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes tabpickSheetOut { to { transform: translate3d(0, 24px, 0); opacity: 0; } }
