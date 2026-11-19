@@ -25,7 +25,7 @@ export async function packAdds({ manifest, song, isSameFile, hasSync }) {
     // The parts of a stem set (no full mix) share the lead stem's points: a part other than the lead has no record of its own
     // (the importer skips one whose points equal the lead's), so it adds no sync data of its own to the library.
     const recs = manifest?.recordings || [];
-    const members = recs.some((r) => ['original', 'backing', 'alternate'].includes(r.role)) ? [] : recs.filter((r) => r.role === 'stem' && !r.stemOf && fileSources(r).length);
+    const members = recs.some((r) => ['original', 'alternate'].includes(r.role)) ? [] : recs.filter((r) => r.role === 'stem' && !r.stemOf && fileSources(r).length);
     const lead = members.length >= 2 ? (members.find((r) => Object.keys(r.sync || {}).length) || members[0]) : null;
     for (const rec of manifest?.recordings || []) {
         const sources = fileSources(rec);

@@ -519,7 +519,7 @@ export async function buildMpak(file, options = {}) {
                 || localStorage.getItem(`audio_file_last_${enc(songKey)}`);
             const backSource = getSlotSourceFn('backing');
             const backId = backSource === 'local' ? localStorage.getItem(`audio_file_${enc(songKey)}_backing`) : null;
-            if (origId && (!backId || backId === origId)) {
+            if (origId) {
                 const { listRecordingMeta } = await import('./audioSync/recordingMeta.js');
                 const { stemsOfMeta } = await import('./audioSync/stemSet.js');
                 const stems = stemsOfMeta(listRecordingMeta(songKey)[mediaKey({ kind: 'local', audioId: origId })]);
@@ -568,7 +568,8 @@ export async function buildMpak(file, options = {}) {
         console.warn('[mpak] could not pack stem set:', e);
     }
 
-    for (const slot of (packedStemSet ? [] : SLOTS)) {
+    // A stem set stands for the original sound; a backing track of its own is still a recording of the song
+    for (const slot of (packedStemSet ? ['backing'] : SLOTS)) {
         const source = getSlotSourceFn(slot);
         const sources = [];
         const syncRecs = new Map(); // score run -> the record of this recording for that score
@@ -578,7 +579,8 @@ export async function buildMpak(file, options = {}) {
                 let id = localStorage.getItem(`audio_file_${enc(songKey)}_${slot}`);
                 if (!id && slot === 'original') id = localStorage.getItem(`audio_file_last_${enc(songKey)}`);
                 const rec = id ? await getAudioFile(id) : null;
-                if (rec?.data) {
+                // The backing slot can hold one of the set's own stems (both sounds play the set): that one is already packed
+                if (rec?.data && !(packedStemSet && packedAudio.has(id))) {
                     sources.push(await packAudioBytes(rec, `${slot}.audio`));
                     findRecords({ kind: 'local', audioId: id });
                 }
@@ -1013,7 +1015,7 @@ const hasFile = (r) => (r?.sources || []).some((src) => src.type === 'file' && s
  */
 export function stemSetOf(manifest) {
     const recs = manifest?.recordings || [];
-    if (recs.some((r) => r.role === 'original' || r.role === 'backing' || r.role === 'alternate')) return null;
+    if (recs.some((r) => r.role === 'original' || r.role === 'alternate')) return null;
     const members = recs.filter((r) => r.role === 'stem' && !r.stemOf && hasFile(r));
     if (members.length < 2) return null;
     const lead = members.find((r) => r.sync && Object.keys(r.sync).length) || members[0];
@@ -1044,7 +1046,10 @@ function mapRecordingsToSlots(manifest) {
     }
     // Stems with no full mix: both sounds play the set, and differ only in which parts start muted (audioSync/stemSet.js)
     const set = stemSetOf(manifest);
-    if (set && !bySlot.original && !bySlot.backing) bySlot.original = bySlot.backing = set.lead;
+    if (set && !bySlot.original) {
+        bySlot.original = set.lead;
+        if (!bySlot.backing) bySlot.backing = set.lead;
+    }
     return bySlot;
 }
 

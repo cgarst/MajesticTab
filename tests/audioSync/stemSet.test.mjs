@@ -39,6 +39,15 @@ test('a pack of only stems is a stem set, led by the stem with sync points', () 
     assert.equal(stemSetOf({ recordings: [{ id: 'mix', role: 'original', sources: [] }, rec('a', { stemOf: 'mix' }), rec('b', { stemOf: 'mix' })] }), null);
 });
 
+test('a stem set with a backing track of its own is still a stem set, and the backing stays the backing', () => {
+    const backing = { id: 'backing', role: 'backing', sources: [{ type: 'file', path: 'audio/backing.mp3' }] };
+    const set = stemSetOf({ recordings: [rec('guitar', { sync: { s: 'x.json' } }), rec('bass', { syncFrom: 'guitar' }), backing] });
+    assert.equal(set?.lead.id, 'guitar');
+    assert.deepEqual(set.members.map((m) => m.id), ['guitar', 'bass']);
+    // an original or an alternate is a full mix, so the stems are not the only sound
+    assert.equal(stemSetOf({ recordings: [rec('a'), rec('b'), { id: 'x', role: 'alternate', sources: [{ type: 'file', path: 'audio/x.mp3' }] }] }), null);
+});
+
 test('the set rides on the lead\'s meta, and the instrument on each stem\'s', () => {
     assert.equal(metaOfPackRecording(rec('bass'), 0).instrument, 'bass');
     const s = store();
