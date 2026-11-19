@@ -423,11 +423,11 @@ export const S3FileProvider = {
         const { openS3Browser } = await import('./s3Ui.js');
         openS3Browser((file) => handlePickedFile(file, options));
     },
-    async save(fileBlob, filename = 'MajesticTab-backup.mtbackup') {
-        const { getS3Config, s3Put, s3BasePrefix } = await import('./s3Client.js');
+    async save(fileBlob, filename = 'MajesticTab-backup.mtbackup', options = {}) {
+        const { getS3Config, s3PutBlob, s3BasePrefix } = await import('./s3Client.js');
         const config = getS3Config();
         if (!config) throw new Error('Connect an S3 bucket first (Sync or Open File > S3 Bucket).');
-        await s3Put(config, `${s3BasePrefix(config)}${filename}`, await fileBlob.arrayBuffer());
+        await s3PutBlob(config, `${s3BasePrefix(config)}${filename}`, fileBlob, { onProgress: options.onProgress });
         return { success: true, name: filename, providerId: 's3' };
     }
 };
@@ -452,7 +452,7 @@ export const WebDavFileProvider = {
         const config = getWebDavConfig();
         if (!config) throw new Error('Connect a WebDAV server first (Sync or Open File > WebDAV).');
         await davEnsureDir(config, '');
-        await davPut(config, filename, await fileBlob.arrayBuffer());
+        await davPut(config, filename, fileBlob);
         return { success: true, name: filename, providerId: 'webdav' };
     }
 };

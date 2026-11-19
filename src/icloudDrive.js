@@ -25,7 +25,12 @@ export async function saveToIcloudDrive(blob, filename) {
     const root = await getIcloudDriveRoot();
     if (!root) throw new Error(ICLOUD_UNAVAILABLE_MESSAGE);
     const path = joinPath(root, filename);
-    await tauri().fs.writeFile(path, new Uint8Array(await blob.arrayBuffer()));
+    // In pieces: a whole backup does not fit in memory on a phone
+    const PIECE = 32 << 20;
+    await tauri().fs.writeFile(path, new Uint8Array(await blob.slice(0, Math.min(blob.size, PIECE)).arrayBuffer()));
+    for (let at = PIECE; at < blob.size; at += PIECE) {
+        await tauri().fs.writeFile(path, new Uint8Array(await blob.slice(at, Math.min(blob.size, at + PIECE)).arrayBuffer()), { append: true });
+    }
     return path;
 }
 

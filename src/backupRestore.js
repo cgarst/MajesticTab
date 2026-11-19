@@ -2620,7 +2620,8 @@ function attachModalHandlers(modal, options = {}) {
             const savedBytes = made.blob.size;
 
             showTaskProgress(backupStatusAlert, { label: `Saving to ${providerLabel}…`, detail: formatBytes(savedBytes) });
-            await saveToProvider(providerId, made.blob, filename);
+            // A browser download keeps reading the file after saveToProvider returns, so its temporary files go later
+            try { await saveToProvider(providerId, made.blob, filename); } finally { if (providerId === 'local') setTimeout(() => made.release?.(), 30 * 60 * 1000); else await made.release?.(); }
 
             try { localStorage.setItem(LAST_BACKUP_KEY, String(Date.now())); } catch { /* storage unavailable */ }
             showLastBackup();

@@ -198,6 +198,40 @@ export async function s3Put(config, key, body, contentType = 'application/octet-
     if (!res.ok) throw await failure(res, `Uploading ${key.split('/').pop()}`);
 }
 
+const MULTIPART_AT = 64 << 20;
+const PART_SIZE = 64 << 20;
+
+/**
+ * Uploads a Blob. A large one goes up as a multipart upload in 64 MB parts, so no request carries the whole file (one PUT is
+ * capped at 5 GB, and the file is read a part at a time). A failed upload is aborted so the bucket keeps no half-finished parts.
+ */
+export async function s3PutBlob(config, key, blob, { contentType = 'application/octet-stream', onProgress } = {}) {
+    if (blob.size <= MULTIPART_AT) return s3Put(config, key, blob, contentType);
+    const name = key.split('/').pop();
+    const started = await request(config, 'POST', key, { query: { uploads: '' }, headers: { 'Content-Type': contentType } });
+    if (!started.ok) throw await failure(started, `Uploading ${name}`);
+    const uploadId = new DOMParser().parseFromString(await started.text(), 'application/xml').querySelector('UploadId')?.textContent;
+    if (!uploadId) throw new Error(`Uploading ${name} failed: the bucket gave no upload id.`);
+    try {
+        const parts = [];
+        for (let start = 0, n = 1; start < blob.size; start += PART_SIZE, n++) {
+            const res = await request(config, 'PUT', key, { query: { partNumber: n, uploadId }, body: blob.slice(start, Math.min(blob.size, start + PART_SIZE)) });
+            if (!res.ok) throw await failure(res, `Uploading ${name}`);
+            const etag = res.headers.get('ETag');
+            if (!etag) throw new Error('The bucket did not return an ETag for a part. Allow the ETag header to be exposed in its CORS rules.');
+            parts.push({ n, etag });
+            if (onProgress) onProgress({ loaded: Math.min(blob.size, start + PART_SIZE), total: blob.size });
+        }
+        const xml = `<CompleteMultipartUpload>${parts.map((p) => `<Part><PartNumber>${p.n}</PartNumber><ETag>${p.etag}</ETag></Part>`).join('')}</CompleteMultipartUpload>`;
+        const done = await request(config, 'POST', key, { query: { uploadId }, body: xml, headers: { 'Content-Type': 'application/xml' } });
+        // A complete can answer 200 and still carry an error document
+        if (!done.ok || /<Error>/.test(await done.clone().text().catch(() => ''))) throw await failure(done, `Uploading ${name}`);
+    } catch (err) {
+        await request(config, 'DELETE', key, { query: { uploadId } }).catch(() => {});
+        throw err;
+    }
+}
+
 export async function s3Delete(config, key) {
     const res = await request(config, 'DELETE', key);
     // 404 means it is already gone, which is the outcome we wanted

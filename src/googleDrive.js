@@ -807,6 +807,44 @@ export function setupDrivePicker() {
  * @param {Function} [onProgress] Callback receiving ({ loaded, total, percent })
  * @returns {Promise<object>} Upload response containing file id and name
  */
+const RESUMABLE_AT = 32 << 20;
+const RESUMABLE_CHUNK = 32 << 20; // a multiple of 256 KB, as Drive requires
+
+/** A large file goes up in chunks through a resumable session, so no request carries the whole file and a dropped chunk is retried. */
+async function saveLargeFileToDrive(fileBlob, metadata, onProgress) {
+    const start = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': metadata.mimeType, 'X-Upload-Content-Length': String(fileBlob.size) },
+        body: JSON.stringify(metadata),
+    });
+    if (!start.ok) throw driveApiError(start.status, await start.text().catch(() => ''), start.statusText);
+    const session = start.headers.get('Location');
+    if (!session) throw new Error('Google Drive did not start the upload. Please try again.');
+    const total = fileBlob.size;
+    for (let from = 0; from < total; from += RESUMABLE_CHUNK) {
+        const to = Math.min(total, from + RESUMABLE_CHUNK);
+        let res = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                res = await fetch(session, { method: 'PUT', headers: { 'Content-Range': `bytes ${from}-${to - 1}/${total}` }, body: fileBlob.slice(from, to) });
+                // 308 means "received, send the rest"; 200 or 201 is the finished file
+                if (res.ok || res.status === 308) break;
+                if (res.status < 500 && res.status !== 408) break;
+            } catch (err) {
+                if (attempt === 2) throw new Error('Google Drive upload network error. Please check your connection.');
+            }
+            await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        }
+        if (!res || (!res.ok && res.status !== 308)) {
+            if (res?.status === 401) { clearStoredToken(); throw new Error('Google Drive authorization expired. Please reconnect Google Drive.'); }
+            throw driveApiError(res?.status || 0, await res?.text().catch(() => ''), res?.statusText || '');
+        }
+        if (typeof onProgress === 'function') onProgress({ loaded: to, total, percent: Math.min(100, Math.round((to / total) * 100)) });
+        if (to === total) return res.json().catch(() => ({ name: metadata.name }));
+    }
+    return { name: metadata.name };
+}
+
 export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.mtbackup', folderId = null, onProgress = null) {
     await ensureFreshToken();
     if (!isTokenValid()) {
@@ -822,6 +860,8 @@ export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.m
     if (targetFolder && targetFolder !== 'root') {
         metadata.parents = [targetFolder];
     }
+
+    if (fileBlob.size > RESUMABLE_AT) return saveLargeFileToDrive(fileBlob, metadata, onProgress);
 
     const form = new FormData();
     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));

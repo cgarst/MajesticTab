@@ -12,6 +12,7 @@ import { collectAllSettings, applyRestoredSettings, applyRestoredPreferences, wi
 import { toLibraryDoc, toProfileDoc, fromLibraryDoc, fromProfileDoc, applyIndexToSong } from './storage/libraryDocs.js';
 import { sha256 } from './mpak/core/index.js';
 import { writeBackup, openBackup, backupKind, blobSource } from './storage/mtbackup.js';
+import { openSpool } from './storage/spool.js';
 
 const songKeyOf = (song) => [song.artist, song.title].filter(Boolean).join(' - ') || song.title || '';
 
@@ -62,7 +63,7 @@ async function fillTabHashes(songs) {
  * downloaded whole (audio included) and added as it is. A song neither has is listed in `skipped`, so the result says
  * what the file lacks instead of leaving it out silently.
  */
-async function packFromSyncStore(songs, packs, skipped, onProgress) {
+async function packFromSyncStore(songs, packs, skipped, onProgress, spool) {
     if (!songs.length) return;
     const noFile = 'its files are not on this device and no copy was found in the sync location';
     let store = null, why = noFile;
@@ -87,7 +88,8 @@ async function packFromSyncStore(songs, packs, skipped, onProgress) {
         if (!store) { skipped.push({ id: song.id, title: song.title, reason: why }); continue; }
         try {
             const pack = await createPackStore(store).open(packId);
-            packs.push({ packId, songId: song.id, data: await pack.toMpak({ includeAudio: true }) });
+            // Each pack goes to disk as it arrives, so the library is never all in memory at once
+            packs.push({ packId, songId: song.id, data: await spool.put(packId, await pack.toMpak({ includeAudio: true })) });
             have.add(packId);
         } catch (err) {
             console.warn('[mtbackup] could not fetch', song.title, err);
@@ -116,7 +118,8 @@ export async function createMtBackup({ onProgress = () => {} } = {}) {
             skipped.push({ id: song.id, title: song.title, reason: err.message });
         }
     }
-    await packFromSyncStore(unpacked, packs, skipped, onProgress);
+    const spool = await openSpool();
+    try { await packFromSyncStore(unpacked, packs, skipped, onProgress, spool); } catch (err) { await spool.release(); throw err; }
     // Read again: building a pack may have given a song a pack id of its own
     const library = await getAllLibraryData();
     await fillTabHashes(library.songs);
@@ -140,9 +143,11 @@ export async function createMtBackup({ onProgress = () => {} } = {}) {
         libraryDoc: toLibraryDoc(library, { now }),
         profileDoc: toProfileDoc({ settings: collectAllSettings(), soundFonts: fonts }, { now }),
         packs, soundFonts, classtab, now,
-    });
+    }).catch(async (err) => { await spool.release(); throw err; });
     const day = new Date(now).toISOString().slice(0, 10);
-    return { blob, filename: `MajesticTab-backup-${day}.mtbackup`, summary: { songs: library.songs.length, packs: packs.length, soundFonts: soundFonts.length }, skipped };
+    return { blob, filename: `MajesticTab-backup-${day}.mtbackup`, summary: { songs: library.songs.length, packs: packs.length, soundFonts: soundFonts.length }, skipped,
+        /** Frees the temporary files behind `blob`. Call it once the blob is saved. */
+        release: () => spool.release() };
 }
 
 /** 'zip' (this format), 'json' (the older one) or null, from the first bytes of a file. */
