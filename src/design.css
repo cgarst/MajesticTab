@@ -1179,6 +1179,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .setpage { overflow: auto; padding: 4px 28px 40px; min-width: 0; }
 .setsec[hidden] { display: none; }
 .setpage .sgroup:first-child h3 { margin-top: 0; }
+.setsec > .classtab-host .sgroup h3 { margin-top: 22px; }
 .tools-shell .tool-pane-host { margin-top: 0; }
 .tool-pane-host .openfile-tool-embedded { height: 100%; }
 .tool-pane-host .openfile-tool-embedded .open-file-back,
