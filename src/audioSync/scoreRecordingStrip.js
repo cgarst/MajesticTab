@@ -10,6 +10,7 @@ import { loadRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { sessionPointsFor, isJamGuestFollowing, JAM_BRIDGE_EVENT } from './jamBridge.js';
 import { isTvMode } from '../tvMode.js';
 import { midiSynthActive } from '../classtab/midiSynth.js';
+import { isLooseFollowing, isFixingPosition, toggleFixPosition, LOOSE_EVENT } from './looseFollow.js';
 import { openSyncSheet, syncStateText, describeSync, recordingName } from './syncSheet.js';
 
 const $ = (id) => document.getElementById(id);
@@ -73,13 +74,15 @@ export function initScoreRecordingStrip() {
 
     function draw(force = false) {
         const dur = rec && durationOf(rec);
-        const key = `${recKey}|${points.length}|${summary.full}|${summary.flaggedBar}|${canAuthor()}|${dur}`;
+        const loose = !points.length && isLooseFollowing();
+        const fixing = loose && isFixingPosition();
+        const key = `${recKey}|${points.length}|${summary.full}|${summary.flaggedBar}|${canAuthor()}|${dur}|${loose}|${fixing}`;
         if (!force && key === drawnKey) return;
         drawnKey = key;
         strip.classList.toggle('is-synced', points.length > 0);
         const n = points.length;
-        const label = !n ? 'Not mapped' : syncStateText(n, summary, fromHost);
-        const hint = !n ? 'The recording plays on its own. The cursor won’t follow it until you add map points.' : '';
+        const label = !n ? (loose ? (fixing ? 'Tap the bar you hear' : 'Loose follow') : 'Not mapped') : syncStateText(n, summary, fromHost);
+        const hint = !n ? (loose ? 'The page keeps up with the recording by its length. Fix position corrects it; Sync maps it exactly.' : 'The recording plays on its own. The cursor won’t follow it until you add map points.') : '';
         if (!canAuthor()) {
             statusEl.textContent = label;
             if (hint) statusEl.title = hint;
@@ -93,10 +96,20 @@ export function initScoreRecordingStrip() {
             btn.type = 'button';
             btn.className = 'ct-text';
             btn.dataset.act = 'sync';
-            btn.textContent = label;
+            btn.textContent = loose ? 'Sync' : label;
             if (hint) btn.title = hint;
-            btn.setAttribute('aria-label', `${label} — open map options`);
-            actionsEl.replaceChildren(btn);
+            btn.setAttribute('aria-label', loose ? 'Sync: map the recording exactly' : `${label} — open map options`);
+            if (loose) {
+                // Loose follow: the status says so, Fix position corrects the estimate, Sync is the exact map
+                statusEl.textContent = label;
+                const fix = document.createElement('button');
+                fix.type = 'button';
+                fix.className = 'ct-text';
+                fix.dataset.act = 'fix';
+                fix.textContent = fixing ? 'Cancel' : 'Fix position';
+                fix.setAttribute('aria-pressed', String(fixing));
+                actionsEl.replaceChildren(fix, btn);
+            } else actionsEl.replaceChildren(btn);
         }
         marksEl.replaceChildren();
         if (dur) {
@@ -116,7 +129,9 @@ export function initScoreRecordingStrip() {
     }
 
     actionsEl.addEventListener('click', (e) => {
-        if (!e.target.closest('[data-act]') || !rec) return;
+        const act = e.target.closest('[data-act]');
+        if (!act || !rec) return;
+        if (act.dataset.act === 'fix') { toggleFixPosition(); return; }
         const key = recKey;
         const opened = rec;
         openSyncSheet({
@@ -150,6 +165,7 @@ export function initScoreRecordingStrip() {
     const refresh = () => { readPoints(); draw(true); };
     window.addEventListener(SYNC_CHANGED_EVENT, refresh);
     window.addEventListener(JAM_BRIDGE_EVENT, refresh);
+    window.addEventListener(LOOSE_EVENT, () => draw(true));
 
     function tick() {
         // A MIDI file runs on a placeholder score; its tab is text, and the text recording bar covers it

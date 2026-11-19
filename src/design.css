@@ -4422,7 +4422,7 @@ body > #controllerHelpModal { display: none; }
 #syncModal.tool-embedded .sync-footer { padding: 8px 0 0; }
 #syncModal.tool-embedded .sync-subtitle { display: none; }
 #syncModal.tool-embedded .sync-option { background: transparent; border-radius: var(--r-control, 8px); transition: background var(--dur-fast, 150ms) var(--ease-out); }
-@media (hover: hover) { #syncModal.tool-embedded .sync-option:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); } }
+@media (hover: hover) { #syncModal.tool-embedded .sync-option:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); } }
 #syncModal.tool-embedded .sync-rows, #syncModal.tool-embedded .sync-danger-row { background: color-mix(in srgb, var(--ink) 5%, var(--s3)); border-radius: var(--r-control, 8px); }
 
 /* ==========================================================================
@@ -6595,3 +6595,7 @@ body.gp-file-active #synthTrackModeContainer { display: none !important; }
 .rec-slot-group .rec-slots { margin-bottom: 0; }
 .rec-slot-empty { margin: 0; padding: 4px 0 0; font-size: 13px; color: var(--ink2); }
 .rec-slot-empty[hidden] { display: none; }
+
+/* ---- Loose follow: a recording with no sync points. The reading marker (shared with the text tabs) glides down the score ---- */
+body.loose-fixing #output { cursor: pointer; }
+.rec-actions .ct-text[aria-pressed="true"] { color: var(--ink); background: var(--s3); }

@@ -65,6 +65,7 @@ import { initPracticeMenu } from './utils/practiceMenu.js';
 import { initReaderPanels } from './utils/readerPanels.js';
 import { initBarRuler } from './gpProcessor/barRuler.js';
 import { initScoreRecordingStrip } from './audioSync/scoreRecordingStrip.js';
+import { initLooseFollow } from './audioSync/looseFollow.js';
 import { initSettingsPage } from './utils/settingsPage.js';
 import { initSlidingPills } from './utils/slidingPill.js';
 import { initUrlRouter, getRouteFromUrl } from './utils/urlRouter.js';
@@ -1112,6 +1113,7 @@ async function initApp() {
     initReaderPanels();
     initBarRuler();
     initScoreRecordingStrip();
+    initLooseFollow();
     initSettingsPage();
     initSlidingPills();
 
