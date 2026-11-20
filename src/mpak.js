@@ -1056,9 +1056,10 @@ const hasFile = (r) => (r?.sources || []).some((src) => src.type === 'file' && s
  */
 export function stemSetOf(manifest) {
     const recs = manifest?.recordings || [];
-    // A full mix with audio of its own is not a set of stems with no mix. An original or alternate that is only a video
-    // (or the score's own sound) sits beside the stems: the stems stay the song's audio and the video is one more recording.
-    if (recs.some((r) => (r.role === 'original' || r.role === 'alternate') && hasFile(r))) return null;
+    // An original with audio of its own is not a set of stems with no mix. An original that is only a video (or the score's own
+    // sound), or an alternate (another version of the released recording, which may be a file), sits beside the stems: the stems
+    // stay the song's audio and that recording is one more recording of the song.
+    if (recs.some((r) => r.role === 'original' && hasFile(r))) return null;
     const members = recs.filter((r) => r.role === 'stem' && !r.stemOf && hasFile(r));
     if (members.length < 2) return null;
     const lead = members.find((r) => r.sync && Object.keys(r.sync).length) || members[0];
@@ -1089,7 +1090,7 @@ function mapRecordingsToSlots(manifest) {
     }
     // Stems with no full mix: both sounds play the set, and differ only in which parts start muted (audioSync/stemSet.js)
     const set = stemSetOf(manifest);
-    if (set && (!bySlot.original || !hasFile(bySlot.original))) {
+    if (set && (!bySlot.original || !hasFile(bySlot.original) || bySlot.original.role === 'alternate')) {
         bySlot.original = set.lead;
         if (!bySlot.backing) bySlot.backing = set.lead;
     }

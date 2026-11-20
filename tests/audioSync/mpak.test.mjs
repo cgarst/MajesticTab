@@ -1374,3 +1374,12 @@ test('a stem pack with a backing video, taken in again for a song whose Original
     assert.ok(origId, 'the stem set is the Original');
     assert.ok(stemsOfMeta(metas[`local_${origId}`]), 'the Original is the lead of the set');
 });
+
+test('stems beside an alternate full-mix file are still a set of stems; beside an original file they are not', async () => {
+    const { stemSetOf } = await import('../../src/mpak.js');
+    const file = (id, role, extra = {}) => ({ id, role, sources: [{ type: 'file', path: `audio/${id}.m4a` }], ...extra });
+    const stems = [file('s1', 'stem'), file('s2', 'stem', { syncFrom: 's1' })];
+    const withAlt = stemSetOf({ recordings: [...stems, file('mix', 'alternate')] });
+    assert.deepEqual(withAlt?.members.map((r) => r.id), ['s1', 's2']);
+    assert.equal(stemSetOf({ recordings: [...stems, file('mix', 'original')] }), null);
+});
