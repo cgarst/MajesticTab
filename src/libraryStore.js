@@ -1098,7 +1098,11 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
         throw new Error('Target song does not exist in library.');
     }
 
-    const meta = await detectFileMetadata(file, file.name);
+    // A tuning hint comes from a synced library record of this same score: reading it again means parsing the whole file
+    const hint = file.tuningHint;
+    const meta = hint && hint.stringCount && (hint.tuning || (hint.tunings || []).length)
+        ? { primaryTuning: hint.tuning || null, tunings: hint.tunings || (hint.tuning ? [hint.tuning] : []), stringCount: hint.stringCount, tuningSource: hint.tuningSource || null }
+        : await detectFileMetadata(file, file.name);
     let contentSha256 = file.contentSha256 || null;
     if (!contentSha256 && typeof file?.arrayBuffer === 'function') {
         try {

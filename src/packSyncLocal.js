@@ -257,9 +257,9 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
         },
 
         /** Takes the store's pack in, additively. Hybrid mode omits audio so heavy assets stay remote until requested. */
-        async applyPack(packId, pack, { includeAudio = true } = {}) {
+        async applyPack(packId, pack, { includeAudio = true, tuningHints = null } = {}) {
             const blob = await pack.toMpak({ includeAudio });
-            await saveMpakToLibrary(blob, { queryMusicBrainz: false });
+            await saveMpakToLibrary(blob, { queryMusicBrainz: false, tuningHints });
         },
 
         /** Creates a remote-only song record from a pack's manifest when it isn't in library.json. */

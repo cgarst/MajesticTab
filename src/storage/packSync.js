@@ -156,6 +156,29 @@ function resolveKeepLocalPacks(read, localRecords, hybrid) {
     return keepLocalPacks;
 }
 
+/** The tuning each score of a pack's song already has in the store's library.json, by the score's SHA-256. */
+function tuningHintsOf(remoteLibrary, packId) {
+    const hints = new Map();
+    const song = (remoteLibrary?.songs || []).find((s) => (s.packId || s.id) === packId);
+    for (const tab of song?.tabOptions || []) {
+        if (tab?.sha256 && tab.stringCount && (tab.tuning || tab.tunings?.length)) {
+            hints.set(tab.sha256, { tuning: tab.tuning || null, tunings: tab.tunings || null, stringCount: tab.stringCount, tuningSource: tab.tuningSource || null });
+        }
+    }
+    return hints;
+}
+
+/**
+ * How many packs are taken in at once. Each pack that arrives with its score is parsed in full to read its tuning, which
+ * holds a few hundred MB for a moment, so five at once ran a 2 GB Android TV out of memory and its WebView was killed.
+ * `navigator.deviceMemory` is the device's RAM in GB, rounded down to a power of two (2 on a 2 GB box).
+ */
+function packConcurrency() {
+    const memory = typeof navigator !== 'undefined' ? navigator.deviceMemory : undefined;
+    if (!memory) return 5;
+    return memory <= 2 ? 1 : memory <= 4 ? 2 : 5;
+}
+
 // --- plan ---
 
 async function readAndPlan({ store, local, baselines, location, hybrid = false }) {
@@ -461,7 +484,7 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
                 return;
             }
             if (!mine.has(item.key)) freshPackIds.add(item.id);
-            await local.applyPack(item.id, await packs.open(item.id), { includeAudio: !itemHybrid });
+            await local.applyPack(item.id, await packs.open(item.id), { includeAudio: !itemHybrid, tuningHints: tuningHintsOf(read.remoteLibrary, item.id) });
         } else if (!hybrid) {
             const meta = read.remote.get(item.key);
             await local.applyBlob(item.key, await store.read(blobPath(item.key)), { name: meta.name, size: meta.size, addedAt: meta.addedAt });
@@ -517,7 +540,7 @@ export async function applyPackSync({ store, local, baselines, location, hybrid 
         }
     };
     // Run heavy whole-file blobs (SoundFonts, Classtab archive) one at a time after packs so iOS WKWebView doesn't OOM.
-    await pool(sorted.filter((item) => item.kind === 'pack'), 5, runItem);
+    await pool(sorted.filter((item) => item.kind === 'pack'), packConcurrency(), runItem);
     await pool(sorted.filter((item) => item.kind !== 'pack'), 1, runItem);
     if (tombstonesChanged) await updateJson(store, TOMBSTONES_PATH, (cur) => ({ version: 1, items: { ...(cur?.items || {}), ...tombstones.items } }));
 

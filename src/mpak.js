@@ -1574,6 +1574,8 @@ export async function saveMpakToLibrary(input, options = {}) {
         queryMusicBrainz = true,
         allowTextFallback = false,
         keepExistingSlots = undefined,
+        // sha256 -> { tuning, tunings, stringCount, tuningSource } that another device already read from the same score
+        tuningHints = null,
     } = options;
 
     const unpacked = (input && input.header && input.part && input.tabFile)
@@ -1647,6 +1649,9 @@ export async function saveMpakToLibrary(input, options = {}) {
             return { song: refreshedSong, tabOption: updatedTab, stored, duplicate: false };
         }
         const label = entry?.label || null;
+        // The same score (by SHA-256) was already read on the device that synced it, so its tuning is not parsed again
+        const hint = tuningHints?.get(entry?.sha256 || file?.contentSha256);
+        if (hint) file.tuningHint = hint;
         return mapOpenFileToSong(file, song.id, name || label || file.name, providerId, file.name);
     };
     const mapped = await addScore(tabFile, unpacked.score, tabName);
