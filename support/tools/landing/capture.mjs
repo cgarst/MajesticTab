@@ -52,6 +52,8 @@ async function open({ w, h, theme, dsf = 2, mobile = false, url = URL_, lib = fa
 }
 const click = (sel) => ev(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); if (!el) return false; el.click(); return true; })()`);
 async function shot(name) {
+  // The browser-storage banner is for the web app only; the site's pictures show the app without it
+  await ev(`document.getElementById('webCtaBanner')?.remove()`); await sleep(300);
   const r = await cdp('Page.captureScreenshot', { format: 'webp', quality: 86 });
   writeFileSync(join(out, name + '.webp'), Buffer.from(r.data, 'base64'));
   console.log('wrote', name + '.webp');
