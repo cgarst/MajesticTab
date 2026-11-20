@@ -761,11 +761,15 @@ class PitchCraftTunerController {
             detect();
         } catch (err) {
             console.error("Microphone access failed:", err);
-            const reason = navigator.mediaDevices ? `${err.name || 'Error'}: ${err.message || err}` : 'navigator.mediaDevices unavailable (insecure context)';
+            // Say what is wrong in words; the raw error stays in the console above
+            let message = 'Microphone unavailable.';
+            if (!navigator.mediaDevices) message = 'The microphone is not available here.';
+            else if (['NotAllowedError', 'SecurityError', 'PermissionDeniedError'].includes(err?.name)) message = 'Microphone access is blocked. Allow it in your system settings.';
+            else if (['NotFoundError', 'OverconstrainedError', 'DevicesNotFoundError'].includes(err?.name)) message = 'No microphone found.';
             this.stopListening();
             const statusEl = document.getElementById('tunerStatusReadout');
-            if (statusEl) statusEl.textContent = `Microphone unavailable. ${reason}`;
-            alert("Microphone access is required for real-time instrument tuning.");
+            if (statusEl) statusEl.textContent = message;
+            alert(message);
         } finally {
             this.isStarting = false;
         }

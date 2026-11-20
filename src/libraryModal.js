@@ -2583,7 +2583,7 @@ function dismissOpenDialogs() {
 function syncLibraryBottomNav() {
     let nav = document.getElementById('libraryBottomNav');
     if (!nav) {
-        const tabHtml = (t) => `<button type="button" class="library-nav-tab" data-lib-tab="${t.id}" title="${t.title}"><i class="${t.icon}"></i><span>${t.label}</span></button>`;
+        const tabHtml = (t) => `<button type="button" class="library-nav-tab" data-lib-tab="${t.id}"><i class="${t.icon}"></i><span>${t.label}</span></button>`;
         const [lib, setlists, tools] = LIBRARY_TABS; // Tunings is a Browse by row inside Library, not a destination
         nav = document.createElement('nav');
         nav.id = 'libraryBottomNav';
@@ -2592,7 +2592,7 @@ function syncLibraryBottomNav() {
         nav.setAttribute('data-tauri-drag-region', '');
         // Phones: bottom tab bar. Wide windows: left rail (CSS). Settings sits last; Add music stays in each list's toolbar.
         nav.innerHTML = `${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tools)}
-          <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings"><i class="bi-gear"></i><span>Settings</span></button>`;
+          <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn"><i class="bi-gear"></i><span>Settings</span></button>`;
         nav.addEventListener('click', (e) => {
             // Settings is a destination like the rest: one path, and the view decides what is on screen
             const tab = e.target.closest('[data-lib-tab], #libraryNavSettingsBtn');
