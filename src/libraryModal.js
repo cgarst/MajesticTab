@@ -4582,8 +4582,19 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
         let loadingOutput = null;
         let endLoadingHoldFn = null;
         let downloadFailureReason = null;
+        // A hybrid device keeps a song's audio in the store until the song is opened. A song whose score is already here may still
+        // lack its audio; this is answered from this device alone, so a song that needs nothing opens without any request.
+        const hadFile = Boolean(file);
+        let wantsAudio = false;
+        if (hadFile) {
+            try {
+                const { getTarget } = await import('./syncBackend.js');
+                const { songMayNeedRemoteAudio } = await import('./packSyncLocal.js');
+                wantsAudio = await songMayNeedRemoteAudio(song, getTarget());
+            } catch { /* the song opens as it is */ }
+        }
         try {
-            if (!file) {
+            if (!file || wantsAudio) {
                 try {
                     const { isPackId } = await import('./mpak.js');
                     const packId = isPackId(song.id) ? song.id : (isPackId(song.packId) ? song.packId : null);
@@ -4605,45 +4616,53 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
                             setLoadingProgressRange(0, 35);
                             setCurrentLoadingProgress(15, 'Downloading…');
 
-                            const opened = await openSyncStore(target, { interactive: true });
+                            const opened = await openSyncStore(target, { interactive: !hadFile });
                             const store = opened?.status === 'ready' ? opened.store : null;
                             if (!store) {
                                 downloadFailureReason = `sync store not ready (${opened?.status || 'unavailable'})`;
                             } else {
                                 setCurrentLoadingProgress(40, 'Downloading…');
-                                const { fetchPackOnDemand, isHybridSyncEnabled } = await import('./packSyncLocal.js');
+                                const { fetchPackOnDemand, fetchSongAudioIfNeeded } = await import('./packSyncLocal.js');
                                 const mb = (n) => (n / 1048576).toFixed(n >= 10485760 ? 0 : 1);
-                                await fetchPackOnDemand(store, packId, {
-                                    includeAudio: !isHybridSyncEnabled(),
+                                const options = {
                                     location: locationOf(target, store),
-                                    targetSongId: song.id,
                                     onProgress: ({ loaded, total }) => {
                                         const frac = total > 0 ? Math.min(1, loaded / total) : 0;
                                         setCurrentLoadingProgress(40 + frac * 50, total > 0 ? `Downloading · ${mb(loaded)} of ${mb(total)} MB` : 'Downloading…');
                                     },
-                                });
-                                setCurrentLoadingProgress(90, 'Opening…');
-                                const refreshed = await getSongById(song.id);
-                                const tabs = refreshed?.tabOptions || [];
-                                const isSameTab = (t) =>
-                                    t.id === tabOption.id
-                                    || (tabOption.sha256 && t.sha256 === tabOption.sha256)
-                                    || (tabOption.relativePath && t.relativePath === tabOption.relativePath)
-                                    || t.name === tabOption.name;
-                                const match = tabs.find((t) => t.fileStoreId && isSameTab(t))
-                                    || tabs.find(isSameTab)
-                                    || tabs.find((t) => t.fileStoreId)
-                                    || tabs[0];
-                                if (match?.fileStoreId) {
-                                    const stored = await getStoredFile(match.fileStoreId);
-                                    if (stored?.file) {
-                                        file = stored.file;
-                                        tabOption = match;
-                                        song = refreshed;
+                                };
+                                if (hadFile) {
+                                    // The score is here; only the audio is missing. The song keeps the tab it has.
+                                    await fetchSongAudioIfNeeded(store, song, options);
+                                    setCurrentLoadingProgress(90, 'Opening…');
+                                    song = (await getSongById(song.id)) || song;
+                                    tabOption = song.tabOptions?.find((t) => t.id === tabOption.id) || tabOption;
+                                } else {
+                                    // The audio comes with the song: opening it is asking for it
+                                    await fetchPackOnDemand(store, packId, { ...options, includeAudio: true, targetSongId: song.id });
+                                    setCurrentLoadingProgress(90, 'Opening…');
+                                    const refreshed = await getSongById(song.id);
+                                    const tabs = refreshed?.tabOptions || [];
+                                    const isSameTab = (t) =>
+                                        t.id === tabOption.id
+                                        || (tabOption.sha256 && t.sha256 === tabOption.sha256)
+                                        || (tabOption.relativePath && t.relativePath === tabOption.relativePath)
+                                        || t.name === tabOption.name;
+                                    const match = tabs.find((t) => t.fileStoreId && isSameTab(t))
+                                        || tabs.find(isSameTab)
+                                        || tabs.find((t) => t.fileStoreId)
+                                        || tabs[0];
+                                    if (match?.fileStoreId) {
+                                        const stored = await getStoredFile(match.fileStoreId);
+                                        if (stored?.file) {
+                                            file = stored.file;
+                                            tabOption = match;
+                                            song = refreshed;
+                                        }
                                     }
-                                }
-                                if (!file) {
-                                    downloadFailureReason = `score missing after pack download (tabs=${refreshed?.tabOptions?.length ?? 0}, fileStoreId=${match?.fileStoreId ?? 'none'})`;
+                                    if (!file) {
+                                        downloadFailureReason = `score missing after pack download (tabs=${refreshed?.tabOptions?.length ?? 0}, fileStoreId=${match?.fileStoreId ?? 'none'})`;
+                                    }
                                 }
                             }
                             if (file) {

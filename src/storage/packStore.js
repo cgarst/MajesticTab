@@ -44,6 +44,22 @@ export function expectedFiles(manifest) {
 }
 
 const PROGRESS_CHUNK = 2 * 1024 * 1024;
+// A pack is many files and a store answers each request after a round trip, so they are read several at a time
+const READ_CONCURRENCY = 6;
+const AUDIO_CONCURRENCY = 4;
+
+async function pool(items, limit, fn) {
+    const out = new Array(items.length);
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+        for (;;) {
+            const i = next++;
+            if (i >= items.length) return;
+            out[i] = await fn(items[i], i);
+        }
+    }));
+    return out;
+}
 
 export function createPackStore(store, { root = 'packs' } = {}) {
     const dirOf = (packId) => `${root}/${checkPackId(packId)}`;
@@ -73,32 +89,33 @@ export function createPackStore(store, { root = 'packs' } = {}) {
         const light = [{ name: 'manifest.json', data: manifestBytes }];
         const wanted = [...present].filter(([name]) => name !== 'manifest.json' && !isAudio(name));
         const total = wanted.reduce((sum, [, e]) => sum + (e.size || 0), 0);
-        let loaded = 0;
-        if (onProgress) onProgress({ loaded, total });
-        for (const [name, e] of wanted) {
+        // Every file in one request each, several at a time; the order of the archive stays the listing's
+        const got = new Map(); // name -> bytes received so far
+        const report = () => { if (onProgress) { let loaded = 0; for (const n of got.values()) loaded += n; onProgress({ loaded, total: Math.max(total, loaded) }); } };
+        report();
+        const datas = await pool(wanted, READ_CONCURRENCY, async ([name, e]) => {
+            const path = `${dir}/${name}`;
             let data;
             if (onProgress && store.streamsProgress) {
-                // one request, with progress from the stream (a range per chunk would cost a round trip each)
-                const before = loaded;
-                data = await store.read(`${dir}/${name}`, { onBytes: (got) => onProgress({ loaded: before + got, total: Math.max(total, before + got) }) });
-                loaded += byteLengthOf(data) || e.size || 0;
+                data = await store.read(path, { onBytes: (n) => { got.set(name, n); report(); } });
             } else if (onProgress && e.size > PROGRESS_CHUNK) {
                 // A large score: read it in ranges so the caller can show bytes arriving
                 const parts = [];
                 for (let start = 0; start < e.size; start += PROGRESS_CHUNK) {
-                    const part = await store.read(`${dir}/${name}`, { range: { start, end: Math.min(start + PROGRESS_CHUNK, e.size) } });
+                    const part = await store.read(path, { range: { start, end: Math.min(start + PROGRESS_CHUNK, e.size) } });
                     parts.push(part);
-                    loaded += byteLengthOf(part);
-                    onProgress({ loaded, total: Math.max(total, loaded) });
+                    got.set(name, (got.get(name) || 0) + byteLengthOf(part));
+                    report();
                 }
                 data = await concatParts(parts);
             } else {
-                data = await store.read(`${dir}/${name}`);
-                loaded += byteLengthOf(data) || e.size || 0;
-                if (onProgress) onProgress({ loaded, total: Math.max(total, loaded) });
+                data = await store.read(path);
             }
-            light.push({ name, data });
-        }
+            got.set(name, byteLengthOf(data) || e.size || 0);
+            report();
+            return data;
+        });
+        wanted.forEach(([name], k) => light.push({ name, data: datas[k] }));
         const opened = await openMpak(bytesSource(await concatParts((await zipParts(light)).parts)));
         // Audio is not in the light archive on purpose; what is missing from the store is reported by audioInfo
         const audio = (manifest.recordings || []).flatMap((r) => (r.sources || []).filter((s) => s.type === 'file'));
@@ -177,17 +194,38 @@ export function createPackStore(store, { root = 'packs' } = {}) {
         return { manifest, files: files.size };
     }
 
-    async function exportMpak(packId, { includeAudio = true } = {}) {
+    /**
+     * `onProgress({ loaded, total })` counts the bytes of the audio as they arrive. Each audio file is one request (a range per
+     * megabyte cost a round trip each) and several are read at a time.
+     */
+    async function exportMpak(packId, { includeAudio = true, onProgress = null } = {}) {
         const dir = dirOf(packId);
         const manifestBytes = await store.read(`${dir}/manifest.json`);
         const manifest = JSON.parse(decode(manifestBytes));
         const files = new Map();
+        const audio = [];
+        const others = [];
         for (const e of await store.list(`${dir}/`)) {
             const name = e.path.slice(dir.length + 1);
             if (name === 'manifest.json') continue;
-            if (isAudio(name)) { if (includeAudio) files.set(name, { source: storeSource(store, e.path, e.size), start: 0, end: e.size }); }
-            else files.set(name, await store.read(e.path));
+            if (isAudio(name)) { if (includeAudio) audio.push({ name, e }); }
+            else others.push({ name, e });
         }
+        const total = audio.reduce((sum, a) => sum + (a.e.size || 0), 0);
+        const got = new Map();
+        const report = () => { if (onProgress) { let loaded = 0; for (const n of got.values()) loaded += n; onProgress({ loaded, total: Math.max(total, loaded) }); } };
+        report();
+        const [otherData, audioData] = await Promise.all([
+            pool(others, READ_CONCURRENCY, ({ e }) => store.read(e.path)),
+            pool(audio, AUDIO_CONCURRENCY, async ({ name, e }) => {
+                const data = await store.read(e.path, onProgress && store.streamsProgress ? { onBytes: (n) => { got.set(name, n); report(); } } : {});
+                got.set(name, byteLengthOf(data) || e.size || 0);
+                report();
+                return data;
+            }),
+        ]);
+        others.forEach(({ name }, k) => files.set(name, otherData[k]));
+        audio.forEach(({ name }, k) => files.set(name, audioData[k]));
         const chunks = [];
         for (const part of (await buildMpak(manifest, files)).parts) {
             if (part instanceof Uint8Array) chunks.push(part);

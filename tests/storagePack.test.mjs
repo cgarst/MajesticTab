@@ -139,3 +139,20 @@ test('write accepts a Blob for audio entries and streams it into the store', asy
     assert.deepEqual(await opened.audio('audio/a.bin'), AUDIO);
     assert.deepEqual(await opened.audioRange('audio/a.bin', { start: 10, end: 50 }), AUDIO.slice(10, 50));
 });
+
+test('exportMpak reads each audio file whole, several at a time, and reports the bytes of the audio', async () => {
+    const store = createMemoryStore();
+    const packs = createPackStore(store);
+    const { id, bytes } = await makeMpak();
+    await packs.importMpak(id, bytesSource(bytes));
+    const reads = [];
+    const read = store.read.bind(store);
+    store.read = async (path, options) => { reads.push({ path, range: Boolean(options?.range) }); return read(path, options); };
+    const seen = [];
+    const blob = await packs.exportMpak(id, { onProgress: (p) => seen.push(p) });
+    assert.ok(!reads.some((r) => r.range), 'no range request is made for the audio');
+    assert.equal(reads.filter((r) => r.path.endsWith('audio/a.bin')).length, 1);
+    assert.equal(seen.at(-1).loaded, AUDIO.length);
+    assert.equal(seen.at(-1).total, AUDIO.length);
+    assert.ok(blob.size > AUDIO.length);
+});

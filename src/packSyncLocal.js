@@ -303,11 +303,23 @@ export const localBaselines = {
     clear(location) { try { localStorage.removeItem(this.key(location)); } catch { /* storage unavailable */ } },
 };
 
-/** Downloads a remote pack (scores and optionally audio) on demand and updates the baseline so it is not re-uploaded. */
+const AUDIO_MARK_PREFIX = 'majestictab_pack_audio_';
+const readAudioMark = (packId) => { try { return localStorage.getItem(AUDIO_MARK_PREFIX + packId); } catch { return null; } };
+const writeAudioMark = (packId, version) => { try { if (version != null) localStorage.setItem(AUDIO_MARK_PREFIX + packId, String(version)); } catch { /* checked again next time */ } };
+
+/**
+ * Downloads a remote pack (scores and optionally audio) on demand and updates the baseline so it is not re-uploaded.
+ * `onProgress({ loaded, total })` counts bytes over the whole download: the pack's small files first, then its audio.
+ */
 export async function fetchPackOnDemand(store, packId, { includeAudio = !isHybridSyncEnabled(), baselines = localBaselines, location = null, targetSongId = null, onProgress = null } = {}) {
-    const pack = await createPackStore(store).open(packId, { onProgress });
-    const blob = await pack.toMpak({ includeAudio });
+    let lightBytes = 0;
+    const pack = await createPackStore(store).open(packId, { onProgress: onProgress && ((p) => { lightBytes = p.loaded; onProgress(p); }) });
+    const blob = await pack.toMpak({
+        includeAudio,
+        onProgress: onProgress && ((p) => onProgress({ loaded: lightBytes + p.loaded, total: lightBytes + p.total })),
+    });
     await saveMpakToLibrary(blob, { targetSongId, queryMusicBrainz: false });
+    if (includeAudio) writeAudioMark(packId, pack.version);
     if (location) {
         const base = baselines.get(location) || { items: {}, records: {} };
         const items = { ...(base.items || {}) };
@@ -315,6 +327,38 @@ export async function fetchPackOnDemand(store, packId, { includeAudio = !isHybri
         if (after) items[`p:${packId}`] = { l: after.fp, r: pack.version };
         baselines.set(location, { ...base, items });
     }
+}
+
+/**
+ * Does this song, on a hybrid device, lack audio that the store may have? Answered from this device alone: a song with audio
+ * of its own here, or a pack whose store version was already checked, needs nothing. `true` means the store should be asked
+ * (fetchSongAudioIfNeeded).
+ */
+export async function songMayNeedRemoteAudio(song, target, baselines = localBaselines) {
+    if (!target || !isHybridSyncEnabled()) return false;
+    const packId = isPackId(song?.id) ? song.id : (isPackId(song?.packId) ? song.packId : null);
+    if (!packId) return false;
+    const version = getLatestTargetBaseline(target)?.items?.[`p:${packId}`]?.r;
+    if (version == null) return false; // never synced with this store: nothing known to fetch
+    if (readAudioMark(packId) === String(version)) return false;
+    const { listAudioFilesForSong } = await import('./audioSync/audioFileStore.js');
+    const key = songKeyOf(song);
+    return (await listAudioFilesForSong(key)).length === 0 && (await listAudioFilesForSong(enc(key))).length === 0;
+}
+
+/**
+ * Brings the song's audio down from the store when the store has some and this device has none. One listing says whether the
+ * store has audio; the answer is remembered against the pack's version so a song without any is not asked about again.
+ * @returns {Promise<boolean>} whether audio was downloaded
+ */
+export async function fetchSongAudioIfNeeded(store, song, { location, onProgress = null, baselines = localBaselines } = {}) {
+    const packId = isPackId(song?.id) ? song.id : song?.packId;
+    if (!isPackId(packId)) return false;
+    const version = baselines.get(location)?.items?.[`p:${packId}`]?.r;
+    const remote = (await store.list(`packs/${packId}/audio/`)).filter((e) => e.size > 0 || e.size === undefined);
+    if (!remote.length) { writeAudioMark(packId, version); return false; }
+    await fetchPackOnDemand(store, packId, { includeAudio: true, location, targetSongId: song.id, onProgress });
+    return true;
 }
 
 /** Downloads a remote pack's audio on demand (used when hybrid mode skipped audio during sync). */
