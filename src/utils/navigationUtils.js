@@ -6,6 +6,7 @@ import { switchToContinuous, switchToPageMode, getPagesPerView, isPhoneReader, p
 import { clearOutput } from './renderUtils.js';
 import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel, synthPlayerState } from '../gpProcessor/gpPlayer.js';
 import { gamepadManager } from './gamepadManager.js';
+import { isTvMode } from '../tvMode.js';
 import { stepSetlist } from '../setlistPlayer.js';
 import { isYouTubeAvailable, rewindYouTubeToBeginning, toggleYouTubePanel, getSongKey, scheduleOriginalVideo, pauseYouTube, playerState } from '../soundPlayer.js';
 import { songHasSyncPoints } from '../audioSync/syncStore.js';
@@ -252,6 +253,11 @@ export function setupKeyboardNavigation(getConfig) {
                     gamepadManager.navigateSpatial(e.key === 'ArrowDown' ? 'down' : 'up');
                     return;
                 }
+                if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && isTvMode() && activeEl.getAttribute('inputmode') === 'none' && activeEl.hasAttribute('data-tv-ime')) {
+                    e.preventDefault();
+                    gamepadManager.navigateSpatial(e.key === 'ArrowLeft' ? 'left' : 'right');
+                    return;
+                }
                 if (e.key === 'Escape') {
                     e.preventDefault();
                     activeEl.blur();
@@ -335,6 +341,18 @@ export function setupKeyboardNavigation(getConfig) {
 
         if (!config.currentFile) return;
 
+        // TV remote Menu or Select (Enter) on the score enters the top bar or playback dock
+        if (e.key === 'ContextMenu' || e.key === 'Menu') {
+            e.preventDefault();
+            gamepadManager.enterTopBar();
+            return;
+        }
+        if (e.key === 'Enter' && isTvMode() && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            if (!gamepadManager.enterPlaybackDock()) gamepadManager.enterTopBar();
+            return;
+        }
+
         // B key rewinds audio playback by 10 seconds
         if (isB && !e.ctrlKey && !e.metaKey && !e.altKey) {
             if (isSynthAvailable() || isRealAudioAvailable() || isSynthPlaying() || isRealAudioPlaying()) {
@@ -414,10 +432,15 @@ export function setupKeyboardNavigation(getConfig) {
         const isPrev = prevPageKeys.includes(e.key);
 
         if (isNext || isPrev) {
-            // Up at the start of the score moves into the top bar
+            // Up at the start of the score moves into the top bar; Down at the end moves into the playback dock
             const isPageMode = config.pageModeChecked || config.pageModeRadio?.checked;
             if (e.key === 'ArrowUp' && !isPageMode && gamepadManager.isScoreScrolledToTop() && gamepadManager.enterTopBar()) return;
+            if (e.key === 'ArrowDown' && !isPageMode && gamepadManager.isScoreScrolledToBottom() && gamepadManager.enterPlaybackDock()) return;
             const pageSnapshot = document.getElementById('pageIndicator')?.textContent;
+            const scroller = (document.getElementById('output')?.classList.contains('continuous-mode')
+                ? document.getElementById('output')
+                : document.getElementById('mainContent'));
+            const scrollSnapshot = scroller ? scroller.scrollTop : 0;
             const navigationHandler = new NavigationHandler(config);
             const action = isNext ? NavigationAction.NEXT : NavigationAction.PREV;
             const result = navigationHandler.handleAction(action);
@@ -427,7 +450,16 @@ export function setupKeyboardNavigation(getConfig) {
             }
             if (e.key === 'ArrowUp' && isPageMode) {
                 requestAnimationFrame(() => requestAnimationFrame(() => {
-                    if (document.getElementById('pageIndicator')?.textContent === pageSnapshot) gamepadManager.enterTopBar();
+                    const samePage = document.getElementById('pageIndicator')?.textContent === pageSnapshot;
+                    const sameScroll = !scroller || Math.abs(scroller.scrollTop - scrollSnapshot) <= 1;
+                    if (samePage && sameScroll) gamepadManager.enterTopBar();
+                }));
+            }
+            if (e.key === 'ArrowDown' && isPageMode) {
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    const samePage = document.getElementById('pageIndicator')?.textContent === pageSnapshot;
+                    const sameScroll = !scroller || Math.abs(scroller.scrollTop - scrollSnapshot) <= 1;
+                    if (samePage && sameScroll) gamepadManager.enterPlaybackDock();
                 }));
             }
         }
@@ -512,15 +544,12 @@ export function performAppBack(getConfig = null) {
                 return true;
             }
         }
-        const libBackBtn = document.getElementById('libBrowseBackBtn');
-        if (libBackBtn && libBackBtn.offsetParent !== null && libBackBtn.style.display !== 'none') {
-            libBackBtn.click();
-            return true;
-        }
-        const libSearchBackBtn = document.getElementById('libSearchBackBtn');
-        if (libSearchBackBtn && libSearchBackBtn.offsetParent !== null && libSearchBackBtn.style.display !== 'none') {
-            libSearchBackBtn.click();
-            return true;
+        for (const id of ['libBrowseBackBtn', 'paneBackBtn', 'tuningsBackBtn', 'libSearchBackBtn']) {
+            const btn = document.getElementById(id);
+            if (btn && btn.offsetParent !== null && btn.style.display !== 'none') {
+                btn.click();
+                return true;
+            }
         }
         if (window.returnToOpenSong?.()) return true;
         return false;
@@ -720,6 +749,18 @@ export function setupFirstPageNavigation(firstBtn, getConfig) {
         const config = getConfig();
         if (!config.currentFile) return;
 
+        // TV remote Menu or Select (Enter) on the score enters the top bar or playback dock
+        if (e.key === 'ContextMenu' || e.key === 'Menu') {
+            e.preventDefault();
+            gamepadManager.enterTopBar();
+            return;
+        }
+        if (e.key === 'Enter' && isTvMode() && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            if (!gamepadManager.enterPlaybackDock()) gamepadManager.enterTopBar();
+            return;
+        }
+
         const navigationHandler = new NavigationHandler(config);
         const result = navigationHandler.handleAction(NavigationAction.FIRST);
         
@@ -737,6 +778,18 @@ export function setupPrevNextNavigation(prevBtn, nextBtn, getConfig) {
         button.addEventListener('click', () => {
             const config = getConfig();
             if (!config.currentFile) return;
+
+        // TV remote Menu or Select (Enter) on the score enters the top bar or playback dock
+        if (e.key === 'ContextMenu' || e.key === 'Menu') {
+            e.preventDefault();
+            gamepadManager.enterTopBar();
+            return;
+        }
+        if (e.key === 'Enter' && isTvMode() && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            if (!gamepadManager.enterPlaybackDock()) gamepadManager.enterTopBar();
+            return;
+        }
             
             const navigationHandler = new NavigationHandler(config);
             const result = navigationHandler.handleAction(action);

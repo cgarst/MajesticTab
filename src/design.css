@@ -426,7 +426,6 @@ body:not(.library-view-active) .breadcrumb-divider { display: none; }
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
-#output.continuous-mode.gp-horizontal-mode::before,
 #output.continuous-mode.gp-horizontal-mode::after {
   content: "";
   flex: 0 0 50%;
@@ -4338,6 +4337,7 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 
 /* A TV has a remote, not a keyboard: no key hints anywhere */
 .tv-mode kbd { display: none !important; }
+.tv-mode .ref-root-row { flex-wrap: wrap; overflow-x: visible; }
 
 
 /* The key and gamepad reference is parked on <body> until Settings moves it into its page; do not paint it there (it covered the first frames) */

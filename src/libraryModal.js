@@ -613,7 +613,7 @@ export async function navigateToAlbumInLibrary(artistName, albumTitle) {
         selectedFolderPath = [];
     }
     activeLibraryPane = 'songs';
-    const container = document.getElementById('libraryPage');
+    const container = document.getElementById('libraryModalContent') || document.getElementById('libraryPage');
     if (container) {
         await renderLibraryBrowseView(container);
     }

@@ -734,6 +734,12 @@ class GamepadManager {
         return !scroller || scroller.scrollTop <= 1;
     }
 
+    isScoreScrolledToBottom() {
+        const output = document.getElementById('output');
+        const scroller = output && output.classList.contains('continuous-mode') ? output : document.getElementById('mainContent');
+        return !scroller || (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2);
+    }
+
     /**
      * Move focus from the score into the top bar (peeking it when Reading mode hides it), so D-pad, keyboard and
      * controller users can reach its buttons. Down at the bottom of the bar returns to the score.
@@ -754,6 +760,20 @@ class GamepadManager {
         return true;
     }
 
+    /**
+     * Move focus from the score into the playback dock (Play/Pause first), so TV remote users can reach transport,
+     * bar ruler, sound switch, volume, fretboard, and reading mode.
+     */
+    enterPlaybackDock() {
+        const dock = document.getElementById('mobilePlaybackDock');
+        if (!dock || !this.isElementVisible(dock)) return false;
+        const playBtn = dock.querySelector('#playPauseBtn');
+        const target = (playBtn && this.isElementVisible(playBtn)) ? playBtn : this.getFocusableElements(dock)[0];
+        if (!target) return false;
+        this.setNavFocus(target);
+        return true;
+    }
+
     exitTopBar() {
         const active = document.activeElement;
         if (active && this.isTopBarFocused() && typeof active.blur === 'function') active.blur();
@@ -761,9 +781,15 @@ class GamepadManager {
         if (this.isHudHidden) this.topBar?.classList.remove('hud-transient');
     }
 
-    /** The always-visible score chrome: the top bar and the floating playback dock. */
+    /** The top score chrome (top bar and its flex zone). */
     getChromeRoots() {
-        return [this.topBar, document.getElementById('mobilePlaybackDock'), document.getElementById('topFlexZone')].filter(Boolean);
+        return [this.topBar, document.getElementById('topFlexZone')].filter(Boolean);
+    }
+
+    isPlaybackDockFocused() {
+        if (!this.lastInputWasNavigation) return false;
+        const dock = document.getElementById('mobilePlaybackDock');
+        return Boolean(dock && dock.contains(document.activeElement));
     }
 
     isTopBarFocused() {
@@ -856,8 +882,10 @@ class GamepadManager {
         this.lastInputWasNavigation = true;
         const container = this.getActiveFocusContainer();
 
-        if (isModalOpen || isLibOpen || this.isTopBarFocused()) {
-            const activeEl = this.getCurrentFocusedElement(container);
+        if (isModalOpen || isLibOpen || this.isTopBarFocused() || this.isPlaybackDockFocused()) {
+            const libNav = isLibOpen ? document.getElementById('libraryBottomNav') : null;
+            const navActive = libNav && libNav.contains(document.activeElement) ? document.activeElement : null;
+            const activeEl = navActive || this.getCurrentFocusedElement(container);
             if (activeEl) {
                 this.activateElement(activeEl);
                 return;
@@ -1007,7 +1035,8 @@ class GamepadManager {
     isSpatialNavActive() {
         return this.isLibraryViewOpen() ||
                this.isAnyModalOpen() ||
-               this.isTopBarFocused();
+               this.isTopBarFocused() ||
+               this.isPlaybackDockFocused();
     }
 
     getActiveFocusContainer() {
@@ -1021,8 +1050,9 @@ class GamepadManager {
         if (tabPicker && this.isElementVisible(tabPicker)) return tabPicker;
 
         // 3. If a theme modal is open (e.g. Colorway finish picker, Controller guide, Tuner, etc.)
+        // Embedded Tools panels (.tool-embedded) live inside #libraryPage and share navigation with the Tools sidebar.
         const openBackdrops = Array.from(document.querySelectorAll('.theme-modal-backdrop'))
-            .filter(el => (el.classList.contains('show') || el.style.display === 'flex' || el.style.display === 'block') && this.isElementVisible(el));
+            .filter(el => !el.classList.contains('tool-embedded') && (el.classList.contains('show') || el.style.display === 'flex' || el.style.display === 'block') && this.isElementVisible(el));
         if (openBackdrops.length > 0) {
             const topModal = openBackdrops[openBackdrops.length - 1];
             const modalCard = topModal.querySelector('.theme-modal-card');
@@ -1043,8 +1073,10 @@ class GamepadManager {
             return libPage;
         }
 
-        // 6. Score view with focus in the top bar: keep navigation inside it
+        // 6. Score view with focus in the top bar or playback dock: keep navigation inside it
         if (this.isTopBarFocused()) return this.topBar;
+        const dock = document.getElementById('mobilePlaybackDock');
+        if (dock && this.isPlaybackDockFocused()) return dock;
 
         return document;
     }
@@ -1123,12 +1155,19 @@ class GamepadManager {
     navigateSpatial(direction) {
         this.lastInputWasNavigation = true;
         const container = this.getActiveFocusContainer();
-        // The library page sits below the top bar, so Up/Down must be able to cross between them
+        const libPage = document.getElementById('libraryPage');
+        const libNav = document.getElementById('libraryBottomNav');
+        // The library page sits below the top bar and beside #libraryBottomNav (appended to document.body)
         const topBar = this.topBar;
-        // (and the floating playback dock, which holds Play on narrow layouts) in the score view
-        const roots = (topBar && (container === document.getElementById('libraryPage') || container === topBar))
-            ? [...new Set([container, ...this.getChromeRoots()])]
-            : [container];
+        let roots = [container];
+        if (container === libPage) {
+            const extra = [];
+            if (topBar) extra.push(...this.getChromeRoots());
+            if (libNav && this.isElementVisible(libNav)) extra.push(libNav);
+            roots = [...new Set([container, ...extra])];
+        } else if (topBar && container === topBar) {
+            roots = [...new Set([container, ...this.getChromeRoots()])];
+        }
         const scope = roots.length > 1
             ? { contains: (n) => roots.some(r => r.contains(n)), querySelector: (s) => { for (const r of roots) { const m = r.querySelector(s); if (m) return m; } return null; } }
             : container;
@@ -1182,8 +1221,16 @@ class GamepadManager {
         let bestElement = null;
         let minScore = Infinity;
 
+        const isInLibNav = Boolean(libNav && libNav.contains(currentActive));
+
         for (const cand of focusable) {
             if (cand === currentActive || cand === referenceEl) continue;
+
+            // Keep Up/Down inside the left navigation rail (#libraryBottomNav) so pressing Down from Tools
+            // reaches Settings at the bottom instead of jumping sideways into main content.
+            if ((direction === 'up' || direction === 'down') && isInLibNav && !libNav.contains(cand)) {
+                continue;
+            }
 
             // When navigating Left/Right inside a row's secondary buttons, stay within that row
             if ((direction === 'left' || direction === 'right') && isChildOfRow && !activeParentRow.contains(cand)) {
@@ -1210,7 +1257,10 @@ class GamepadManager {
                     primaryDist = r.top >= curRect.bottom ? (r.top - curRect.bottom) : (cy - curCy);
                     const overlapX = Math.max(0, Math.min(curRect.right, r.right) - Math.max(curRect.left, r.left));
                     if (overlapX > 0) {
-                        crossDist = Math.abs(cx - curCx) * 0.35;
+                        // Weight vertical distance higher so narrow left-aligned buttons (e.g. Artists/Tunings)
+                        // right below a wide input are not skipped in favor of a full-width row further down.
+                        primaryDist *= 2.5;
+                        crossDist = Math.min(24, Math.abs(cx - curCx) * 0.1);
                     } else {
                         const xGap = r.left >= curRect.right ? (r.left - curRect.right) : (curRect.left - r.right);
                         crossDist = xGap * 1.8 + Math.abs(cx - curCx) * 0.25;
@@ -1222,7 +1272,8 @@ class GamepadManager {
                     primaryDist = curRect.top >= r.bottom ? (curRect.top - r.bottom) : (curCy - cy);
                     const overlapX = Math.max(0, Math.min(curRect.right, r.right) - Math.max(curRect.left, r.left));
                     if (overlapX > 0) {
-                        crossDist = Math.abs(cx - curCx) * 0.35;
+                        primaryDist *= 2.5;
+                        crossDist = Math.min(24, Math.abs(cx - curCx) * 0.1);
                     } else {
                         const xGap = r.left >= curRect.right ? (r.left - curRect.right) : (curRect.left - r.right);
                         crossDist = xGap * 1.8 + Math.abs(cx - curCx) * 0.25;
@@ -1266,9 +1317,39 @@ class GamepadManager {
             }
         }
 
+        // Allow crossing between the main Library content and the left navigation rail (#libraryBottomNav)
+        // even when there is a large vertical gap between the active rail item and the focused row.
+        if (!bestElement && container === libPage && libNav && this.isElementVisible(libNav)) {
+            const navRect = this.getFocusRect(libNav);
+            const isVerticalRail = navRect.height > navRect.width;
+            if (direction === 'left' && !isChildOfRow && !libNav.contains(currentActive) && isVerticalRail && curRect.left >= navRect.right - 4) {
+                const navButtons = this.getFocusableElements(libNav, currentActive, direction);
+                if (navButtons.length > 0) {
+                    navButtons.sort((a, b) => {
+                        const ar = this.getFocusRect(a);
+                        const br = this.getFocusRect(b);
+                        return Math.abs((ar.top + ar.height / 2) - curCy) - Math.abs((br.top + br.height / 2) - curCy);
+                    });
+                    bestElement = navButtons[0];
+                }
+            } else if (direction === 'right' && libNav.contains(currentActive) && isVerticalRail) {
+                const pageCandidates = this.getFocusableElements(libPage, currentActive, direction)
+                    .filter(el => this.getFocusRect(el).left >= navRect.right - 4);
+                if (pageCandidates.length > 0) {
+                    pageCandidates.sort((a, b) => {
+                        const ar = this.getFocusRect(a);
+                        const br = this.getFocusRect(b);
+                        return Math.abs((ar.top + ar.height / 2) - curCy) - Math.abs((br.top + br.height / 2) - curCy);
+                    });
+                    bestElement = pageCandidates[0];
+                }
+            }
+        }
+
+        const dock = document.getElementById('mobilePlaybackDock');
         if (bestElement) {
             this.setNavFocus(bestElement);
-        } else if (direction === 'down' && container === this.topBar) {
+        } else if ((direction === 'down' && container === this.topBar) || (direction === 'up' && dock && container === dock)) {
             this.exitTopBar();
         }
     }

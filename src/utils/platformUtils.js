@@ -1,5 +1,6 @@
 // platformUtils.js
 // Cross-platform detection and platform-specific defaults (Steam Deck / SteamOS, macOS, Windows, Linux, Android)
+import { isTvMode } from '../tvMode.js';
 
 let _isSteamDeckCached = null;
 
@@ -47,6 +48,7 @@ export function setIsSteamDeck(val) {
  * @returns {string} 'page' or 'continuous'
  */
 export function getDefaultView(fileType) {
+    if (isTvMode() && fileType !== 'pdf') return 'horizontal';
     if (fileType === 'txt') return 'continuous';
     if (isSteamDeck()) return 'page';
     return fileType === 'pdf' ? 'page' : 'continuous';
@@ -66,6 +68,16 @@ export function getDefaultLandscapePageLayout() {
  * Apply platform-specific defaults to localStorage on initial launch/install if not already customized
  */
 export function applyPlatformDefaults() {
+    if (isTvMode()) {
+        try {
+            if (localStorage.getItem('gpDefaultView') === null) {
+                localStorage.setItem('gpDefaultView', 'horizontal');
+            }
+            if (localStorage.getItem('txtDefaultView') === null) {
+                localStorage.setItem('txtDefaultView', 'horizontal');
+            }
+        } catch {}
+    }
     if (isSteamDeck()) {
         try {
             if (localStorage.getItem('gpDefaultView') === null) {

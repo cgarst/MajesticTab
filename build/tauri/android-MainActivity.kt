@@ -591,6 +591,25 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+    if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+      val keyName = when (event.keyCode) {
+        android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> "MediaPlayPause"
+        android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> "MediaPlay"
+        android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> "MediaPause"
+        android.view.KeyEvent.KEYCODE_MENU -> "ContextMenu"
+        else -> null
+      }
+      if (keyName != null && mainWebView != null) {
+        val js = "window.dispatchEvent(new KeyboardEvent('keydown',{key:" +
+          org.json.JSONObject.quote(keyName) + ",bubbles:true,cancelable:true}));"
+        mainWebView?.evaluateJavascript(js, null)
+        return true
+      }
+    }
+    return super.dispatchKeyEvent(event)
+  }
+
   private fun answerNativeFetch(id: String, status: Int, body: String) {
     runOnUiThread {
       mainWebView?.evaluateJavascript(
