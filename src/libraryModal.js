@@ -4610,25 +4610,28 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
                                 title: song.title || tabOption.name,
                                 subtitle: song.artist || '',
                                 coverUrl: getSynchronousCachedArtUrl(song.coverUrl) || song.coverUrl || '',
-                                stage: 'Downloading…',
+                                stage: 'Connecting to sync…',
                             });
                             heldLoading = true;
                             setLoadingProgressRange(0, 35);
-                            setCurrentLoadingProgress(15, 'Downloading…');
+                            setCurrentLoadingProgress(15, 'Connecting to sync…');
 
                             const opened = await openSyncStore(target, { interactive: !hadFile });
                             const store = opened?.status === 'ready' ? opened.store : null;
                             if (!store) {
                                 downloadFailureReason = `sync store not ready (${opened?.status || 'unavailable'})`;
                             } else {
-                                setCurrentLoadingProgress(40, 'Downloading…');
+                                setCurrentLoadingProgress(40, hadFile ? 'Checking for audio…' : 'Downloading score…');
                                 const { fetchPackOnDemand, fetchSongAudioIfNeeded } = await import('./packSyncLocal.js');
                                 const mb = (n) => (n / 1048576).toFixed(n >= 10485760 ? 0 : 1);
                                 const options = {
                                     location: locationOf(target, store),
-                                    onProgress: ({ loaded, total }) => {
+                                    // Each step names what it fetches: the score first (40 to 55), then the audio (55 to 90)
+                                    onProgress: ({ loaded, total, phase }) => {
                                         const frac = total > 0 ? Math.min(1, loaded / total) : 0;
-                                        setCurrentLoadingProgress(40 + frac * 50, total > 0 ? `Downloading · ${mb(loaded)} of ${mb(total)} MB` : 'Downloading…');
+                                        const audio = phase === 'audio';
+                                        const what = audio ? 'audio' : (hadFile ? 'song details' : 'score');
+                                        setCurrentLoadingProgress(audio ? 55 + frac * 35 : 40 + frac * 15, total > 0 ? `Downloading ${what} · ${mb(loaded)} of ${mb(total)} MB` : `Downloading ${what}…`);
                                     },
                                 };
                                 if (hadFile) {

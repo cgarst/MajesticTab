@@ -309,14 +309,13 @@ const writeAudioMark = (packId, version) => { try { if (version != null) localSt
 
 /**
  * Downloads a remote pack (scores and optionally audio) on demand and updates the baseline so it is not re-uploaded.
- * `onProgress({ loaded, total })` counts bytes over the whole download: the pack's small files first, then its audio.
+ * `onProgress({ loaded, total, phase })` counts bytes of one step at a time: `phase` is 'score' (the pack's small files), then 'audio'.
  */
 export async function fetchPackOnDemand(store, packId, { includeAudio = !isHybridSyncEnabled(), baselines = localBaselines, location = null, targetSongId = null, onProgress = null } = {}) {
-    let lightBytes = 0;
-    const pack = await createPackStore(store).open(packId, { onProgress: onProgress && ((p) => { lightBytes = p.loaded; onProgress(p); }) });
+    const pack = await createPackStore(store).open(packId, { onProgress: onProgress && ((p) => onProgress({ ...p, phase: 'score' })) });
     const blob = await pack.toMpak({
         includeAudio,
-        onProgress: onProgress && ((p) => onProgress({ loaded: lightBytes + p.loaded, total: lightBytes + p.total })),
+        onProgress: onProgress && ((p) => onProgress({ ...p, phase: 'audio' })),
     });
     await saveMpakToLibrary(blob, { targetSongId, queryMusicBrainz: false });
     if (includeAudio) writeAudioMark(packId, pack.version);

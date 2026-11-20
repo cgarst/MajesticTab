@@ -2426,6 +2426,9 @@ body.theme-sheet-active .chord-lyric-chord {
 
 .loading-card-stage {
   min-height: 1.2em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.78rem;
   color: var(--text-muted);
 }
