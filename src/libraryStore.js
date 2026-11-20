@@ -1477,85 +1477,18 @@ function recentIdForSong(songId) {
 export async function addRecentOpened(fileInfo) {
     if (!fileInfo || typeof fileInfo !== 'object') return null;
 
-    // A pack opened from a file is a source of its own: it is not matched to a library tab by its file name
-    if (!fileInfo.librarySongId && fileInfo.standalone) return null;
+    // Only files opened from the library are recorded; a file opened directly is not matched to a library tab by name
+    if (!fileInfo.librarySongId) return null;
 
-    if (!fileInfo.librarySongId) {
-        try {
-            const songs = await getAllSongs();
-            if (Array.isArray(songs) && songs.length > 0) {
-                const clean = (s) => (s || '').replace(/^.*[/\\]/, '').replace(/\.[^/.]+$/, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-                const cleanPath = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-
-                const targetFile = clean(fileInfo.fileName || fileInfo.name);
-                const targetRelative = clean(fileInfo.relativePath);
-                const targetPath = cleanPath(fileInfo.relativePath);
-
-                let matchedSong = null;
-                let matchedTab = null;
-
-                for (const song of songs) {
-                    if (Array.isArray(song.tabOptions)) {
-                        for (const t of song.tabOptions) {
-                            const matchStoreId = Boolean(t.fileStoreId && fileInfo.fileStoreId && t.fileStoreId === fileInfo.fileStoreId);
-                            const matchDriveId = Boolean(t.driveFileId && fileInfo.driveFileId && t.driveFileId === fileInfo.driveFileId);
-                            const tName = clean(t.name);
-                            const tRel = clean(t.relativePath);
-                            const tPath = cleanPath(t.relativePath);
-                            const tNamePath = cleanPath(t.name);
-
-                            const matchName = Boolean(targetFile && ((tName && targetFile === tName) || (tRel && targetFile === tRel)));
-                            const matchRelative = Boolean(targetRelative && ((tRel && targetRelative === tRel) || (tName && targetRelative === tName)));
-                            const matchPath = Boolean(targetPath && ((tPath && targetPath === tPath) || (tNamePath && targetPath === tNamePath)));
-
-                            if (matchStoreId || matchDriveId || matchName || matchRelative || matchPath) {
-                                matchedSong = song;
-                                matchedTab = t;
-                                break;
-                            }
-                        }
-                    }
-                    if (matchedSong) break;
-                }
-
-                if (matchedSong) {
-                    fileInfo.librarySongId = matchedSong.id;
-                    if (matchedTab) {
-                        fileInfo.tabId = fileInfo.tabId || matchedTab.id;
-                        fileInfo.tabName = fileInfo.tabName || matchedTab.name || fileInfo.name;
-                        if (matchedTab.startPage !== undefined && fileInfo.startPage === undefined) {
-                            fileInfo.startPage = matchedTab.startPage;
-                        }
-                        if (matchedTab.endPage !== undefined && fileInfo.endPage === undefined) {
-                            fileInfo.endPage = matchedTab.endPage;
-                        }
-                    }
-                    fileInfo.songTitle = matchedSong.title || fileInfo.songTitle;
-                    fileInfo.artist = matchedSong.artist || fileInfo.artist;
-                    fileInfo.album = matchedSong.album || fileInfo.album;
-                    fileInfo.coverUrl = fileInfo.coverUrl || matchedSong.coverUrl || null;
-                }
-            }
-        } catch (e) {
-            console.warn('[addRecentOpened] Error matching file to library songs:', e);
-        }
-    } else {
-        try {
-            const song = await getSongById(fileInfo.librarySongId);
-            if (!song) {
-                return null;
-            }
-            fileInfo.songTitle = fileInfo.songTitle || song.title;
-            fileInfo.artist = fileInfo.artist || song.artist;
-            fileInfo.album = fileInfo.album || song.album;
-            fileInfo.coverUrl = fileInfo.coverUrl || song.coverUrl || null;
-        } catch (e) {
-            console.warn('[addRecentOpened] Error verifying library song:', e);
-            return null;
-        }
-    }
-
-    if (!fileInfo.librarySongId) {
+    try {
+        const song = await getSongById(fileInfo.librarySongId);
+        if (!song) return null;
+        fileInfo.songTitle = fileInfo.songTitle || song.title;
+        fileInfo.artist = fileInfo.artist || song.artist;
+        fileInfo.album = fileInfo.album || song.album;
+        fileInfo.coverUrl = fileInfo.coverUrl || song.coverUrl || null;
+    } catch (e) {
+        console.warn('[addRecentOpened] Error verifying library song:', e);
         return null;
     }
 
