@@ -77,7 +77,12 @@ export function createPackStore(store, { root = 'packs' } = {}) {
         if (onProgress) onProgress({ loaded, total });
         for (const [name, e] of wanted) {
             let data;
-            if (onProgress && e.size > PROGRESS_CHUNK) {
+            if (onProgress && store.streamsProgress) {
+                // one request, with progress from the stream (a range per chunk would cost a round trip each)
+                const before = loaded;
+                data = await store.read(`${dir}/${name}`, { onBytes: (got) => onProgress({ loaded: before + got, total: Math.max(total, before + got) }) });
+                loaded += byteLengthOf(data) || e.size || 0;
+            } else if (onProgress && e.size > PROGRESS_CHUNK) {
                 // A large score: read it in ranges so the caller can show bytes arriving
                 const parts = [];
                 for (let start = 0; start < e.size; start += PROGRESS_CHUNK) {

@@ -45,6 +45,7 @@ export function createDriveStore({ fetch: call, apiError = defaultApiError, root
         [CAPABILITIES.rangeRead]: true, [CAPABILITIES.conditionalWrite]: false,
         [CAPABILITIES.cheapList]: false, [CAPABILITIES.realFolders]: true,
     };
+    const fileIds = new Map();     // path -> Drive file id, filled by list() so a read skips the name lookup; dropped on a miss, write or delete
     const folderIds = new Map();   // '' (the store root) and 'packs/abc' -> Drive folder id
     let opened = false;
 
@@ -170,12 +171,17 @@ export function createDriveStore({ fetch: call, apiError = defaultApiError, root
         async list(prefix = '') {
             checkStorePrefix(prefix);
             const out = [];
+            const seen = new Set();
             const walk = async (dir, id) => {
                 const subdirs = [];
                 for (const f of await childrenOf(id)) {
                     const p = dir ? `${dir}/${f.name}` : f.name;
                     if (f.mimeType === FOLDER) subdirs.push([p, f.id]);
-                    else if (!f.mimeType.startsWith('application/vnd.google-apps.')) out.push(entryOf(p, f));
+                    else if (!f.mimeType.startsWith('application/vnd.google-apps.')) {
+                        out.push(entryOf(p, f));
+                        // two files with one name: locate() picks the oldest, so leave those to it
+                        if (seen.has(p)) fileIds.delete(p); else { seen.add(p); fileIds.set(p, f.id); }
+                    }
                 }
                 await pool(subdirs, 4, ([p, i]) => walk(p, i));
             };
@@ -191,25 +197,57 @@ export function createDriveStore({ fetch: call, apiError = defaultApiError, root
             return file ? entryOf(path, file) : null;
         },
 
-        async read(path, { range } = {}) {
+        // The Drive store streams the body, so `onBytes(n)` reports bytes as they arrive (n is the count so far for this read)
+        streamsProgress: true,
+
+        async read(path, { range, onBytes } = {}) {
             checkStorePath(path);
             if (range && !(range.end > range.start)) {
                 if (!(await this.stat(path))) throw new NotFoundError(`No such file: ${path}`);
                 return new Uint8Array(0);
             }
-            const { file } = await locate(path);
-            if (!file) throw new NotFoundError(`No such file: ${path}`);
-            const res = await call(`${API}/${file.id}?alt=media`, range ? { headers: { Range: `bytes=${range.start}-${range.end - 1}` } } : {});
+            const fetchMedia = (id) => call(`${API}/${id}?alt=media`, range ? { headers: { Range: `bytes=${range.start}-${range.end - 1}` } } : {});
+            let res = null;
+            const cached = fileIds.get(path);
+            if (cached) {
+                res = await fetchMedia(cached);
+                if (res.status === 404) { fileIds.delete(path); res = null; }
+            }
+            if (!res) {
+                const { file } = await locate(path);
+                if (!file) throw new NotFoundError(`No such file: ${path}`);
+                fileIds.set(path, file.id);
+                res = await fetchMedia(file.id);
+            }
             if (res.status === 404) throw new NotFoundError(`No such file: ${path}`);
             if (res.status === 416) return new Uint8Array(0);
             if (!res.ok) throw await apiError(res);
-            const bytes = new Uint8Array(await res.arrayBuffer());
+            let bytes;
+            if (onBytes && res.body && typeof res.body.getReader === 'function') {
+                const reader = res.body.getReader();
+                const parts = [];
+                let got = 0;
+                for (;;) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    parts.push(value);
+                    got += value.length;
+                    onBytes(got);
+                }
+                bytes = new Uint8Array(got);
+                let at = 0;
+                for (const part of parts) { bytes.set(part, at); at += part.length; }
+            } else {
+                bytes = new Uint8Array(await res.arrayBuffer());
+                if (onBytes) onBytes(bytes.length);
+            }
             if (range && res.status === 200) return bytes.slice(range.start, range.end);
             return bytes;
         },
 
         async write(path, bytes, { ifVersion } = {}) {
             checkStorePath(path);
+            fileIds.delete(path);
             for (let attempt = 0; ; attempt++) {
                 const { parentId, file, twin, extras } = await locate(path, { create: true });
                 if (twin) throw new ConflictError(`"${twin.name}" already exists and differs from "${path.split('/').pop()}" only in case`);
@@ -220,7 +258,7 @@ export function createDriveStore({ fetch: call, apiError = defaultApiError, root
                 let saved;
                 try { saved = await upload(parentId, name, bytes, file); } catch (err) {
                     // the folder (or file) was removed by another device after we resolved it: resolve again once
-                    if (staleOrMissing(err) && attempt === 0) { folderIds.clear(); continue; }
+                    if (staleOrMissing(err) && attempt === 0) { folderIds.clear(); fileIds.clear(); continue; }
                     throw err;
                 }
                 for (const extra of extras || []) await call(`${API}/${extra.id}`, { method: 'DELETE' }).catch(() => {});
@@ -243,6 +281,7 @@ export function createDriveStore({ fetch: call, apiError = defaultApiError, root
 
         async delete(path, { ifVersion } = {}) {
             checkStorePath(path);
+            fileIds.delete(path);
             const { file, extras } = await locate(path);
             if (ifVersion !== undefined && (ifVersion === null ? file : (!file || String(file.version) !== ifVersion))) {
                 throw new ConflictError(`${path} changed since it was read`, file ? String(file.version) : null);
