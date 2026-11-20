@@ -628,6 +628,7 @@ async function exportFileOut(currentFile, filename) {
 // The platform's own share sheet, where the web view has one (Safari and WKWebView on Apple platforms, Edge and WebView2 on Windows).
 // Where it is missing the Share tab row stays hidden.
 export function canShareFiles() {
+  if (hasAndroidShare()) return true;
   try {
     if (typeof navigator === 'undefined' || typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') return false;
     return navigator.canShare({ files: [new File(['x'], 'tab.txt', { type: 'text/plain' })] });
@@ -636,7 +637,34 @@ export function canShareFiles() {
   }
 }
 
+// The Android app's own bridge to the system share sheet: its web view has no navigator.share.
+function hasAndroidShare() {
+  return typeof window !== 'undefined' && typeof window.AndroidShare?.finish === 'function';
+}
+
+async function shareViaAndroid(file) {
+  const bridge = window.AndroidShare;
+  if (!bridge.begin(file.name)) return false;
+  const chunk = 384 * 1024; // a multiple of 3, so each piece is valid base64 on its own
+  for (let at = 0; at < file.size; at += chunk) {
+    const bytes = new Uint8Array(await file.slice(at, at + chunk).arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    if (!bridge.append(btoa(bin))) return false;
+  }
+  return bridge.finish(file.type || 'application/octet-stream', file.name);
+}
+
 async function shareFile(file, failureHint) {
+  if (hasAndroidShare()) {
+    try {
+      if (await shareViaAndroid(file)) return true;
+    } catch (err) {
+      console.warn('[Share] Android share failed:', err);
+    }
+    showToast(`Sharing failed. ${failureHint}`, 'warning');
+    return false;
+  }
   try {
     if (!navigator.canShare({ files: [file] })) {
       showToast(`This device cannot share this kind of file. ${failureHint}`, 'warning');

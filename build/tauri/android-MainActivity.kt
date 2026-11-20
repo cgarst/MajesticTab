@@ -415,6 +415,68 @@ class MainActivity : TauriActivity() {
     }, "AndroidUpdater")
     // @selfUpdate:end
 
+    // Android's share sheet: the page streams a file in pieces, then finish() hands it to the system chooser.
+    // The file sits in the cache folder, which Tauri's own FileProvider already serves.
+    webView.addJavascriptInterface(object {
+      private var out: java.io.OutputStream? = null
+      private var file: java.io.File? = null
+
+      @JavascriptInterface
+      @Synchronized
+      fun begin(name: String): Boolean {
+        return try {
+          out?.close()
+          val dir = java.io.File(cacheDir, "shared")
+          dir.deleteRecursively()
+          dir.mkdirs()
+          val f = java.io.File(dir, name.replace(Regex("[\\\\/:*?\"<>|]"), "_").ifBlank { "song" })
+          file = f
+          out = java.io.FileOutputStream(f)
+          true
+        } catch (e: Exception) {
+          android.util.Log.w("MajesticTab", "Share could not start", e)
+          false
+        }
+      }
+
+      @JavascriptInterface
+      @Synchronized
+      fun append(base64: String): Boolean {
+        return try {
+          out?.write(Base64.decode(base64, Base64.DEFAULT)) ?: return false
+          true
+        } catch (e: Exception) {
+          android.util.Log.w("MajesticTab", "Share could not write", e)
+          false
+        }
+      }
+
+      @JavascriptInterface
+      @Synchronized
+      fun finish(mimeType: String, title: String): Boolean {
+        val f = file ?: return false
+        try { out?.close() } catch (_: Exception) {}
+        out = null
+        return try {
+          val uri = androidx.core.content.FileProvider.getUriForFile(this@MainActivity, "$packageName.fileprovider", f)
+          val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = mimeType.ifBlank { "application/octet-stream" }
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            putExtra(android.content.Intent.EXTRA_TITLE, title)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+          }
+          val chooser = android.content.Intent.createChooser(send, title).apply {
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+          }
+          runOnUiThread { startActivity(chooser) }
+          true
+        } catch (e: Exception) {
+          android.util.Log.w("MajesticTab", "Share failed", e)
+          false
+        }
+      }
+    }, "AndroidShare")
+
     webView.addJavascriptInterface(object {
       @JavascriptInterface
       fun setMulticast(on: Boolean) {
