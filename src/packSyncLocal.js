@@ -21,6 +21,9 @@ import { REMOTE_ONLY_FP } from './storage/packSync.js';
 import { songFromManifest } from './storage/libraryDocs.js';
 import { recordStorage } from './audioSync/syncRecordStore.js';
 import { readRebuildMarks } from './packRepair.js';
+import { listHistory } from './audioSync/videoHistory.js';
+import { listRecordingMeta } from './audioSync/recordingMeta.js';
+import { stemsOfMeta } from './audioSync/stemSet.js';
 
 const HYBRID_SYNC_KEY = 'majestictab_sync_hybrid';
 export const isHybridSyncEnabled = () => { try { return localStorage.getItem(HYBRID_SYNC_KEY) !== '0'; } catch { return true; } };
@@ -163,10 +166,28 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
                     const a = e.key.startsWith('audio_file_') ? audioById.get(e.value) : null;
                     return [e.key, e.value, a ? `${a.size || 0}:${a.fingerprint || ''}` : ''];
                 });
+                // The other videos the song remembers per part go into its pack, so they are part of its fingerprint. Only the ids,
+                // never lastUsedAt (it changes on every play), and not the video a part has chosen (signals hold that already), so a
+                // song with no extra videos keeps its fingerprint and is not sent again.
+                const extraVideos = [];
+                for (const slot of SLOT_NAMES) {
+                    const chosen = localStorage.getItem(`yt_track_${songKey}_${slot}`);
+                    const ids = listHistory(songKeyOf(song), slot).map((e) => e.videoId).filter((id) => id !== chosen).sort();
+                    if (ids.length) extraVideos.push([slot, ids]);
+                }
+                // A set of stems under an Original that is not the set (a video) used to travel as plain audio files. Marking those songs
+                // sends them again, as stems; a song whose Original is its stem set is already packed that way and keeps its fingerprint.
+                let stemsAsStems = null;
+                if (localStorage.getItem(`real_audio_source_${songKey}_original`) !== 'local') {
+                    const ids = Object.entries(listRecordingMeta(songKeyOf(song))).filter(([k, m]) => k.startsWith('local_') && stemsOfMeta(m)).map(([k]) => k);
+                    if (ids.length) stemsAsStems = ids.sort();
+                }
                 const fp = fingerprintValue({
                     meta: [song.title, song.artist, song.album, song.year, song.length, song.trackNumber, song.mediumNumber, song.recordingMbid, song.artistMbid, song.albumMbid],
                     tabs: tabs.map((t) => [t.id, t.name, t.startPage, t.endPage, t.tuning, fileFp(fileById.get(t.fileStoreId))]),
                     signals,
+                    ...(extraVideos.length ? { extraVideos } : {}),
+                    ...(stemsAsStems ? { stemsAsStems } : {}),
                     removedAudio: getRemovedAudio(songKeyOf(song)),
                     // Only a song marked in Settings, Upkeep carries this, so no other fingerprint changes
                     ...(rebuildMarks[song.id] ? { rebuilt: rebuildMarks[song.id] } : {}),
