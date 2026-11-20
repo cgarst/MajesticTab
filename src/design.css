@@ -5260,9 +5260,7 @@ body > #controllerHelpModal { display: none; }
   .rec-actions:empty { display: none; }
 }
 .page-strip.in-dock ~ .rec-strip { order: -1; }
-/* With Original selected the recording bar is the progress bar: it replaces the page strip instead of stacking over it.
-   With Synth selected (a MIDI file's bar) the page strip stays. */
-body.rec-strip-on:has(#mobileYtToggleBtn.active-audio-mode) .page-strip { display: none !important; }
+/* The recording bar and the page strip both stay on text and PDF tabs, as the recording bar and the bar ruler do on Guitar Pro files */
 /* On Guitar Pro tabs the recording bar sits in the dock's ruler slot, directly above the bar ruler */
 #scoreRecStrip { margin-bottom: 4px; }
 body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { display: block !important; }
