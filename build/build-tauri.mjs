@@ -447,10 +447,18 @@ if (target === 'android') {
   // Android TV: Play hides apps from devices lacking a *required* feature, and the permissions above imply microphone
   // and wifi as required (TVs often have neither a mic nor wifi). Touchscreen is required unless declared otherwise.
   const leanbackTag = '<uses-feature android:name="android.software.leanback" android:required="false" />';
+  if (!manifest.includes('android:name="android.software.leanback"')) {
+    manifest = manifest.replace('<application', `${leanbackTag}\n\n    <application`);
+  }
   const tvFeatures = ['touchscreen', 'microphone', 'wifi']
     .filter((name) => !manifest.includes(`android:name="android.hardware.${name}"`))
     .map((name) => `<uses-feature android:name="android.hardware.${name}" android:required="false" />`);
   if (tvFeatures.length) manifest = manifest.replace(leanbackTag, `${leanbackTag}\n    ${tvFeatures.join('\n    ')}`);
+  const launcherCategory = '<category android:name="android.intent.category.LAUNCHER" />';
+  const leanbackCategory = '<category android:name="android.intent.category.LEANBACK_LAUNCHER" />';
+  if (!manifest.includes(leanbackCategory)) {
+    manifest = manifest.replace(launcherCategory, `${launcherCategory}\n                ${leanbackCategory}`);
+  }
   if (!manifest.includes('android:banner=')) {
     manifest = manifest.replace('<application\n', '<application\n        android:banner="@drawable/tv_banner"\n');
   }
