@@ -18,7 +18,7 @@ import {
 } from './fileStore.js';
 import {
     ensureDefaultCollection, getAllLibraryData, importLibraryData, clearAllLibraryData,
-    reloadAllLibraryMetadata, songsMissingTrackNumber, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary, removeTabOptionFromSong, updateTabOptionOnSong, findSongHome, applySongHome
+    reloadAllLibraryMetadata, songsMissingTrackNumber, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary, removeTabOptionFromSong, updateTabOptionOnSong, findSongHome, applySongHome, mergeSongInto
 } from './libraryStore.js';
 import { findMisfiledSongs } from './libraryMixedAlbums.js';
 import { getAlbumTracks } from './musicbrainz.js';
@@ -1663,14 +1663,14 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="backup-summary-box p-3 rounded-3 mb-3">
             <div class="small fw-semibold text-white mb-2">Songs listed more than once</div>
             <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
-              Songs with the same artist, album and title. Only copies with no tabs, no pack and no audio can be removed, and the copy with tabs stays. The removal reaches your other devices at the next sync.
+              Songs with the same artist, album and title. A copy with no tabs, no pack and no audio is removed. A copy that holds tabs, audio, a pin or a pack is merged into the one that stays: its tabs and audio move over, then it is removed. The change reaches your other devices at the next sync.
             </div>
             <div id="duplicatesList"></div>
           </div>
           <div id="duplicatesStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="duplicatesCancelBtn">Close</button>
-            <button type="button" class="btn btn-sm btn-theme-danger px-4" id="duplicatesDeleteBtn" disabled>Remove selected</button>
+            <button type="button" class="btn btn-sm btn-theme-danger px-4" id="duplicatesDeleteBtn" disabled>Apply selected</button>
           </div>
         </div>
 
@@ -1954,9 +1954,9 @@ function attachModalHandlers(modal, options = {}) {
     const duplicatesDeleteBtn = modal.querySelector('#duplicatesDeleteBtn');
     const duplicatesStatusAlert = modal.querySelector('#duplicatesStatusAlert');
     const updateDuplicatesBtn = () => {
-        const n = duplicatesList.querySelectorAll('.dupe-check:checked').length;
+        const n = duplicatesList.querySelectorAll('.dupe-check:checked, .dupe-merge-check:checked').length;
         duplicatesDeleteBtn.disabled = n === 0;
-        duplicatesDeleteBtn.textContent = `Remove selected${n ? ` · ${n}` : ''}`;
+        duplicatesDeleteBtn.textContent = `Apply selected${n ? ` · ${n}` : ''}`;
     };
     const renderDuplicates = async () => {
         duplicatesList.innerHTML = '<div class="text-white-50 small">Scanning your library…</div>';
@@ -1978,7 +1978,11 @@ function attachModalHandlers(modal, options = {}) {
             ${groups.map((g) => `
               <div class="p-2 rounded-2 backup-stat-card">
                 <div class="small text-white text-truncate">${escapeHtml(g.title)}<span class="text-white-50"> · ${escapeHtml(g.artist)} · ${escapeHtml(g.album)}</span></div>
-                ${g.review ? '<div class="small text-white-50">More than one copy has tabs. Remove the extra by hand from the library.</div>' : ''}
+                ${g.merge.map((s) => `
+                  <label class="d-flex align-items-center gap-2 mb-0 mt-1" style="cursor: pointer;">
+                    <input type="checkbox" class="form-check-input dupe-merge-check flex-shrink-0" data-keep="${escapeHtml(g.keep.id)}" data-id="${escapeHtml(s.id)}" checked>
+                    <span class="small text-white-50">Merge the copy on ${escapeHtml(s.mediumFormat || 'disc')} ${s.mediumNumber || 1}${s.trackNumber ? `, track ${escapeHtml(String(s.trackNumber))}` : ''} into the one that stays (${(s.tabOptions || []).length} ${(s.tabOptions || []).length === 1 ? 'tab' : 'tabs'}${s.pinned ? ', pinned' : ''})</span>
+                  </label>`).join('')}
                 ${g.remove.map((s) => `
                   <label class="d-flex align-items-center gap-2 mb-0 mt-1" style="cursor: pointer;">
                     <input type="checkbox" class="form-check-input dupe-check flex-shrink-0" data-id="${escapeHtml(s.id)}" checked>
@@ -1986,7 +1990,7 @@ function attachModalHandlers(modal, options = {}) {
                   </label>`).join('')}
               </div>`).join('')}
           </div>`;
-        duplicatesList.querySelectorAll('.dupe-check').forEach((cb) => cb.addEventListener('change', updateDuplicatesBtn));
+        duplicatesList.querySelectorAll('.dupe-check, .dupe-merge-check').forEach((cb) => cb.addEventListener('change', updateDuplicatesBtn));
         updateDuplicatesBtn();
     };
     // --- MIXED-UP ALBUMS ---
@@ -2122,16 +2126,22 @@ function attachModalHandlers(modal, options = {}) {
     modal.querySelector('#duplicatesCancelBtn')?.addEventListener('click', closeBackupModal);
     duplicatesDeleteBtn?.addEventListener('click', async () => {
         const ids = [...duplicatesList.querySelectorAll('.dupe-check:checked')].map((cb) => cb.dataset.id);
-        if (ids.length === 0) return;
+        const merges = [...duplicatesList.querySelectorAll('.dupe-merge-check:checked')].map((cb) => ({ keep: cb.dataset.keep, id: cb.dataset.id }));
+        if (ids.length + merges.length === 0) return;
         duplicatesDeleteBtn.disabled = true;
-        duplicatesDeleteBtn.textContent = 'Removing…';
-        showTaskProgress(duplicatesStatusAlert, { label: 'Removing duplicate songs…', detail: `${ids.length} selected` });
+        duplicatesDeleteBtn.textContent = 'Working…';
+        showTaskProgress(duplicatesStatusAlert, { label: 'Updating duplicate songs…', detail: `${ids.length + merges.length} selected` });
         try {
             for (const id of ids) await deleteSongFromLibrary(id);
-            showTaskResult(duplicatesStatusAlert, 'done', `Removed ${ids.length} ${ids.length === 1 ? 'song' : 'songs'}`);
+            for (const m of merges) await mergeSongInto(m.keep, m.id);
+            const parts = [];
+            if (ids.length) parts.push(`removed ${ids.length}`);
+            if (merges.length) parts.push(`merged ${merges.length}`);
+            const text = parts.join(' and ');
+            showTaskResult(duplicatesStatusAlert, 'done', text.charAt(0).toUpperCase() + text.slice(1) + (ids.length + merges.length === 1 ? ' song' : ' songs'));
         } catch (err) {
-            console.error('Failed to remove duplicate songs:', err);
-            showTaskResult(duplicatesStatusAlert, 'error', `Could not remove the songs. ${err.message}`);
+            console.error('Failed to update duplicate songs:', err);
+            showTaskResult(duplicatesStatusAlert, 'error', `Could not update the songs. ${err.message}`);
         }
         await renderDuplicates();
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));

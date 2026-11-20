@@ -6,9 +6,9 @@ const normName = (v) => String(v || '').toLowerCase().replace(/\s+/g, ' ').trim(
 
 /**
  * Songs that appear more than once: same artist, album and title. Album-tab containers and custom songs are left out.
- * Per group: `keep` is the record to keep (one with tabs, else the lowest disc and track, else the oldest), `remove` the
+ * Per group: `keep` is the record to keep (one with tabs, then one with a pack, then the lowest disc and track, then the oldest), `remove` the
  * records that are safe to remove (no tabs, no pack, not pinned, no audio attached by id), and `review` is true when
- * more than one record has tabs, which only a person can settle. `hasAudio(song)` says whether audio is attached to a record.
+ * more than one record has tabs. `merge` lists the copies that hold tabs, a pack, a pin or audio, which can be folded into `keep`. `hasAudio(song)` says whether audio is attached to a record.
  */
 export function findDuplicateSongs(songs, { hasAudio = () => false } = {}) {
     const groups = new Map();
@@ -24,14 +24,18 @@ export function findDuplicateSongs(songs, { hasAudio = () => false } = {}) {
         if (list.length < 2) continue;
         const ordered = [...list].sort((a, b) =>
             (tabCount(b) > 0) - (tabCount(a) > 0)
+            || (!!b.packId) - (!!a.packId)
             || (a.mediumNumber || 1) - (b.mediumNumber || 1)
             || (a.trackNumber || 0) - (b.trackNumber || 0)
             || (a.addedAt || 0) - (b.addedAt || 0));
         const [keep, ...rest] = ordered;
+        const remove = rest.filter((s) => !tabCount(s) && !s.packId && !s.pinned && !hasAudio(s));
         out.push({
             artist: keep.artist || '', album: keep.album || '', title: keep.title || '',
             keep,
-            remove: rest.filter((s) => !tabCount(s) && !s.packId && !s.pinned && !hasAudio(s)),
+            remove,
+            // The copies that hold something (tabs, a pack, a pin, audio): they can be folded into `keep` instead of removed
+            merge: rest.filter((s) => !remove.includes(s)),
             review: rest.some((s) => tabCount(s) > 0)
         });
     }

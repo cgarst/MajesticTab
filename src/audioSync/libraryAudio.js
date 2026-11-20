@@ -207,6 +207,21 @@ export function attachLibraryAudio(song, audioId, slot) {
 }
 
 /**
+ * A song merged into another: its attached files and the keys its tabs were opened under now belong to `to`, and `from`
+ * keeps nothing, so removing it does not take the files with it.
+ */
+export function adoptSongAudio(from, to) {
+    if (!from?.id || !to?.id || from.id === to.id) return;
+    for (const { audioId, slot } of readLibraryAudio(from.id)) attachLibraryAudioAlternate(to, audioId, slot);
+    const keys = new Set([...songAudioKeys(to), ...songAudioKeys(from)].filter((k) => k !== libraryAudioKey(to)));
+    write(SONG_KEYS(to.id), JSON.stringify([...keys]));
+    try {
+        localStorage.removeItem(REGISTRY(from.id));
+        localStorage.removeItem(SONG_KEYS(from.id));
+    } catch { /* optional */ }
+}
+
+/**
  * The reader opened a library song under `songKey`: link the files attached to it by id to that key, and let them fill a slot that
  * has no file. Nothing happens for a song with no attachment, and a slot the player set up is left alone.
  */

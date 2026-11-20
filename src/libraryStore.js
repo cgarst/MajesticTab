@@ -580,7 +580,7 @@ export async function deleteAlbumFromLibrary(artistName, albumTitle, collectionI
 /**
  * Delete a song from library
  */
-export async function deleteSongFromLibrary(songId) {
+export async function deleteSongFromLibrary(songId, { keepAudio = false } = {}) {
     const db = await getDB();
     const gone = await getSongById(songId);
     const fileIds = collectFileStoreIds([gone]);
@@ -592,7 +592,7 @@ export async function deleteSongFromLibrary(songId) {
         req.onerror = () => reject(req.error);
     });
     await deleteOrphanedStoredFiles(fileIds);
-    if (gone) await purgeAudioOf(gone);
+    if (gone && !keepAudio) await purgeAudioOf(gone);
     return true;
 }
 
@@ -889,6 +889,33 @@ export async function moveTabOptionToSong(fromSongId, tabOptionId, toSongId, { w
     await saveSongToLibrary(to, to.collectionId);
     await saveSongToLibrary(from, from.collectionId);
     return tab;
+}
+
+/**
+ * Fold a second copy of a song into the one kept: its tabs (with the setlist entries that open them), its audio, its pin
+ * and its pack id when the kept song has none move over, then its record is removed. Nothing is lost that the kept song
+ * did not already hold. Returns the number of tabs moved.
+ */
+export async function mergeSongInto(keepId, otherId) {
+    if (!keepId || !otherId || keepId === otherId) return 0;
+    const other = await getSongById(otherId);
+    if (!other || !(await getSongById(keepId))) return 0;
+    const { retargetSetlistTab } = await import('./setlistStore.js');
+    let moved = 0;
+    for (const tab of [...(other.tabOptions || [])]) {
+        if (await moveTabOptionToSong(otherId, tab.id, keepId)) {
+            await retargetSetlistTab(tab.id, otherId, keepId);
+            moved++;
+        }
+    }
+    const keep = await getSongById(keepId);
+    if (other.pinned) keep.pinned = true;
+    if (!keep.packId && other.packId) keep.packId = other.packId;
+    keep.lastOpenedAt = Math.max(keep.lastOpenedAt || 0, other.lastOpenedAt || 0) || null;
+    await saveSongToLibrary(keep, keep.collectionId);
+    try { (await import('./audioSync/libraryAudio.js')).adoptSongAudio(other, keep); } catch { /* optional */ }
+    await deleteSongFromLibrary(otherId, { keepAudio: true });
+    return moved;
 }
 
 /** The song's tunings are those of its tabs, one entry each. */
