@@ -3,6 +3,7 @@
 import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel, isSynthPlaying } from './gpProcessor/gpPlayer.js';
 import { showPanel, hidePanel, placePanel } from './utils/readerPanels.js';
 import { getMasterVolume, onMasterVolume } from './utils/masterVolume.js';
+import { isReaderLoading } from './utils/loadingCard.js';
 import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
 import { songHasLocalAudio, songHasLocalSlot, preferredSlot } from './audioSync/libraryAudio.js';
 import { slotSourceKey } from './stemdeck/backingCandidates.js';
@@ -302,7 +303,7 @@ export function playPauseYouTube() {
  * for play. Only when a video is already known; the video already shown leaves it.
  */
 export function showOriginalVideo() {
-    if (isVideoShown() || slotUsesOwnAudio() || !hasSavedVideo()) return;
+    if (isReaderLoading() || isVideoShown() || slotUsesOwnAudio() || !hasSavedVideo()) return;
     loadCurrentTrack(false);
     showSheet();
 }
@@ -315,6 +316,7 @@ export function showOriginalVideo() {
 let settleTimer = 0;
 export function scheduleOriginalVideo(want) {
     clearTimeout(settleTimer);
+    if (want && isReaderLoading()) return; // the tab that is opening decides once it has loaded (see `majestictab:reader-loaded`)
     if (!want && isYouTubePlaying()) { closeSheet(); return; } // a playing video that is no longer the sound leaves at once
     settleTimer = setTimeout(() => (want ? showOriginalVideo() : closeSheet()), 250);
 }
@@ -1652,10 +1654,17 @@ export function initYouTubePlayer() {
         onClose: () => { clearTimeout(settleTimer); settleTimer = 0; sheetClosedAt = performance.now(); pauseYouTube(); },
         // Back in the reader with Original (YouTube) selected: its video is on the screen again
         onReaderShown: () => {
+            if (isReaderLoading()) return;
             const original = document.getElementById('mobileYtToggleBtn')?.classList.contains('active-audio-mode');
             const youtube = !slotUsesOwnAudio();
             if (original && youtube) scheduleOriginalVideo(true);
         }
+    });
+    // The tab has finished loading: its Original video (if that is the sound) comes up now, never the previous tab's before
+    window.addEventListener('majestictab:reader-loaded', () => {
+        if (document.body.classList.contains('library-view-active')) return;
+        const original = document.getElementById('mobileYtToggleBtn')?.classList.contains('active-audio-mode');
+        if (original && !slotUsesOwnAudio()) scheduleOriginalVideo(true);
     });
     onSheetChange(() => { if (isNativeOverlayPlayer()) animateNativeMacPlayerBounds(); else syncNativeMacPlayerBounds(); });
     // The fretboard (and the panels' space) moving the sheet: the native player, which draws above the page, moves with it

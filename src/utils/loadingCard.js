@@ -99,10 +99,16 @@ function reveal() {
  * @param {HTMLElement} output the #output element, faded out until the load ends
  * @param {{title?: string, subtitle?: string, coverUrl?: string, stage?: string}} identity
  */
+/** Whether a tab is still loading: the dock, the audio and the video wait for it (see `body.reader-loading`). */
+export function isReaderLoading() {
+    return document.body.classList.contains('reader-loading');
+}
+
 export function showLoadingCard(output, { title, subtitle, coverUrl, stage = '' } = {}) {
     const token = ++currentToken;
     clearTimeout(hideTimer);
     output?.classList.add('is-loading');
+    document.body.classList.add('reader-loading');
     setIdentity(token, { title, subtitle, coverUrl: coverUrl || '' });
     setLoadingProgress(token, 0, stage);
     reveal();
@@ -168,6 +174,8 @@ export function hideLoadingCard(token, output) {
         card?.classList.remove('is-visible');
         card?.setAttribute('aria-hidden', 'true');
         output?.classList.remove('is-loading');
+        document.body.classList.remove('reader-loading');
+        window.dispatchEvent(new Event('majestictab:reader-loaded'));
         const coverEl = byId('loadingCardCover');
         if (coverEl) {
             coverEl.removeAttribute('src');
