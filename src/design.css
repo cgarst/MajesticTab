@@ -5610,7 +5610,7 @@ html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active)
 
 /* Book (iPhone Duo folded with the crease up and down): two pages, one on each half, with the crease between them.
    foldState.js sets html.duo-book and --fold-left / --fold-w. The normal reader chrome stays (the width is a regular one). */
-html.duo-book .gp-page-container { gap: var(--fold-w, 10px); padding-inline: 0; }
+html.duo-book :is(.gp-page-container, .pageContainer) { gap: var(--fold-w, 10px); padding-inline: 0; }
 
 /* Reading mode on macOS and Windows: the top bar is gone, so a thin invisible strip along the top keeps the window draggable (double-click maximizes).
    On Windows it sits under the caption buttons; on macOS the traffic lights are native and draw above it. */

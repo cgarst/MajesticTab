@@ -138,7 +138,7 @@ function pageBox() {
     const output = document.getElementById('output');
     const outH = output?.clientHeight || (window.innerHeight - 80);
     const outW = output?.clientWidth || window.innerWidth;
-    let padV = 40, padH = 40, wrapPadH = 0;
+    let padV = 40, padH = 40, gap = 20, wrapPadH = 0;
     if (output) {
         const probe = document.createElement('div');
         probe.className = 'pageContainer';
@@ -147,6 +147,7 @@ function pageBox() {
         const cs = getComputedStyle(probe);
         padV = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
         padH = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+        gap = parseFloat(cs.columnGap || cs.gap) || 0;
         probe.remove();
         // The page wrapper pads its own sides too: a page at the full width must fit inside that
         const wprobe = document.createElement('div');
@@ -159,7 +160,7 @@ function pageBox() {
         wprobe.remove();
     }
     // 2px for the wrapper border
-    return { wrapperHeight: Math.max(100, Math.floor(outH - padV - 2)), width: Math.max(100, outW - padH), wrapPadH };
+    return { wrapperHeight: Math.max(100, Math.floor(outH - padV - 2)), width: Math.max(100, outW - padH), gap, wrapPadH };
 }
 
 /**
@@ -171,10 +172,11 @@ function pageBox() {
  */
 export function layoutPages(condensedCanvases) {
     const pages = [];
-    const { wrapperHeight, width, wrapPadH } = pageBox();
+    const { wrapperHeight, width, gap, wrapPadH } = pageBox();
     const pageHeight = wrapperHeight - pagePad();
     const pageWidth = width;
     const pagesPerView = getPagesPerView('pdf');
+    const availWidth = Math.max(100, pageWidth - gap * (pagesPerView - 1));
     const pageGap = 10; // Gap between canvases on the same page
     const tabletop = inTabletop();
 
@@ -192,7 +194,7 @@ export function layoutPages(condensedCanvases) {
         // Lazy pages keep their size while their pixels are not loaded
         const { w: canvasW, h: canvasH } = canvasSize(canvas);
         // Initial scale based on width
-        let scale = pageWidth / canvasW / pagesPerView;
+        let scale = availWidth / canvasW / pagesPerView;
         let scaledHeight = canvasH * scale;
 
         // Folded Duo: keep the width-fit size and read the page in bands (a page turn moves one band)
@@ -284,7 +286,7 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered, onBa
 
         const wrapper = document.createElement('div');
         wrapper.className = 'pageWrapper';
-        wrapper.style.width = `${box.width / pagesPerView}px`;
+        wrapper.style.width = `${Math.max(100, box.width - box.gap * (pagesPerView - 1)) / pagesPerView}px`;
         wrapper.style.height = `${box.wrapperHeight}px`;
         wrapper.style.paddingTop = `${pagePad()}px`;
         wrapper.style.boxSizing = 'border-box';
