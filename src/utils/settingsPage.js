@@ -459,6 +459,7 @@ export function initSettingsPage() {
         ...[taskRow('reload', 'Reload library metadata', 'Refresh covers, durations and album details.', 'Reload'),
             taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Review', false, 'Review orphaned files'),
             taskRow('duplicates', 'Duplicate songs', 'Find songs listed more than once, such as a second disc of the same album.', 'Review', false, 'Review duplicate songs'),
+            taskRow('mixedalbums', 'Mixed-up albums', 'Find songs filed under the wrong album, such as one given another album\'s year, and move them back.', 'Review', false, 'Review mixed-up albums'),
             taskRow('tabsets', 'Tab sets', 'Put the notation and tablature of one part in a single row, so a song lists once.', 'Review', false, 'Review tab sets'),
             taskRow('dupetabs', 'Duplicate tabs', 'Find tabs stored twice under one song, whatever they are called.', 'Review', false, 'Review duplicate tabs'),
             taskRow('missing', 'Missing files', 'Find tabs whose file is no longer stored on this device.', 'Review', false, 'Review missing files'),

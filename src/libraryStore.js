@@ -2303,6 +2303,44 @@ export async function updateAlbumMetadataInLibrary(albumData, collectionId = nul
 }
 
 /**
+ * Where a misfiled song really lives: look the recording up by artist and title, skipping the album it was wrongly put on.
+ * Gives the fields to write (album, albumMbid, year, recordingMbid, coverUrl, track and disc), or null when nothing fits.
+ * Nothing is saved; `applySongHome` does that once a person has agreed.
+ */
+export async function findSongHome(song, { avoidAlbumMbid = song?.albumMbid } = {}) {
+    if (!song || !song.title) return null;
+    const titleClean = cleanTitle(song.title);
+    const artistClean = cleanTitle(song.artist);
+    const results = await searchMusicBrainz(`${song.artist || ''} ${song.title}`.trim(), 'song');
+    const match = (results || []).find((r) =>
+        cleanTitle(r.title) === titleClean
+        && (!artistClean || cleanTitle(r.artist).includes(artistClean) || artistClean.includes(cleanTitle(r.artist)))
+        && r.album && r.albumMbid && r.albumMbid !== avoidAlbumMbid
+        && r.recordingMbid !== song.recordingMbid);
+    if (!match) return null;
+    const detail = await lookupMusicBrainzByIds({
+        recordingMbid: match.recordingMbid, albumMbid: match.albumMbid, title: song.title, artist: song.artist, album: match.album
+    }).catch(() => null);
+    const src = detail && detail.albumMbid && detail.albumMbid !== avoidAlbumMbid ? detail : match;
+    return {
+        album: src.album, albumMbid: src.albumMbid, year: src.year ?? match.year ?? null,
+        recordingMbid: src.recordingMbid || match.recordingMbid, coverUrl: src.coverUrl || match.coverUrl || null,
+        trackNumber: src.trackNumber ?? null, mediumNumber: src.mediumNumber ?? 1,
+        mediumTitle: src.mediumTitle ?? null, mediumFormat: src.mediumFormat ?? null,
+        length: src.length ?? song.length ?? null
+    };
+}
+
+/** Write what `findSongHome` found onto a song, keeping its tabs, audio and everything else. */
+export async function applySongHome(songId, home) {
+    const song = await getSongById(songId);
+    if (!song || !home) return false;
+    Object.assign(song, home);
+    await saveSongToLibrary(song, song.collectionId || DEFAULT_COLLECTION_ID);
+    return true;
+}
+
+/**
  * Reload all library metadata from MusicBrainz.
  * Re-queries MusicBrainz for all albums and songs in the library, filling in any missing fields
  * (such as track times/lengths, track numbers, release years, cover artwork, and MBIDs).

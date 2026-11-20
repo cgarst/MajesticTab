@@ -18,8 +18,10 @@ import {
 } from './fileStore.js';
 import {
     ensureDefaultCollection, getAllLibraryData, importLibraryData, clearAllLibraryData,
-    reloadAllLibraryMetadata, songsMissingTrackNumber, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary, removeTabOptionFromSong, updateTabOptionOnSong
+    reloadAllLibraryMetadata, songsMissingTrackNumber, findOrphanedStoredFiles, deleteOrphanedStoredFiles, getAllSongs, deleteSongFromLibrary, removeTabOptionFromSong, updateTabOptionOnSong, findSongHome, applySongHome
 } from './libraryStore.js';
+import { findMisfiledSongs } from './libraryMixedAlbums.js';
+import { getAlbumTracks } from './musicbrainz.js';
 import { findDuplicateSongs, findDuplicateTabs } from './libraryDuplicates.js';
 import { findMissingTabFiles, findUnreachableTabs, songsWithUnstoredTabs } from './libraryMissingFiles.js';
 import { isPackId } from './mpak.js';
@@ -1240,7 +1242,7 @@ function leaveEmbeddedBackup() {
 
 /**
  * Open the Data Management modal
- * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'dupetabs'|'missing'|'syncshrink'|'rebuild'|'cache'|'delete'} initialTab
+ * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'mixedalbums'|'dupetabs'|'missing'|'syncshrink'|'rebuild'|'cache'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup', options = {}) {
     // Data management lives in Settings, on the Data management page. There is no popup.
@@ -1672,6 +1674,22 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           </div>
         </div>
 
+        <!-- TAB: MIXED-UP ALBUMS -->
+        <div id="mixedalbumsTabContent" style="display: ${activeTab === 'mixedalbums' ? 'block' : 'none'};">
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2">Songs filed under the wrong album</div>
+            <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+              A song that shares its recording with a differently named song on the same album, and is not on that album's track list. Each is looked up again by its title and moved to the album it belongs to. Tabs, audio and pins stay as they are. The change reaches your other devices at the next sync.
+            </div>
+            <div id="mixedalbumsList"></div>
+          </div>
+          <div id="mixedalbumsStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="mixedalbumsCancelBtn">Close</button>
+            <button type="button" class="btn btn-sm btn-theme-primary px-4" id="mixedalbumsApplyBtn" disabled>Move selected</button>
+          </div>
+        </div>
+
         <!-- TAB: DUPLICATE TABS -->
         <div id="dupetabsTabContent" style="display: ${activeTab === 'dupetabs' ? 'block' : 'none'};">
           <div class="backup-summary-box p-3 rounded-3 mb-3">
@@ -1971,6 +1989,77 @@ function attachModalHandlers(modal, options = {}) {
         duplicatesList.querySelectorAll('.dupe-check').forEach((cb) => cb.addEventListener('change', updateDuplicatesBtn));
         updateDuplicatesBtn();
     };
+    // --- MIXED-UP ALBUMS ---
+    const mixedList = modal.querySelector('#mixedalbumsList');
+    const mixedApplyBtn = modal.querySelector('#mixedalbumsApplyBtn');
+    const mixedStatusAlert = modal.querySelector('#mixedalbumsStatusAlert');
+    let mixedPlan = [];
+    const updateMixedBtn = () => {
+        const n = mixedList.querySelectorAll('.mixed-check:checked').length;
+        mixedApplyBtn.disabled = n === 0;
+        mixedApplyBtn.textContent = `Move selected${n ? ` · ${n}` : ''}`;
+    };
+    const renderMixedAlbums = async () => {
+        mixedList.innerHTML = '<div class="text-white-50 small">Checking albums… this asks MusicBrainz for track lists, so it can take a moment.</div>';
+        mixedApplyBtn.disabled = true;
+        mixedPlan = [];
+        try {
+            const found = await findMisfiledSongs(await getAllSongs(), async (mbid) => {
+                const album = await getAlbumTracks(mbid);
+                return album ? (album.tracks || []).map((t) => t.title) : null;
+            });
+            for (const f of found) {
+                let home = null;
+                try { home = await findSongHome(f.song); } catch (_) { home = null; }
+                mixedPlan.push({ ...f, home });
+            }
+        } catch (err) {
+            console.error('Failed to scan for mixed-up albums:', err);
+            mixedList.innerHTML = `<div class="text-danger small">Failed to scan: ${escapeHtml(err.message)}</div>`;
+            return;
+        }
+        if (mixedPlan.length === 0) {
+            mixedList.innerHTML = '<div class="text-white-50 small">No song is filed under the wrong album.</div>';
+            updateMixedBtn();
+            return;
+        }
+        const yr = (y) => (y ? ` (${escapeHtml(String(y))})` : '');
+        mixedList.innerHTML = `
+          <div class="d-flex flex-column gap-2" style="max-height: 45vh; overflow-y: auto;">
+            ${mixedPlan.map((p, i) => `
+              <div class="p-2 rounded-2 backup-stat-card">
+                <div class="small text-white text-truncate">${escapeHtml(p.song.title)}<span class="text-white-50"> · ${escapeHtml(p.song.artist)}</span></div>
+                ${p.home ? `
+                  <label class="d-flex align-items-center gap-2 mb-0 mt-1" style="cursor: pointer;">
+                    <input type="checkbox" class="form-check-input mixed-check flex-shrink-0" data-i="${i}" checked>
+                    <span class="small text-white-50">Move from ${escapeHtml(p.album)}${yr(p.year)} to ${escapeHtml(p.home.album)}${yr(p.home.year)}</span>
+                  </label>`
+                : `<div class="small text-white-50">On ${escapeHtml(p.album)}${yr(p.year)}, but no other album was found for it. Change it by hand from the library.</div>`}
+              </div>`).join('')}
+          </div>`;
+        mixedList.querySelectorAll('.mixed-check').forEach((cb) => cb.addEventListener('change', updateMixedBtn));
+        updateMixedBtn();
+    };
+    modal.querySelector('#mixedalbumsCancelBtn')?.addEventListener('click', closeBackupModal);
+    mixedApplyBtn?.addEventListener('click', async () => {
+        const picked = [...mixedList.querySelectorAll('.mixed-check:checked')].map((cb) => mixedPlan[Number(cb.dataset.i)]).filter(Boolean);
+        if (picked.length === 0) return;
+        mixedApplyBtn.disabled = true;
+        mixedApplyBtn.textContent = 'Moving…';
+        showTaskProgress(mixedStatusAlert, { label: 'Moving songs…', detail: `${picked.length} selected` });
+        try {
+            for (const p of picked) await applySongHome(p.song.id, p.home);
+            showTaskResult(mixedStatusAlert, 'done', `Moved ${picked.length} ${picked.length === 1 ? 'song' : 'songs'}`);
+        } catch (err) {
+            console.error('Failed to move songs:', err);
+            showTaskResult(mixedStatusAlert, 'error', `Could not move the songs. ${err.message}`);
+        }
+        await renderMixedAlbums();
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+    });
+    // The scan asks MusicBrainz, so it runs only when its own task is the one open
+    if (modal.querySelector('#mixedalbumsTabContent')?.style.display !== 'none') renderMixedAlbums();
+
     const duplicateTabsList = modal.querySelector('#duplicateTabsList');
     const dupetabsDeleteBtn = modal.querySelector('#dupetabsDeleteBtn');
     const dupetabsStatusAlert = modal.querySelector('#dupetabsStatusAlert');
