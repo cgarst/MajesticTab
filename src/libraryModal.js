@@ -29,6 +29,7 @@ import { renderTuningBarsSvg } from './utils/tuningVisual.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
 import { isMpakFile, saveMpakToLibrary } from './mpak.js';
+import { mediaTags } from './songLibraryTags.js';
 import { showToast } from './utils/toast.js';
 import { scoreOptionsState, pauseSynthPlayer } from './gpProcessor/gpPlayer.js';
 import { pauseYouTube } from './soundPlayer.js';
@@ -40,7 +41,7 @@ import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
 import { songHasSyncPoints } from './audioSync/syncStore.js';
-import { songHasLocalSlot, songAudioKeys, readLibraryAudio } from './audioSync/libraryAudio.js';
+import { songHasLocalSlot } from './audioSync/libraryAudio.js';
 import { isNative, openTabDownloader } from './tabDownloader.js';
 import { openSongTabPicker, closeSongTabPicker, isSongTabPickerOpen } from './songTabPicker.js';
 import { visibleTabs, setOf } from './tabSets.js';
@@ -3720,12 +3721,8 @@ function renderSongRow(song, options = {}) {
     // One tab is the normal state and says nothing; no tab is a plain grey fact; the count of several lives on the row's action
     const multiTabsChipHtml = hasTabs ? '' : `<span class="chip no-tab">No tab yet</span>`;
 
-    const songKeys = [
-        [song.artist, song.title].filter(Boolean).join(' - '),
-        song.title,
-        ...(song.tabOptions || []).map(t => t.name)
-    ].filter(Boolean);
-    const hasSyncPoints = songKeys.some(k => songHasSyncPoints(k));
+    const tags = mediaTags(song);
+    const hasSyncPoints = tags.mapped;
     const tabFormat = (t) => {
         if (t.isPdf || t.startPage || t.isAlbumRange) return 'PDF';
         const ext = (t.fileType || ((t.name || '').includes('.') ? t.name.split('.').pop() : '')).toLowerCase();
@@ -3735,17 +3732,11 @@ function renderSongRow(song, options = {}) {
         return '';
     };
     const formats = [...new Set(tabOptions.map(tabFormat).filter(Boolean))];
-    // Local audio: files attached by the bulk import (the registry) or filed under a key the song is opened by
-    const audioKeys = [...new Set([...songKeys, ...songAudioKeys(song)])];
-    const registry = readLibraryAudio(song.id);
-    const hasAudioFile = Boolean(registry.length || audioKeys.some(k => songHasLocalSlot(k, 'original') || songHasLocalSlot(k, 'backing')))
-        || Boolean(song.hasSyncedAudio || song.syncedAudioUrl || (song.tabOptions && song.tabOptions.some(t => t.syncedAudio)));
-    // A linked video is a video saved for the song's Original or Backing, under any key the song is opened by
-    const hasYouTube = audioKeys.some(k => ['original', 'backing'].some((mode) => {
-        try { return Boolean(localStorage.getItem(`yt_track_${encodeURIComponent(k.toLowerCase())}_${mode}`)); } catch { return false; }
-    }));
     // File type, linked audio and whether it is mapped, as plain grey text: "GP · PDF", "Audio file / YouTube", "Mapped"
-    const audioLabels = [hasAudioFile ? 'Audio file' : '', hasYouTube ? 'YouTube' : ''].filter(Boolean);
+    // The flags also come from the song record, so a device that has not downloaded the audio shows the same tags
+    const hasAudioFile = tags.hasAudioFile
+        || Boolean(song.hasSyncedAudio || song.syncedAudioUrl || (song.tabOptions && song.tabOptions.some(t => t.syncedAudio)));
+    const audioLabels = [hasAudioFile ? 'Audio file' : '', tags.hasYouTube ? 'YouTube' : '', tags.hasStems ? 'Stems' : ''].filter(Boolean);
     const formatChipHtml = formats.length ? `<span class="chip sec song-format">${escapeHtml(formats.join(' / '))}</span>` : '';
     const audioChipHtml = audioLabels.length ? `<span class="chip sec song-audio">${escapeHtml(audioLabels.join(' / '))}</span>` : '';
     const mappedChipHtml = hasSyncPoints ? `<span class="chip sec song-mapped">Mapped</span>` : '';

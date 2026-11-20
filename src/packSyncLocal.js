@@ -23,6 +23,7 @@ import { recordStorage } from './audioSync/syncRecordStore.js';
 import { readRebuildMarks } from './packRepair.js';
 import { listHistory } from './audioSync/videoHistory.js';
 import { listRecordingMeta } from './audioSync/recordingMeta.js';
+import { withTagFlags } from './songLibraryTags.js';
 import { stemsOfMeta } from './audioSync/stemSet.js';
 
 const HYBRID_SYNC_KEY = 'majestictab_sync_hybrid';
@@ -282,7 +283,9 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
 
         async records() {
             const [library, files] = await Promise.all([getAllLibraryData(), getAllStoredFiles()]);
-            return { library: { ...library, songs: await withTabHashes(library.songs, files) }, settings: collectAllSettings() };
+            // A device that has not downloaded a song's audio cannot see its tags (audio file, video, stems, mapped), so the record carries them
+            const songs = (await withTabHashes(library.songs, files)).map(withTagFlags);
+            return { library: { ...library, songs }, settings: collectAllSettings() };
         },
         putRecord: (kind, record) => putLibraryRecord(kind, record),
         deleteRecord: (kind, id) => deleteLibraryRecord(kind, id),

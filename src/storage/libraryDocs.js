@@ -115,6 +115,19 @@ const tabFromScore = (s, createdAt) => ({
     ...(typeof s.origin === 'string' && s.origin ? { origin: s.origin } : {}),
 });
 
+/** The library row's media tags (src/songLibraryTags.js) as the manifest shows them, for a song whose audio is not on this device. */
+function manifestTagFlags(manifest) {
+    const recs = manifest.recordings || [];
+    const sources = (r) => r.sources || [];
+    const flags = {
+        hasStems: recs.some((r) => r.role === 'stem'),
+        hasYouTube: recs.some((r) => sources(r).some((x) => x.type === 'youtube')),
+        hasAudioFile: recs.some((r) => r.role !== 'stem' && sources(r).some((x) => x.type === 'file')),
+        mapped: recs.some((r) => r.sync && Object.keys(r.sync).length),
+    };
+    return Object.fromEntries(Object.entries(flags).filter(([, v]) => v));
+}
+
 /**
  * A song record from a pack's manifest alone: the way back to a library when library.json is missing or damaged, and the way
  * a pack that someone dropped into the folder (or edited there) joins the library. `packId` is the folder name.
@@ -146,6 +159,7 @@ export function songFromManifest(packId, manifest, { collectionId = 'default', n
         recordingMbid: m.recordingMbid || null, coverUrl: null, tunings: [], hiddenTunings: [], stringCount: null,
         tabOptions: tabs, defaultTabId: tabs[0]?.id ?? null, pinned: false, isCustom: false, folderPath: null,
         isAlbumTabContainer: false, addedAt: created, lastOpenedAt: null,
+        ...manifestTagFlags(manifest),
     };
 }
 
