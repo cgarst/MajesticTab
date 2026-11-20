@@ -13,6 +13,8 @@ import {
     readEntry,
     openMpak as coreOpenMpak,
     buildMpak as coreBuildMpak,
+    placeBarTimes,
+    isBarTimes,
 } from './mpak/core/index.js';
 import { decodeText } from './utils/decodeText.js';
 import { linkSets } from './tabSets.js';
@@ -234,6 +236,8 @@ function toV1SyncFile(rec, recordingId, scoreId, anchorType, { firstPage = 1, la
 }
 
 const STORED_ANCHORS = ['bar', 'pdf', 'text'];
+// The formats whose repeats the spec defines (SPEC section 9.1, "Played bars"); a list of bar times is not used on the others when they repeat
+const GP_FORMATS = ['gp3', 'gp4', 'gp5', 'gp', 'gpx'];
 
 /**
  * Does a score's file name belong to this song? A name like "guitar-1-tablature" is the same in every pack of a set, so a song
@@ -1156,14 +1160,25 @@ export async function applyMpakExtras(data, opened, options = {}) {
         if (anchor === 'bar') { if (barTaken) return false; barTaken = true; }
         return true;
     });
-    const syncDocsOf = (rec) => syncTargets
-        .map((sc) => ({ sc, doc: typeof opened?.sync === 'function' ? opened.sync(rec.id, sc.id) : null }))
+    // A list of bar times (a sync file whose points are bare numbers, SPEC section 9.1) names no bars: it goes onto the played bars of the
+    // score it is for. It is left out when the score cannot be read, when the list has more times than the score has played
+    // bars, and, for a format whose repeats the spec does not define, when the score has repeats.
+    const placedSync = async (recId, sc) => {
+        const doc = typeof opened?.sync === 'function' ? opened.sync(recId, sc.id) : null;
+        if (!isBarTimes(doc)) return doc;
+        const played = await playedBarsOf(sc);
+        const repeats = Boolean(played?.some((bar) => bar.occurrence > 0));
+        const placed = played && !(repeats && !GP_FORMATS.includes(sc.format)) ? placeBarTimes(doc, played) : null;
+        if (!placed) console.info(`[mpak] a list of bar times was left out for "${sc.name || sc.id}": it does not fit the bars the score plays`);
+        return placed;
+    };
+    const syncDocsOf = async (rec) => (await Promise.all(syncTargets.map(async (sc) => ({ sc, doc: await placedSync(rec.id, sc) }))))
         .filter((x) => x.doc?.points?.length);
     // A stem of a set that has the lead's own points needs no record: the player gives it its parent's (syncStore.js,
     // setStemParentResolver). Saving one per stem copied the same points into a record each.
-    const sameAsLead = ({ sc, doc }, rec) => {
+    const sameAsLead = async ({ sc, doc }, rec) => {
         if (!stemSet || rec === stemSet.lead || !stemSet.members.includes(rec) || typeof opened?.sync !== 'function') return false;
-        const lead = opened.sync(stemSet.lead.id, sc.id);
+        const lead = await placedSync(stemSet.lead.id, sc);
         return Boolean(lead?.points?.length) && lead.anchorType === doc.anchorType && JSON.stringify(lead.points) === JSON.stringify(doc.points);
     };
     // The bars a score plays, repeats included, read from its file; null when it cannot be read
@@ -1224,7 +1239,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
         const rec = slots[slot];
         if (!rec) continue;
         try {
-            const syncDocs = syncDocsOf(rec);
+            const syncDocs = await syncDocsOf(rec);
             const hasSync = syncDocs.length > 0;
             let takenId = options.keepExistingSlots ? slotTakenBy(slot) : null;
             // A song whose two sounds share one stem set has its lead in the Backing slot only as the default: a backing
@@ -1360,13 +1375,14 @@ export async function applyMpakExtras(data, opened, options = {}) {
                 const media = { kind: 'local', audioId: meta.id, name: meta.name, durationMs: meta.durationMs ?? null, fingerprint: meta.fingerprint };
                 resolvedMedia.set(rec.id, media);
                 reportAudioProgress();
-                const docs = syncDocsOf(rec).filter((d) => !sameAsLead(d, rec));
+                const docs = [];
+                for (const d of await syncDocsOf(rec)) if (!(await sameAsLead(d, rec))) docs.push(d);
                 if (docs.length) await saveSyncs(docs, media);
                 continue;
             }
             const ytSrc = (rec.sources || []).find((s) => s.type === 'youtube' && s.videoId);
             if (!ytSrc) continue;
-            const syncDocs = syncDocsOf(rec);
+            const syncDocs = await syncDocsOf(rec);
             const media = { kind: 'youtube', videoId: ytSrc.videoId, ...(rec.label ? { label: rec.label } : {}) };
             const key = mediaKey(media);
             if (!key || taken.has(key)) continue;

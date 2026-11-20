@@ -135,6 +135,9 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
     let cur = recs.find((r) => r.id === id), offset = 0;
     for (let n = 0; cur && n <= recs.length; n++) {
       const own = syncs.get(`${scoreId}\n${cur.id}`);
+      // A list of bar times (bare numbers) names no bars yet: the offset is kept beside it and applied by placeBarTimes, because
+      // dropping a time below 0 here would move every later number to another bar.
+      if (isBarTimes(own)) return { ...own, recording: id, offsetMs: offset };
       if (own) return { ...own, recording: id, points: own.points.map((p) => ({ ...p, timeMs: p.timeMs + offset })).filter((p) => p.timeMs >= 0) };
       if (cur.syncFrom) offset += cur.syncOffsetMs || 0;
       cur = recs.find((r) => r.id === (cur.syncFrom || cur.stemOf));
@@ -159,6 +162,27 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
   };
   const defaultRecording = () => (manifest.recordings || [])[0] || null;
   return { manifest, entries: entries.map((e) => e.name), warnings, score, scoreBytes: (id) => scoreBytes.get(id) ?? null, sync: resolveSync, beats: resolveBeats, defaultRecording, file, stream, range };
+}
+
+/** Whether a sync file is a list of bar times: its points are bare numbers, the start of each played bar in seconds (SPEC section 9.1). */
+export const isBarTimes = (sync) => sync?.anchorType === 'bar' && Array.isArray(sync.points) && typeof sync.points[0] === 'number';
+
+/**
+ * Puts a list of bar times (a sync file whose points are bare numbers, SPEC section 9.1) on the played bars of the score it
+ * is for, and returns the sync file with the object points that every other reader of a sync file expects. `playedBars` is the
+ * score's bars in the order they are played, repeats expanded: `[{ barIndex, occurrence }]`. The n-th time is the start of
+ * the n-th played bar. Returns null when the list has more times than the score has played bars (or there are no played
+ * bars), because it was made for another layout and must not be used. A file that already has object points is returned as
+ * it is. The `offsetMs` that `sync()` left on the file is applied here, and times below 0 are dropped afterwards.
+ */
+export function placeBarTimes(sync, playedBars) {
+  if (!isBarTimes(sync)) return sync;
+  if (!Array.isArray(playedBars) || !playedBars.length || sync.points.length > playedBars.length) return null;
+  const { offsetMs = 0, ...rest } = sync;
+  const points = sync.points
+    .map((t, i) => ({ timeMs: Math.round(t * 1000) + offsetMs, bar: playedBars[i].barIndex, occurrence: playedBars[i].occurrence || 0, pos: 0 }))
+    .filter((p) => p.timeMs >= 0);
+  return { ...rest, points };
 }
 
 /**

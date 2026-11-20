@@ -879,6 +879,26 @@ test('applyMpakExtras keeps every synced YouTube recording, not only the origina
     assert.equal(saved('FFFFFFFFFFF'), null, 'a recording without sync points is not stored');
 });
 
+test('a list of bar times is left out when the score\'s played bars cannot be read, and the other recordings still attach', async () => {
+    lsMap.clear();
+    const youtube = (id, videoId, role) => ({ id, role, label: id, sources: [{ type: 'youtube', videoId }] });
+    const data = {
+        scores: [{ id: 'gp5', format: 'gp5', sha256: 'a'.repeat(64) }],
+        recordings: [youtube('v1', 'AAAAAAAAAAA', 'original'), youtube('v2', 'BBBBBBBBBBB', 'backing')]
+    };
+    const syncs = {
+        v1: { version: 1, anchorType: 'bar', points: [0.12, 0.6, 3.78] },
+        v2: { version: 1, anchorType: 'bar', points: [{ timeMs: 1000, bar: 0, occurrence: 0, pos: 0 }, { timeMs: 3000, bar: 1, occurrence: 0, pos: 0 }] }
+    };
+    const opened = { entries: [], sync: (id) => syncs[id] || null };
+
+    await applyMpakExtras(data, opened, { songKey: 'Band - Song', applyToActiveReader: false });
+
+    const saved = (videoId) => loadRecord('Band - Song', { kind: 'youtube', videoId });
+    assert.equal(saved('AAAAAAAAAAA'), null, 'times that name no bars are not stored as points');
+    assert.equal(saved('BBBBBBBBBBB')?.points[0].timeMs, 1000);
+});
+
 test('a pack with no original plays its default recording in the original slot, and finds its sync points there', async () => {
     lsMap.clear();
     const point = (page, timeMs) => ({ timeMs, page, x: 0.25, y: 0.5 });

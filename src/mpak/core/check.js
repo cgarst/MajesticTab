@@ -256,7 +256,12 @@ export function syncSchemaErrors(s) {
   ck('/score', isStr(s.score) && ID.test(s.score), 'is required and must be an id');
   ck('/anchorType', s.anchorType in POINT, 'is required and must be bar, tick, pdf or text');
   if ('updatedAt' in s) ck('/updatedAt', isStr(s.updatedAt) && DATE.test(s.updatedAt), 'must be a date-time');
-  if (ck('/points', Array.isArray(s.points), 'is required and must be an array')) {
+  if ('revisionId' in s) ck('/revisionId', isInt(s.revisionId) || isStr(s.revisionId), 'must be an integer or a string');
+  if ('videoId' in s) ck('/videoId', isStr(s.videoId) && YT.test(s.videoId), 'must be 11 characters of A-Z a-z 0-9 _ -');
+  // Bar sync can be a list of bar times: bare numbers (SPEC section 9.1), with none of the points an object
+  if (s.anchorType === 'bar' && Array.isArray(s.points) && s.points.some(isNum)) {
+    s.points.forEach((p, i) => ck(`/points/${i}`, isNum(p) && p >= 0, 'must be a number >= 0 (seconds), as in every point of a list of bar times'));
+  } else if (ck('/points', Array.isArray(s.points), 'is required and must be an array')) {
     s.points.forEach((p, i) => {
       const at = `/points/${i}`;
       if (!ck(at, isObj(p), 'must be an object')) return;
@@ -270,8 +275,8 @@ export function syncSchemaErrors(s) {
 }
 
 export function syncRuleErrors(s, scoreFormat) {
-  const errs = [], t = s.points.map((p) => p.timeMs);
-  if (t.some((v, i) => i && v <= t[i - 1])) errs.push('timeMs not strictly increasing');
+  const errs = [], t = s.points.map((p) => (isNum(p) ? p : p.timeMs));
+  if (t.some((v, i) => i && v <= t[i - 1])) errs.push('times not strictly increasing');
   if (scoreFormat && ANCHOR[scoreFormat] !== s.anchorType) errs.push(`anchorType ${s.anchorType} does not match score format ${scoreFormat}`);
   return errs;
 }
