@@ -8,8 +8,8 @@ supported platforms: an iPhone Duo in tabletop mode, a desktop monitor running t
 an Android phone, and a Steam Deck running the Flatpak.
 
 Usage:
-    python3 support/tools/apple_marketing_art.py            # every size below
-    python3 support/tools/apple_marketing_art.py header     # header only (also: search, github)
+    python3 support/tools/marketing_art.py            # every size below
+    python3 support/tools/marketing_art.py header     # header only (also: search, github)
 
 Output:
     support/store/appstore-art/<kind>-<W>x<H>.png

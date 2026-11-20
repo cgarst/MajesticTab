@@ -302,6 +302,7 @@ def open_reader(page, base):
     page.goto(f"{base}/src/?test={urllib.parse.quote(FIXTURE)}", wait_until="load", timeout=60000)
     page.wait_for_function("!/Loading score|Laying out|Rendering|Parsing/i.test(document.body.innerText)"
                            " && (document.querySelectorAll('.at-surface svg').length > 3 || document.querySelectorAll('canvas, .gp-page-wrapper').length > 0)", timeout=90000)
+    page.wait_for_function("!!window.gpState?.canvases?.[0]?.api?.score", timeout=90000)  # the simulator can pass the check above on the page before the reload
     page.wait_for_timeout(2500)
 
 
