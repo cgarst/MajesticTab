@@ -347,10 +347,16 @@ class GamepadManager {
             if (!repeatable.includes(buttonIndex)) return;
         }
 
+        const focusWasHidden = !this.lastInputWasNavigation;
         this.lastInputWasNavigation = true;
 
         const isModalOpen = this.isAnyModalOpen();
         const isLibOpen = this.isLibraryViewOpen();
+
+        // After a click or on launch no ring is showing, so the first direction press only shows where focus is
+        const isDirection = buttonIndex === GamepadButton.DPAD_UP || buttonIndex === GamepadButton.DPAD_DOWN
+            || buttonIndex === GamepadButton.DPAD_LEFT || buttonIndex === GamepadButton.DPAD_RIGHT;
+        if (isDirection && !isRepeat && focusWasHidden && this.revealFocus()) return;
 
         switch (buttonIndex) {
             case GamepadButton.Y:
@@ -461,8 +467,9 @@ class GamepadManager {
                     this.leftStickState.direction = dir;
                     this.leftStickState.pressedAt = now;
                     this.leftStickState.nextRepeatAt = now + BUTTON_REPEAT_DELAY_MS;
+                    const focusWasHidden = !this.lastInputWasNavigation;
                     this.lastInputWasNavigation = true;
-                    this.navigateSpatial(dir);
+                    if (!(focusWasHidden && this.revealFocus())) this.navigateSpatial(dir);
                 } else {
                     this.leftStickState.direction = null;
                     this.leftStickState.pressedAt = 0;
@@ -688,6 +695,23 @@ class GamepadManager {
     }
 
     // --- Action Implementations ---
+
+    /**
+     * Show the focus ring where focus already is, without moving it: on the focused control if there is one in the
+     * active area (a rail button that was just clicked counts), otherwise on its first item. Returns whether it did.
+     */
+    revealFocus() {
+        if (!this.isSpatialNavActive()) return false;
+        const container = this.getActiveFocusContainer();
+        const libNav = document.getElementById('libraryBottomNav');
+        const active = document.activeElement;
+        let target = this.getCurrentFocusedElement(container);
+        if (!target && libNav && active && libNav.contains(active) && this.isElementVisible(active)) target = active;
+        if (!target) target = this.getFirstPrimaryContentElement(container);
+        if (!target) return false;
+        this.setNavFocus(target);
+        return true;
+    }
 
     /**
      * Toggle Reading mode: the explicit way to reclaim the screen for the score.
