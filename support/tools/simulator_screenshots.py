@@ -16,7 +16,7 @@ Usage (macOS, Xcode 27 with the iOS 27.2 runtimes; pip install playwright pillow
     python3 support/tools/simulator_screenshots.py mac                    # the real Mac window, composed on 2880x1800
     python3 support/tools/simulator_screenshots.py iphone --only reader library
     python3 support/tools/simulator_screenshots.py iphone --no-build      # reuse the simulator app already built
-    python3 support/tools/simulator_screenshots.py all                    # builds once, then iphone, ipad, duo and mac, then the header and search art (apple_marketing_art.py)
+    python3 support/tools/simulator_screenshots.py all                    # builds once, then iphone, ipad, duo and mac, then the header and search art (marketing_art.py)
 
 Output: support/store/appstore-<device>/NN-<shot>.png (framed), raw/ beside it with the untouched captures (--raw keeps them).
 Apple takes the raw captures as they are (they are exactly the required size), so either set can be uploaded.
@@ -124,7 +124,7 @@ class App:
         """Navigate the app. `.../src/?x` from the browser tool maps to the app root."""
         rest = re.sub(r"^https?://[^/]+/src/?", "", url)
         if "test=" in rest:
-            rest += "&test_base=" + urllib.parse.quote(f"http://localhost:{FIXTURE_PORT}/tests/", safe="")
+            rest += "&test_base=" + urllib.parse.quote(f"http://127.0.0.1:{FIXTURE_PORT}/tests/", safe="")
         self.evaluate(f"(() => {{ setTimeout(() => {{ location.href = location.origin + '/' + {json.dumps(rest)}; }}, 50); return 1; }})()")
         time.sleep(1.5)
         self.wait_for_function("document.readyState === 'complete'", 60000)
@@ -165,7 +165,7 @@ def seed_native(app, kind):
                 }
             }
         }
-    }""", [ss._demo, f"http://localhost:{FIXTURE_PORT}"])
+    }""", [ss._demo, f"http://127.0.0.1:{FIXTURE_PORT}"])
 
 
 def setup_jam_native(app):
@@ -665,128 +665,130 @@ def capture(name, args):
         return
     app = App()
     udid = pid = proc = None
-    if dev["kind"] == "sim":
-        if not args.no_build:
-            build_sim_app(dev["channel"])
-        for udid in find_udids(dev["model"]):  # the newest runtime first; a simulator whose data will not migrate fails to install, try the next
-            print(f"[{name}] {dev['model']} {udid}", flush=True)
-            for attempt in range(2):
-                try:
-                    boot(udid)
-                    break
-                except subprocess.CalledProcessError as e:
-                    print(f"  could not boot or install on {udid}: {e.stderr.strip()[:120]}", flush=True)
-                    time.sleep(5)
+    try:
+        if dev["kind"] == "sim":
+            if not args.no_build:
+                build_sim_app(dev["channel"])
+            for udid in find_udids(dev["model"]):  # the newest runtime first; a simulator whose data will not migrate fails to install, try the next
+                print(f"[{name}] {dev['model']} {udid}", flush=True)
+                for attempt in range(2):
+                    try:
+                        boot(udid)
+                        break
+                    except subprocess.CalledProcessError as e:
+                        print(f"  could not boot or install on {udid}: {e.stderr.strip()[:120]}", flush=True)
+                        time.sleep(5)
+                else:
+                    continue
+                break
             else:
-                continue
-            break
-        else:
-            raise SystemExit(f"No working {dev['model']} simulator")
-        ad_session(udid)
-        if name == "ipad":
-            ipad_full_screen()
-            subprocess.run(["xcrun", "simctl", "terminate", udid, "com.apple.Preferences"], capture_output=True)
-            subprocess.run(["xcrun", "simctl", "terminate", udid, BUNDLE_ID], capture_output=True)
-            launch(udid)
+                raise SystemExit(f"No working {dev['model']} simulator")
             ad_session(udid)
-            if args.landscape:
-                ad("orientation", "landscape-left")
-                time.sleep(2)
-    else:
-        if not args.no_build:
-            build_mac_app(dev["channel"])
-        subprocess.run(["pkill", "-x", "majestictab"], capture_output=True)
-        time.sleep(1)
-        proc = subprocess.Popen([str(MAC_BIN)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                env={**__import__("os").environ, "MAJESTICTAB_DEBUG_BRIDGE_PORT": str(BRIDGE_PORT)})
-        pid = proc.pid
-    wait_bridge(app)
-    live = app.evaluate("fetch('/channel.json', {cache: 'no-store'}).then(r => r.ok ? r.json() : null)")
-    cfg = ss.resolve_channel(dev["channel"])
-    if live is None or any(live.get(k) != v for k, v in cfg.items()):
-        raise SystemExit(f"The app is not the {dev['channel']} channel: {live}")
-    if not args.only:
-        for f in out.glob("[0-9][0-9]-*.png"):
-            f.unlink(missing_ok=True)
-    plan = []
-    if name == "duo":
-        plan = [(i + 1, pose, sid, h, sub) for i, (pose, sid, h, sub) in enumerate(DUO_SHOTS)]
-    else:
-        n = 0
-        for shot in ss.SHOTS:
-            n += 1
-            plan.append((n, None, shot["id"], shot["headline"], shot["subtitle"]))
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        frame = browser.new_context(viewport={"width": 1080, "height": 1920}).new_page()
-        for n, pose, sid, headline, subtitle in plan:
-            if args.only and sid not in args.only:
-                continue
-            shot = next((s for s in ss.SHOTS if s["id"] == sid), dict(id=sid, setup=sid))
-            if udid:
-                fresh_app(udid, app)
-            if pose:
-                duo_set_pose(app, pose)
-            prepare_shot(app, shot)
-            if pose:
-                duo_set_pose(app, pose)
-            if pose == "book":
-                # The app goes to two-page Page mode on a fold *change*, so a page loaded while already folded needs the player's own switch.
-                app.evaluate("""(() => {
-                    const out = document.getElementById('output');
-                    const pageRadio = document.getElementById('pageModeRadio');
-                    const contRadio = document.getElementById('continuousModeRadio');
-                    if (pageRadio) {
-                        pageRadio.checked = true;
-                        if (contRadio) contRadio.checked = false;
-                        if (window.gpState && window.gpState.renderGPPage) {
-                            window.gpState.renderGPPage(out, true, contRadio);
-                        } else {
-                            pageRadio.dispatchEvent(new Event('change', { bubbles: true }));
+            if name == "ipad":
+                ipad_full_screen()
+                subprocess.run(["xcrun", "simctl", "terminate", udid, "com.apple.Preferences"], capture_output=True)
+                subprocess.run(["xcrun", "simctl", "terminate", udid, BUNDLE_ID], capture_output=True)
+                launch(udid)
+                ad_session(udid)
+                if args.landscape:
+                    ad("orientation", "landscape-left")
+                    time.sleep(2)
+        else:
+            if not args.no_build:
+                build_mac_app(dev["channel"])
+            subprocess.run(["pkill", "-x", "majestictab"], capture_output=True)
+            time.sleep(1)
+            proc = subprocess.Popen([str(MAC_BIN)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                    env={**__import__("os").environ, "MAJESTICTAB_DEBUG_BRIDGE_PORT": str(BRIDGE_PORT)})
+            pid = proc.pid
+        wait_bridge(app)
+        live = app.evaluate("fetch('/channel.json', {cache: 'no-store'}).then(r => r.ok ? r.json() : null)")
+        cfg = ss.resolve_channel(dev["channel"])
+        if live is None or any(live.get(k) != v for k, v in cfg.items()):
+            raise SystemExit(f"The app is not the {dev['channel']} channel: {live}")
+        if not args.only:
+            for f in out.glob("[0-9][0-9]-*.png"):
+                f.unlink(missing_ok=True)
+        plan = []
+        if name == "duo":
+            plan = [(i + 1, pose, sid, h, sub) for i, (pose, sid, h, sub) in enumerate(DUO_SHOTS)]
+        else:
+            n = 0
+            for shot in ss.SHOTS:
+                n += 1
+                plan.append((n, None, shot["id"], shot["headline"], shot["subtitle"]))
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            frame = browser.new_context(viewport={"width": 1080, "height": 1920}).new_page()
+            for n, pose, sid, headline, subtitle in plan:
+                if args.only and sid not in args.only:
+                    continue
+                shot = next((s for s in ss.SHOTS if s["id"] == sid), dict(id=sid, setup=sid))
+                if udid:
+                    fresh_app(udid, app)
+                if pose:
+                    duo_set_pose(app, pose)
+                prepare_shot(app, shot)
+                if pose:
+                    duo_set_pose(app, pose)
+                if pose == "book":
+                    # The app goes to two-page Page mode on a fold *change*, so a page loaded while already folded needs the player's own switch.
+                    app.evaluate("""(() => {
+                        const out = document.getElementById('output');
+                        const pageRadio = document.getElementById('pageModeRadio');
+                        const contRadio = document.getElementById('continuousModeRadio');
+                        if (pageRadio) {
+                            pageRadio.checked = true;
+                            if (contRadio) contRadio.checked = false;
+                            if (window.gpState && window.gpState.renderGPPage) {
+                                window.gpState.renderGPPage(out, true, contRadio);
+                            } else {
+                                pageRadio.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
                         }
-                    }
-                    return 1;
-                })()""")
-                app.wait_for_function("document.querySelectorAll('.gp-page-wrapper, .page-container, .gp-page, [data-page-index]').length > 1 || /\\d+-\\d+ of \\d+/.test(document.body.innerText)", 30000)
-                time.sleep(2)
-            app.evaluate(SILENCE_JS)
-            time.sleep(3 if udid else 1.2)  # let any system audio indicator clear before the picture
-            raw = raw_dir / f"{n:02d}-{sid}.png" if name == "duo" else raw_dir / f"{sid}.png"
-            fold = None
-            if pose == "book":
-                fold = app.evaluate("""(() => { const cs = getComputedStyle(document.documentElement); return { left: parseFloat(cs.getPropertyValue('--fold-left')), w: parseFloat(cs.getPropertyValue('--fold-w')), vw: innerWidth }; })()""")
-                if not fold or not fold.get("w"):
-                    raise SystemExit(f"{sid}: the app did not report the fold geometry (--fold-left, --fold-w): {fold}")
-            if pose == "tabletop":
-                fold = app.evaluate("""(() => { const cs = getComputedStyle(document.documentElement); return { top: parseFloat(cs.getPropertyValue('--fold-top')), h: parseFloat(cs.getPropertyValue('--fold-h')), w: innerWidth }; })()""")
-                if not fold or not fold.get("top"):
-                    raise SystemExit(f"{sid}: the app did not report the fold geometry (--fold-top): {fold}")
-            if udid:
-                sim_shot(udid, raw, display="LCD" if pose == "closed" else "LCD-1")
-            else:
-                mac_shot(pid, raw)
-            if fold:
-                raw.with_suffix(".fold.json").write_text(json.dumps(fold))
-            from PIL import Image
-            Image.open(raw).convert("RGB").save(raw)  # App Store screenshots must not carry an alpha channel
-            size = dev["final"] or Image.open(raw).size
-            if name == "duo" and pose != "book":
-                size = (2007, 2853)
-            if dev["kind"] == "mac":
-                size = dev["final"]
-            final = out / f"{n:02d}-{sid}{'-' + pose if pose in ('tabletop', 'book') else ''}.png"
-            if fold and not args.no_bezel:
-                (compose_laptop if pose == "tabletop" else compose_book)(frame, raw, final, size, headline, subtitle, fold)
-            else:
-                bezel = "duo-closed" if (name == "duo" and pose == "closed") else dev["bezel"]
-                compose(frame, raw, final, size, headline, subtitle, None if args.no_bezel else bezel)
-            print(f"  wrote {final}", flush=True)
-        browser.close()
-    if udid:
-        ad("close", check=False)
-        subprocess.run(["xcrun", "simctl", "shutdown", udid], capture_output=True)  # frees the bridge port for the next device
-    if proc:
-        proc.terminate()
+                        return 1;
+                    })()""")
+                    app.wait_for_function("document.querySelectorAll('.gp-page-wrapper, .page-container, .gp-page, [data-page-index]').length > 1 || /\\d+-\\d+ of \\d+/.test(document.body.innerText)", 30000)
+                    time.sleep(2)
+                app.evaluate(SILENCE_JS)
+                time.sleep(3 if udid else 1.2)  # let any system audio indicator clear before the picture
+                raw = raw_dir / f"{n:02d}-{sid}.png" if name == "duo" else raw_dir / f"{sid}.png"
+                fold = None
+                if pose == "book":
+                    fold = app.evaluate("""(() => { const cs = getComputedStyle(document.documentElement); return { left: parseFloat(cs.getPropertyValue('--fold-left')), w: parseFloat(cs.getPropertyValue('--fold-w')), vw: innerWidth }; })()""")
+                    if not fold or not fold.get("w"):
+                        raise SystemExit(f"{sid}: the app did not report the fold geometry (--fold-left, --fold-w): {fold}")
+                if pose == "tabletop":
+                    fold = app.evaluate("""(() => { const cs = getComputedStyle(document.documentElement); return { top: parseFloat(cs.getPropertyValue('--fold-top')), h: parseFloat(cs.getPropertyValue('--fold-h')), w: innerWidth }; })()""")
+                    if not fold or not fold.get("top"):
+                        raise SystemExit(f"{sid}: the app did not report the fold geometry (--fold-top): {fold}")
+                if udid:
+                    sim_shot(udid, raw, display="LCD" if pose == "closed" else "LCD-1")
+                else:
+                    mac_shot(pid, raw)
+                if fold:
+                    raw.with_suffix(".fold.json").write_text(json.dumps(fold))
+                from PIL import Image
+                Image.open(raw).convert("RGB").save(raw)  # App Store screenshots must not carry an alpha channel
+                size = dev["final"] or Image.open(raw).size
+                if name == "duo" and pose != "book":
+                    size = (2007, 2853)
+                if dev["kind"] == "mac":
+                    size = dev["final"]
+                final = out / f"{n:02d}-{sid}{'-' + pose if pose in ('tabletop', 'book') else ''}.png"
+                if fold and not args.no_bezel:
+                    (compose_laptop if pose == "tabletop" else compose_book)(frame, raw, final, size, headline, subtitle, fold)
+                else:
+                    bezel = "duo-closed" if (name == "duo" and pose == "closed") else dev["bezel"]
+                    compose(frame, raw, final, size, headline, subtitle, None if args.no_bezel else bezel)
+                print(f"  wrote {final}", flush=True)
+            browser.close()
+    finally:
+        if udid:
+            ad("close", check=False)
+            subprocess.run(["xcrun", "simctl", "shutdown", udid], capture_output=True)  # frees the bridge port for the next device
+        if proc:
+            proc.terminate()
     if not args.raw:
         pass  # raw captures stay: Apple accepts them as they are, and they are the files to upload for iPhone and iPad
 
@@ -827,9 +829,9 @@ def main():
                     failures.append(f"{name}: {e}")
                     print(f"[{name}] FAILED: {e}", flush=True)
             # The header and search art are made from the iPhone and iPad captures.
-            r = subprocess.run([sys.executable, str(Path(__file__).with_name("apple_marketing_art.py"))])
+            r = subprocess.run([sys.executable, str(Path(__file__).with_name("marketing_art.py"))])
             if r.returncode:
-                failures.append("apple_marketing_art.py")
+                failures.append("marketing_art.py")
     finally:
         if httpd:
             httpd.shutdown()
