@@ -1254,6 +1254,15 @@ export async function applyMpakExtras(data, opened, options = {}) {
             // recording of the pack's own takes the slot (a file the person chose for it stays)
             if (takenId && slot === 'backing' && rec.role === 'backing' && slotTakenBy('original') === takenId
                 && stemsOfMeta(listRecordingMeta(primaryKey)[mediaKey({ kind: 'local', audioId: takenId })])) takenId = null;
+            // A set of stems is the song's audio (SPEC section 8). A video in the slot, which no one chose a file over, gives the
+            // slot to the set and stays one of the song's videos; only a recording of the person's own (a file) is kept
+            if (takenId && stemSet && rec === stemSet.lead && localStorage.getItem(`real_audio_source_${enc(primaryKey)}_${slot}`) === 'youtube') {
+                try {
+                    const { rememberVideo } = await import('./audioSync/videoHistory.js');
+                    for (const k of allKeys) rememberVideo(k, slot, String(takenId));
+                } catch { /* the video is then not listed */ }
+                takenId = null;
+            }
 
             // One recording in both slots (a set of stems): the file is stored once, the second slot points at it
             const already = resolvedMedia.get(rec.id);

@@ -1290,3 +1290,87 @@ test('a backing file the person chose stays in the Backing slot when a pack with
     const r = await applyStemsAndBacking(({ mine }) => mine.id);
     assert.equal(r.back, r.mine.id);
 });
+
+test('a stem pack with a backing video, taken in again for the song it first made without audio, is still one set of stems', async () => {
+    lsMap.clear();
+    await clearAllLibraryData();
+    const { buildMpak: coreBuildMpak, sha256 } = await import('../../src/mpak/core/index.js');
+    const { listRecordingMeta } = await import('../../src/audioSync/recordingMeta.js');
+    const { stemsOfMeta } = await import('../../src/audioSync/stemSet.js');
+
+    const pdfBytes = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n');
+    const g1 = new Uint8Array([1, 2, 3, 4]);
+    const bass = new Uint8Array([9, 10, 11, 12]);
+    const drums = new Uint8Array([13, 14, 15, 16]);
+    const syncBytes = new TextEncoder().encode(JSON.stringify({
+        format: 'mpak-sync', version: 1, recording: 'stem-1', score: 'tab', anchorType: 'pdf',
+        points: [{ page: 1, x: 0.1, y: 0.2, timeMs: 1000, source: 'tap' }],
+    }));
+    const manifest = {
+        format: 'mpak', version: 1, id: '4772d0e5-a572-54ef-b25e-96c13915b456',
+        song: { title: 'Hells Kitchen', artist: 'Dream Theater' },
+        scores: [{ id: 'tab', path: 'score/tab.pdf', format: 'pdf', sha256: await sha256(pdfBytes), size: pdfBytes.length, name: 'tab.pdf', pages: 1 }],
+        recordings: [
+            { id: 'stem-1', role: 'stem', label: 'Guitar 1', sources: [{ type: 'file', path: 'audio/guitar-1.m4a', mime: 'audio/mp4', sha256: await sha256(g1), size: g1.length }], sync: { tab: 'sync/stem-1-tab.json' } },
+            { id: 'stem-2', role: 'stem', label: 'Bass', sources: [{ type: 'file', path: 'audio/bass.m4a', mime: 'audio/mp4', sha256: await sha256(bass), size: bass.length }] },
+            { id: 'stem-3', role: 'stem', label: 'Drums', sources: [{ type: 'file', path: 'audio/drums.m4a', mime: 'audio/mp4', sha256: await sha256(drums), size: drums.length }] },
+            { id: 'backing', role: 'backing', sources: [{ type: 'youtube', videoId: 'Ix2FDLaIUrc' }], sync: { tab: 'sync/stem-1-tab.json' } },
+        ],
+        entries: { 'sync/stem-1-tab.json': { size: syncBytes.length, sha256: await sha256(syncBytes) } },
+    };
+    const build = async (withAudio) => new Blob((await coreBuildMpak(manifest, new Map([
+        ['score/tab.pdf', pdfBytes], ['sync/stem-1-tab.json', syncBytes],
+        ...(withAudio ? [['audio/guitar-1.m4a', g1], ['audio/bass.m4a', bass], ['audio/drums.m4a', drums]] : []),
+    ]))).parts);
+    const first = await saveMpakToLibrary(await build(false), { queryMusicBrainz: false, allowTextFallback: true });
+    await saveMpakToLibrary(await build(true), { queryMusicBrainz: false, allowTextFallback: true, targetSongId: first.song.id });
+    const metas = listRecordingMeta('Dream Theater - Hells Kitchen');
+    const lead = Object.values(metas).find((m) => stemsOfMeta(m));
+    assert.ok(lead, `stems meta should be stored; metas=${JSON.stringify(metas)}`);
+    assert.equal(lead.stems.length, 3);
+});
+
+test('a stem pack with a backing video, taken in again for a song whose Original already plays a video, is still one set of stems', async () => {
+    lsMap.clear();
+    await clearAllLibraryData();
+    const { buildMpak: coreBuildMpak, sha256 } = await import('../../src/mpak/core/index.js');
+    const { listRecordingMeta } = await import('../../src/audioSync/recordingMeta.js');
+    const { stemsOfMeta } = await import('../../src/audioSync/stemSet.js');
+
+    const pdfBytes = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n');
+    const g1 = new Uint8Array([1, 2, 3, 4]);
+    const bass = new Uint8Array([9, 10, 11, 12]);
+    const drums = new Uint8Array([13, 14, 15, 16]);
+    const syncBytes = new TextEncoder().encode(JSON.stringify({
+        format: 'mpak-sync', version: 1, recording: 'stem-1', score: 'tab', anchorType: 'pdf',
+        points: [{ page: 1, x: 0.1, y: 0.2, timeMs: 1000, source: 'tap' }],
+    }));
+    const manifest = {
+        format: 'mpak', version: 1, id: '4772d0e5-a572-54ef-b25e-96c13915b456',
+        song: { title: 'Hells Kitchen', artist: 'Dream Theater' },
+        scores: [{ id: 'tab', path: 'score/tab.pdf', format: 'pdf', sha256: await sha256(pdfBytes), size: pdfBytes.length, name: 'tab.pdf', pages: 1 }],
+        recordings: [
+            { id: 'stem-1', role: 'stem', label: 'Guitar 1', sources: [{ type: 'file', path: 'audio/guitar-1.m4a', mime: 'audio/mp4', sha256: await sha256(g1), size: g1.length }], sync: { tab: 'sync/stem-1-tab.json' } },
+            { id: 'stem-2', role: 'stem', label: 'Bass', sources: [{ type: 'file', path: 'audio/bass.m4a', mime: 'audio/mp4', sha256: await sha256(bass), size: bass.length }] },
+            { id: 'stem-3', role: 'stem', label: 'Drums', sources: [{ type: 'file', path: 'audio/drums.m4a', mime: 'audio/mp4', sha256: await sha256(drums), size: drums.length }] },
+            { id: 'backing', role: 'backing', sources: [{ type: 'youtube', videoId: 'Ix2FDLaIUrc' }], sync: { tab: 'sync/stem-1-tab.json' } },
+        ],
+        entries: { 'sync/stem-1-tab.json': { size: syncBytes.length, sha256: await sha256(syncBytes) } },
+    };
+    const build = async (withAudio) => new Blob((await coreBuildMpak(manifest, new Map([
+        ['score/tab.pdf', pdfBytes], ['sync/stem-1-tab.json', syncBytes],
+        ...(withAudio ? [['audio/guitar-1.m4a', g1], ['audio/bass.m4a', bass], ['audio/drums.m4a', drums]] : []),
+    ]))).parts);
+    const first = await saveMpakToLibrary(await build(false), { queryMusicBrainz: false, allowTextFallback: true });
+    const k = encodeURIComponent('dream theater - hells kitchen');
+    localStorage.setItem(`real_audio_source_${k}_original`, 'youtube');
+    localStorage.setItem(`yt_track_${k}_original`, 'AAAAAAAAAAA');
+    await saveMpakToLibrary(await build(true), { queryMusicBrainz: false, allowTextFallback: true, targetSongId: first.song.id });
+    const metas = listRecordingMeta('Dream Theater - Hells Kitchen');
+    const lead = Object.values(metas).find((m) => stemsOfMeta(m));
+    assert.ok(lead, `stems meta should be stored; metas=${JSON.stringify(metas)}`);
+    assert.equal(lead.stems.length, 3);
+    const origId = localStorage.getItem(`audio_file_${k}_original`);
+    assert.ok(origId, 'the stem set is the Original');
+    assert.ok(stemsOfMeta(metas[`local_${origId}`]), 'the Original is the lead of the set');
+});
