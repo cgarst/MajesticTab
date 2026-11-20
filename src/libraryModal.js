@@ -7,7 +7,7 @@ import {
     getCollections, getLibraryHierarchy, getLibraryTuningsHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
     deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, removeTabOptionFromSong, moveTabOptionToSong, getAllSongs, setDefaultTabOption,
-    togglePinSong, toggleArtistPinned, isArtistPinned, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption,
+    togglePinSong, toggleArtistPinned, isArtistPinned, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption, getAlbumTabSongId,
     getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, updateRecentPosition, DEFAULT_COLLECTION_ID,
     updateAlbumMetadataInLibrary, cleanTitle
 } from './libraryStore.js';
@@ -1496,27 +1496,19 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
                         </div>
 
                         <div class="album-header-actions d-flex align-items-center gap-2 flex-shrink-0">
-                          ${alb.songs && alb.songs.some(s => !songHasTabs(s)) ? `
-                            <button type="button" class="btn btn-sm btn-theme-primary batch-album-find-tabs-btn py-1 px-2 d-inline-flex align-items-center gap-1" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(selectedArtist.name)}" title="Find tabs for missing tracks in this album">
-                              <span>Find tabs</span>
-                            </button>
-                          ` : ''}
-                          <div class="dropdown">
-                            <button class="btn btn-sm btn-theme-outline py-1 px-2 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" title="Attach tab or book to album">
-                              <span>Album tab</span>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
-                              ${addTabProviderItemsHtml('import-album-tab-btn', `data-album-title="${escapeHtml(alb.title)}"`)}
-                            </ul>
-                          </div>
                           <div class="dropdown">
                             <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" title="Album options" aria-label="Album options">
                               <i class="bi-three-dots"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
+                              <li><h6 class="dropdown-header">Add book</h6></li>
+                              ${addTabProviderItemsHtml('import-album-tab-btn', `data-album-title="${escapeHtml(alb.title)}"`)}
+                              <li><hr class="dropdown-divider"></li>
+                              ${alb.songs && alb.songs.some(s => !songHasTabs(s)) ? `<li><button class="dropdown-item small batch-album-find-tabs-btn" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(selectedArtist.name)}" title="Find tabs for missing tracks in this album">Bulk search</button></li>` : ''}
                               ${hasSetlistableSongs ? `<li><button class="dropdown-item small add-album-to-setlist-btn" data-album-title="${escapeHtml(alb.title)}">Add to setlist</button></li>` : ''}
                               <li><button class="dropdown-item small explore-album-tracklist-btn" data-album-title="${escapeHtml(alb.title)}">Tracklist</button></li>
                               <li><hr class="dropdown-divider"></li>
+                              ${hasAlbumTabs ? `<li><button class="dropdown-item small manage-album-tabs-btn" data-album-title="${escapeHtml(alb.title)}">Manage books\u2026</button></li>` : ''}
                               <li><button class="dropdown-item small edit-album-btn" data-album-title="${escapeHtml(alb.title)}">Edit album\u2026</button></li>
                               <li><button class="dropdown-item small text-danger delete-album-btn" data-album-title="${escapeHtml(alb.title)}">Delete album</button></li>
                             </ul>
@@ -4177,6 +4169,53 @@ function setupSongRowActions(container) {
         });
     });
 
+
+    // Manage an album's books: open, make default, remove, or move to another album or a song
+    container.querySelectorAll('.manage-album-tabs-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!selectedArtist) return;
+            const artistName = selectedArtist.name;
+            const albumTitle = btn.dataset.albumTitle;
+            const containerId = getAlbumTabSongId(activeCollectionId, artistName, albumTitle);
+            const record = await getSongById(containerId);
+            if (!record) return;
+            const anchor = btn.closest('.dropdown')?.querySelector('.dropdown-toggle') || btn;
+            openSongTabPicker({
+                anchor,
+                song: { ...record, title: albumTitle },
+                mode: 'list',
+                providers: [],
+                canEditRange: false,
+                isSynced: () => false,
+                tabMeta: (t) => (t.startPage && t.endPage) ? formatPageRange(t.startPage, t.endPage) : '',
+                on: {
+                    openTab: (tab) => loadSongTab({ id: containerId, title: albumTitle, artist: artistName, album: albumTitle, coverUrl: selectedAlbum?.coverUrl }, tab),
+                    makeDefault: async (tabId) => { await setDefaultAlbumTabOption(activeCollectionId, artistName, albumTitle, tabId); showToast('Set default album tab', 'success'); await renderView(); },
+                    removeTab: async (tabId, opts) => { await removeTabOptionFromAlbum(activeCollectionId, artistName, albumTitle, tabId, opts); showToast('Removed album tab', 'info'); await renderView(); },
+                    listSongs: async () => (await getAllSongs())
+                        .map(x => x.isAlbumTabContainer
+                            ? { id: x.id, title: `${x.album || x.title} (album books)`, artist: x.artist, album: '' }
+                            : { id: x.id, title: x.title, artist: x.artist, album: x.album })
+                        .sort((x, y) => (x.artist || '').localeCompare(y.artist || '') || (x.album || '').localeCompare(y.album || '') || (x.title || '').localeCompare(y.title || '')),
+                    moveTab: async (tabId, toSongId) => {
+                        const target = await getSongById(toSongId);
+                        const setIds = setOf(record, tabId).map(t => t.id);
+                        const moved = await moveTabOptionToSong(containerId, tabId, toSongId, { withSet: true });
+                        if (!moved) { showToast('Could not move the book.', 'danger'); return; }
+                        for (const id of (setIds.length ? setIds : [tabId])) await retargetSetlistTab(id, containerId, toSongId);
+                        const left = await getSongById(containerId);
+                        if (left && left.isCustom && !(left.tabOptions || []).length) await deleteSongFromLibrary(containerId);
+                        showToast(`Moved to ${target?.album || target?.title || 'the song'}`, 'success');
+                        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                        await renderView();
+                    },
+                    editRange: () => {},
+                    addFrom: () => {}
+                }
+            });
+        });
+    });
 
     // Edit a catalog song's title, artist, album and track number (in Edit Mode)
     container.querySelectorAll('.edit-song-btn').forEach(btn => {

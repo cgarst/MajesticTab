@@ -117,7 +117,7 @@ export function openSongTabPicker(o) {
                 </li>`;
             }).join('')}
           </ul>
-          <div class="tabpick-foot"><button type="button" class="tabpick-row" data-act="more">Add another tab</button></div>`;
+          ${(o.providers.length || o.on.addText) ? '<div class="tabpick-foot"><button type="button" class="tabpick-row" data-act="more">Add another tab</button></div>' : ''}`;
     }
 
     let moveTabId = null;

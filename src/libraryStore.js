@@ -961,7 +961,7 @@ export async function setSongTuningHidden(songId, tuning, hidden) {
 // ALBUM-LEVEL TABS (e.g. Full Album Tab Books)
 // -----------------------------------------------------------------------------
 
-function getAlbumTabSongId(collectionId, artistName, albumTitle) {
+export function getAlbumTabSongId(collectionId, artistName, albumTitle) {
     return `album_tab_${collectionId}_${artistName}_${albumTitle}`.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
@@ -1047,13 +1047,14 @@ export async function addTabOptionToAlbum(collectionId, artistName, albumTitle, 
 /**
  * Remove an album-level tab option
  */
-export async function removeTabOptionFromAlbum(collectionId, artistName, albumTitle, tabOptionId) {
+export async function removeTabOptionFromAlbum(collectionId, artistName, albumTitle, tabOptionId, { withSet = false } = {}) {
     const albumSongId = getAlbumTabSongId(collectionId, artistName, albumTitle);
     const albumRecord = await getSongById(albumSongId);
     if (!albumRecord || !Array.isArray(albumRecord.tabOptions)) return;
 
-    albumRecord.tabOptions = albumRecord.tabOptions.filter(t => t.id !== tabOptionId);
-    if (albumRecord.defaultTabId === tabOptionId) {
+    const { kept } = takeTabs(albumRecord.tabOptions, tabOptionId, withSet);
+    albumRecord.tabOptions = kept;
+    if (!albumRecord.tabOptions.some(t => t.id === albumRecord.defaultTabId)) {
         albumRecord.defaultTabId = albumRecord.tabOptions[0]?.id || null;
     }
     if (albumRecord.tabOptions.length === 0 && albumRecord.isCustom) {
