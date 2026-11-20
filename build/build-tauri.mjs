@@ -645,6 +645,11 @@ if (target === 'android') {
   if (await stat(templateInfoPlist).catch(() => null)) {
     await writeFile(path.join(iosProject, 'majestictab_iOS', 'Info.plist'), await readVersioned(templateInfoPlist));
   }
+  // Launch screen in the default theme's ground (#111724, the same as Android's launch_ground), not the system white/black, so the launch does not flash before the boot screen
+  const templateLaunchScreen = path.join(tauriDir, 'ios-LaunchScreen.storyboard');
+  if (await stat(templateLaunchScreen).catch(() => null)) {
+    await cp(templateLaunchScreen, path.join(iosProject, 'LaunchScreen.storyboard'));
+  }
   const templatePrivacyManifest = path.join(tauriDir, 'ios-PrivacyInfo.xcprivacy');
   if (await stat(templatePrivacyManifest).catch(() => null)) {
     await cp(templatePrivacyManifest, path.join(iosProject, 'majestictab_iOS', 'PrivacyInfo.xcprivacy'));

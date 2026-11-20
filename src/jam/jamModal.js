@@ -168,7 +168,7 @@ export function createJamModal(manager, { updateSetting }) {
           </div>
           <div class="jam-field mb-3">
             <label class="jam-label" for="jamAddrInput">Address</label>
-            <input type="text" class="form-control form-control-sm" id="jamAddrInput" placeholder="192.168.1.20:47813" value="${esc(settings.lastHost)}">
+            <input type="text" class="form-control form-control-sm" id="jamAddrInput" placeholder="Shown on the host's screen" value="${esc(settings.lastHost)}">
           </div>
           <div class="jam-field mb-3">
             <label class="jam-label" for="jamJoinPinInput">PIN</label>

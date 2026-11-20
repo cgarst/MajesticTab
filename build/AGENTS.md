@@ -20,7 +20,7 @@ node build/build-tauri.mjs android --channel=play > /tmp/play-build.log 2>&1
 
 For a local debuggable build (WebView attachable over CDP, e.g. for the Android TV emulator), add `--debug`: `node build/build-tauri.mjs android --debug` writes `dist/MajesticTab-android-debug.apk` without signing, even with the keystore configured. It is debug-signed, so `adb uninstall net.zathu.majestictab` first when a release build is installed. Never use it in workflows. Then `adb forward tcp:9444 localabstract:webview_devtools_remote_$(adb shell pidof net.zathu.majestictab)` and `CDP_PORT=9444 python3 tests/cdp.py ...`. Fixtures load with `?test=<file>&test_base=http://localhost:8000/tests/` after `adb reverse tcp:8000 tcp:8000` (loopback bases only).
 
-The Android launch theme (dark window and system-splash background, empty splash icon, so the launch is not white) is written into the generated project by `build/build-tauri.mjs` (`launch_ground`, `#111724`, the default theme's ground); keep it in step if the default theme's ground changes.
+The Android launch theme (dark window and system-splash background, empty splash icon, so the launch is not white) is written into the generated project by `build/build-tauri.mjs` (`launch_ground`, `#111724`, the default theme's ground); keep it in step if the default theme's ground changes. iOS does the same with `build/tauri/ios-LaunchScreen.storyboard`, copied over the generated `LaunchScreen.storyboard` before `xcodegen` (a plain `tauri ios build` does not run that copy, so copy the file by hand for a simulator build).
 
 Outputs land in `dist/` (`MajesticTab-android.aab`, `.apk`, `-symbols.zip`). Never print `.env` values.
 

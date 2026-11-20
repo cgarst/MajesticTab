@@ -1207,6 +1207,11 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   min-height: 32px;
 }
 #soundFontSection .soundfont-toolbar .srow-ghost {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--ink2);
+  font-weight: 500;
   min-height: 32px;
   padding: 4px 12px;
   border-radius: var(--r-control, 8px);
