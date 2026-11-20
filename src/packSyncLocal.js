@@ -175,12 +175,15 @@ export function createLocalAdapter({ now = () => Date.now() } = {}) {
                     const ids = listHistory(songKeyOf(song), slot).map((e) => e.videoId).filter((id) => id !== chosen).sort();
                     if (ids.length) extraVideos.push([slot, ids]);
                 }
-                // A set of stems under an Original that is not the set (a video) used to travel as plain audio files. Marking those songs
-                // sends them again, as stems; a song whose Original is its stem set is already packed that way and keeps its fingerprint.
+                // A set of stems whose Original is not the set (a video, or a full mix) used to travel as plain audio files. Marking those
+                // songs sends them again, as stems; a song whose Original is its stem set is already packed that way and keeps its fingerprint.
                 let stemsAsStems = null;
-                if (localStorage.getItem(`real_audio_source_${songKey}_original`) !== 'local') {
-                    const ids = Object.entries(listRecordingMeta(songKeyOf(song))).filter(([k, m]) => k.startsWith('local_') && stemsOfMeta(m)).map(([k]) => k);
-                    if (ids.length) stemsAsStems = ids.sort();
+                const metas = listRecordingMeta(songKeyOf(song));
+                const sets = Object.entries(metas).filter(([k, m]) => k.startsWith('local_') && stemsOfMeta(m));
+                if (sets.length) {
+                    const original = localStorage.getItem(`real_audio_source_${songKey}_original`) === 'local' ? localStorage.getItem(`audio_file_${songKey}_original`) : null;
+                    const isSetOriginal = sets.some(([k, m]) => original && (k === `local_${original}` || stemsOfMeta(m).some((st) => st.audioId === original)));
+                    if (!isSetOriginal) stemsAsStems = sets.map(([k]) => k).sort();
                 }
                 const fp = fingerprintValue({
                     meta: [song.title, song.artist, song.album, song.year, song.length, song.trackNumber, song.mediumNumber, song.recordingMbid, song.artistMbid, song.albumMbid],

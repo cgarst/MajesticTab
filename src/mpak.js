@@ -580,8 +580,8 @@ export async function buildMpak(file, options = {}) {
         console.warn('[mpak] could not pack stem set:', e);
     }
 
-    // A stem set stands for the original sound: the Original slot's own file is not packed again, but the video the slot remembers
-    // is still a recording of the song, and so is a backing track of its own
+    // A stem set stands for the original sound. A stem that a slot plays is already packed, but the video a slot remembers, a full
+    // mix chosen for the Original and a backing track of its own are still recordings of the song
     for (const slot of SLOTS) {
         const source = getSlotSourceFn(slot);
         const sources = [];
@@ -593,7 +593,7 @@ export async function buildMpak(file, options = {}) {
                 if (!id && slot === 'original') id = localStorage.getItem(`audio_file_last_${enc(songKey)}`);
                 const rec = id ? await getAudioFile(id) : null;
                 // The backing slot can hold one of the set's own stems (both sounds play the set): that one is already packed
-                if (rec?.data && !(packedStemSet && (slot === 'original' || packedAudio.has(id)))) {
+                if (rec?.data && !(packedStemSet && packedAudio.has(id))) {
                     sources.push(await packAudioBytes(rec, `${slot}.audio`));
                     findRecords({ kind: 'local', audioId: id });
                 }
