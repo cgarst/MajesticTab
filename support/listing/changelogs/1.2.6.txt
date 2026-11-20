@@ -1,1 +1,5 @@
-- Bug fixes and stability improvements
+- Add stems turns loose audio files into a set of stems. Full band and Backing each list their own recordings and videos, and you can switch between them while playing
+- Tabs of one song can be grouped as a set
+- A Guitar Pro tab with an unmapped recording now follows it loosely (Rough follow), and Infer from PDF map reads more scores
+- Android has a Share row in the Song menu, and the TV remote and Back button work better
+- Backups and sync of large libraries use much less memory
