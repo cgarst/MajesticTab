@@ -538,18 +538,31 @@ export function performAppBack(getConfig = null) {
     const libPage = document.getElementById('libraryPage');
     const isLibOpen = libPage && libPage.style.display !== 'none';
     if (isLibOpen) {
+        // 3a. Settings/Tools mobile sub-pane or wide inline tool (.setshell.has-open)
+        const openShell = libPage.querySelector('.setshell.has-open');
+        const shellBack = openShell?.querySelector('.setback');
+        if (shellBack) {
+            shellBack.click();
+            return true;
+        }
         if (typeof window.__majesticLibraryCanGoBack === 'function' && window.__majesticLibraryCanGoBack()) {
             if (typeof window.__majesticLibraryBack === 'function') {
                 window.__majesticLibraryBack();
                 return true;
             }
         }
-        for (const id of ['libBrowseBackBtn', 'paneBackBtn', 'tuningsBackBtn', 'libSearchBackBtn']) {
+        for (const id of ['libBrowseBackBtn', 'paneBackBtn', 'tuningsBackBtn', 'libSearchBackBtn', 'setlistsBackBtn']) {
             const btn = document.getElementById(id);
             if (btn && btn.offsetParent !== null && btn.style.display !== 'none') {
                 btn.click();
                 return true;
             }
+        }
+        // 3b. From top-level Setlists, Tools, or Settings, return to Library
+        const libTab = document.querySelector('#libraryBottomNav [data-lib-tab="library"]');
+        if (libTab && !libTab.classList.contains('active')) {
+            libTab.click();
+            return true;
         }
         if (window.returnToOpenSong?.()) return true;
         return false;
@@ -635,6 +648,7 @@ export function setupSystemBackNavigation(getConfig) {
         lastNavTime = now;
         return performAppBack(getConfig);
     };
+    window.__majesticAppBack = handleBack;
 
     if (typeof window !== 'undefined' && window.history) {
         try {

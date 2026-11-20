@@ -57,6 +57,30 @@ class MainActivity : TauriActivity() {
     )
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+    onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+      override fun handleOnBackPressed() {
+        if (downloaderWebView?.visibility == View.VISIBLE) {
+          if (downloaderWebView?.canGoBack() == true) downloaderWebView?.goBack() else hideDownloader()
+          return
+        }
+        val wv = mainWebView
+        if (wv == null) {
+          isEnabled = false
+          onBackPressedDispatcher.onBackPressed()
+          isEnabled = true
+          return
+        }
+        wv.evaluateJavascript("Boolean(window.__majesticAppBack && window.__majesticAppBack())") { result ->
+          if (result != "true") {
+            runOnUiThread {
+              isEnabled = false
+              onBackPressedDispatcher.onBackPressed()
+              isEnabled = true
+            }
+          }
+        }
+      }
+    })
     val root = findViewById<View>(android.R.id.content)
     ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
       val bars = insets.getInsets(
