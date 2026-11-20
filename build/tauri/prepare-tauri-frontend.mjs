@@ -202,21 +202,33 @@ async function loadEnvFiles() {
 }
 
 // The desktop OAuth client (src/googleDesktopClient.js) is public by design and committed. GOOGLE_DESKTOP_CLIENT_ID
-// and GOOGLE_DESKTOP_CLIENT_KEY replace its values for builds that use a different Google Cloud client.
-async function applyDesktopClientOverrides() {
-  const overrides = {
-    DESKTOP_CLIENT_ID: (process.env.GOOGLE_DESKTOP_CLIENT_ID || '').trim(),
-    DESKTOP_CLIENT_KEY: (process.env.GOOGLE_DESKTOP_CLIENT_KEY || '').trim(),
-  };
-  const file = path.join(frontendDir, 'googleDesktopClient.js');
+// and GOOGLE_DESKTOP_CLIENT_KEY replace its values for builds that use a different Google Cloud client. The Android TV
+// client (src/googleTvClient.js) is empty in the repository and filled from GOOGLE_TV_CLIENT_ID and
+// GOOGLE_TV_CLIENT_SECRET.
+async function applyClientOverrides(fileName, overrides) {
+  const file = path.join(frontendDir, fileName);
   let source = await readFile(file, 'utf8');
   for (const [name, value] of Object.entries(overrides)) {
     if (!value) continue;
     const pattern = new RegExp(`(export const ${name} = )'[^']*'`);
-    if (!pattern.test(source)) throw new Error(`googleDesktopClient.js has no ${name} to override.`);
+    if (!pattern.test(source)) throw new Error(`${fileName} has no ${name} to override.`);
     source = source.replace(pattern, (_, prefix) => `${prefix}${JSON.stringify(value)}`);
   }
   await writeFile(file, source);
+}
+
+async function applyDesktopClientOverrides() {
+  await applyClientOverrides('googleDesktopClient.js', {
+    DESKTOP_CLIENT_ID: (process.env.GOOGLE_DESKTOP_CLIENT_ID || '').trim(),
+    DESKTOP_CLIENT_KEY: (process.env.GOOGLE_DESKTOP_CLIENT_KEY || '').trim(),
+  });
+}
+
+async function applyTvClientOverrides() {
+  await applyClientOverrides('googleTvClient.js', {
+    TV_CLIENT_ID: (process.env.GOOGLE_TV_CLIENT_ID || '').trim(),
+    TV_CLIENT_KEY: (process.env.GOOGLE_TV_CLIENT_SECRET || '').trim(),
+  });
 }
 
 async function writeBuildInfo() {
@@ -278,6 +290,7 @@ async function stubOutGoogleDrive() {
     await cp(path.join(stubDir, name), path.join(frontendDir, name));
   }
   await rm(path.join(frontendDir, 'googleDesktopClient.js'), { force: true });
+  await rm(path.join(frontendDir, 'googleTvClient.js'), { force: true });
   await rm(path.join(frontendDir, 'googleDrive.local.js'), { force: true });
   await rm(path.join(frontendDir, 'pickerKey.local.js'), { force: true });
   await rm(path.join(frontendDir, 'storage', 'driveStore.js'), { force: true });
@@ -338,6 +351,13 @@ try {
   } else if (driveEnabled) {
     await loadEnvFiles();
     await applyDesktopClientOverrides();
+  }
+  if (androidBuild && driveEnabled) {
+    // Android TV signs in with the device flow and its own client; the rest of Android uses Play services.
+    await loadEnvFiles();
+    await applyTvClientOverrides();
+  } else {
+    await rm(path.join(frontendDir, 'googleTvClient.js'), { force: true });
   }
   const pickerApiKey = driveEnabled ? (process.env.GOOGLE_PICKER_API_KEY || '').trim() : '';
   if (pickerApiKey) {

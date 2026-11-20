@@ -4,6 +4,7 @@ import { saveStoredFile } from './fileStore.js';
 import { showToast } from './utils/toast.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
+import { isTvMode } from './tvMode.js';
 import { isSecureStorageAvailable, getSecret, loadSecret, setSecret, deleteSecret } from './secureStore.js';
 
 const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
@@ -83,7 +84,7 @@ export async function ensureFreshToken() {
     await loadKeychainRefreshToken();
     const auth = readStoredAuth();
     const isTauri = !!window.__TAURI__?.core?.invoke;
-    if (!isTauri || (!auth?.refresh_token && !(isMobilePlatform() && !isIOSDevice()))) return false;
+    if (!isTauri || (!auth?.refresh_token && !(isMobilePlatform() && !isIOSDevice() && !isTvMode()))) return false;
 
     refreshPromise ||= refreshAccessToken(auth?.refresh_token)
         .catch((error) => {
@@ -95,7 +96,7 @@ export async function ensureFreshToken() {
 }
 
 async function refreshAccessToken(refreshToken) {
-    if (isMobilePlatform() && !isIOSDevice()) {
+    if (isMobilePlatform() && !isIOSDevice() && !isTvMode()) {
         // The silent authorization normally returns in well under a second. If Google Play services
         // never answers, give up so the caller falls back to the interactive sign-in instead of
         // leaving the UI on "Signing in..." forever.
@@ -115,7 +116,11 @@ async function refreshAccessToken(refreshToken) {
     }
 
     const params = { refresh_token: refreshToken, grant_type: 'refresh_token' };
-    if (isMobilePlatform()) {
+    if (isTvMode()) {
+        const { TV_CLIENT_ID, TV_CLIENT_KEY } = await import('./googleTvClient.js');
+        params.client_id = TV_CLIENT_ID;
+        params.client_secret = TV_CLIENT_KEY;
+    } else if (isMobilePlatform()) {
         params.client_id = IOS_CLIENT_ID;
     } else {
         const { DESKTOP_CLIENT_ID, DESKTOP_CLIENT_KEY } = await import('./googleDesktopClient.js');
@@ -350,9 +355,86 @@ export function redirectToGoogleAuth(targetState = 'open_drive_browser', options
     window.location.href = authUrl;
 }
 
+/**
+ * Android TV sign-in (OAuth device flow): shows a code, the user enters it on a phone or computer, and the TV polls
+ * until Google reports the approval. Resolves with the token response, or null when the user cancels.
+ */
+async function runTvDeviceFlow() {
+    const { TV_CLIENT_ID, TV_CLIENT_KEY } = await import('./googleTvClient.js');
+    if (!TV_CLIENT_ID) throw new Error('This build has no Android TV Google client.');
+    const form = (params) => ({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(params)
+    });
+    const codeResponse = await fetch('https://oauth2.googleapis.com/device/code', form({ client_id: TV_CLIENT_ID, scope: SCOPE }));
+    const codeData = await codeResponse.json();
+    if (!codeResponse.ok) throw new Error(codeData.error_description || codeData.error || 'Google did not return a code.');
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'theme-modal-backdrop';
+    backdrop.style.zIndex = '10060';
+    backdrop.style.display = 'flex';
+    backdrop.innerHTML = `
+    <div class="theme-modal-card tv-device-card" role="dialog" aria-modal="true" aria-labelledby="tvDeviceTitle">
+      <div class="theme-modal-body py-4">
+        <h2 class="fs-5 fw-bold mb-2" id="tvDeviceTitle">Connect Google Drive</h2>
+        <p class="mb-3">On your phone or computer, go to <strong class="tv-device-url"></strong> and enter this code.</p>
+        <p class="tv-device-code" aria-live="polite"></p>
+        <p class="small text-muted mb-3">Waiting for you to approve.</p>
+        <button type="button" class="btn btn-theme-primary py-2" id="tvDeviceCancelBtn">Cancel</button>
+      </div>
+    </div>`;
+    backdrop.querySelector('.tv-device-url').textContent = (codeData.verification_url || '').replace(/^https?:\/\//, '');
+    backdrop.querySelector('.tv-device-code').textContent = codeData.user_code;
+    document.body.appendChild(backdrop);
+    const cancelBtn = backdrop.querySelector('#tvDeviceCancelBtn');
+    cancelBtn.focus();
+
+    let cancelled = false;
+    let wake = null;
+    cancelBtn.onclick = () => { cancelled = true; wake?.(); };
+    const sleep = (ms) => new Promise((resolve) => { wake = resolve; setTimeout(resolve, ms); });
+
+    try {
+        let interval = (codeData.interval || 5) * 1000;
+        const deadline = Date.now() + (codeData.expires_in || 1800) * 1000;
+        while (!cancelled && Date.now() < deadline) {
+            await sleep(interval);
+            if (cancelled) break;
+            const response = await fetch('https://oauth2.googleapis.com/token', form({
+                client_id: TV_CLIENT_ID,
+                client_secret: TV_CLIENT_KEY, // Google's token endpoint names this field client_secret
+                device_code: codeData.device_code,
+                grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+            }));
+            const data = await response.json();
+            if (response.ok) return data;
+            if (data.error === 'authorization_pending') continue;
+            if (data.error === 'slow_down') { interval += 5000; continue; }
+            if (data.error === 'access_denied') return null;
+            throw new Error(data.error_description || data.error || 'Google authorization failed.');
+        }
+        if (!cancelled) throw new Error('The code expired.');
+        return null;
+    } finally {
+        backdrop.remove();
+    }
+}
+
 async function startMobileGoogleAuth(targetState = 'open_drive_browser') {
     try {
-        const authData = await window.__TAURI__.core.invoke('plugin:google-auth|authorize');
+        let authData;
+        if (isTvMode()) {
+            const data = await runTvDeviceFlow();
+            if (!data) {
+                try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
+                return;
+            }
+            authData = { accessToken: data.access_token, expiresIn: data.expires_in, refreshToken: data.refresh_token };
+        } else {
+            authData = await window.__TAURI__.core.invoke('plugin:google-auth|authorize');
+        }
         if (!storeGoogleAuth(authData.accessToken, authData.expiresIn, authData.refreshToken)) {
             throw new Error('Google authorization did not return an access token.');
         }

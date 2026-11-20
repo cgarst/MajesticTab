@@ -35,6 +35,10 @@ Signing material lives in the gitignored `.env`, like the Android keystore, and 
 - **Upload:** `bundle exec fastlane ios release` and `mac release` upload the build to TestFlight, create or update the App Store version, sync version metadata and release notes, attach the build and submit for App Review (`skip_upload:true` skips re-uploading when a build is already in TestFlight). `ios beta` and `mac beta` upload to TestFlight only; `ios listing` and `mac listing` sync text, promotional text and screenshots without submitting.
 - Simulator builds for screenshots: `support/tools/simulator_screenshots.py` builds and drives them (see its header); `agent-device` rotates, folds the Duo and sets the iPad to Full Screen Apps.
 
+## Google client IDs injected at build time
+
+`src/googleTvClient.js` (the Android TV device-flow client) is empty in the repository. `prepare-tauri-frontend.mjs` fills it from `GOOGLE_TV_CLIENT_ID` and `GOOGLE_TV_CLIENT_SECRET` (`.env` locally, repo secrets in `build.yml` and `store-build.yml`) for Android builds with the Drive capability, and removes the file everywhere else, including channels without Drive. A new build job that makes a Drive-enabled Android build must pass both secrets.
+
 ## Keeping non-Android platform code out of the F-Droid build
 
 F-Droid's recipe deletes `build/tauri/plugins` before building (its source scan rejects iOS crates and the Google Play services plugin), but Cargo needs every `path = "../plugins/..."` dependency in `Cargo.toml` to exist, even under a `[target.'cfg(...)'.dependencies]` section that Android never compiles. So a platform-specific plugin crate must be removed from `Cargo.toml` by `rewriteCargoToml` in `build/cargo-toml.mjs` before Cargo runs (F-Droid failed with "no matching package named `tauri-plugin-apple-nav` found" when `apple-nav` was added and only the old iOS plugin names were stripped).
