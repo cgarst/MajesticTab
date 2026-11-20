@@ -15,6 +15,7 @@ let activeCoverUrl = null;
 let holdCount = 0;
 let rangeMin = 0;
 let rangeMax = 100;
+let lastPct = 0;
 
 const byId = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
 
@@ -109,6 +110,16 @@ export function showLoadingCard(output, { title, subtitle, coverUrl, stage = '' 
     clearTimeout(hideTimer);
     output?.classList.add('is-loading');
     document.body.classList.add('reader-loading');
+    lastPct = 0;
+    // Start from an empty bar with no transition. The old fill is still 100% from the last load, and while the main thread
+    // parses the file it stays on screen and then visibly drops back to the first stage.
+    const fill = byId('loadingCardFill');
+    if (fill) {
+        fill.style.transition = 'none';
+        fill.style.width = '0%';
+        void fill.offsetWidth;
+        fill.style.transition = '';
+    }
     setIdentity(token, { title, subtitle, coverUrl: coverUrl || '' });
     setLoadingProgress(token, 0, stage);
     reveal();
@@ -126,7 +137,10 @@ export function setLoadingProgress(token, percent, stage) {
     const fill = byId('loadingCardFill');
     if (!fill) return;
     const raw = Math.max(0, Math.min(100, Number(percent) || 0));
-    const pct = Math.round(rangeMin + (raw / 100) * (rangeMax - rangeMin));
+    // The bar only moves forward within one load: stages report their own range and a later stage that starts
+    // lower (or a range change) must not pull it back.
+    const pct = Math.max(lastPct, Math.round(rangeMin + (raw / 100) * (rangeMax - rangeMin)));
+    lastPct = pct;
     fill.style.width = `${pct}%`;
     byId('loadingCardTrack')?.setAttribute('aria-valuenow', String(pct));
     const stageEl = byId('loadingCardStage');

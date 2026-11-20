@@ -2116,7 +2116,23 @@ body.fretboard-open {
 /* On a narrow row the artist and album keep a readable share and the tuning gives way first. Before, the label shrank
    to nothing and left only the separators ("· 7-String Standard · ·"). */
 .library-song-row .sub .album-label { flex: 0 1 auto; min-width: min(12ch, 45%); overflow: hidden; text-overflow: ellipsis; }
-.library-song-row .sub .chip { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.library-song-row .sub .chip { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block; line-height: 1.2; }
+/* A narrow row cannot hold everything. The short format chip (GP, PDF pages) never shrinks; the artist/album and the tuning
+   give way first, then the audio and Mapped chips, and every cut ends in an ellipsis. Before, the chips were cut
+   mid-word ("YouT") by the row's edge with no ellipsis. */
+.library-song-row .sub .album-label, .library-song-row .sub .chip:not(.sec):not(.no-tab) { flex-shrink: 4; }
+.library-song-row .sub .chip.song-format, .library-song-row .sub .chip.sec:not(.song-audio):not(.song-mapped), .library-song-row .sub .chip.no-tab { flex: 0 0 auto; }
+.library-song-row .sub .chip.song-audio, .library-song-row .sub .chip.song-mapped { flex: 0 1 auto; min-width: 3ch; }
+/* On a phone the meta line is only about 155px wide beside the duration and the tab count, so it wraps instead of cutting
+   facts off: each fact keeps its whole text on one line of its own (the separators give way to a gap), and the row
+   grows by one line when it needs it. */
+@media (max-width: 576px) {
+  .library-song-rowwrap .library-song-row .t .sub { flex-wrap: wrap !important; white-space: normal !important; overflow: visible; gap: 1px 12px; }
+  .library-song-row .sub .chip + .chip::before, .library-song-row .sub .album-label + .chip::before { content: none; margin: 0; }
+  .library-song-row .sub .album-label { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+  .library-song-row .sub .chip, .library-song-row .sub .album-label { font-size: 12px; }
+  .library-song-row .sub .chip, .library-song-row .sub .chip.song-audio, .library-song-row .sub .chip.song-mapped { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+}
 .library-song-rowwrap.library-song-row-pinned { border-left: 0; }
 
 /* Pinned songs: ordinary rows under a heading, no outline or accent bar */
@@ -3403,7 +3419,8 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 .tools-shell .setnav button { min-height: 56px; padding: 8px 12px 8px 20px; color: var(--ink); }
 .tools-shell .setnav button .tool-name { flex: 0 0 auto; max-width: 100%; font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tools-shell .setnav button .tool-read { flex: 1 1 auto; min-width: 0; color: var(--ink2); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; margin-left: auto; }
-.tools-shell .setnav button .tool-read:empty { display: none; }
+/* An empty readout still takes the spare width, so every row's chevron sits at the right edge */
+.tools-shell .setnav button .tool-read:empty { display: block; }
 .tools-shell .tool-stage-header { display: none; }
 .tools-shell .tool-stage-title { display: none; }
 @media (min-width: 900px) {
@@ -3606,10 +3623,10 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 .track-mix-toggles .mixer-toggle { min-width: 36px; width: 36px; height: 32px; padding: 0; font: 600 13px system-ui, sans-serif; border-radius: var(--r) !important; }
 .track-mix-sliders { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; padding-left: 22px; }
 .track-mix-sliders .mixer-slider { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.track-mix-sliders .mixer-slider-label { width: auto; font-size: 12px; }
+/* Label and value take fixed columns, so the Level and Pan tracks start and end at the same x */
+.track-mix-sliders .mixer-slider-label { flex: 0 0 40px; width: 40px; font-size: 12px; }
 .track-mix-sliders .theme-value-badge { min-width: 0; font-size: 12px; text-align: right; }
-.track-mix-sliders .mixer-volume-badge { width: 38px; }
-.track-mix-sliders .mixer-pan-badge { width: 26px; }
+.track-mix-sliders .mixer-volume-badge, .track-mix-sliders .mixer-pan-badge { flex: 0 0 40px; width: 40px; }
 .track-mix.is-muted .track-mix-name, .track-mix.is-muted .track-mix-sliders, .gp-track-item.is-muted .track-mix-name, .gp-track-item.is-muted .track-mix-sliders { opacity: .5; }
 @media (pointer: coarse) { .track-mix-toggles .mixer-toggle { min-width: 44px; width: 44px; height: 44px; } }
 @media (max-width: 640px) { .track-mix-sliders { grid-template-columns: 1fr; gap: 8px; } }
@@ -6677,9 +6694,10 @@ body.phone-reader .yt-add-to .btn { min-height: 44px; }
 
 /* While a tab loads, the playback chrome waits: the dock, the fretboard and the page strip belong to the tab that is
    opening, not the one that was open before (`body.reader-loading`, set by utils/loadingCard.js). */
-body.reader-loading #mobilePlaybackDock,
 body.reader-loading #fretboardDock,
 body.reader-loading #pageStrip { display: none !important; }
+/* The dock keeps its place while a tab loads (hidden, not removed), so its controls do not pop in and push the layout. */
+body.reader-loading #mobilePlaybackDock { visibility: hidden !important; pointer-events: none !important; }
 
 /* Android TV: the Google Drive device-code dialog */
 .tv-device-card { max-width: 640px; width: 90%; text-align: center; }
@@ -6689,3 +6707,8 @@ body.reader-loading #pageStrip { display: none !important; }
     letter-spacing: 0.08em;
     margin: 0 0 1rem;
 }
+
+/* Library covers fade in once loaded instead of popping in over their tone square */
+@keyframes coverFadeIn { from { opacity: 0; } to { opacity: 1; } }
+#libraryPage img.cover-fade-in { animation: coverFadeIn var(--dur-fast) var(--ease-out) both; }
+@media (prefers-reduced-motion: reduce) { #libraryPage img.cover-fade-in { animation: none; } }

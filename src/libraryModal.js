@@ -114,6 +114,18 @@ import { missingTabsReadout } from './bulkFill/missingTabsTool.js';
 import { bulkImportReadout } from './bulkImport/bulkImportTool.js';
 import { CLASSTAB_HOME } from './classtab/download.js';
 
+// Library covers load lazily, so on a cold start the rows first show empty tone squares and the art then pops in.
+// A cover that finishes loading fades in over the tone square instead (`.cover-fade-in` in design.css).
+if (typeof document !== 'undefined') {
+  document.addEventListener('load', (event) => {
+    const img = event.target;
+    if (!(img instanceof HTMLImageElement) || !img.closest('#libraryPage')) return;
+    img.classList.remove('cover-fade-in');
+    void img.offsetWidth;
+    img.classList.add('cover-fade-in');
+  }, true);
+}
+
 let activeView = 'library'; // 'library', 'recents', 'openFile', 'setlists', 'tools', 'settings'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
 let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'

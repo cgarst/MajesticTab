@@ -45,7 +45,14 @@ function initSourceSwitch() {
             btn.dataset.source = kind;
             btn.textContent = label;
             // The hidden dock button owns the switch (selectSound): the open panel follows the selection
-            btn.addEventListener('click', () => { if (btn.getAttribute('aria-pressed') !== 'true') legacy.click(); });
+            btn.addEventListener('click', () => {
+                if (btn.getAttribute('aria-pressed') === 'true') return;
+                // The two panels hang from the same bottom edge but differ in height, so the sheet's top edge (and the score
+                // behind it) jumped on every switch. The panel that takes over keeps the height of the one it replaces.
+                const open = groups.find(({ panel }) => panel.offsetHeight > 0 && getComputedStyle(panel).display !== 'none');
+                if (open) groups.forEach(({ panel }) => { panel.style.minHeight = `${open.panel.offsetHeight}px`; });
+                legacy.click();
+            });
             group.append(btn);
         });
         header.insertBefore(group, header.firstElementChild);
@@ -66,6 +73,10 @@ function initSourceSwitch() {
         });
     };
     [synthBtn, originalBtn].forEach((el) => watch(el, ['style', 'class'], sync));
+    // The held height only lasts while the panel stays open
+    groups.forEach(({ panel }) => watch(panel, ['style', 'class'], () => {
+        if (panel.style.minHeight && getComputedStyle(panel).display === 'none') panel.style.minHeight = '';
+    }));
     // A panel that opens measures its pill then
     groups.forEach(({ panel }) => watch(panel, ['style', 'class'], () => window.refreshSlidingPills?.(panel, true)));
     sync();
