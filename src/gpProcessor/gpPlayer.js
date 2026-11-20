@@ -2171,14 +2171,19 @@ function rebuildDeadSynth(reason, { resume = false } = {}) {
     if (!api) return;
     const now = Date.now();
     // One attempt at a time, and not in a loop if the new context dies as well
-    synthRebuildTimes = synthRebuildTimes.filter((t) => now - t < 60000);
-    if (now - lastSynthRebuild < 3000 || synthRebuildTimes.length >= 3) return;
+    // Automatic rebuilds (nobody pressed Play) stop after two in five minutes: a new context that closes at once would
+    // otherwise reopen the song again and again. A Play press is a gesture and always gets its attempt.
+    const byPlay = reason === 'closed at Play';
+    synthRebuildTimes = synthRebuildTimes.filter((t) => now - t < 300000);
+    if (now - lastSynthRebuild < 3000 || (!byPlay && synthRebuildTimes.length >= 2) || synthRebuildTimes.length >= 6) return;
     lastSynthRebuild = now;
     synthRebuildTimes.push(now);
     const tick = api.tickPosition;
     const wasPlaying = resume || synthPlayerState.isPlaying;
     console.warn(`[Synth Player] Synth audio is dead (${reason}); reopening the song`);
     synthPlayerState.isPlaying = false;
+    // The dead contexts must not count against the new player (a stale closed one would make every new context look dead)
+    forgetSynthContexts();
     window.dispatchEvent(new CustomEvent('majestictab:synth-dead', { detail: { reason } }));
     resumeOnNewPlayer(api, tick, wasPlaying);
 }

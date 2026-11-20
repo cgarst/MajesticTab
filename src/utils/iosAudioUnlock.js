@@ -15,6 +15,9 @@ const trackedAudioContexts = new Set();
 // The synth's own AudioContext(s): the ones AlphaTab opens while the player is being built. The metronome, click
 // and preview contexts are tracked too, but only these decide whether Synth playback can work.
 const synthContexts = new Set();
+// Synth contexts that reached 'running' at least once: only one of those can have been killed by iOS. A context that
+// closes without ever running is AlphaTab's own throwaway at setup, not a dead synth.
+const synthRan = new WeakSet();
 const synthStateListeners = new Set();
 let synthCaptureUntil = 0;
 
@@ -184,6 +187,7 @@ function tagSynthContext(ctx) {
     synthContexts.add(ctx);
     // 'closed' and 'interrupted' are reported the moment they happen, even while the app is in the background
     ctx.addEventListener('statechange', () => {
+        if (ctx.state === 'running') synthRan.add(ctx);
         for (const fn of synthStateListeners) {
             try { fn(ctx.state, ctx); } catch (_) { /* a listener must not break the others */ }
         }
@@ -212,8 +216,9 @@ export function isSynthContextDead() {
     let any = false;
     for (const ctx of synthContexts) {
         if (!ctx) continue;
-        any = true;
+        if (ctx.state === 'running') synthRan.add(ctx);
         if (ctx.state !== 'closed') return false;
+        if (synthRan.has(ctx)) any = true;
     }
     return any;
 }
