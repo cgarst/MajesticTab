@@ -541,7 +541,9 @@ export function performAppBack(getConfig = null) {
         // 3a. Settings/Tools mobile sub-pane or wide inline tool (.setshell.has-open)
         const openShell = libPage.querySelector('.setshell.has-open');
         const shellBack = openShell?.querySelector('.setback');
-        if (shellBack) {
+        // On a wide window the open tool sits beside the list and its back button is hidden: Back there leaves the
+        // view instead of emptying the pane
+        if (shellBack && shellBack.offsetParent !== null) {
             shellBack.click();
             return true;
         }

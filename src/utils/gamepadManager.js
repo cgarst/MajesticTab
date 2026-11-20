@@ -19,6 +19,7 @@ const TRIGGER_THRESHOLD = 0.15;
 const BUTTON_REPEAT_DELAY_MS = 360;
 const BUTTON_REPEAT_INTERVAL_MS = 90;
 const ZOOM_REPEAT_INTERVAL_MS = 200;
+const VIEW_HOLD_MS = 700;
 
 const COMPOSITE_ROW_SELECTOR = [
     '.library-song-row',
@@ -127,6 +128,9 @@ class GamepadManager {
         this.controllerModal = document.getElementById('controllerHelpModal');
 
         // Setup DOM event listeners for controller connections
+        // The Controls page lists macOS shortcuts only on a Mac (see .mac-only in design.css)
+        document.documentElement.classList.toggle('is-mac', /Mac/i.test(navigator.platform || ''));
+
         window.addEventListener('gamepadconnected', (e) => this.handleGamepadConnected(e.gamepad));
         window.addEventListener('gamepaddisconnected', (e) => this.handleGamepadDisconnected(e.gamepad));
 
@@ -421,9 +425,10 @@ class GamepadManager {
     handleButtonRelease(buttonIndex, pressedAt, now) {
         const duration = now - pressedAt;
 
-        // View (Back/Select): a tap cycles the audio source
+        // View (Back/Select): a tap cycles the audio source, a hold opens the controls guide
         if (buttonIndex === GamepadButton.VIEW) {
-            this.cycleAudioSource();
+            if (duration >= VIEW_HOLD_MS) this.openControlsGuide();
+            else this.cycleAudioSource();
         }
     }
 
@@ -947,7 +952,9 @@ class GamepadManager {
     cycleLibraryTab(delta) {
         const libPage = document.getElementById('libraryPage');
         if (!libPage) return;
-        const tabs = Array.from(libPage.querySelectorAll('.lib-view-switch [data-lib-tab]')).filter(el => this.isElementVisible(el));
+        // The destinations are the rail (or the phone tab bar); the old header switcher no longer exists
+        const nav = document.getElementById('libraryBottomNav');
+        const tabs = Array.from((nav || libPage).querySelectorAll('[data-lib-tab]')).filter(el => this.isElementVisible(el));
         if (!tabs.length) return;
         const activeIdx = tabs.findIndex(t => t.classList.contains('active'));
         let nextIdx = 0;
@@ -1220,8 +1227,15 @@ class GamepadManager {
 
         let bestElement = null;
         let minScore = Infinity;
+        // Up and Down prefer something in the same column (its horizontal span overlaps the current item). A neighbour
+        // beside the current item, such as a rail button next to the search box, may be a short step away but is not
+        // what "down" means, so it only wins when nothing in the column qualifies.
+        let bestSameColumn = null;
+        let minSameColumn = Infinity;
 
         const isInLibNav = Boolean(libNav && libNav.contains(currentActive));
+        const navRectForAxis = libNav && this.isElementVisible(libNav) ? this.getFocusRect(libNav) : null;
+        const railIsVertical = Boolean(navRectForAxis && navRectForAxis.height > navRectForAxis.width);
 
         for (const cand of focusable) {
             if (cand === currentActive || cand === referenceEl) continue;
@@ -1229,6 +1243,11 @@ class GamepadManager {
             // Keep Up/Down inside the left navigation rail (#libraryBottomNav) so pressing Down from Tools
             // reaches Settings at the bottom instead of jumping sideways into main content.
             if ((direction === 'up' || direction === 'down') && isInLibNav && !libNav.contains(cand)) {
+                continue;
+            }
+
+            // With a vertical rail, Up and Down stay out of it from the page; Left crosses into it.
+            if ((direction === 'up' || direction === 'down') && railIsVertical && !isInLibNav && libNav.contains(cand)) {
                 continue;
             }
 
@@ -1250,12 +1269,14 @@ class GamepadManager {
             let isCandidate = false;
             let primaryDist = 0;
             let crossDist = 0;
+            let sameColumn = false;
 
             if (direction === 'down') {
                 if (r.top >= curRect.top + 4 && cy > curCy + 4) {
                     isCandidate = true;
                     primaryDist = r.top >= curRect.bottom ? (r.top - curRect.bottom) : (cy - curCy);
                     const overlapX = Math.max(0, Math.min(curRect.right, r.right) - Math.max(curRect.left, r.left));
+                    sameColumn = overlapX > 0;
                     if (overlapX > 0) {
                         // Weight vertical distance higher so narrow left-aligned buttons (e.g. Artists/Tunings)
                         // right below a wide input are not skipped in favor of a full-width row further down.
@@ -1271,6 +1292,7 @@ class GamepadManager {
                     isCandidate = true;
                     primaryDist = curRect.top >= r.bottom ? (curRect.top - r.bottom) : (curCy - cy);
                     const overlapX = Math.max(0, Math.min(curRect.right, r.right) - Math.max(curRect.left, r.left));
+                    sameColumn = overlapX > 0;
                     if (overlapX > 0) {
                         primaryDist *= 2.5;
                         crossDist = Math.min(24, Math.abs(cx - curCx) * 0.1);
@@ -1304,8 +1326,13 @@ class GamepadManager {
                     minScore = score;
                     bestElement = cand;
                 }
+                if (sameColumn && score < minSameColumn) {
+                    minSameColumn = score;
+                    bestSameColumn = cand;
+                }
             }
         }
+        if (bestSameColumn) bestElement = bestSameColumn;
 
         // If pressing Right on a card (e.g. .library-pinned-card, .tuning-card) with no card to its right,
         // allow stepping into its secondary action button if it has one
@@ -1333,15 +1360,19 @@ class GamepadManager {
                     bestElement = navButtons[0];
                 }
             } else if (direction === 'right' && libNav.contains(currentActive) && isVerticalRail) {
+                // Land on the item that is current in that pane (a settings section, a tool), otherwise on the first
+                // one from the top, not on whichever sits level with the rail button (the last one, for Settings).
                 const pageCandidates = this.getFocusableElements(libPage, currentActive, direction)
                     .filter(el => this.getFocusRect(el).left >= navRect.right - 4);
                 if (pageCandidates.length > 0) {
-                    pageCandidates.sort((a, b) => {
+                    const isCurrentItem = (el) => el.matches?.('[aria-current="true"], [aria-selected="true"], .active, .is-active');
+                    const byTopThenLeft = (a, b) => {
                         const ar = this.getFocusRect(a);
                         const br = this.getFocusRect(b);
-                        return Math.abs((ar.top + ar.height / 2) - curCy) - Math.abs((br.top + br.height / 2) - curCy);
-                    });
-                    bestElement = pageCandidates[0];
+                        return (ar.top - br.top) || (ar.left - br.left);
+                    };
+                    const current = pageCandidates.filter(isCurrentItem).sort(byTopThenLeft);
+                    bestElement = current[0] || pageCandidates.sort(byTopThenLeft)[0];
                 }
             }
         }
@@ -1414,6 +1445,26 @@ class GamepadManager {
             scaleInput.dispatchEvent(new Event('change', { bubbles: true }));
             showToast(`Zoom reset to ${defaultScale}%`, 'info', 1200);
         }
+    }
+
+    /** The controls guide is the Controls section of the Settings page: open the page, then that section. */
+    openControlsGuide() {
+        const settingsBtn = document.getElementById('libraryNavSettingsBtn');
+        const openSection = () => {
+            const section = document.querySelector('.setnav [data-section="controls"]');
+            if (section && section.getAttribute('aria-current') !== 'true') section.click();
+            this.setControlsTab('gamepad');
+        };
+        if (this.isLibraryViewOpen() && settingsBtn) {
+            if (!document.querySelector('#libraryModalContent .setshell.settings-page')) settingsBtn.click();
+            setTimeout(openSection, 450);
+            return;
+        }
+        document.getElementById('topBarBackToLibraryBtn')?.click();
+        setTimeout(() => {
+            document.getElementById('libraryNavSettingsBtn')?.click();
+            setTimeout(openSection, 450);
+        }, 450);
     }
 
     cycleAudioSource() {

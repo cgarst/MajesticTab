@@ -6717,3 +6717,35 @@ body.reader-loading #mobilePlaybackDock { visibility: hidden !important; pointer
 @keyframes coverFadeIn { from { opacity: 0; } to { opacity: 1; } }
 #libraryPage img.cover-fade-in { animation: coverFadeIn var(--dur-fast) var(--ease-out) both; }
 @media (prefers-reduced-motion: reduce) { #libraryPage img.cover-fade-in { animation: none; } }
+
+/* One focus ring everywhere: the hue, 2px. The rail, the settings sections, the tools list, the search box and the
+   player chrome each had their own (a faint blue edge, white, an orange glow, or nothing), so a controller user could
+   not learn what "selected" looks like. Keyboard and controller focus share it. */
+.library-bottom-nav .library-nav-tab:focus-visible,
+.library-bottom-nav .library-nav-tab.nav-focused,
+.setnav button:focus-visible,
+.setnav button.nav-focused,
+.tools-page-row:focus-visible,
+.tools-page-row.nav-focused {
+  box-shadow: none !important;
+  outline: 2px solid var(--hue) !important;
+  outline-offset: -2px;
+}
+.library-search-bar:focus-within,
+.library-search-bar:has(.nav-focused) {
+  box-shadow: none;
+  border-color: transparent;
+  outline: 2px solid var(--hue);
+  outline-offset: -2px;
+}
+/* The play button, the dock and the top bar sit on filled or round shapes, so their ring stands off the edge */
+#mobilePlaybackDock button:focus-visible,
+#mobilePlaybackDock button.nav-focused,
+#topBar button:focus-visible,
+#topBar button.nav-focused {
+  box-shadow: none !important;
+  outline: 2px solid var(--hue);
+  outline-offset: 2px;
+}
+/* Shortcuts that only exist on a Mac are listed on a Mac only (the class is set in gamepadManager.js) */
+html:not(.is-mac) .mac-only { display: none !important; }
