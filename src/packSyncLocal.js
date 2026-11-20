@@ -330,8 +330,8 @@ export async function fetchPackOnDemand(store, packId, { includeAudio = !isHybri
 }
 
 /**
- * Does this song, on a hybrid device, lack audio that the store may have? Answered from this device alone: a song with audio
- * of its own here, or a pack whose store version was already checked, needs nothing. `true` means the store should be asked
+ * Does this song, on a hybrid device, lack audio that the store may have, or hold stems that are not grouped as a set? Answered from
+ * this device alone: a pack whose store version was already checked needs nothing, nor a song with audio of its own. `true` means the store should be asked
  * (fetchSongAudioIfNeeded).
  */
 export async function songMayNeedRemoteAudio(song, target, baselines = localBaselines) {
@@ -343,7 +343,15 @@ export async function songMayNeedRemoteAudio(song, target, baselines = localBase
     if (readAudioMark(packId) === String(version)) return false;
     const { listAudioFilesForSong } = await import('./audioSync/audioFileStore.js');
     const key = songKeyOf(song);
-    return (await listAudioFilesForSong(key)).length === 0 && (await listAudioFilesForSong(enc(key))).length === 0;
+    const local = [...await listAudioFilesForSong(key), ...await listAudioFilesForSong(enc(key))];
+    if (!local.length) return true;
+    // Stems that arrived as separate files (an earlier build, or a slot that kept a video) and are not a set: take the pack in once
+    // more per store version, which groups them (a file already here is not stored twice)
+    const { guessInstrument } = await import('./audioSync/stemGuess.js');
+    const { stemsOfMeta } = await import('./audioSync/stemSet.js');
+    const named = new Set(local.filter((a) => guessInstrument(a.name) !== 'other').map((a) => a.id));
+    if (named.size < 2) return false;
+    return !Object.values(listRecordingMeta(key)).some((m) => stemsOfMeta(m));
 }
 
 /**
