@@ -6703,6 +6703,8 @@ body.reader-loading #fretboardDock,
 body.reader-loading #pageStrip { display: none !important; }
 /* The dock keeps its place while a tab loads (hidden, not removed), so its controls do not pop in and push the layout. */
 body.reader-loading #mobilePlaybackDock { visibility: hidden !important; pointer-events: none !important; }
+/* The five words (View, Practice, Sound, Guitar, Tools) belong to the opening tab too: hidden, not removed, so the title keeps its place. */
+body.reader-loading :is(#viewPill, #practicePill, #soundPill, #guitarPill, #toolsPill) { visibility: hidden !important; pointer-events: none !important; }
 
 /* Android TV: the Google Drive device-code dialog */
 .tv-device-card { max-width: 640px; width: 90%; text-align: center; }
