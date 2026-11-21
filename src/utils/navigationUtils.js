@@ -852,8 +852,11 @@ export function setupViewModeToggles(pageModeRadio, continuousModeRadio, getConf
         const config = getConfig();
         if (!config.output || !config.currentFile) return;
 
-        pauseSynthPlayer();
-        clearSynthHighlights();
+        // Changing the layout re-renders the score; playback carries on through it.
+        if (!isSynthPlaying()) {
+            pauseSynthPlayer();
+            clearSynthHighlights();
+        }
         config.continuous = !pageModeRadio.checked;
         const isPageMode = pageModeRadio.checked;
         
@@ -948,8 +951,10 @@ export function setupViewModeToggles(pageModeRadio, continuousModeRadio, getConf
         continuousModeRadio.blur();
         if (!continuousModeRadio.checked) return;
         
-        pauseSynthPlayer();
-        clearSynthHighlights();
+        if (!isSynthPlaying()) {
+            pauseSynthPlayer();
+            clearSynthHighlights();
+        }
         const config = getConfig();
         config.continuous = true;
         
