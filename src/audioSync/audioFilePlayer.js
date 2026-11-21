@@ -540,7 +540,14 @@ export function buildFileRows({ include = () => true, selected, beforeSelect = n
     // The parts of a stem set are chosen in the Stems list below, not listed as recordings of their own
     const inSet = new Set(Object.values(metas).flatMap((m) => (stemsOfMeta(m) || []).map((s) => s.audioId)));
     const leads = new Set(Object.entries(metas).filter(([, m]) => stemsOfMeta(m)).map(([k]) => k));
-    const isPart = (f) => !state.stemFallback && inSet.has(f.id) && !leads.has(mediaKey({ kind: 'local', audioId: f.id }));
+    // A file saved as a stem is a part too, whether or not a set names it: stems are never listed one by one. Remove mode lists
+    // them again, so a stray one can still be taken away.
+    const isPart = (f) => {
+        if (state.stemFallback) return false;
+        const key = mediaKey({ kind: 'local', audioId: f.id });
+        if (leads.has(key)) return false;
+        return inSet.has(f.id) || (!removeMode && metas[key]?.role === 'stem');
+    };
     const ordered = orderRecordings(state.files.filter((f) => !isPart(f) && include(f, metas)), (f) => mediaKey({ kind: 'local', audioId: f.id }), metas);
     return ordered.map(({ item: f, meta, nested }) => {
         const count = countOf(f.id);
