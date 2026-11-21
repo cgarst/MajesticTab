@@ -581,10 +581,19 @@ export async function buildMpak(file, options = {}) {
         console.warn('[mpak] could not pack stem set:', e);
     }
 
+    // What the app holds about a recording (the person's own label, and a role such as live or solo) goes into the pack's `label` and
+    // `role` (SPEC section 7), so it comes back on another device instead of the file's name
+    let metaOf = () => null;
+    try {
+        const { getRecordingMeta } = await import('./audioSync/recordingMeta.js');
+        metaOf = (media) => getRecordingMeta(songKey, media);
+    } catch { /* headless environment */ }
+
     // A stem set stands for the original sound. A stem that a slot plays is already packed, but the video a slot remembers, a full
     // mix chosen for the Original and a backing track of its own are still recordings of the song
     for (const slot of SLOTS) {
         const source = getSlotSourceFn(slot);
+        let said = null;
         const sources = [];
         const syncRecs = new Map(); // score run -> the record of this recording for that score
         const findRecords = (media) => { for (const run of scoreRuns) { const rec = run.recordsByMedia.get(mediaKey(media)); if (rec && !syncRecs.has(run)) syncRecs.set(run, rec); } };
@@ -597,6 +606,7 @@ export async function buildMpak(file, options = {}) {
                 if (rec?.data && !(packedStemSet && packedAudio.has(id))) {
                     sources.push(await packAudioBytes(rec, `${slot}.audio`));
                     findRecords({ kind: 'local', audioId: id });
+                    said = metaOf({ kind: 'local', audioId: id });
                 }
             } else if (source === 'embedded' && tabFormat === 'gp') {
                 sources.push({ type: 'embedded' });
@@ -606,6 +616,7 @@ export async function buildMpak(file, options = {}) {
             if (videoId && YT_ID_RE.test(videoId)) {
                 sources.push({ type: 'youtube', videoId });
                 findRecords({ kind: 'youtube', videoId });
+                said ||= metaOf({ kind: 'youtube', videoId });
             }
         } catch (e) {
             console.warn('[mpak] could not read the', slot, 'recording:', e);
@@ -616,6 +627,7 @@ export async function buildMpak(file, options = {}) {
         const recording = {
             id: slot,
             role: slot,
+            ...(said?.label ? { label: said.label } : {}),
             sources,
         };
         attachSyncs(recording, null, syncRecs);
@@ -661,10 +673,12 @@ export async function buildMpak(file, options = {}) {
             const fileSrc = { type: 'file', path: audioPath, mime: rec.type || 'audio/mpeg', sha256: hash };
             if (Number.isFinite(rec.durationMs) && rec.durationMs >= 0) fileSrc.durationMs = rec.durationMs;
             n += 1;
+            const said = metaOf({ kind: 'local', audioId: id });
             const recording = {
                 id: `audio-${n}`,
-                role: slot === 'backing' ? 'backing' : 'alternate',
-                label: String(rec.name || '').replace(/\.[^.]+$/, '') || `Audio ${n}`,
+                // The role the person gave it (live, solo ...), except the ones the pack says another way: the Original, the Backing and stems
+                role: slot === 'backing' ? 'backing' : (said?.role && !['original', 'backing', 'stem'].includes(said.role) ? said.role : 'alternate'),
+                label: said?.label || String(rec.name || '').replace(/\.[^.]+$/, '') || `Audio ${n}`,
                 sources: [fileSrc],
             };
             for (const run of scoreRuns) {

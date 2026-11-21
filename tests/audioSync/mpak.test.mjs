@@ -1255,6 +1255,38 @@ test('saveMpakToLibrary and buildMpak roundtrip a stem-only pack with all stems 
     assert.ok(exportedSet.members[2].sync || exportedSet.members[2].syncFrom === exportedSet.lead.id);
 });
 
+test('a recording\'s own label and role come back out of a pack that was taken in, not the file name', async () => {
+    lsMap.clear();
+    await clearAllLibraryData();
+    const { buildMpak: coreBuildMpak, sha256 } = await import('../../src/mpak/core/index.js');
+    const { getStoredFile } = await import('../../src/fileStore.js');
+    const txt = new TextEncoder().encode('e|---0---|\n');
+    const mix = new Uint8Array([1, 2, 3]), live = new Uint8Array([4, 5, 6]), lossless = new Uint8Array([7, 8, 9]), click = new Uint8Array([10, 11, 12]);
+    const f = async (path, bytes) => ({ type: 'file', path, mime: 'audio/mpeg', sha256: await sha256(bytes), size: bytes.length });
+    const manifest = {
+        format: 'mpak', version: 1, id: '5e1d3b0a-1c2f-4f7e-9a55-0a6b1e0c7d11',
+        song: { title: 'Labels', artist: 'Band' },
+        scores: [{ id: 'txt', path: 'score/tab.txt', format: 'txt', sha256: await sha256(txt), size: txt.length, name: 'tab.txt' }],
+        recordings: [
+            { id: 'original', role: 'original', label: 'Remaster 2012', sources: [await f('audio/mix.mp3', mix)] },
+            { id: 'backing', role: 'backing', label: 'No guitars', sources: [await f('audio/click.mp3', click)] },
+            { id: 'a1', role: 'live', label: 'Live in Paris', sources: [await f('audio/live.mp3', live)] },
+            { id: 'a2', role: 'alternate', label: 'Lossless', sources: [await f('audio/lossless.mp3', lossless)] },
+        ],
+    };
+    const { parts } = await coreBuildMpak(manifest, new Map([['score/tab.txt', txt], ['audio/mix.mp3', mix], ['audio/click.mp3', click], ['audio/live.mp3', live], ['audio/lossless.mp3', lossless]]));
+    const saved = await saveMpakToLibrary(new Blob(parts), { queryMusicBrainz: false, allowTextFallback: true });
+    const stored = await getStoredFile(saved.song.tabOptions[0].fileStoreId);
+    stored.file.librarySongId = saved.song.id;
+    stored.file.tabId = saved.song.tabOptions[0].id;
+    const { header } = await readMpak((await buildMpak(stored.file, { song: saved.song, songKey: 'Band - Labels' })).blob);
+    const by = (path) => header.recordings.find((r) => r.sources.some((x) => x.path === path));
+    assert.equal(by('audio/original.audio')?.label ?? header.recordings.find((r) => r.id === 'original')?.label, 'Remaster 2012', 'the Original keeps its label');
+    assert.equal(header.recordings.find((r) => r.id === 'backing')?.label, 'No guitars', 'the Backing keeps its label');
+    const others = header.recordings.filter((r) => r.id.startsWith('audio-'));
+    assert.deepEqual(others.map((r) => [r.role, r.label]).sort(), [['alternate', 'Lossless'], ['live', 'Live in Paris']]);
+});
+
 // A song whose two sounds share one stem set, and a pack that has a backing recording of its own
 async function applyStemsAndBacking(seed) {
     lsMap.clear();
