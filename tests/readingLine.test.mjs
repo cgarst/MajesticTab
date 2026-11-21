@@ -113,3 +113,22 @@ test('note-level points in the same bar advance barFrac/colFrac without triggeri
     assert.ok(Math.abs(pMid.barFrac - 0.625) < 1e-6);
 });
 
+
+test('the last bar of a staff system keeps the line in that system until the next system starts', () => {
+    // Unit 10 is a system of 4 bars, units 11 and 12 are annotation lines with no cursor, unit 13 is the next system
+    const ids = [10, 11, 12, 13];
+    const sys = [
+        { barIndex: 10, timeMs: 0, barOffset: 0, barCount: 4, colStartFrac: 0, colEndFrac: 0.25, barColStartFrac: 0, barColEndFrac: 0.25 },
+        { barIndex: 10, timeMs: 1000, barOffset: 3, barCount: 4, colStartFrac: 0.75, colEndFrac: 1, barColStartFrac: 0.75, barColEndFrac: 1 },
+        { barIndex: 13, timeMs: 4000, barOffset: 0, barCount: 4, colStartFrac: 0, colEndFrac: 0.25, barColStartFrac: 0, barColEndFrac: 0.25 }
+    ];
+    for (const t of [1000, 2000, 3000, 3999]) {
+        const pos = positionAt(sys, ids, t);
+        assert.equal(Math.floor(pos), 0, `at ${t} the line is still in the system (rank ${pos})`);
+        assert.equal(barProgressAt(sys, ids, t).unitId, 10);
+    }
+    assert.equal(Math.floor(positionAt(sys, ids, 4000)), 3);
+    // Unit-level points without columns still glide through the lines between
+    const plain = [{ barIndex: 10, timeMs: 0 }, { barIndex: 13, timeMs: 3000 }];
+    assert.ok(positionAt(plain, ids, 1500) > 1);
+});

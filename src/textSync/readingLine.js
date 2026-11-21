@@ -91,6 +91,11 @@ export function positionAt(points, unitIds, timeMs, endMs = null) {
             const room = Math.min(20000, span);
             return a.rank + Math.min(a.stepSpan * 0.999, ((timeMs - a.t) / room) * a.stepSpan);
         }
+        // A bar of a staff system whose next point is in another unit: the line stays in this bar's unit until that point (the
+        // way a repeat does), instead of gliding through the lines between the systems, where there is no cursor to show
+        if (a.raw.colStartFrac != null && b.baseRank > a.baseRank) {
+            return a.rank + Math.min(a.stepSpan * 0.999, ((timeMs - a.t) / span) * a.stepSpan);
+        }
         return a.rank + (b.rank - a.rank) * ((timeMs - a.t) / span);
     }
     // Past the last point: move through that unit/bar over the time that is left, at most 20 s, then rest at its end
