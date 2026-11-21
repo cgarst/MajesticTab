@@ -5376,13 +5376,13 @@ body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { d
 .reading-line::before { content: ''; position: absolute; left: -16px; top: -8px; border: 8px solid transparent; border-left: 12px solid var(--hue); border-right: 0; }
 body.gp-horizontal-mode .loose-line::before { left: -8px; top: -12px; border: 8px solid transparent; border-top: 12px solid var(--hue); border-bottom: 0; }
 .reading-line[hidden] { display: none; }
-/* Playhead inside a PDF page: the Guitar Pro reader's cursor (a vertical pill with a pointed bottom, in the accent colour with
-   its soft glow, multiplied onto a light sheet), one row of music tall, centred on the place the recording is at. */
+/* Playhead inside a PDF page: the Guitar Pro reader's cursor (a vertical pill with a pointed bottom, in the playhead colour,
+   flat, multiplied onto a light sheet), one row of music tall, centred on the place the recording is at. */
 .pdf-cursor { position: absolute; left: 0; top: 0; z-index: 6; width: 20px; margin-left: -10px; box-sizing: border-box; pointer-events: none; will-change: transform; opacity: 1; transition: opacity var(--dur-base) var(--ease-out); }
 .pdf-cursor[hidden] { display: none; }
 .pdf-cursor.is-off { opacity: 0; transition-duration: var(--dur-fast); }
-.pdf-cursor svg { display: block; overflow: visible; filter: drop-shadow(0 0 5px var(--accent-glow)); }
-.pdf-cursor path { fill: none; stroke: var(--accent-primary); stroke-width: 2px; stroke-linejoin: round; stroke-linecap: round; }
+.pdf-cursor svg { display: block; overflow: visible; }
+.pdf-cursor path { fill: none; stroke: var(--hue); stroke-width: 2px; stroke-linejoin: round; stroke-linecap: round; }
 body:not(.sheet-mode-dark) .pdf-cursor svg { mix-blend-mode: multiply; }
 @media (prefers-reduced-motion: reduce) { .pdf-cursor { transition: none; } }
 .reading-line.is-off { opacity: 0; transition-duration: var(--dur-fast); }
@@ -6271,9 +6271,9 @@ body.theme-sheet-active .txt-ribbon-gutter {
   pointer-events: none;
   z-index: 5;
 }
-/* The text tab's cursors use the Guitar Pro cursor's shape: a pill outline with a pointed bottom, in the playhead colour */
+/* One playhead on every file type (Guitar Pro, PDF, text): a pill outline with a pointed bottom, flat, in the playhead colour (--hue, as on the bar ruler) */
 .ts-bar-cursor svg, .txt-ribbon-playhead svg { display: block; overflow: visible; }
-.ts-bar-cursor path, .txt-ribbon-playhead path { fill: none; stroke: var(--hue); stroke-width: 2px; stroke-linejoin: round; stroke-linecap: round; }
+.gp-reader-cursor .gp-reader-path, .ts-bar-cursor path, .txt-ribbon-playhead path { fill: none; stroke: var(--hue); stroke-width: 2px; stroke-linejoin: round; stroke-linecap: round; }
 .txt-ribbon-scroll {
   overflow-x: auto;
   overflow-y: hidden;

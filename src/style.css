@@ -2263,7 +2263,7 @@ body.theme-sheet-active .chord-lyric-chord {
 }
 
 .at-selection {
-  background-color: var(--accent-primary-alpha) !important;
+  background-color: color-mix(in srgb, var(--hue) 22%, transparent) !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -2289,12 +2289,10 @@ body.theme-sheet-active .chord-lyric-chord {
   display: block;
   overflow: visible;
   background-color: transparent;
-  filter: drop-shadow(0 0 5px var(--accent-glow));
 }
 
 .gp-reader-cursor .gp-reader-path {
   fill: none;
-  stroke: var(--accent-primary);
   stroke-width: 2px;
   stroke-linejoin: round;
   stroke-linecap: round;
