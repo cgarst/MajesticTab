@@ -926,6 +926,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   }
   .library-page-container > #libBrowseContent,
   .library-page-container > .setlists-body {
+    grid-row: 3;
     min-height: 0;
     display: flex;
     flex-direction: column;
