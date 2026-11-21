@@ -11,20 +11,33 @@
 
 export const PAGE_GLIDE_MS = 300;
 
-/** Ease-out, the same curve as `--ease-out` (cubic-bezier(0.22, 1, 0.36, 1)), by Newton iteration on x(t). */
-export function easeOut(t) {
-    if (t <= 0) return 0;
-    if (t >= 1) return 1;
+/** A cubic bezier easing curve (the CSS `cubic-bezier(x1, y1, x2, y2)`), by Newton iteration on x(t). */
+function bezierEase(x1, y1, x2, y2) {
     const bez = (a, b, s) => 3 * a * (1 - s) * (1 - s) * s + 3 * b * (1 - s) * s * s + s * s * s;
     const dbez = (a, b, s) => 3 * a * (1 - s) * (1 - s) + 6 * (b - a) * (1 - s) * s + 3 * (1 - b) * s * s;
-    let s = t;
-    for (let i = 0; i < 8; i++) {
-        const err = bez(0.22, 0.36, s) - t;
-        const d = dbez(0.22, 0.36, s);
-        if (Math.abs(err) < 1e-5 || Math.abs(d) < 1e-6) break;
-        s -= err / d;
-    }
-    return bez(1, 1, Math.max(0, Math.min(1, s)));
+    return (t) => {
+        if (t <= 0) return 0;
+        if (t >= 1) return 1;
+        let s = t;
+        for (let i = 0; i < 8; i++) {
+            const err = bez(x1, x2, s) - t;
+            const d = dbez(x1, x2, s);
+            if (Math.abs(err) < 1e-5 || Math.abs(d) < 1e-6) break;
+            s -= err / d;
+        }
+        return bez(y1, y2, Math.max(0, Math.min(1, s)));
+    };
+}
+
+/** Ease-out, the same curve as `--ease-out` (cubic-bezier(0.22, 1, 0.36, 1)). */
+export const easeOut = bezierEase(0.22, 1, 0.36, 1);
+
+/** Gentle start and end (cubic-bezier(0.45, 0, 0.2, 1)): a long page turn that does not lurch at the first frame. */
+export const easeSoft = bezierEase(0.45, 0, 0.2, 1);
+
+/** How long a page turn over `distance` px takes: longer for a longer way, so the speed stays readable. */
+export function turnMs(distance) {
+    return Math.max(450, Math.min(750, 350 + Math.abs(distance) * 0.5));
 }
 
 /** A time-based glide of one number (a scroll position). `step(now)` returns the value to write, or null when idle. */
@@ -33,12 +46,12 @@ export function createGlide() {
     return {
         get active() { return g !== null; },
         get to() { return g ? g.to : null; },
-        start(from, to, now, ms = PAGE_GLIDE_MS) { g = { from, to, start: now, ms }; },
+        start(from, to, now, ms = PAGE_GLIDE_MS, ease = easeOut) { g = { from, to, start: now, ms, ease }; },
         step(now) {
             if (!g) return null;
             const t = (now - g.start) / g.ms;
             if (t >= 1) { const v = g.to; g = null; return v; }
-            return g.from + (g.to - g.from) * easeOut(t);
+            return g.from + (g.to - g.from) * g.ease(t);
         },
         cancel() { g = null; }
     };

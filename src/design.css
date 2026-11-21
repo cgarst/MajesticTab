@@ -5384,6 +5384,8 @@ body.gp-horizontal-mode .loose-line::before { left: -8px; top: -12px; border: 8p
 .reading-line-turn { position: absolute; left: -26px; top: 12px; width: 32px; display: flex; flex-direction: column; align-items: center; gap: 1px; color: var(--hue); line-height: 1; }
 .reading-line-turn[hidden] { display: none; }
 .reading-line-turn-n { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+.reading-line-turn.is-up { top: auto; bottom: 12px; flex-direction: column-reverse; }
+.reading-line-turn.is-up svg { transform: rotate(180deg); }
 .reading-line-turn svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 /* Playhead inside a PDF page: the Guitar Pro reader's cursor (a vertical pill with a pointed bottom, in the playhead colour,
    flat, multiplied onto a light sheet), one row of music tall, centred on the place the recording is at. */
