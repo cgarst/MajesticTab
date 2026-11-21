@@ -87,10 +87,10 @@ export function createChordLyricSegments(chordLine, lyricLine) {
     const end = Math.max(chordLine.length, lyricLine.length);
     const segments = [];
     // lyric before the first chord keeps its own chordless segment
-    if (found.length && found[0].pos > 0) segments.push({ chord: '', lyric: lyricLine.substring(0, found[0].pos) });
+    if (found.length && found[0].pos > 0) segments.push({ chord: '', lyric: lyricLine.substring(0, found[0].pos).padEnd(found[0].pos) });
     found.forEach((c, i) => {
         const stop = i + 1 < found.length ? found[i + 1].pos : end;
-        segments.push({ chord: c.chord, lyric: lyricLine.substring(c.pos, stop) });
+        segments.push({ chord: c.chord, lyric: lyricLine.substring(c.pos, stop).padEnd(stop - c.pos) }); // padded so a short lyric keeps the chord's column
     });
     return segments;
 }
@@ -579,6 +579,11 @@ export function groupBlocks(lines) {
     return blocks;
 }
 
+/** A line that only names a section, like "[Verse]" or "[Pre-Chorus]". */
+function isSectionHeader(block) {
+    return block.kind === 'line' && /^\s*\[[^\]]+\]\s*$/.test(block.text || '');
+}
+
 /**
  * Greedy fill that only breaks between blocks. `heights[i]` is block i's height, `maxHeight` the room on a page.
  * Returns pages as arrays of block indices. A blank block is a gap: it is dropped at the top and bottom of a page, so a
@@ -601,8 +606,15 @@ export function paginate(blocks, heights, maxHeight) {
         const gap = blocks[i].kind === 'blank';
         if (!cur.length && gap) continue;
         if (cur.length && used + heights[i] > maxHeight) {
+            // A section header such as [Chorus] stays with the lines it introduces: it moves to the next page with them
+            let carry = [];
+            if (!gap && cur.length > 1 && isSectionHeader(blocks[cur[cur.length - 1]])) carry = [cur.pop()];
             flush();
             if (gap) continue;
+            for (const c of carry) {
+                cur.push(c);
+                used += heights[c];
+            }
         }
         cur.push(i);
         used += heights[i];

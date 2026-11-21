@@ -2122,6 +2122,23 @@ canvas {
   line-height: 1.5;
 }
 
+/* A chord line over its lyric: one column per chord, chord above the lyric that follows it, wrapping as a row */
+.chord-lyric-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  width: 100%;
+  white-space: pre;
+}
+
+.chord-lyric-segment {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-family: monospace, var(--tab-cjk-fonts);
+  line-height: 1.5;
+}
+
 .chord-lyric-chord {
   min-height: 1.5em;
   color: #1d4ed8;
