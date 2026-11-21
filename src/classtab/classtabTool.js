@@ -119,7 +119,7 @@ async function libraryTabNames() {
     }
 }
 
-export function renderClasstabTool(container, { onBack } = {}) {
+export function renderClasstabTool(container, { onDepth } = {}) {
     const state = {
         rec: null, query: '', filters: new Set(), composer: null, // composer: index into rec.composers
         job: null, // { text, cancel } while downloading or reading
@@ -263,7 +263,6 @@ export function renderClasstabTool(container, { onBack } = {}) {
 
     function piecesPaneInnerHtml(res, searching, chosen, pins, pinnedPieces, pinnedActive, shown) {
         return `
-            <button type="button" class="ct-back" data-act="back"><i class="bi-chevron-left" aria-hidden="true"></i> Composers</button>
             <div class="ct-head-row">
               <h3 class="ct-pieces-title">${searching ? esc(plural(res.pieces.length, 'result', 'results')) : pinnedActive ? 'Pinned' : chosen ? esc(composerHeading(chosen)) : ''}</h3>
             </div>
@@ -293,6 +292,20 @@ export function renderClasstabTool(container, { onBack } = {}) {
         return { res, comps, searching, chosen, pins, pinnedPieces, pinCount, pinnedActive, shown };
     }
 
+    // The shell owns the one back control on a phone: tell it where we are (null label: nothing to step back to)
+    function announceDepth() {
+        if (!onDepth) return;
+        onDepth({ backLabel: state.rec && state.pane === 'pieces' ? 'Composers' : null });
+    }
+
+    function stepBack() {
+        if (state.pane !== 'pieces') return false;
+        state.pane = 'composers';
+        render();
+        root.scrollTop = listScroll;
+        return true;
+    }
+
     function renderPiecesOnly() {
         const cols = root.querySelector('.ct-cols');
         const piecesEl = root.querySelector('.ct-pieces');
@@ -307,6 +320,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
         });
         piecesEl.innerHTML = piecesPaneInnerHtml(res, searching, chosen, pins, pinnedPieces, pinnedActive, shown);
         piecesEl.scrollTop = 0;
+        announceDepth();
     }
 
     function renderBrowse() {
@@ -380,6 +394,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
             s?.focus();
             s?.setSelectionRange(caret, caret);
         }
+        announceDepth();
     }
 
     const findPiece = (key) => {
@@ -453,7 +468,6 @@ export function renderClasstabTool(container, { onBack } = {}) {
             if (composer && piece) togglePiecePin(composer.name, piece.title);
             render({ keepPiecesScroll: true });
         }
-        else if (act === 'back') { state.pane = 'composers'; render(); root.scrollTop = listScroll; }
         else if (act === 'menu') { state.menuFor = state.menuFor === btn.dataset.key ? null : btn.dataset.key; render({ keepPiecesScroll: true }); }
         else if (['open', 'add', 'video'].includes(act)) {
             const { composer, piece } = findPiece(btn.dataset.key);
@@ -475,7 +489,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
     });
 
     refresh();
-    return (keep = false) => {
+    const dispose = (keep = false) => {
         if (keep) {
             savedView = {
                 query: state.query, filters: new Set(state.filters), composer: state.composer, pane: state.pane, showPinned: state.showPinned,
@@ -485,4 +499,6 @@ export function renderClasstabTool(container, { onBack } = {}) {
         alive = false;
         unsubscribe();
     };
+    dispose.stepBack = stepBack;
+    return dispose;
 }

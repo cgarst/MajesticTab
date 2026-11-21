@@ -5130,7 +5130,7 @@ body > #controllerHelpModal { display: none; }
 .ct-status { display: flex; align-items: center; gap: 16px; min-height: 44px; color: var(--ink); font-size: 14px; }
 .ct-text { background: transparent; border: 0; color: var(--ink2); font-size: 14px; padding: 6px 10px; min-height: 32px; border-radius: var(--r-control); cursor: pointer; transition: background-color var(--dur-fast), color var(--dur-fast); }
 @media (hover: hover) { .ct-text:hover { background: var(--s2); color: var(--ink); } }
-.ct-text:focus-visible, .ct-filter:focus-visible, .ct-comp:focus-visible, .ct-open:focus-visible, .ct-more:focus-visible, .ct-menu button:focus-visible, .ct-back:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.ct-text:focus-visible, .ct-filter:focus-visible, .ct-comp:focus-visible, .ct-open:focus-visible, .ct-more:focus-visible, .ct-menu button:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .ct-search { width: 100%; min-height: 44px; padding: 0 14px; border: 0; border-radius: var(--r-control); background: var(--s2); color: var(--ink); font-size: 15px; }
 .ct-search::placeholder { color: var(--ink2); }
 .ct-filters { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -5148,7 +5148,6 @@ body > #controllerHelpModal { display: none; }
 .ct-comp[aria-current="true"] { background: var(--s2); color: var(--ink); }
 .ct-count { color: var(--ink2); font-size: 13px; flex-shrink: 0; }
 .ct-pieces-title { margin: 4px 0 4px; font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; color: var(--ink); }
-.ct-back { display: none; background: transparent; border: 0; color: var(--ink2); min-height: 44px; padding: 0 8px; cursor: pointer; }
 .ct-list { display: flex; flex-direction: column; margin-top: 8px; }
 .ct-row { position: relative; display: flex; align-items: center; min-height: 56px; content-visibility: auto; contain-intrinsic-size: auto 56px; border-radius: var(--r-control); }
 @media (hover: hover) { .ct-row:hover { background: var(--s1); } }
@@ -5164,7 +5163,6 @@ body > #controllerHelpModal { display: none; }
   .ct-cols { grid-template-columns: minmax(0, 1fr); }
   .ct-cols[data-pane="composers"] .ct-pieces { display: none; }
   .ct-cols[data-pane="pieces"] .ct-composers { display: none; }
-  .ct-cols[data-pane="pieces"] .ct-back { display: inline-flex; align-items: center; gap: 4px; }
   /* One pane: the whole page scrolls, so the search and filters move away with the list like in the library */
   .ct-root { overflow-y: auto; overscroll-behavior: contain; }
   .ct-root > * { flex-shrink: 0; }

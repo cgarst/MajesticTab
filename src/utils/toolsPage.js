@@ -60,7 +60,7 @@ export async function releaseEmbeddedTools(keep = false) {
     document.body.appendChild(el);
 }
 
-async function openTool(id, pane) {
+async function openTool(id, pane, onDepth) {
     await releaseEmbeddedTools();
     if (id === 'openfile') {
         const { renderOpenFileView } = await import('../openFileModal.js');
@@ -81,7 +81,7 @@ async function openTool(id, pane) {
         const el = document.createElement('div');
         el.className = 'tool-embedded classtab-tool-embedded';
         pane.appendChild(el);
-        embedded = { id, el, dispose: renderClasstabTool(el) };
+        embedded = { id, el, dispose: renderClasstabTool(el, { onDepth }) };
         return;
     }
     if (id === 'stemdeck') {
@@ -179,6 +179,12 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         if (stageExtra) stageExtra.innerHTML = html;
         if (headExtra) headExtra.innerHTML = html;
     };
+    // A tool with its own levels (the classical tab composers) lends the shell's back control on a phone
+    const backSpan = back.querySelector('span');
+    function setDepth({ backLabel } = {}) {
+        backSpan.textContent = backLabel || 'Tools';
+        back.setAttribute('aria-label', backLabel ? `Back to ${backLabel}` : 'Back to Tools');
+    }
     const wide = () => window.matchMedia('(min-width: 900px)').matches;
 
     async function select(id) {
@@ -187,13 +193,14 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         if (tool.open) { await releaseEmbeddedTools(); tool.open(); return; } // not a section: it works on the song
         if (id !== resumeTool) forgetResume();
         setTitle(tool.title);
+        setDepth();
         setAttribution(tool.attribution);
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.tool === id)));
         wrap.dataset.pane = 'page';
         shell.dataset.pane = 'page';
         wrap.dataset.tool = id;
         shell.dataset.tool = id;
-        await openTool(id, host);
+        await openTool(id, host, setDepth);
         refreshReadouts();
         import('./urlRouter.js').then((m) => m.updateUrl('tools', id)).catch(() => {});
     }
@@ -237,7 +244,9 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         if (b && !b.disabled) select(b.dataset.tool);
     });
     back.addEventListener('click', async () => {
+        if (embedded?.dispose?.stepBack?.()) return; // the tool had a level to go back to
         forgetResume();
+        setDepth();
         wrap.dataset.pane = 'list';
         shell.dataset.pane = 'list';
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', 'false'));
