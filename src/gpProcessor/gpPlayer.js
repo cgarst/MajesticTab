@@ -13,7 +13,7 @@ import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, r
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { deriveSections, DEFAULT_MIN_BARS } from './songSections.js';
-import { createPagedFollow } from '../utils/pagedFollow.js';
+import { createGlide, isLastLine } from '../utils/pagedScroll.js';
 import { buildScoreTimeline, playedBarsFromLookup, buildClickList, tickToScoreMs } from '../audioSync/scorePositions.js';
 
 const STORAGE_KEY_SYNTH_VOLUME = 'majestic_synth_volume';
@@ -875,6 +875,7 @@ function watchUserScroll(output) {
 let externalPlayback = false;
 export function setExternalPlayback(on) {
     externalPlayback = Boolean(on);
+    if (!externalPlayback) hideTurnLine();
 }
 const playbackActive = () => synthPlayerState.isPlaying || externalPlayback;
 
@@ -911,12 +912,61 @@ function readSafeInsets() {
     }
 }
 
+// Vertical layout follows in pages: the cursor travels down the lines that fit, the last of them is toned, and when the
+// cursor enters a line that does not fit the view makes one quick glide that puts it at the top (see src/utils/pagedScroll.js).
+const scrollGlide = createGlide();
+const reduceMotionMq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+let scrollGlideRaf = 0;
+let turnLineEl = null;
+let turnLineKey = '';
+
+function startScrollGlide(output, to) {
+    scrollGlide.start(output.scrollTop, to, performance.now());
+    if (scrollGlideRaf) return;
+    const frame = (now) => {
+        scrollGlideRaf = 0;
+        // The reader took over (wheel, touch, a drag of the scrollbar): the glide stops where it is
+        if (performance.now() < userScrollingUntil) { scrollGlide.cancel(); return; }
+        const v = scrollGlide.step(now);
+        if (v == null) return;
+        markAutoScrollWrite();
+        output.scrollTop = v;
+        if (scrollGlide.active) scrollGlideRaf = requestAnimationFrame(frame);
+    };
+    scrollGlideRaf = requestAnimationFrame(frame);
+}
+
+/** Tones the last line on the page while the cursor is in it. `rect` is the line in the cursor layer's coordinates, or null. */
+function showTurnLine(wrapper, rect) {
+    if (!wrapper) return;
+    if (!turnLineEl || turnLineEl.parentElement !== wrapper) {
+        turnLineEl = document.createElement('div');
+        turnLineEl.className = 'gp-turn-line';
+        turnLineEl.setAttribute('aria-hidden', 'true');
+        wrapper.insertBefore(turnLineEl, wrapper.firstChild);
+        turnLineKey = '';
+    }
+    const key = rect ? `${rect.x}|${rect.y}|${rect.w}|${rect.h}` : '';
+    if (key === turnLineKey) return;
+    turnLineKey = key;
+    if (rect) {
+        turnLineEl.style.left = `${rect.x}px`;
+        turnLineEl.style.top = `${rect.y}px`;
+        turnLineEl.style.width = `${rect.w}px`;
+        turnLineEl.style.height = `${rect.h}px`;
+    }
+    turnLineEl.classList.toggle('is-on', Boolean(rect));
+}
+function hideTurnLine() {
+    if (turnLineEl) { turnLineEl.classList.remove('is-on'); turnLineKey = ''; }
+}
+
 /**
  * Handle auto-scrolling with quick snap and read-ahead in Continuous Mode
  * Adjusts scrolling to consider the virtual fretboard dock so that current stave group is entirely visible
  */
 export function updateContinuousPlaybackScroll(currentTick, force = false, targetBeat = null, barIndexHint = null, bringIntoView = false) {
-    if (!currentApi || !currentScore || (!playbackActive() && !force)) return;
+    if (!currentApi || !currentScore || (!playbackActive() && !force)) { hideTurnLine(); return; }
     // A MIDI file under a text or PDF tab plays through a hidden one-bar score; there is nothing on the page to follow
     if (currentApi.followDisabled) return;
 
@@ -1023,11 +1073,31 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     const visualTop = (sysY > 0) ? (sysY - output.scrollTop) : cursorVisualTop;
     const visualBottom = visualTop + sysH;
 
-    // 3. Occlusion and read-ahead checks
+    // 3. Occlusion and page checks
+    // The page ends above the room the dock takes at the bottom of the score. A system that fits a page turns the page when
+    // the cursor enters one that runs past that; a system taller than a page keeps the old rule (it turns at 60% of the view).
+    const dockRoom = Math.min(parseFloat(getComputedStyle(output).paddingBottom) || 0, visibleViewportHeight * 0.25);
+    const usableBottom = visibleViewportHeight - dockRoom;
+    const pagedLine = sysY > 0 && sysH <= (usableBottom - safeTop) * 0.8;
+    // Read-ahead: when the page has room for the cursor's system and the next one, the next one is always fully in view, so
+    // the page turns when the cursor enters a system whose successor would not fit. Without that room only the system itself counts.
+    const sysList = boundsLookup?.staffSystems;
+    const sysIdx = (targetStaffSystem && sysList) ? sysList.indexOf(targetStaffSystem) : -1;
+    const containerTopAll = gpState.canvases[0]?.container?.offsetTop || 0;
+    const bottomOfSys = (sys) => {
+        const v = sys ? (sys.realBounds || sys.visualBounds) : null;
+        return v ? containerTopAll + v.y + v.h - output.scrollTop : null;
+    };
+    const nextBottomNow = sysIdx >= 0 ? bottomOfSys(sysList[sysIdx + 1]) : null;
+    const readAhead = pagedLine && nextBottomNow != null && (nextBottomNow - visualTop) <= (usableBottom - TOP_PADDING);
+    const reachBottom = readAhead ? nextBottomNow : visualBottom;
     const isAboveTop = visualTop < safeTop || (hasValidCursor && cursorVisualTop < safeTop);
     const isHidingBehindFretboard = isFretboardOpen && !tabletop && (Math.max(visualBottom, cursorVisualBottom) > (visibleViewportHeight - 16));
     // A seek (the ruler) brings the bar into view the way playback would, even while paused
-    const isBelowThreshold = (playbackActive() || bringIntoView) && (visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60)));
+    const isBelowThreshold = (playbackActive() || bringIntoView) && (pagedLine
+        ? reachBottom > usableBottom
+        : (visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60))));
+    let scrolledNow = false;
 
     // Tabletop: the score is positioned by the cursor. Opening a song (or a seek) puts the cursor's system at the top of the
     // score half, so the title block and the page margin above the first system do not take the room.
@@ -1050,11 +1120,36 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
             }
         }
         if (Math.abs(output.scrollTop - targetScrollTop) > 5) {
-            autoScrollWrite = true;
-            output.scrollTop = targetScrollTop;
-            // scroll events fire asynchronously; clear the flag after they've been dispatched
-            requestAnimationFrame(() => requestAnimationFrame(() => { autoScrollWrite = false; }));
+            scrolledNow = true;
+            // Playback turning the page glides; a seek, a start, a mode switch or a far jump goes there at once
+            const glideIt = pagedLine && playbackActive() && !force && !bringIntoView && !tabletopSnap
+                && !isAboveTop && !(reduceMotionMq?.matches)
+                && Math.abs(output.scrollTop - targetScrollTop) <= output.clientHeight * 1.2;
+            if (glideIt) {
+                if (!(scrollGlide.active && Math.abs(scrollGlide.to - targetScrollTop) <= 5)) startScrollGlide(output, targetScrollTop);
+            } else {
+                scrollGlide.cancel();
+                autoScrollWrite = true;
+                output.scrollTop = targetScrollTop;
+                // scroll events fire asynchronously; clear the flag after they've been dispatched
+                requestAnimationFrame(() => requestAnimationFrame(() => { autoScrollWrite = false; }));
+            }
         }
+    }
+
+    // The last line the page keeps is toned while the cursor is in it, so the turn is seen coming
+    if (!output.classList.contains('gp-horizontal-mode')) {
+        let rect = null;
+        if (pagedLine && playbackActive() && !scrolledNow && !scrollGlide.active && targetStaffSystem && cursorEl?.parentElement) {
+            // With read-ahead the turn comes when the cursor enters the next system, if the one after it would not fit
+            const turnFrom = readAhead ? sysList[sysIdx + 1] : null;
+            const afterBottom = readAhead ? bottomOfSys(sysList[sysIdx + 2]) : bottomOfSys(sysList[sysIdx + 1]);
+            const sv = targetStaffSystem.realBounds || targetStaffSystem.visualBounds;
+            if (sv && (readAhead ? turnFrom : true) && isLastLine({ bottom: reachBottom, nextBottom: afterBottom, usableBottom })) {
+                rect = { x: sv.x, y: sv.y, w: sv.w, h: sv.h };
+            }
+        }
+        showTurnLine(cursorEl?.parentElement, rect);
     }
 
     // Horizontal layout: keep the cursor centered in the viewport as the score scrolls behind it
@@ -1062,15 +1157,8 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
         if (output.classList.contains('gp-horizontal-mode')) {
             const maxScrollLeft = Math.max(0, output.scrollWidth - output.clientWidth);
             const cursorCenterRel = (cursorRect.left + cursorRect.width / 2) - outputRect.left;
-            // A seek or a start shows the cursor's page without a glide; following playback is paged (see horizGlide)
-            const targetScrollLeft = pagedFollow.place({
-                cx: output.scrollLeft + cursorCenterRel,
-                scrollLeft: output.scrollLeft,
-                viewW: output.clientWidth,
-                maxScroll: maxScrollLeft,
-                getBarlines: horizontalBarlines
-            });
-            if ((playbackActive() || bringIntoView) && targetScrollLeft != null && Math.abs(output.scrollLeft - targetScrollLeft) >= 1) {
+            const targetScrollLeft = Math.max(0, Math.min(maxScrollLeft, output.scrollLeft + cursorCenterRel - (output.clientWidth / 2)));
+            if ((playbackActive() || bringIntoView) && Math.abs(output.scrollLeft - targetScrollLeft) >= 1) {
                 markAutoScrollWrite();
                 output.scrollLeft = targetScrollLeft;
             }
@@ -1182,59 +1270,6 @@ function isHorizontalMode() {
     return Boolean(document.getElementById('output')?.classList.contains('gp-horizontal-mode'));
 }
 
-// Horizontal layout follows in pages: the cursor travels over still notation, the last bar before the turn is toned,
-// and the view glides once to put that barline at the anchor (see src/utils/pagedFollow.js).
-const pagedFollow = createPagedFollow();
-const reduceMotionMq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
-let barlineCache = { lookup: null, origin: 0, xs: [] };
-let turnBarEl = null;
-let turnBarKey = '';
-
-/** Barlines of the horizontal score in scroll space, ascending. Rebuilt when the score is re-rendered. */
-function horizontalBarlines() {
-    const lookup = currentApi?.renderer?.boundsLookup;
-    const container = gpState.canvases[0]?.container;
-    if (!lookup || !container) return [];
-    const origin = container.offsetLeft;
-    if (barlineCache.lookup !== lookup || barlineCache.origin !== origin) {
-        const xs = new Set();
-        for (const sys of (lookup.staffSystems || [])) {
-            for (const b of (sys.bars || [])) {
-                const v = b.realBounds || b.visualBounds;
-                if (!v) continue;
-                xs.add(Math.round(origin + v.x));
-                xs.add(Math.round(origin + v.x + v.w));
-            }
-        }
-        barlineCache = { lookup, origin, xs: Array.from(xs).sort((a, b) => a - b) };
-        pagedFollow.reset();
-    }
-    return barlineCache.xs;
-}
-
-/** Tones the last bar of the page while the cursor is in it, so the turn is seen coming. */
-function showTurnBar(reader, warn, origin) {
-    const wrapper = reader?.parentElement;
-    if (!wrapper) return;
-    if (!turnBarEl || turnBarEl.parentElement !== wrapper) {
-        turnBarEl = document.createElement('div');
-        turnBarEl.className = 'gp-turn-bar';
-        turnBarEl.setAttribute('aria-hidden', 'true');
-        wrapper.insertBefore(turnBarEl, wrapper.firstChild);
-        turnBarKey = '';
-    }
-    const key = warn ? `${warn.from}|${warn.to}|${reader.style.top}|${reader.style.height}` : '';
-    if (key === turnBarKey) return;
-    turnBarKey = key;
-    if (warn) {
-        turnBarEl.style.top = reader.style.top;
-        turnBarEl.style.height = reader.style.height;
-        turnBarEl.style.width = `${warn.to - warn.from}px`;
-        turnBarEl.style.transform = `translate3d(${warn.from - origin}px, 0, 0)`;
-    }
-    turnBarEl.classList.toggle('is-on', Boolean(warn));
-}
-
 function syncHorizontalScrollToX(x) {
     const output = document.getElementById('output');
     const container = gpState.canvases[0]?.container;
@@ -1295,7 +1330,6 @@ export function createCustomCursorHandler(api) {
         horizGlide = null;
         if (vertGlide?.rafId) cancelAnimationFrame(vertGlide.rafId);
         vertGlide = null;
-        if (turnBarEl) { turnBarEl.classList.remove('is-on'); turnBarKey = ''; }
     }
 
     function getOrCreateReader() {
@@ -1635,7 +1669,7 @@ export function createCustomCursorHandler(api) {
                     const maxScroll = (output && output.scrollWidth > output.clientWidth + 1)
                         ? Math.max(0, output.scrollWidth - output.clientWidth)
                         : 0;
-                    const origin = container ? container.offsetLeft : 0;
+                    const originLeft = (output && container) ? (container.offsetLeft - (output.clientWidth / 2)) : 0;
                     reader.style.transition = 'none';
                     if (!horizGlide) {
                         const glide = {
@@ -1647,7 +1681,7 @@ export function createCustomCursorHandler(api) {
                             startTime: performance.now(),
                             duration: animDuration,
                             maxScroll,
-                            origin
+                            originLeft
                         };
                         horizGlide = glide;
                         const step = (now) => {
@@ -1656,23 +1690,11 @@ export function createCustomCursorHandler(api) {
                             const curX = glide.startX + (glide.targetX - glide.startX) * t;
                             setCursorX(glide.reader, curX);
                             if (glide.output && glide.maxScroll > 0 && now >= userScrollingUntil) {
-                                const res = pagedFollow.step({
-                                    now,
-                                    cx: glide.origin + curX,
-                                    scrollLeft: glide.output.scrollLeft,
-                                    viewW: glide.output.clientWidth,
-                                    maxScroll: glide.maxScroll,
-                                    getBarlines: horizontalBarlines,
-                                    vx: glide.duration > 0 ? (glide.targetX - glide.startX) / glide.duration : 0,
-                                    reduce: Boolean(reduceMotionMq?.matches)
-                                });
-                                if (res.scrollLeft != null) {
-                                    markAutoScrollWrite();
-                                    glide.output.scrollLeft = res.scrollLeft;
-                                }
-                                showTurnBar(glide.reader, res.warn, glide.origin);
+                                const targetScrollLeft = Math.max(0, Math.min(glide.maxScroll, glide.originLeft + curX));
+                                markAutoScrollWrite();
+                                glide.output.scrollLeft = targetScrollLeft;
                             }
-                            if (t < 1 || playbackActive() || pagedFollow.gliding) {
+                            if (t < 1 || playbackActive()) {
                                 glide.rafId = requestAnimationFrame(step);
                             } else {
                                 horizGlide = null;
@@ -1680,11 +1702,8 @@ export function createCustomCursorHandler(api) {
                         };
                         setCursorX(reader, startBeatX);
                         if (output && maxScroll > 0 && performance.now() >= userScrollingUntil) {
-                            const to = pagedFollow.place({ cx: origin + startBeatX, scrollLeft: output.scrollLeft, viewW: output.clientWidth, maxScroll, getBarlines: horizontalBarlines });
-                            if (to != null) {
-                                markAutoScrollWrite();
-                                output.scrollLeft = to;
-                            }
+                            markAutoScrollWrite();
+                            output.scrollLeft = Math.max(0, Math.min(maxScroll, originLeft + startBeatX));
                         }
                         glide.rafId = requestAnimationFrame(step);
                     } else {
@@ -1696,7 +1715,7 @@ export function createCustomCursorHandler(api) {
                         horizGlide.startTime = performance.now();
                         horizGlide.duration = animDuration;
                         horizGlide.maxScroll = maxScroll;
-                        horizGlide.origin = origin;
+                        horizGlide.originLeft = originLeft;
                     }
                 } else {
                     // Moved by a frame loop, not a CSS transition. WebKit restarts an accelerated transition from a stale
@@ -1751,6 +1770,7 @@ function applyPlayerState(api, state) {
         updateContinuousPlaybackScroll(api.tickPosition, true);
     } else {
         pauseIOSAudioPlayback();
+        hideTurnLine();
     }
     updateSynthUI();
     emitTransportEvent('state', { playing: state === 1, timeMs: toSongMs(api.timePosition) });

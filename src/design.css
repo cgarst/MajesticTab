@@ -6246,19 +6246,19 @@ body.theme-sheet-active .txt-ribbon-gutter {
   color: var(--text-primary, var(--ink)) !important;
 }
 
-/* Paged follow (horizontal score and text ribbon): the last bar before the view glides takes one tone step, so the turn is seen coming */
-.gp-turn-bar {
+/* Paged follow (vertical score and text tab): the last line that fits the page takes one tone step while the cursor is in it, so the turn is seen coming */
+.gp-turn-line {
   position: absolute;
-  left: 0;
   pointer-events: none;
   opacity: 0;
   background: color-mix(in srgb, var(--sheet-text, #1a1a1a) 7%, transparent);
   transition: opacity var(--dur-fast, 150ms) var(--ease-out, ease-out);
 }
-.gp-turn-bar.is-on { opacity: 1; }
-.ts-bar.is-turn-bar { background-color: color-mix(in srgb, var(--sheet-text, #1a1a1a) 7%, transparent); }
+.gp-turn-line.is-on { opacity: 1; }
+/* An inset fill sits over the block's own background and under its text, so the tone is the same whether or not the block paints paper */
+#output [data-block].is-turn-line { box-shadow: inset 0 0 0 100vmax color-mix(in srgb, var(--sheet-text, #1a1a1a) 7%, transparent); }
 @media (prefers-reduced-motion: reduce) {
-  .gp-turn-bar { transition: none; }
+  .gp-turn-line { transition: none; }
 }
 
 .txt-ribbon-playhead {

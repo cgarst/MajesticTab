@@ -31,6 +31,7 @@ import { attachPillCursor } from '../utils/readerCursorShape.js';
 import { makeId, formatTime } from '../audioSync/syncEdit.js';
 import { showToast } from '../utils/toast.js';
 import { positionAt, barProgressAt, backJumps, followTarget, glide } from './readingLine.js';
+import { createGlide, lineNeedsTurn, isLastLine } from '../utils/pagedScroll.js';
 import { textState } from '../textProcessor/textHandler.js';
 
 const $ = (id) => document.getElementById(id);
@@ -533,10 +534,12 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     let clockAt = 0;
     let lastFrameAt = 0;
     let lastFlipAt = 0;
+    const pageGlide = createGlide();
+    let turnLineEl = null;
     let holdUntil = 0; // the reader took over (scrolled, turned the page, dragged the strip): the tab stops following for a moment
     let unitCache = { key: null, ids: [] };
 
-    const hold = () => { holdUntil = performance.now() + 3500; };
+    const hold = () => { holdUntil = performance.now() + 3500; pageGlide.cancel(); };
     output.addEventListener('wheel', hold, { passive: true });
     output.addEventListener('touchmove', hold, { passive: true });
     output.addEventListener('pointerdown', (e) => {
@@ -622,6 +625,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     }
 
     function hideLine() {
+        if (turnLineEl) { turnLineEl.classList.remove('is-turn-line'); turnLineEl = null; }
         line.classList.add('is-off');
         if (!line.hidden && !line._hiding) {
             line._hiding = setTimeout(() => { line.hidden = true; line._hiding = 0; }, 160);
@@ -741,18 +745,60 @@ export function initTextSync({ getConfig, getCurrentFile }) {
 
         const outR = output.getBoundingClientRect();
         let settling = false;
+        let turnEl = null;
         if (!pageMode && now > holdUntil) {
             const viewH = output.clientHeight;
-            const lineY = y - outR.top + output.scrollTop;
-            let target = followTarget({ lineY, viewH, scrollTop: output.scrollTop });
-            if (target != null) {
-                // With reduced motion the page moves in one step, putting the line near the top, instead of gliding
-                if (reduceMotion.matches) target = Math.max(0, lineY - viewH * 0.2);
+            // Paged follow: a unit that fits a page stays still while the line travels it; entering one that runs past the
+            // bottom turns the page with one quick glide that puts it at the top. Taller units keep the old gliding follow.
+            const dockRoom = Math.min(parseFloat(getComputedStyle(output).paddingBottom) || 0, viewH * 0.25);
+            const usable = { usableTop: 0, usableBottom: viewH - dockRoom };
+            const unitView = { top: r.top - outR.top, bottom: r.bottom - outR.top };
+            const paged = !placed && (pageGlide.active || (r.height <= (usable.usableBottom - usable.usableTop) * 0.8));
+            // Read-ahead: with room for this unit and the next one below it, the next one is always fully in view, so the
+            // page turns when the cursor enters a unit whose successor would not fit
+            const below = (rect) => (rect && rect.top > r.top + 1 && Math.abs(rect.left - r.left) < 12) ? rect : null;
+            const nextR = below(nr);
+            const nextView = nextR ? { top: nextR.top - outR.top, bottom: nextR.bottom - outR.top } : null;
+            const readAhead = Boolean(nextView) && (nextView.bottom - unitView.top) <= usable.usableBottom - usable.usableTop - 12;
+            const reach = readAhead ? nextView.bottom : unitView.bottom;
+            if (paged) {
                 const before = output.scrollTop;
-                output.scrollTop = reduceMotion.matches ? target : glide(before, target, dt);
+                const maxScroll = Math.max(0, output.scrollHeight - viewH);
+                if (!pageGlide.active && lineNeedsTurn({ top: unitView.top, bottom: reach, ...usable, maxFrac: 10 })) {
+                    const to = Math.max(0, Math.min(maxScroll, before + unitView.top - 12));
+                    if (Math.abs(to - before) > 1) {
+                        if (!playing || reduceMotion.matches || Math.abs(to - before) > viewH * 1.2) output.scrollTop = to;
+                        else pageGlide.start(before, to, now);
+                    }
+                }
+                const v = pageGlide.step(now);
+                if (v != null) output.scrollTop = v;
                 y -= output.scrollTop - before;
-                settling = Math.abs(target - output.scrollTop) > 0.5;
+                settling = pageGlide.active;
+                if (playing && !pageGlide.active && nextR) {
+                    const after = output.scrollTop - before;
+                    const afterEl = readAhead ? unitEl(ids[k + 2]) : unitEl(ids[k + 1]);
+                    const ar = afterEl?.getBoundingClientRect();
+                    if (ar && isLastLine({ bottom: reach - after, nextBottom: ar.bottom - outR.top - after, usableBottom: usable.usableBottom })) turnEl = el;
+                }
+            } else {
+                pageGlide.cancel();
+                const lineY = y - outR.top + output.scrollTop;
+                let target = followTarget({ lineY, viewH, scrollTop: output.scrollTop });
+                if (target != null) {
+                    // With reduced motion the page moves in one step, putting the line near the top, instead of gliding
+                    if (reduceMotion.matches) target = Math.max(0, lineY - viewH * 0.2);
+                    const before = output.scrollTop;
+                    output.scrollTop = reduceMotion.matches ? target : glide(before, target, dt);
+                    y -= output.scrollTop - before;
+                    settling = Math.abs(target - output.scrollTop) > 0.5;
+                }
             }
+        }
+        if (turnEl !== turnLineEl) {
+            turnLineEl?.classList.remove('is-turn-line');
+            turnEl?.classList.add('is-turn-line');
+            turnLineEl = turnEl;
         }
 
         const hostR = lineHost.getBoundingClientRect();
