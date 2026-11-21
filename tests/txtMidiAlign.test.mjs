@@ -179,3 +179,68 @@ test('alignTxtAndMidi handles degenerate 1/16 MIDI signatures, 2:1 bar ratios, a
     assert.equal(alignment.tier, 'A');
     assert.ok(alignment.points.every((p, i) => i === 0 || p.timeMs >= alignment.points[i - 1].timeMs));
 });
+
+test('alignTxtAndMidi emits note-level points for rolled chords and shifted MIDI barlines', () => {
+    const lines = [
+        'e|-------------3-----------4-----------1-----------|',
+        'B|-------------1-----------4-----------3-----------|',
+        'G|-------------0-----------5-----------3-----------|',
+        'D|-------------2-----------6-----------3-----------|',
+        'A|-------------3-----------6-----------1-----------|',
+        'E|-------------------------4-----------------------|',
+        '',
+        'e|-0-----------------------|',
+        'B|-1-----------------------|',
+        'G|-0-----------------------|',
+        'D|-2-----------------------|',
+        'A|-3-----------------------|',
+        'E|-------------------------|'
+    ];
+    const blocks = groupBlocks(lines);
+    // Shifted MIDI: bar 1 starts at 250ms, bar 2 chord arrives at 4536ms (inside MIDI bar 0 [0..5845])
+    const midiData = {
+        division: 192,
+        lastTick: 2304,
+        primaryBpm: 42,
+        initialTimeSig: { num: 12, den: 8 },
+        notes: [
+            // Rolled C major chord (250..488ms)
+            { tick: 96, ms: 250, pitch: 48 },
+            { tick: 108, ms: 310, pitch: 52 },
+            { tick: 120, ms: 369, pitch: 55 },
+            { tick: 132, ms: 429, pitch: 60 },
+            { tick: 144, ms: 488, pitch: 67 },
+            // Rolled Ab major chord (1679..1976ms)
+            { tick: 360, ms: 1679, pitch: 44 },
+            { tick: 372, ms: 1738, pitch: 51 },
+            { tick: 384, ms: 1798, pitch: 56 },
+            { tick: 396, ms: 1857, pitch: 60 },
+            { tick: 408, ms: 1917, pitch: 68 },
+            // Rolled Bb major chord (3107..3345ms)
+            { tick: 620, ms: 3107, pitch: 46 },
+            { tick: 632, ms: 3167, pitch: 53 },
+            { tick: 644, ms: 3226, pitch: 58 },
+            { tick: 656, ms: 3286, pitch: 62 },
+            { tick: 668, ms: 3345, pitch: 65 },
+            // Bar 2 C major chord arriving early at 4536ms (inside MIDI bar 0)
+            { tick: 880, ms: 4536, pitch: 48 },
+            { tick: 892, ms: 4595, pitch: 52 },
+            { tick: 904, ms: 4655, pitch: 55 },
+            { tick: 916, ms: 4714, pitch: 60 },
+            { tick: 928, ms: 4774, pitch: 64 }
+        ],
+        bars: [
+            { index: 0, startTick: 0, endTick: 1152, startMs: 0, endMs: 5845, beats: 12, num: 12, den: 8 },
+            { index: 1, startTick: 1152, endTick: 2304, startMs: 5845, endMs: 11690, beats: 12, num: 12, den: 8 }
+        ]
+    };
+
+    const alignment = alignTxtAndMidi({ blocks, midiData, baseBpm: 42, mode: 'midi' });
+    assert.equal(alignment.tier, 'A');
+    assert.equal(alignment.points.length, 4);
+    assert.equal(alignment.points[0].timeMs, 250);
+    assert.equal(alignment.points[1].timeMs, 1679);
+    assert.equal(alignment.points[2].timeMs, 3107);
+    assert.equal(alignment.points[3].timeMs, 4536);
+    assert.ok(alignment.points[0].colStartFrac > 0.2);
+});

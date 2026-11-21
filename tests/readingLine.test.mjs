@@ -98,3 +98,18 @@ test('backJumps includes 1-bar in-place repeats on the same unit and barOffset',
     assert.deepEqual([...backJumps(pts, ['5'])], ['p1']);
 });
 
+test('note-level points in the same bar advance barFrac/colFrac without triggering repeats', () => {
+    const notePts = [
+        { id: 'n0', barIndex: '0', barOffset: 0, barCount: 1, colStartFrac: 0.25, colEndFrac: 0.5, barColStartFrac: 0, barColEndFrac: 1, timeMs: 250, endTimeMs: 1250 },
+        { id: 'n1', barIndex: '0', barOffset: 0, barCount: 1, colStartFrac: 0.5, colEndFrac: 0.75, barColStartFrac: 0, barColEndFrac: 1, timeMs: 1250, endTimeMs: 2250 },
+        { id: 'n2', barIndex: '0', barOffset: 0, barCount: 1, colStartFrac: 0.75, colEndFrac: 1.0, barColStartFrac: 0, barColEndFrac: 1, timeMs: 2250, endTimeMs: 3250 }
+    ];
+    assert.equal(backJumps(notePts, ['0']).size, 0);
+    const p0 = barProgressAt(notePts, ['0'], 250, 3250);
+    assert.ok(Math.abs(p0.colFrac - 0.25) < 1e-6);
+    assert.ok(Math.abs(p0.barFrac - 0.25) < 1e-6);
+    const pMid = barProgressAt(notePts, ['0'], 1750, 3250);
+    assert.ok(Math.abs(pMid.colFrac - 0.625) < 1e-6);
+    assert.ok(Math.abs(pMid.barFrac - 0.625) < 1e-6);
+});
+

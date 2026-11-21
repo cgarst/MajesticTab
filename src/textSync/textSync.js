@@ -716,9 +716,12 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             if (activeCursor && prog) {
                 const sysBlock = textState.blocks?.[prog.unitId];
                 const trimCols = sysBlock?.trimCols ?? 2;
+                const maxCols = Number(el.dataset.maxCols) || 0;
                 attachPillCursor(activeCursor); // the page and scroll views hold clones, which lost their drawing
                 activeCursor.hidden = false;
-                activeCursor.style.left = `calc(${trimCols}ch + (100% - ${trimCols}ch) * ${prog.colFrac.toFixed(4)})`;
+                activeCursor.style.left = maxCols > trimCols
+                    ? `calc(${trimCols}ch + ${maxCols - trimCols}ch * ${prog.colFrac.toFixed(4)})`
+                    : `calc(${trimCols}ch + (100% - ${trimCols}ch) * ${prog.colFrac.toFixed(4)})`;
             }
         }
 

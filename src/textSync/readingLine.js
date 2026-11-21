@@ -23,13 +23,24 @@ export function backJumps(points, unitIds) {
     const out = new Set();
     let prev = -1;
     let prevBarOffset = -1;
+    let prevColStartFrac = -1;
     for (const p of points) {
         const r = rankOf(unitIds, p.barIndex);
         if (r < 0) continue;
         const bo = p.barOffset ?? 0;
-        if (prev >= 0 && (r < prev || (r === prev && bo <= prevBarOffset))) out.add(p.id);
+        const cf = p.colStartFrac ?? null;
+        if (prev >= 0) {
+            if (r < prev || (r === prev && bo < prevBarOffset)) {
+                out.add(p.id);
+            } else if (r === prev && bo === prevBarOffset) {
+                if (cf === null || prevColStartFrac === null || cf <= prevColStartFrac) {
+                    out.add(p.id);
+                }
+            }
+        }
         prev = r;
         prevBarOffset = bo;
+        prevColStartFrac = cf;
     }
     return out;
 }
@@ -74,7 +85,7 @@ export function positionAt(points, unitIds, timeMs, endMs = null) {
     if (b) {
         const span = b.t - a.t;
         if (span <= 0) return a.rank;
-        if (b.rank <= a.rank) {
+        if (b.rank < a.rank || (b.rank === a.rank && (b.raw.colStartFrac == null || a.raw.colStartFrac == null || b.raw.colStartFrac <= a.raw.colStartFrac))) {
             // A repeat: the next point goes back. The player keeps reading on through this unit/bar (at most 20 s, as past the
             // last point) and the line jumps back when the clock reaches the point.
             const room = Math.min(20000, span);
@@ -115,8 +126,12 @@ export function barProgressAt(points, unitIds, timeMs, endMs = null) {
     if (p && p.colStartFrac !== undefined && p.colEndFrac !== undefined && rankOf(unitIds, p.barIndex) === unitIndex) {
         const endT = p.endTimeMs ?? (nextP ? nextP.timeMs : (endMs || p.timeMs + 2000));
         const dur = Math.max(1, endT - p.timeMs);
-        const barFrac = timeMs < p.timeMs ? 0 : Math.max(0, Math.min(1, (timeMs - p.timeMs) / dur));
-        const colFrac = p.colStartFrac + (p.colEndFrac - p.colStartFrac) * barFrac;
+        const segFrac = timeMs < p.timeMs ? 0 : Math.max(0, Math.min(1, (timeMs - p.timeMs) / dur));
+        const colFrac = p.colStartFrac + (p.colEndFrac - p.colStartFrac) * segFrac;
+        const bStart = p.barColStartFrac ?? p.colStartFrac;
+        const bEnd = p.barColEndFrac ?? p.colEndFrac;
+        const bSpan = bEnd - bStart;
+        const barFrac = bSpan > 1e-6 ? Math.max(0, Math.min(1, (colFrac - bStart) / bSpan)) : segFrac;
         return {
             rank: pos,
             unitIndex,

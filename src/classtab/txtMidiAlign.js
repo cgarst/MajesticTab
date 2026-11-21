@@ -432,7 +432,162 @@ function alignBarSequences(seqBars, midiBars, midiNotes) {
     }
 
     const avgSim = totalSim / P;
-    return { mapped, avgSim, tier: avgSim >= 0.2 ? 'A' : 'B' };
+    return { mapped, avgSim, tier: avgSim >= 0.2 ? 'A' : 'B', bestShift };
+}
+
+/**
+ * Aligns individual tab chord/note onsets (`vb.noteOnsets`) against clustered MIDI note onsets
+ * using a banded monotonic DP with rolled-chord (`arp.`) absorption.
+ * Returns null if there are too few onsets or match quality is below threshold.
+ */
+function alignNoteOnsets(alignedSeq, midiNotes, stringPcs, bestShift, totalDurationMs) {
+    if (!alignedSeq.length || !midiNotes?.length) return null;
+
+    const tabOnsets = [];
+    for (let b = 0; b < alignedSeq.length; b++) {
+        const item = alignedSeq[b];
+        const vb = item.visualBar;
+        const barDur = Math.max(1, item.endMs - item.startMs);
+        const barSpan = Math.max(1, vb.colEnd - vb.colStart);
+        for (const onset of vb.noteOnsets || []) {
+            const rawMask = barPitchMask([onset], stringPcs);
+            const mask = rotateMask12(rawMask, bestShift);
+            const localFrac = Math.max(0, Math.min(1, (onset.col - vb.colStart) / barSpan));
+            tabOnsets.push({
+                onsetIdx: tabOnsets.length,
+                barIdx: b,
+                col: onset.col,
+                colFrac: vb.colStartFrac + (vb.colEndFrac - vb.colStartFrac) * localFrac,
+                mask,
+                noteCount: onset.frets?.length || 1,
+                estMs: item.startMs + localFrac * barDur
+            });
+        }
+    }
+    if (tabOnsets.length < 4) return null;
+
+    const midiClusters = [];
+    for (const n of midiNotes) {
+        const last = midiClusters[midiClusters.length - 1];
+        const pc = n.pitch % 12;
+        if (last && (n.ms - last.lastMs) <= 28) {
+            last.lastMs = n.ms;
+            last.mask |= (1 << pc);
+            last.count++;
+        } else {
+            midiClusters.push({ startMs: n.ms, lastMs: n.ms, mask: (1 << pc), count: 1 });
+        }
+    }
+    if (midiClusters.length < 4) return null;
+
+    const T = tabOnsets.length;
+    const M = midiClusters.length;
+    const INF = 1e9;
+    const W = Math.max(60, Math.min(140, Math.round(M * 0.08)));
+    const BW = 2 * W + 1;
+
+    const centers = new Int32Array(T);
+    let mj = 0;
+    for (let i = 0; i < T; i++) {
+        while (mj + 1 < M && midiClusters[mj].startMs < tabOnsets[i].estMs) mj++;
+        centers[i] = mj;
+    }
+
+    const dp = Array.from({ length: T }, () => new Float64Array(BW).fill(INF));
+    const backO = Array.from({ length: T }, () => new Int32Array(BW).fill(-1));
+    const spanEnd = Array.from({ length: T }, () => new Int32Array(BW).fill(-1));
+    const bestScores = Array.from({ length: T }, () => new Float32Array(BW));
+
+    const evalChordAt = (i, j) => {
+        const t = tabOnsets[i];
+        const maxK = t.noteCount >= 2 ? Math.min(6, t.noteCount + 1) : 1;
+        let bestScore = -1;
+        let bestEnd = j;
+        let combMask = 0;
+        for (let k = 0; k < maxK && j + k < M; k++) {
+            if (k > 0 && (midiClusters[j + k].startMs - midiClusters[j + k - 1].lastMs > 90
+                || midiClusters[j + k].startMs - midiClusters[j].startMs > 380)) {
+                break;
+            }
+            combMask |= midiClusters[j + k].mask;
+            const s = maskSimilarity(t.mask, combMask);
+            if (s >= bestScore - 1e-6) {
+                bestScore = s;
+                bestEnd = j + k;
+            }
+        }
+        return { bestScore: Math.max(0, bestScore), bestEnd };
+    };
+
+    for (let o = 0; o < BW; o++) {
+        const j = centers[0] - W + o;
+        if (j < 0 || j >= M) continue;
+        const { bestScore, bestEnd } = evalChordAt(0, j);
+        dp[0][o] = (1 - bestScore) * 2.5 + Math.abs(midiClusters[j].startMs - tabOnsets[0].estMs) * 0.00004 + j * 0.02;
+        spanEnd[0][o] = bestEnd;
+        bestScores[0][o] = bestScore;
+    }
+
+    for (let i = 1; i < T; i++) {
+        const ci = centers[i];
+        const ciPrev = centers[i - 1];
+        const estMs = tabOnsets[i].estMs;
+        for (let o = 0; o < BW; o++) {
+            const j = ci - W + o;
+            if (j < 0 || j >= M) continue;
+            const { bestScore, bestEnd } = evalChordAt(i, j);
+            const matchCost = (1 - bestScore) * 2.5 + Math.abs(midiClusters[j].startMs - estMs) * 0.00004;
+            let bestPrevCost = INF;
+            let bestPrevO = -1;
+            for (let po = 0; po < BW; po++) {
+                const pj = ciPrev - W + po;
+                if (pj < 0 || pj >= M || dp[i - 1][po] >= INF) continue;
+                const pEnd = spanEnd[i - 1][po];
+                if (j <= pEnd) continue;
+                const skipCost = (j - pEnd - 1) * 0.25;
+                const c = dp[i - 1][po] + matchCost + skipCost;
+                if (c < bestPrevCost) {
+                    bestPrevCost = c;
+                    bestPrevO = po;
+                }
+            }
+            if (bestPrevO >= 0) {
+                dp[i][o] = bestPrevCost;
+                backO[i][o] = bestPrevO;
+                spanEnd[i][o] = bestEnd;
+                bestScores[i][o] = bestScore;
+            }
+        }
+    }
+
+    let bestLastO = -1;
+    let bestLastCost = INF;
+    for (let o = 0; o < BW; o++) {
+        if (dp[T - 1][o] < bestLastCost) {
+            bestLastCost = dp[T - 1][o];
+            bestLastO = o;
+        }
+    }
+    if (bestLastO < 0) return null;
+
+    const matchedMs = new Float64Array(T);
+    let sumSim = 0;
+    let curO = bestLastO;
+    for (let i = T - 1; i >= 0; i--) {
+        const j = centers[i] - W + curO;
+        matchedMs[i] = midiClusters[j].startMs;
+        sumSim += bestScores[i][curO];
+        curO = backO[i][curO];
+    }
+    if ((sumSim / T) < 0.45) return null;
+
+    // Group tabOnsets by barIdx
+    const byBar = Array.from({ length: alignedSeq.length }, () => []);
+    for (let i = 0; i < T; i++) {
+        byBar[tabOnsets[i].barIdx].push(tabOnsets[i]);
+    }
+
+    return { byBar, matchedMs, endMs: Math.max(totalDurationMs || 0, midiClusters[M - 1].lastMs + 500) };
 }
 
 /**
@@ -596,8 +751,10 @@ export function alignTxtAndMidi({
         const chosenNonPickup = chosenSeq.filter(u => !u.visualBar.isPickup);
         const hasInternalPickups = chosenSeq.some((u, idx) => idx > 0 && u.visualBar.isPickup);
 
+        let bestShift = 0;
         if ((pickupBar0 || hasInternalPickups) && Math.abs(chosenNonPickup.length - fullMidiBars.length) <= 1) {
             const fullRes = alignBarSequences(chosenNonPickup, fullMidiBars, midiNotes);
+            bestShift = fullRes.bestShift || 0;
             const fullMapped = fullRes.mapped;
             const defaultPickupMs = pickupBar0
                 ? Math.max(100, pickupBar0.endMs - pickupBar0.startMs)
@@ -660,6 +817,59 @@ export function alignTxtAndMidi({
             const res = alignBarSequences(chosenSeq, midiBars, midiNotes);
             alignedSeq = res.mapped;
             tier = res.tier;
+            bestShift = res.bestShift || 0;
+        }
+        const barTotalMs = alignedSeq.length > 0 ? alignedSeq[alignedSeq.length - 1].endMs : 0;
+        const noteAligned = tier !== 'C'
+            ? alignNoteOnsets(alignedSeq, midiNotes, openStringPitchClasses(tuning, capoFret), bestShift, barTotalMs)
+            : null;
+        if (noteAligned) {
+            const { byBar, matchedMs, endMs } = noteAligned;
+            // Refine alignedSeq bar start/end monotonically from matched first-note timestamps
+            const firstMsPerBar = byBar.map((list, idx) =>
+                list.length > 0 ? matchedMs[list[0].onsetIdx] : null
+            );
+            let prevEnd = 0;
+            for (let b = 0; b < alignedSeq.length; b++) {
+                const rawDur = Math.max(1, alignedSeq[b].endMs - alignedSeq[b].startMs);
+                if (firstMsPerBar[b] !== null) {
+                    alignedSeq[b].startMs = b === 0
+                        ? Math.min(alignedSeq[b].startMs, firstMsPerBar[b])
+                        : Math.max(prevEnd, firstMsPerBar[b]);
+                } else {
+                    alignedSeq[b].startMs = prevEnd;
+                }
+                // Find next bar with matched notes to bound this bar's endMs
+                let nextKnownIdx = -1;
+                for (let nb = b + 1; nb < alignedSeq.length; nb++) {
+                    if (firstMsPerBar[nb] !== null) { nextKnownIdx = nb; break; }
+                }
+                if (nextKnownIdx === b + 1) {
+                    alignedSeq[b].endMs = Math.max(alignedSeq[b].startMs + 1, firstMsPerBar[nextKnownIdx]);
+                } else if (nextKnownIdx > b + 1) {
+                    const emptyFollowing = nextKnownIdx - (b + 1);
+                    const lastNoteMs = byBar[b].length > 0
+                        ? matchedMs[byBar[b][byBar[b].length - 1].onsetIdx]
+                        : alignedSeq[b].startMs;
+                    const targetEnd = Math.max(lastNoteMs + 1, firstMsPerBar[nextKnownIdx]);
+                    if (byBar[b].length > 0) {
+                        const rem = Math.max(emptyFollowing, targetEnd - lastNoteMs);
+                        alignedSeq[b].endMs = Math.max(alignedSeq[b].startMs + 1, lastNoteMs + rem / (emptyFollowing + 1));
+                    } else {
+                        const step = Math.max(1, (targetEnd - alignedSeq[b].startMs) / (emptyFollowing + 1));
+                        alignedSeq[b].endMs = alignedSeq[b].startMs + step;
+                    }
+                } else if (b === alignedSeq.length - 1) {
+                    alignedSeq[b].endMs = Math.max(alignedSeq[b].startMs + 1, endMs);
+                } else {
+                    const lastNoteMs = byBar[b].length > 0
+                        ? matchedMs[byBar[b][byBar[b].length - 1].onsetIdx]
+                        : alignedSeq[b].startMs;
+                    alignedSeq[b].endMs = Math.max(lastNoteMs + 1, alignedSeq[b].startMs + rawDur);
+                }
+                prevEnd = alignedSeq[b].endMs;
+            }
+            alignedSeq._noteAligned = noteAligned;
         }
     } else {
         // Tier C: Steady Bar-Paced Clock
@@ -726,19 +936,73 @@ export function alignTxtAndMidi({
         };
     });
 
-    const points = barTimeline.map((bt, idx) => ({
-        id: `auto-${idx}`,
-        barIndex: bt.blockId,
-        barOffset: bt.barOffset,
-        barCount: bt.barCount,
-        colStartFrac: bt.colStartFrac,
-        colEndFrac: bt.colEndFrac,
-        visualBarIndex: bt.visualBarIndex,
-        barNumber: bt.barNumber,
-        timeMs: bt.startMs,
-        endTimeMs: bt.endMs,
-        source: 'auto'
-    }));
+    let points;
+    if (alignedSeq._noteAligned) {
+        const { byBar, matchedMs, endMs } = alignedSeq._noteAligned;
+        const nextBarFirstMs = new Float64Array(barTimeline.length).fill(endMs);
+        for (let b = 0; b < barTimeline.length; b++) {
+            nextBarFirstMs[b] = barTimeline[b].endMs;
+        }
+        points = [];
+        for (let b = 0; b < barTimeline.length; b++) {
+            const bt = barTimeline[b];
+            const barOnsets = byBar[b];
+            if (!barOnsets || barOnsets.length === 0) {
+                points.push({
+                    id: `auto-${points.length}`,
+                    barIndex: bt.blockId,
+                    barOffset: bt.barOffset,
+                    barCount: bt.barCount,
+                    colStartFrac: bt.colStartFrac,
+                    colEndFrac: bt.colEndFrac,
+                    barColStartFrac: bt.colStartFrac,
+                    barColEndFrac: bt.colEndFrac,
+                    visualBarIndex: bt.visualBarIndex,
+                    barNumber: bt.barNumber,
+                    timeMs: bt.startMs,
+                    endTimeMs: bt.endMs,
+                    source: 'auto'
+                });
+                continue;
+            }
+            for (let r = 0; r < barOnsets.length; r++) {
+                const cur = barOnsets[r];
+                const tStart = matchedMs[cur.onsetIdx];
+                const hasNextInBar = r + 1 < barOnsets.length;
+                const tEnd = hasNextInBar ? matchedMs[barOnsets[r + 1].onsetIdx] : nextBarFirstMs[b];
+                const cEnd = hasNextInBar ? barOnsets[r + 1].colFrac : bt.colEndFrac;
+                points.push({
+                    id: `auto-${points.length}`,
+                    barIndex: bt.blockId,
+                    barOffset: bt.barOffset,
+                    barCount: bt.barCount,
+                    colStartFrac: cur.colFrac,
+                    colEndFrac: cEnd,
+                    barColStartFrac: bt.colStartFrac,
+                    barColEndFrac: bt.colEndFrac,
+                    visualBarIndex: bt.visualBarIndex,
+                    barNumber: bt.barNumber,
+                    timeMs: tStart,
+                    endTimeMs: Math.max(tStart + 1, tEnd),
+                    source: 'auto'
+                });
+            }
+        }
+    } else {
+        points = barTimeline.map((bt, idx) => ({
+            id: `auto-${idx}`,
+            barIndex: bt.blockId,
+            barOffset: bt.barOffset,
+            barCount: bt.barCount,
+            colStartFrac: bt.colStartFrac,
+            colEndFrac: bt.colEndFrac,
+            visualBarIndex: bt.visualBarIndex,
+            barNumber: bt.barNumber,
+            timeMs: bt.startMs,
+            endTimeMs: bt.endMs,
+            source: 'auto'
+        }));
+    }
 
     const totalDurationMs = barTimeline.length > 0 ? barTimeline[barTimeline.length - 1].endMs : 0;
 
