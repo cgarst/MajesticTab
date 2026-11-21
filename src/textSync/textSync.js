@@ -33,7 +33,7 @@ import { showToast } from '../utils/toast.js';
 import { positionAt, barProgressAt, backJumps, followTarget, glide } from './readingLine.js';
 import { createGlide, lineNeedsTurn, isLastLine } from '../utils/pagedScroll.js';
 import { textState } from '../textProcessor/textHandler.js';
-import { autoSource, setAutoScrollAvailable, setAutoTotal, resetAutoScroll, buildAutoPoints, initAutoScrollDock, getAutoPace, UNIT_MS, PDF_PAGE_MS } from '../utils/autoScroll.js';
+import { autoSource, setAutoScrollAvailable, setAutoTotal, resetAutoScroll, buildAutoPoints, initAutoScrollDock, getAutoPace, setAutoUnit, UNIT_MS, PDF_PAGE_MS } from '../utils/autoScroll.js';
 import { setFreeClickSource } from '../utils/freeClick.js';
 
 const $ = (id) => document.getElementById(id);
@@ -169,6 +169,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         if (!rec) { points = []; return; }
         if (rec.source === autoSource) {
             // Nothing to follow: lay the points evenly over the lines (or pages) at the steady pace
+            setAutoUnit(isPdf(getCurrentFile()));
             const built = buildAutoPoints(unitIds(), isPdf(getCurrentFile()) ? PDF_PAGE_MS : UNIT_MS);
             points = built.points;
             setAutoTotal(built.total);

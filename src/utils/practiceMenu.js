@@ -10,7 +10,7 @@ import { getRealAudioActiveSource, getRealAudioRate, setRealAudioRate, isRealAud
 import { nextPercentRate } from './practiceSpeed.js';
 import { practiceCaps } from './practiceCaps.js';
 import { hasAttachedScore } from '../gpProcessor/gpPlayer.js';
-import { isAutoScrollAvailable, getAutoPace, stepAutoPace, formatPace, AUTO_EVENT } from './autoScroll.js';
+import { isAutoScrollAvailable, stepAutoPace, formatAutoPace, AUTO_EVENT } from './autoScroll.js';
 import { isFreeClick, getFreeTempo, stepBpm, setBeats, tap, BEAT_CHOICES, FREE_EVENT } from './freeClick.js';
 
 const $ = (id) => document.getElementById(id);
@@ -54,7 +54,7 @@ function readCaps() {
 }
 
 function currentSpeedLabel() {
-    if (isAutoScrollAvailable()) return formatPace(getAutoPace());
+    if (isAutoScrollAvailable()) return formatAutoPace();
     if (onLocalRecording()) return `${Math.round(getRealAudioRate() * 100)}%`;
     if (onRecording()) {
         const a = document.querySelector('#realAudioRates button.active');

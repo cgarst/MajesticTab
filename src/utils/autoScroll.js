@@ -7,7 +7,8 @@
  *
  * The clock runs in "base time", where one text line or staff system takes UNIT_MS and a PDF page PDF_PAGE_MS at 1.0x.
  * The pace multiplies how fast the clock runs, so a change of pace needs no new points and never moves the marker.
- * The pace is kept per tab.
+ * The pace is kept per tab. It is shown as time per page (or line), never as a tempo: a PDF has no bar count, bars per page
+ * differ, and the free click (`freeClick.js`) is a separate steady pulse that this never changes.
  */
 
 export const AUTO_EVENT = 'majestictab:auto-scroll';
@@ -31,6 +32,17 @@ export function formatPace(x) {
     return `${Number.isInteger(r) ? r.toFixed(1) : String(r)}×`;
 }
 
+/** Seconds one unit takes at pace `x`: whole seconds from 10 up, one decimal below. */
+export function secondsPerUnit(x, unitMs) {
+    const s = unitMs / 1000 / x;
+    return s >= 10 ? Math.round(s) : Math.round(s * 10) / 10;
+}
+
+/** "30 s per page", "5 s per line": what the pace means, with no tempo in it. */
+export function formatUnitTime(x, unitMs, noun) {
+    return `${secondsPerUnit(x, unitMs)} s per ${noun}`;
+}
+
 /** One point per unit, evenly timed; `total` is where the last unit ends. */
 export function buildAutoPoints(ids, unitMs) {
     const points = ids.map((id, i) => ({ id: `auto-${i}`, barIndex: id, occurrence: 0, pos: 0, timeMs: i * unitMs }));
@@ -45,6 +57,7 @@ let speed = 1;
 let base = 0;          // base time at `since` (or where it rests while paused)
 let since = null;      // performance.now() when it last started, null while paused
 let total = 0;
+let unit = { ms: UNIT_MS, noun: 'line' };
 
 const emit = () => window.dispatchEvent(new Event(AUTO_EVENT));
 const clamp = (v) => Math.max(0, Math.min(total || 0, v));
@@ -68,6 +81,17 @@ export function setAutoScrollAvailable(on, key = '') {
     available = Boolean(on);
     if (changed) emit();
 }
+
+/** What one unit of the open tab is: a PDF page or a text line. */
+export function setAutoUnit(isPdf) {
+    const next = isPdf ? { ms: PDF_PAGE_MS, noun: 'page' } : { ms: UNIT_MS, noun: 'line' };
+    if (next.ms === unit.ms) return;
+    unit = next;
+    emit();
+}
+
+/** The pace as time per page (or line), for the dock and the Practice menu. */
+export const formatAutoPace = () => formatUnitTime(speed, unit.ms, unit.noun);
 
 export function setAutoTotal(ms) {
     if (ms === total) return;
@@ -135,10 +159,13 @@ export function initAutoScrollDock() {
     const slower = document.getElementById('dockPaceSlower');
     const faster = document.getElementById('dockPaceFaster');
     const value = document.getElementById('dockPaceValue');
-    if (!slower || !faster || !value) return;
+    const group = document.getElementById('dockPace');
+    if (!group || !slower || !faster || !value) return;
     const paint = () => {
         document.body.classList.toggle('auto-scroll-on', available);
-        value.textContent = formatPace(speed);
+        value.textContent = `${secondsPerUnit(speed, unit.ms)} s`;
+        group.setAttribute('aria-label', `Time per ${unit.noun}`);
+        group.title = formatAutoPace();
         slower.disabled = speed <= PACE_STEPS[0];
         faster.disabled = speed >= PACE_STEPS[PACE_STEPS.length - 1];
     };

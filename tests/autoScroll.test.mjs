@@ -1,6 +1,6 @@
 // Run: node tests/autoScroll.test.mjs
 import assert from 'node:assert/strict';
-import { stepPace, formatPace, buildAutoPoints, PACE_STEPS } from '../src/utils/autoScroll.js';
+import { stepPace, formatPace, buildAutoPoints, PACE_STEPS, secondsPerUnit, formatUnitTime, PDF_PAGE_MS, UNIT_MS } from '../src/utils/autoScroll.js';
 
 assert.equal(stepPace(1, 1), 1.15);
 assert.equal(stepPace(1, -1), 0.9);
@@ -21,3 +21,10 @@ assert.equal(total, 3000);
 assert.deepEqual(buildAutoPoints([], 1000), { points: [], total: 0 });
 
 console.log('autoScroll ok');
+
+assert.equal(secondsPerUnit(1, PDF_PAGE_MS), 30);
+assert.equal(secondsPerUnit(0.5, PDF_PAGE_MS), 60);
+assert.equal(secondsPerUnit(3, PDF_PAGE_MS), 10);
+assert.equal(secondsPerUnit(2, UNIT_MS), 2.5);
+assert.equal(formatUnitTime(1, PDF_PAGE_MS, 'page'), '30 s per page');
+assert.equal(formatUnitTime(1, UNIT_MS, 'line'), '5 s per line');
