@@ -6305,6 +6305,9 @@ body.theme-sheet-active .txt-ribbon-gutter {
 .txt-anno-line {
   opacity: 0.78;
 }
+.txt-ribbon-stave-gap {
+  margin: 4px 0;
+}
 
 .txt-ribbon-legend {
   padding: 12px 16px;

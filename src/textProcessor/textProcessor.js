@@ -219,12 +219,24 @@ export function buildHorizontalRibbon(lines, blocks, { version = 1 } = {}) {
     // 2. Compute uniform row heights across all systems for 3-track baseline locking
     const maxAboveRows = Math.max(1, ...sysEntries.map(e => (e.block.above || []).length));
     const maxBelowRows = Math.max(0, ...sysEntries.map(e => (e.block.below || []).length));
-    const stringCount = Math.max(6, ...sysEntries.map(e => e.block.strings?.length || 6));
-    const labelSys = sysEntries.find(e => (e.block.strings?.length || 0) === stringCount)?.block || sysEntries[0].block;
+    const maxStaves = Math.max(1, ...sysEntries.map(e => e.block.staves?.length || 1));
+    const staveRowCounts = Array.from({ length: maxStaves }, (_, stIdx) =>
+        Math.max(stIdx === 0 ? 6 : 0, ...sysEntries.map(e => e.block.staves?.[stIdx]?.strings?.length || (stIdx === 0 ? e.block.strings?.length || 6 : 0)))
+    );
+    const interStaveRows = maxStaves > 1
+        ? Array.from({ length: maxStaves - 1 }, (_, gIdx) =>
+            Math.max(1, ...sysEntries.map(e => (e.block.staves?.[gIdx + 1]?.above || []).length))
+        )
+        : [];
+    const stringCount = staveRowCounts.reduce((a, b) => a + b, 0);
+    const labelSys = sysEntries.find(e => (e.block.staves?.length || 1) === maxStaves)?.block || sysEntries[0].block;
     const defaultLabels = ['e', 'B', 'G', 'D', 'A', 'E'];
-    const gutterLabels = Array.from({ length: stringCount }, (_, r) => {
-        const raw = labelSys.stringLabels?.[r] || defaultLabels[r % 6];
-        return `${raw}|`;
+    const staveLabels = staveRowCounts.map((cnt, stIdx) => {
+        const offset = staveRowCounts.slice(0, stIdx).reduce((a, b) => a + b, 0);
+        return Array.from({ length: cnt }, (_, r) => {
+            const raw = labelSys.stringLabels?.[offset + r] || defaultLabels[r % 6];
+            return `${raw}|`;
+        });
     });
 
     // 3. Ribbon Stage (stationary playhead + horizontal scroll container)
@@ -260,10 +272,23 @@ export function buildHorizontalRibbon(lines, blocks, { version = 1 } = {}) {
         gutterAbove.appendChild(textLine(' ', 'txt-ribbon-line'));
     }
 
-    const gutterStrings = document.createElement('div');
-    gutterStrings.className = 'txt-ribbon-strings';
-    gutterLabels.forEach((lbl) => {
-        gutterStrings.appendChild(textLine(lbl, 'txt-ribbon-line txt-gutter-label'));
+    const gutterStaves = [];
+    staveLabels.forEach((labels, stIdx) => {
+        if (stIdx > 0) {
+            const gapBox = document.createElement('div');
+            gapBox.className = 'txt-ribbon-stave-gap';
+            for (let g = 0; g < interStaveRows[stIdx - 1]; g++) {
+                gapBox.appendChild(textLine(' ', 'txt-ribbon-line txt-anno-line'));
+            }
+            gutterStaves.push(gapBox);
+        }
+        const box = document.createElement('div');
+        box.className = 'txt-ribbon-strings';
+        box.dataset.stave = String(stIdx);
+        labels.forEach((lbl) => {
+            box.appendChild(textLine(lbl, 'txt-ribbon-line txt-gutter-label'));
+        });
+        gutterStaves.push(box);
     });
 
     const gutterBelow = document.createElement('div');
@@ -272,7 +297,7 @@ export function buildHorizontalRibbon(lines, blocks, { version = 1 } = {}) {
         gutterBelow.appendChild(textLine(' ', 'txt-ribbon-line'));
     }
 
-    gutter.append(gutterAbove, gutterStrings, gutterBelow);
+    gutter.append(gutterAbove, ...gutterStaves, gutterBelow);
     track.appendChild(gutter);
 
     // Lead spacer so Bar 1 starts right at the 25% playhead
@@ -336,18 +361,38 @@ export function buildHorizontalRibbon(lines, blocks, { version = 1 } = {}) {
                 aboveBox.appendChild(textLine(seg, 'txt-ribbon-line txt-anno-line'));
             }
 
-            // Middle track: `strings` lines
-            const stringsBox = document.createElement('div');
-            stringsBox.className = 'txt-ribbon-strings';
-            for (let r = 0; r < stringCount; r++) {
-                const sLine = strings[r];
-                const seg = sLine != null
-                    ? sLine.slice(sliceStart, sliceEnd).padEnd(barWidth, '-')
-                    : ' '.repeat(barWidth);
-                const cls = r === 6 && stringCount === 12
-                    ? 'txt-ribbon-line txt-string-line txt-duet-stave-start'
-                    : 'txt-ribbon-line txt-string-line';
-                stringsBox.appendChild(textLine(seg, cls));
+            // Middle track: one `.txt-ribbon-strings` per stave (two separate 6-string staves for duets)
+            const staveBoxes = [];
+            const sysStaves = block.staves?.length ? block.staves : [{ above: [], strings, below: [] }];
+            for (let stIdx = 0; stIdx < maxStaves; stIdx++) {
+                if (stIdx > 0) {
+                    const gapRows = interStaveRows[stIdx - 1];
+                    const midLines = sysStaves[stIdx]?.above || [];
+                    const gapBox = document.createElement('div');
+                    gapBox.className = 'txt-ribbon-stave-gap';
+                    for (let g = 0; g < gapRows; g++) {
+                        const rawLine = midLines[g] || '';
+                        const seg = rawLine
+                            ? ((k === 0 && sliceStart > 0)
+                                ? sliceAnnotationCols(rawLine, sliceStart).slice(0, barWidth).padEnd(barWidth, ' ')
+                                : rawLine.slice(sliceStart, sliceEnd).padEnd(barWidth, ' '))
+                            : ' '.repeat(barWidth);
+                        gapBox.appendChild(textLine(seg, 'txt-ribbon-line txt-anno-line'));
+                    }
+                    staveBoxes.push(gapBox);
+                }
+                const stStrings = sysStaves[stIdx]?.strings || [];
+                const stBox = document.createElement('div');
+                stBox.className = 'txt-ribbon-strings';
+                stBox.dataset.stave = String(stIdx);
+                for (let r = 0; r < staveRowCounts[stIdx]; r++) {
+                    const sLine = stStrings[r];
+                    const seg = sLine != null
+                        ? sLine.slice(sliceStart, sliceEnd).padEnd(barWidth, '-')
+                        : ' '.repeat(barWidth);
+                    stBox.appendChild(textLine(seg, 'txt-ribbon-line txt-string-line'));
+                }
+                staveBoxes.push(stBox);
             }
 
             // Bottom track: `below` lines padded at bottom to `maxBelowRows`
@@ -365,7 +410,7 @@ export function buildHorizontalRibbon(lines, blocks, { version = 1 } = {}) {
                 belowBox.appendChild(textLine(' '.repeat(barWidth), 'txt-ribbon-line txt-anno-line'));
             }
 
-            barEl.append(aboveBox, stringsBox, belowBox);
+            barEl.append(aboveBox, ...staveBoxes, belowBox);
             sysEl.appendChild(barEl);
             visualBarIdx++;
         }
