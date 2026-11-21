@@ -30,7 +30,7 @@ import { getScrubState, applyScrubValue } from '../utils/pageScrubber.js';
 import { attachPillCursor } from '../utils/readerCursorShape.js';
 import { makeId, formatTime } from '../audioSync/syncEdit.js';
 import { showToast } from '../utils/toast.js';
-import { positionAt, barProgressAt, backJumps, followTarget, glide } from './readingLine.js';
+import { positionAt, barProgressAt, rankOf, backJumps, followTarget, glide } from './readingLine.js';
 import { createGlide, lineNeedsTurn, isLastLine } from '../utils/pagedScroll.js';
 import { textState } from '../textProcessor/textHandler.js';
 import { autoSource, setAutoScrollAvailable, setAutoTotal, resetAutoScroll, buildAutoPoints, initAutoScrollDock, getAutoPace, setAutoUnit, UNIT_MS, PDF_PAGE_MS } from '../utils/autoScroll.js';
@@ -528,6 +528,23 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         const lineHost = output.parentElement || document.body;
     lineHost.appendChild(line);
 
+    // Under the arrow, when the cursor is in the last staff the page keeps: the seconds left before the page turns (3, 2, 1)
+    // and a next icon, so the turn is seen coming
+    const turnMark = document.createElement('div');
+    turnMark.className = 'reading-line-turn';
+    turnMark.hidden = true;
+    turnMark.innerHTML = '<span class="reading-line-turn-n"></span>'
+        + '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2 2l4 3.5L10 2M2 6.5l4 3.5 4-3.5"/></svg>';
+    line.appendChild(turnMark);
+    const turnNum = turnMark.firstChild;
+    let turnShown = 0;
+    function showTurnCount(n) {
+        if (n === turnShown) return;
+        turnShown = n;
+        turnMark.hidden = !n;
+        if (n) turnNum.textContent = String(n);
+    }
+
     // A PDF whose sync points name positions on the page also gets a vertical playhead at the place the recording is at
     const pdfCursor = document.createElement('div');
     pdfCursor.className = 'pdf-cursor';
@@ -548,9 +565,10 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     let lastFrameAt = 0;
     let lastFlipAt = 0;
     const pageGlide = createGlide();
-    let turnLineEl = null;
     let holdUntil = 0; // the reader took over (scrolled, turned the page, dragged the strip): the tab stops following for a moment
     let unitCache = { key: null, ids: [] };
+    let lastFollowKey = '';
+    let smoothY = null; // where the left-edge marker is drawn, in page coordinates, so it can glide over the jumps between staves
 
     const hold = () => { holdUntil = performance.now() + 3500; pageGlide.cancel(); };
     output.addEventListener('wheel', hold, { passive: true });
@@ -639,7 +657,8 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     }
 
     function hideLine() {
-        if (turnLineEl) { turnLineEl.classList.remove('is-turn-line'); turnLineEl = null; }
+        smoothY = null;
+        showTurnCount(0);
         line.classList.add('is-off');
         if (!line.hidden && !line._hiding) {
             line._hiding = setTimeout(() => { line.hidden = true; line._hiding = 0; }, 160);
@@ -665,6 +684,16 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             const el = unitEl(ids[i]);
             if (el && el.getBoundingClientRect().bottom > top + 8) { autoSource.seek(i * unitMs); return; }
         }
+    }
+
+    // The first staff of the tab: the only one whose lead-in is skipped at the start
+    function isFirstSystemBlock(unitId) {
+        const blocks = textState.blocks;
+        if (!blocks) return false;
+        for (const k of Object.keys(blocks)) {
+            if (blocks[k]?.kind === 'system') return String(k) === String(unitId);
+        }
+        return false;
     }
 
     function ensureFrame() {
@@ -769,9 +798,18 @@ export function initTextSync({ getConfig, getCurrentFile }) {
                 const maxCols = Number(el.dataset.maxCols) || 0;
                 attachPillCursor(activeCursor); // the page and scroll views hold clones, which lost their drawing
                 activeCursor.hidden = false;
+                // At the start the cursor waits on the first fret number of the tab, not on the string names or the dashes before it
+                let colFrac = prog.colFrac;
+                if (isFirstSystemBlock(prog.unitId)) {
+                    const bars = sysBlock?.bars || [];
+                    const firstCol = bars.reduce((m, b) => Math.min(m, b.noteOnsets?.[0]?.col ?? Infinity), Infinity);
+                    const lastCol = bars.length ? bars[bars.length - 1].colEnd : 0;
+                    if (Number.isFinite(firstCol) && lastCol > trimCols) colFrac = Math.max(colFrac, (firstCol - trimCols) / (lastCol - trimCols));
+                }
+                // A column's position is its left edge; the cursor is centred on `left`, so it sits half a character in
                 activeCursor.style.left = maxCols > trimCols
-                    ? `calc(${trimCols}ch + ${maxCols - trimCols}ch * ${prog.colFrac.toFixed(4)})`
-                    : `calc(${trimCols}ch + (100% - ${trimCols}ch) * ${prog.colFrac.toFixed(4)})`;
+                    ? `calc(${trimCols}ch + ${maxCols - trimCols}ch * ${colFrac.toFixed(4)} + 0.5ch)`
+                    : `calc(${trimCols}ch + (100% - ${trimCols}ch) * ${colFrac.toFixed(4)} + 0.5ch)`;
             }
         }
 
@@ -782,15 +820,6 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         let y = nr && nr.top > r.top + 1 && Math.abs(nr.left - r.left) < 12
             ? r.top + (nr.top - r.top) * f
             : r.top + r.height * f;
-        // A text tab of staves: the arrow sits level with the middle of the stave, not on its top edge, and glides to the
-        // middle of the next one
-        if (isText(getCurrentFile()) && textState.hasSystems) {
-            const mid = r.top + r.height / 2;
-            y = nr && nr.top > r.top + 1 && Math.abs(nr.left - r.left) < 12
-                ? mid + (nr.top + nr.height / 2 - mid) * f
-                : mid;
-        }
-
         let box = null;
         if (placed && el.height) {
             box = playheadBox(el, r.height, placed.y, rowSpansOf().get(placed.unit));
@@ -799,7 +828,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
 
         const outR = output.getBoundingClientRect();
         let settling = false;
-        let turnEl = null;
+        let lastOnPage = false;
         if (!pageMode && now > holdUntil) {
             const viewH = output.clientHeight;
             // Paged follow: a unit that fits a page stays still while the line travels it; entering one that runs past the
@@ -808,17 +837,17 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             const usable = { usableTop: 0, usableBottom: viewH - dockRoom };
             const unitView = { top: r.top - outR.top, bottom: r.bottom - outR.top };
             const paged = !placed && (pageGlide.active || (r.height <= (usable.usableBottom - usable.usableTop) * 0.8));
-            // Read-ahead: with room for this unit and the next one below it, the next one is always fully in view, so the
-            // page turns when the cursor enters a unit whose successor would not fit
-            const below = (rect) => (rect && rect.top > r.top + 1 && Math.abs(rect.left - r.left) < 12) ? rect : null;
-            const nextR = below(nr);
-            const nextView = nextR ? { top: nextR.top - outR.top, bottom: nextR.bottom - outR.top } : null;
-            const readAhead = Boolean(nextView) && (nextView.bottom - unitView.top) <= usable.usableBottom - usable.usableTop - 12;
-            const reach = readAhead ? nextView.bottom : unitView.bottom;
+            // A unit turns the page only when it no longer fits, so the cursor's own staff is always fully in view; the next
+            // one is not kept in view ahead of time.
+            const reach = unitView.bottom;
+            // Paused, the view stays where the reader left it; it follows only when the cursor moved (a seek)
+            const followKey = `${ids[k]}|${Math.round(f * 50)}`;
+            const cursorMoved = followKey !== lastFollowKey;
+            lastFollowKey = followKey;
             if (paged) {
                 const before = output.scrollTop;
                 const maxScroll = Math.max(0, output.scrollHeight - viewH);
-                if (!pageGlide.active && lineNeedsTurn({ top: unitView.top, bottom: reach, ...usable, maxFrac: 10 })) {
+                if (!pageGlide.active && (playing || cursorMoved) && lineNeedsTurn({ top: unitView.top, bottom: reach, ...usable, maxFrac: 10 })) {
                     const to = Math.max(0, Math.min(maxScroll, before + unitView.top - 12));
                     if (Math.abs(to - before) > 1) {
                         if (!playing || reduceMotion.matches || Math.abs(to - before) > viewH * 1.2) output.scrollTop = to;
@@ -829,12 +858,10 @@ export function initTextSync({ getConfig, getCurrentFile }) {
                 if (v != null) output.scrollTop = v;
                 y -= output.scrollTop - before;
                 settling = pageGlide.active;
-                if (playing && !pageGlide.active && nextR) {
-                    const after = output.scrollTop - before;
-                    const afterEl = readAhead ? unitEl(ids[k + 2]) : unitEl(ids[k + 1]);
-                    const ar = afterEl?.getBoundingClientRect();
-                    if (ar && isLastLine({ bottom: reach - after, nextBottom: ar.bottom - outR.top - after, usableBottom: usable.usableBottom })) turnEl = el;
-                }
+                // The cursor's staff is the last the page keeps: the next one does not fit
+                const after = output.scrollTop - before;
+                lastOnPage = playing && !pageGlide.active && Boolean(nr)
+                    && isLastLine({ bottom: reach - after, nextBottom: nr.bottom - outR.top - after, usableBottom: usable.usableBottom });
             } else {
                 pageGlide.cancel();
                 const lineY = y - outR.top + output.scrollTop;
@@ -849,10 +876,25 @@ export function initTextSync({ getConfig, getCurrentFile }) {
                 }
             }
         }
-        if (turnEl !== turnLineEl) {
-            turnLineEl?.classList.remove('is-turn-line');
-            turnEl?.classList.add('is-turn-line');
-            turnLineEl = turnEl;
+        // The seconds until the cursor enters the next staff, which is when the page turns
+        let turnCount = 0;
+        if (lastOnPage && isText(getCurrentFile()) && textState.hasSystems) {
+            const nextPoint = points.find((p) => p.timeMs > effTime && rankOf(ids, p.barIndex) !== k);
+            if (nextPoint && rankOf(ids, nextPoint.barIndex) > k) {
+                const secs = Math.ceil((nextPoint.timeMs - effTime) / 1000 / (rec.source.getRate?.() || 1));
+                if (secs >= 1 && secs <= 3) turnCount = secs;
+            }
+        }
+        showTurnCount(turnCount);
+
+        // The sync points move the marker from one staff to the next in a step (it stays in a staff until the next one starts,
+        // and the lines between are skipped), so it glides over the step instead of jumping
+        {
+            const docY = y - outR.top + output.scrollTop;
+            if (smoothY == null || !playing || reduceMotion.matches || Math.abs(docY - smoothY) > output.clientHeight) smoothY = docY;
+            else smoothY = glide(smoothY, docY, dt, 0.12);
+            if (smoothY !== docY) settling = true;
+            y += smoothY - docY;
         }
 
         const hostR = lineHost.getBoundingClientRect();
