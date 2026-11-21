@@ -139,7 +139,7 @@ async () => {
   // 4. a stem set beside a full mix that is the Original
   x = await song('StemsAndMix', 'RT Artist', 'RT Album', 'e|---3---|\n');
   o = await audio(x, 'mix.mp3', 33000); slot(x, 'original', o); points(x, o);
-  set = await stemSet(x, 'alternate', 21000);
+  set = await stemSet(x, 'original', 21000);
 
   // 5. a stem set with a video Original and two more remembered videos
   x = await song('VideoAndStems', 'RT Artist', 'RT Album', 'e|---4---|\n');

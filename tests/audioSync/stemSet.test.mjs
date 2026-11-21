@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultMutedIds, getMutedIds, setMutedIds, resetMutedIds, stemsOfMeta, createStemSource, applyMutes, loadRecordingPeaks, loadRecordingFlux } from '../../src/audioSync/stemSet.js';
-import { stemSetOf } from '../../src/mpak.js';
+import { stemSetOf, stemGroupOf } from '../../src/mpak.js';
 import { metaOfPackRecording, setRecordingMeta, listRecordingMeta, tracksNote } from '../../src/audioSync/recordingMeta.js';
 
 const store = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
@@ -106,4 +106,16 @@ test('loadRecordingPeaks and loadRecordingFlux combine every stem in a set', asy
     });
     assert.equal(maxConcurrent, 1); // decodes one stem at a time
     assert.deepEqual([...combinedFlux], [4, 6]);
+});
+
+test('stems beside a full mix of their own are not the song\'s only sound, but they are still one group', () => {
+    const mix = { id: 'x', role: 'original', sources: [{ type: 'file', path: 'audio/x.mp3' }] };
+    const recs = [rec('a', { sync: { s: 'a.json' } }), rec('b', { syncFrom: 'a' }), mix];
+    assert.equal(stemSetOf({ recordings: recs }), null, 'the mix keeps the Original slot');
+    const group = stemGroupOf({ recordings: recs });
+    assert.deepEqual(group.members.map((m) => m.id), ['a', 'b']);
+    assert.equal(group.lead.id, 'a');
+    assert.equal(stemGroupOf({ recordings: [rec('a'), mix] }), null, 'one stem is not a group');
+    assert.equal(stemGroupOf({ recordings: [rec('a', { stemOf: 'x' }), rec('b', { stemOf: 'x' }), mix] }), null, 'stems of the mix belong to the mix');
+    assert.deepEqual(stemGroupOf({ recordings: [rec('a'), rec('b')] }).members.map((m) => m.id), ['a', 'b'], 'with no mix it is the set');
 });

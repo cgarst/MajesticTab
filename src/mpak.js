@@ -1061,6 +1061,17 @@ export function stemSetOf(manifest) {
     // sound), or an alternate (another version of the released recording, which may be a file), sits beside the stems: the stems
     // stay the song's audio and that recording is one more recording of the song.
     if (recs.some((r) => r.role === 'original' && hasFile(r))) return null;
+    return stemGroupOf(manifest);
+}
+
+/**
+ * The stems that belong together, whatever else the pack holds: two or more stems that name no recording they were split from.
+ * Beside a full mix of its own they are not the song's only sound (`stemSetOf` is then null, and the mix keeps the Original), but
+ * they are still one group of parts with their own labels and instruments, kept as one recording, "All stems", and not read back
+ * as loose files. The lead is the stem with sync points of its own, else the first.
+ */
+export function stemGroupOf(manifest) {
+    const recs = manifest?.recordings || [];
     const members = recs.filter((r) => r.role === 'stem' && !r.stemOf && hasFile(r));
     if (members.length < 2) return null;
     const lead = members.find((r) => r.sync && Object.keys(r.sync).length) || members[0];
@@ -1158,7 +1169,7 @@ export async function applyMpakExtras(data, opened, options = {}) {
     }
 
     const slots = mapRecordingsToSlots(data);
-    const stemSet = stemSetOf(data);
+    const stemSet = stemGroupOf(data);
     const resolvedMedia = new Map();
     // Each score is synced on its own (SPEC section 6.2). The points of text and PDF scores are kept by song and score
     // file; bar points are kept by song, so only the first score of that kind gets them.
