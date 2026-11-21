@@ -5139,6 +5139,7 @@ body > #controllerHelpModal { display: none; }
 .ct-filter[aria-pressed="true"] { background: var(--s3); color: var(--ink); }
 .ct-morewrap { position: relative; display: inline-block; }
 .ct-moremenu { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; display: flex; flex-direction: column; gap: 2px; padding: 6px; min-width: 160px; background: var(--s3); border-radius: var(--r-control); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
+.ct-eramenu { min-width: 112px; }
 .ct-moremenu .ct-filter { text-align: left; background: transparent; }
 .ct-moremenu .ct-filter[aria-pressed="true"] { background: var(--s2); }
 .ct-cols { display: grid; grid-template-columns: minmax(180px, 280px) minmax(0, 1fr); gap: 16px; min-height: 0; flex: 1; }

@@ -61,17 +61,43 @@ const ALL_FILTERS = [...FILTERS, ...MORE_FILTERS];
 const passes = (p, active) => active.every((id) => ALL_FILTERS.find((f) => f.id === id)?.test(p));
 export const passesFilters = passes;
 
+/** Century start years (e.g. 1600, 1700) covered by a composer's dates string. */
+export function composerEras(c) {
+    const raw = String(c?.dates || '');
+    const years = (raw.match(/(?:^|\D)(\d{4})(?!\d)/g) || [])
+        .map((m) => Number(m.slice(-4)))
+        .filter((y) => y >= 1000 && y <= 2100);
+    if (!years.length) return [];
+    const first = Math.floor(Math.min(...years) / 100) * 100;
+    const last = Math.floor(Math.max(...years) / 100) * 100;
+    const eras = [];
+    for (let e = first; e <= last; e += 100) eras.push(e);
+    return eras;
+}
+
+export function composerHasEra(c, era) {
+    return era == null || composerEras(c).includes(era);
+}
+
+/** Sorted unique century start years present in the catalog. */
+export function catalogEras(composers) {
+    const set = new Set();
+    for (const c of composers) for (const e of composerEras(c)) set.add(e);
+    return [...set].sort((a, b) => a - b);
+}
+
 /**
  * @param {Array} composers the catalog
- * @param {{query?: string, filters?: string[], composer?: number}} q
+ * @param {{query?: string, filters?: string[], composer?: number, era?: number|null}} q
  * @returns {{composerCounts: Map<number, number>, pieces: Array<{composer:number, piece:object}>}}
  *   composerCounts: pieces per composer after the filters (and search); pieces: the list to show
  */
-export function browse(composers, { query = '', filters = [], composer = null } = {}) {
+export function browse(composers, { query = '', filters = [], composer = null, era = null } = {}) {
     const terms = fold(query).split(/\s+/).filter(Boolean);
     const composerCounts = new Map();
     const matches = [];
     composers.forEach((c, ci) => {
+        if (era != null && !composerHasEra(c, era)) return;
         const hay = fold(`${c.name} ${c.aliases || ''}`);
         const composerHit = terms.length > 0 && terms.every((t) => hay.includes(t));
         let n = 0;

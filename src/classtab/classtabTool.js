@@ -7,7 +7,7 @@ import {
     getCatalogRecord, installArchive, readArchiveEntry, onArchiveChange, ClasstabError
 } from './archive.js';
 import { canDownloadArchive, downloadArchive, readLocalZip, CLASSTAB_HOME, CLASSTAB_ZIP_URL } from './download.js';
-import { composerList, browse, pieceFacts, composerHeading, passesFilters, nameParts, FILTERS, MORE_FILTERS } from './catalog.js';
+import { composerList, browse, pieceFacts, composerHeading, passesFilters, composerHasEra, catalogEras, nameParts, FILTERS, MORE_FILTERS } from './catalog.js';
 import { resolvePins, isPiecePinned, isComposerPinned, togglePiecePin, toggleComposerPin } from './pins.js';
 import { showToast } from '../utils/toast.js';
 
@@ -121,9 +121,10 @@ async function libraryTabNames() {
 
 export function renderClasstabTool(container, { onDepth } = {}) {
     const state = {
-        rec: null, query: '', filters: new Set(), composer: null, // composer: index into rec.composers
+        rec: null, query: '', filters: new Set(), era: null, composer: null, // composer: index into rec.composers
         job: null, // { text, cancel } while downloading or reading
         message: '', error: '', inLibrary: new Set(), menuFor: null,
+        moreOpen: false, eraOpen: false,
         showPinned: null // null: the Pinned group when there are pins; true / false once the player picks
     };
     // Kept until the player leaves Tools for good, so a second draw of the page (or a dispose without keep) cannot lose it
@@ -261,7 +262,7 @@ export function renderClasstabTool(container, { onDepth } = {}) {
         </div>`;
     }
 
-    function piecesPaneInnerHtml(res, searching, chosen, pins, pinnedPieces, pinnedActive, shown) {
+    function piecesPaneInnerHtml(res, searching, chosen, pinnedComposers, pinnedPieces, pinnedActive, shown) {
         return `
             <div class="ct-head-row">
               <h3 class="ct-pieces-title">${searching ? esc(plural(res.pieces.length, 'result', 'results')) : pinnedActive ? 'Pinned' : chosen ? esc(composerHeading(chosen)) : ''}</h3>
@@ -269,7 +270,7 @@ export function renderClasstabTool(container, { onDepth } = {}) {
             ${!searching && !pinnedActive && chosen?.aliases ? `<p class="ct-sub">Also ${esc(chosen.aliases)}</p>` : ''}
             <div class="ct-list" role="list">
               ${pinnedActive
-        ? `${pins.composers.map(composerRow).join('')}${pinnedPieces.map((m) => pieceRow(m, true)).join('')}${!pins.composers.length && !pinnedPieces.length ? '<p class="ct-empty">No pinned pieces match the filters.</p>' : ''}`
+        ? `${pinnedComposers.map(composerRow).join('')}${pinnedPieces.map((m) => pieceRow(m, true)).join('')}${!pinnedComposers.length && !pinnedPieces.length ? '<p class="ct-empty">No pinned pieces match the filters.</p>' : ''}`
         : `${shown.map((m) => pieceRow(m, searching)).join('') || '<p class="ct-empty">No pieces match. <button type="button" class="ct-text" data-act="clear">Clear filters</button></p>'}
               ${res.pieces.length > shown.length ? `<p class="ct-empty">Showing the first ${MAX_ROWS}. Narrow the search to see more.</p>` : ''}`}
             </div>`;
@@ -277,19 +278,20 @@ export function renderClasstabTool(container, { onDepth } = {}) {
 
     function browseViewData() {
         const { composers } = state.rec;
-        const q = { query: state.query, filters: [...state.filters], composer: state.composer };
+        const q = { query: state.query, filters: [...state.filters], era: state.era, composer: state.composer };
         const res = browse(composers, q);
         const comps = composerList(composers).filter((c) => res.composerCounts.has(c.index));
         const searching = state.query.trim().length > 0;
         const chosen = composers[state.composer];
         const pins = resolvePins(composers);
         const activeIds = [...state.filters];
-        const pinnedPieces = pins.pieces.filter((m) => passesFilters(m.piece, activeIds));
+        const pinnedComposers = pins.composers.filter((ci) => composerHasEra(composers[ci], state.era));
+        const pinnedPieces = pins.pieces.filter((m) => composerHasEra(composers[m.composer], state.era) && passesFilters(m.piece, activeIds));
         const pinCount = pins.composers.length + pins.pieces.length;
         const pinnedActive = !searching && pinCount > 0 && state.showPinned !== false;
         const shown = res.pieces.slice(0, MAX_ROWS);
         list = res.pieces;
-        return { res, comps, searching, chosen, pins, pinnedPieces, pinCount, pinnedActive, shown };
+        return { res, comps, searching, chosen, pins, pinnedComposers, pinnedPieces, pinCount, pinnedActive, shown };
     }
 
     // The shell owns the one back control on a phone: tell it where we are (null label: nothing to step back to)
@@ -310,7 +312,7 @@ export function renderClasstabTool(container, { onDepth } = {}) {
         const cols = root.querySelector('.ct-cols');
         const piecesEl = root.querySelector('.ct-pieces');
         if (!cols || !piecesEl || !state.rec) { render(); return; }
-        const { res, searching, chosen, pins, pinnedPieces, pinnedActive, shown } = browseViewData();
+        const { res, searching, chosen, pinnedComposers, pinnedPieces, pinnedActive, shown } = browseViewData();
         cols.dataset.pane = state.pane || 'composers';
         root.querySelectorAll('.ct-composers [data-act="showpinned"]').forEach((el) => {
             el.setAttribute('aria-current', String(pinnedActive));
@@ -318,20 +320,24 @@ export function renderClasstabTool(container, { onDepth } = {}) {
         root.querySelectorAll('.ct-composers [data-comp]').forEach((el) => {
             el.setAttribute('aria-current', String(!searching && !pinnedActive && Number(el.dataset.comp) === state.composer));
         });
-        piecesEl.innerHTML = piecesPaneInnerHtml(res, searching, chosen, pins, pinnedPieces, pinnedActive, shown);
+        piecesEl.innerHTML = piecesPaneInnerHtml(res, searching, chosen, pinnedComposers, pinnedPieces, pinnedActive, shown);
         piecesEl.scrollTop = 0;
         announceDepth();
     }
 
     function renderBrowse() {
-        const { res, comps, searching, chosen, pins, pinnedPieces, pinCount, pinnedActive, shown } = browseViewData();
+        const { res, comps, searching, chosen, pins, pinnedComposers, pinnedPieces, pinCount, pinnedActive, shown } = browseViewData();
         const filterBtn = (f) => `<button type="button" class="ct-filter" data-filter="${f.id}" aria-pressed="${state.filters.has(f.id)}">${f.label}</button>`;
         const moreOn = MORE_FILTERS.some((f) => state.filters.has(f.id));
+        const eras = catalogEras(state.rec.composers);
+        const eraBtn = (e) => `<button type="button" class="ct-filter" data-era="${e}" aria-pressed="${state.era === e}">${e}s</button>`;
         root.innerHTML = `
         ${statusHtml()}
         <input type="search" class="ct-search" placeholder="Search composers and pieces" aria-label="Search composers and pieces" value="${esc(state.query)}" autocomplete="off" spellcheck="false">
         <div class="ct-filters" role="group" aria-label="Filters">
           ${FILTERS.map(filterBtn).join('')}
+          ${eras.length ? `<span class="ct-morewrap"><button type="button" class="ct-filter" data-act="era" aria-expanded="${state.eraOpen ? 'true' : 'false'}" aria-pressed="${state.era != null}">${state.era != null ? `Era · ${state.era}s` : 'Era'}</button>
+          ${state.eraOpen ? `<span class="ct-moremenu ct-eramenu" role="group" aria-label="Era">${eras.map(eraBtn).join('')}</span>` : ''}</span>` : ''}
           <span class="ct-morewrap"><button type="button" class="ct-filter" data-act="more" aria-expanded="${state.moreOpen ? 'true' : 'false'}" aria-pressed="${moreOn}">More</button>
           ${state.moreOpen ? `<span class="ct-moremenu" role="group">${MORE_FILTERS.map(filterBtn).join('')}</span>` : ''}</span>
         </div>
@@ -348,7 +354,7 @@ export function renderClasstabTool(container, { onDepth } = {}) {
             }).join('') || '<p class="ct-empty">No composers match.</p>'}
           </nav>
           <section class="ct-pieces" aria-label="Pieces">
-            ${piecesPaneInnerHtml(res, searching, chosen, pins, pinnedPieces, pinnedActive, shown)}
+            ${piecesPaneInnerHtml(res, searching, chosen, pinnedComposers, pinnedPieces, pinnedActive, shown)}
           </section>
         </div>`;
     }
@@ -362,7 +368,15 @@ export function renderClasstabTool(container, { onDepth } = {}) {
         const prevComposersScroll = keepComposersScroll ? (root.querySelector('.ct-composers')?.scrollTop || 0) : 0;
         const prevPiecesScroll = keepPiecesScroll ? (root.querySelector('.ct-pieces')?.scrollTop || 0) : 0;
         if (!state.rec) renderEmpty();
-        else renderBrowse();
+        else {
+            renderBrowse();
+            const openMenu = root.querySelector('.ct-moremenu');
+            if (openMenu) {
+                const r = openMenu.getBoundingClientRect();
+                if (r.right > window.innerWidth - 8) { openMenu.style.left = 'auto'; openMenu.style.right = '0'; }
+                else if (r.left < 8) { openMenu.style.left = '0'; openMenu.style.right = 'auto'; }
+            }
+        }
         if (restoreScroll && state.rec) {
             const sc = restoreScroll;
             restoreScroll = null;
@@ -420,6 +434,14 @@ export function renderClasstabTool(container, { onDepth } = {}) {
             render();
             return;
         }
+        const era = e.target.closest('[data-era]');
+        if (era) {
+            const val = Number(era.dataset.era);
+            state.era = state.era === val ? null : val;
+            state.eraOpen = false;
+            render();
+            return;
+        }
         const pinComp = e.target.closest('[data-pincomp]');
         if (pinComp) {
             const c = state.rec.composers[Number(pinComp.dataset.pincomp)];
@@ -447,13 +469,14 @@ export function renderClasstabTool(container, { onDepth } = {}) {
             return;
         }
         const btn = e.target.closest('[data-act]');
-        if (!btn) { if (state.menuFor || state.moreOpen) { state.menuFor = null; state.moreOpen = false; render({ keepPiecesScroll: true }); } return; }
+        if (!btn) { if (state.menuFor || state.moreOpen || state.eraOpen) { state.menuFor = null; state.moreOpen = false; state.eraOpen = false; render({ keepPiecesScroll: true }); } return; }
         const act = btn.dataset.act;
         if (act === 'download') startDownload();
         else if (act === 'choose') chooseZip();
         else if (act === 'cancel') state.job?.cancel?.();
-        else if (act === 'more') { state.moreOpen = !state.moreOpen; render({ keepPiecesScroll: true }); }
-        else if (act === 'clear') { state.filters.clear(); state.query = ''; render(); }
+        else if (act === 'era') { state.eraOpen = !state.eraOpen; state.moreOpen = false; render({ keepPiecesScroll: true }); }
+        else if (act === 'more') { state.moreOpen = !state.moreOpen; state.eraOpen = false; render({ keepPiecesScroll: true }); }
+        else if (act === 'clear') { state.filters.clear(); state.era = null; state.query = ''; render(); }
         else if (act === 'showpinned') {
             const hadQuery = state.query.trim().length > 0;
             state.showPinned = true; state.query = ''; state.pane = 'pieces';
@@ -485,14 +508,14 @@ export function renderClasstabTool(container, { onDepth } = {}) {
     });
 
     root.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && (state.menuFor || state.moreOpen)) { state.menuFor = null; state.moreOpen = false; render(); }
+        if (e.key === 'Escape' && (state.menuFor || state.moreOpen || state.eraOpen)) { state.menuFor = null; state.moreOpen = false; state.eraOpen = false; render(); }
     });
 
     refresh();
     const dispose = (keep = false) => {
         if (keep) {
             savedView = {
-                query: state.query, filters: new Set(state.filters), composer: state.composer, pane: state.pane, showPinned: state.showPinned,
+                query: state.query, filters: new Set(state.filters), era: state.era, composer: state.composer, pane: state.pane, showPinned: state.showPinned,
                 scroll: { root: root.scrollTop || 0, composers: root.querySelector('.ct-composers')?.scrollTop || 0, pieces: root.querySelector('.ct-pieces')?.scrollTop || 0 }
             };
         }

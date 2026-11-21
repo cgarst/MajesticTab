@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import * as fflate from 'fflate';
 import { parseClasstabIndex, catalogCounts, decodeEntities } from '../src/classtab/parse.js';
-import { browse, composerList, pieceFacts } from '../src/classtab/catalog.js';
+import { browse, composerList, pieceFacts, composerEras, catalogEras } from '../src/classtab/catalog.js';
 import { readCatalogFromZip, diffCatalogs } from '../src/classtab/archive.js';
 
 globalThis.fflate = fflate;
@@ -53,6 +53,18 @@ assert.equal(browse(c, { filters: ['easy'] }).pieces.length, 1);
 assert.equal(browse(c, { query: 'jose gomes' }).pieces.length, 2, 'search folds accents and matches aliases');
 assert.equal(browse(c, { query: 'green' }).pieces[0].piece.title, 'Greensleeves');
 assert.deepEqual(pieceFacts(tico), ['New', 'Easy', 'Drop D']);
+
+// Era (century) filter
+assert.deepEqual(composerEras({ dates: '1880-1935' }), [1800, 1900]);
+assert.deepEqual(composerEras({ dates: '1650-1721' }), [1600, 1700]);
+assert.deepEqual(composerEras({ dates: 'c1526-c1594' }), [1500]);
+assert.deepEqual(composerEras({}), []);
+assert.deepEqual(catalogEras(c), [1600, 1700, 1800, 1900]);
+assert.equal(browse(c, { era: 1600 }).pieces.length, 1);
+assert.equal(browse(c, { era: 1700 }).composerCounts.has(1), true);
+assert.equal(browse(c, { era: 1800 }).pieces.length, 2);
+assert.equal(browse(c, { era: 1900, filters: ['easy'] }).pieces.length, 1);
+assert.equal(browse(c, { era: 1500 }).pieces.length, 0);
 
 // Archive: a bad ZIP is refused, a good one is read
 assert.throws(() => readCatalogFromZip(new Uint8Array([1, 2, 3])), /isn't the Classtab archive/);
