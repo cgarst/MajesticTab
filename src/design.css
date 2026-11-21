@@ -1169,12 +1169,17 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
     border: 0;
     font: 500 15px system-ui, sans-serif;
     min-height: 44px;
-    padding: 0 8px 0 0;
-    margin: 0;
+    min-width: 44px;
+    padding: 0 14px 0 12px;
+    margin: 0 0 0 -12px;
     border-radius: var(--r-control);
     cursor: pointer;
     flex-shrink: 0;
     transition: color var(--dur-fast), background-color var(--dur-fast);
+  }
+  .setshell[data-pane="page"] .sethead .setback > *,
+  .setshell:has(.setwrap[data-pane="page"]) .sethead .setback > * {
+    pointer-events: none;
   }
   @media (hover: hover) { .setshell[data-pane="page"] .sethead .setback:hover,
 .setshell:has(.setwrap[data-pane="page"]) .sethead .setback:hover {
