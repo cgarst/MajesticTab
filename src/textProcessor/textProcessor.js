@@ -219,11 +219,11 @@ export function buildHorizontalRibbon(lines, blocks, { version = 1 } = {}) {
     // 2. Compute uniform row heights across all systems for 3-track baseline locking
     const maxAboveRows = Math.max(1, ...sysEntries.map(e => (e.block.above || []).length));
     const maxBelowRows = Math.max(0, ...sysEntries.map(e => (e.block.below || []).length));
-    const firstSys = sysEntries[0].block;
-    const stringCount = firstSys.strings?.length || 6;
+    const stringCount = Math.max(6, ...sysEntries.map(e => e.block.strings?.length || 6));
+    const labelSys = sysEntries.find(e => (e.block.strings?.length || 0) === stringCount)?.block || sysEntries[0].block;
     const defaultLabels = ['e', 'B', 'G', 'D', 'A', 'E'];
     const gutterLabels = Array.from({ length: stringCount }, (_, r) => {
-        const raw = firstSys.stringLabels?.[r] || defaultLabels[r % 6];
+        const raw = labelSys.stringLabels?.[r] || defaultLabels[r % 6];
         return `${raw}|`;
     });
 
@@ -340,9 +340,14 @@ export function buildHorizontalRibbon(lines, blocks, { version = 1 } = {}) {
             const stringsBox = document.createElement('div');
             stringsBox.className = 'txt-ribbon-strings';
             for (let r = 0; r < stringCount; r++) {
-                const sLine = strings[r] || '';
-                const seg = sLine.slice(sliceStart, sliceEnd).padEnd(barWidth, '-');
-                stringsBox.appendChild(textLine(seg, 'txt-ribbon-line txt-string-line'));
+                const sLine = strings[r];
+                const seg = sLine != null
+                    ? sLine.slice(sliceStart, sliceEnd).padEnd(barWidth, '-')
+                    : ' '.repeat(barWidth);
+                const cls = r === 6 && stringCount === 12
+                    ? 'txt-ribbon-line txt-string-line txt-duet-stave-start'
+                    : 'txt-ribbon-line txt-string-line';
+                stringsBox.appendChild(textLine(seg, cls));
             }
 
             // Bottom track: `below` lines padded at bottom to `maxBelowRows`

@@ -187,3 +187,31 @@ test('duet systems merge two 6-string staves separated by a part label, and lege
     assert.ok(legendBlocks.length >= 2);
 });
 
+test('duet staves merge across 3-line connector/fingering gaps and ignore digit-dash fingering lines', () => {
+    const duetWithFingering = [
+        '1   |   |   |   |',
+        'e|--0-------|-1-------|',
+        'B|------3---|-----0---|',
+        'G|----------|---------|',
+        'D|----------|---------|',
+        'A|----------|---------|',
+        'E|----------|---------|',
+        ' |  4   3     1       |',
+        ' |                    |',
+        ' |  p i m i           |',
+        'e|----------|---------|',
+        'B|----1---0-|---------|',
+        'G|----------|---2---0-|',
+        'D|----------|---------|',
+        'A|--3-------|---------|',
+        'E|----------|---------|',
+        '            1-1 4',
+        '            2-2 3'
+    ];
+    const blocks = groupBlocks(duetWithFingering);
+    const systems = blocks.filter(b => b.kind === 'system');
+    assert.equal(systems.length, 1);
+    assert.equal(systems[0].staves.length, 2);
+    assert.equal(systems[0].strings.length, 12);
+});
+

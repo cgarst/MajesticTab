@@ -38,7 +38,11 @@ export function isStaffLine(line) {
     if (!line || PROSE_DIVIDER.test(line) || ENDING_BRACKET_LINE.test(line)) return false;
     const dashCount = (line.match(/[-_=]/g) || []).length;
     if (dashCount < 1) return false;
-    if (NAMED_STAFF.test(line)) return true;
+    if (NAMED_STAFF.test(line)) {
+        // Digit-labeled lines (e.g. "1-1 4" fingering) need >= 3 dashes or a barline + >= 2 dashes to be a real string line
+        if (/^\s*[1-6]\b/.test(line) && dashCount < 3 && !(/\|/.test(line) && dashCount >= 2)) return false;
+        return true;
+    }
     if (UNNAMED_BAR_STAFF.test(line)) {
         // Reject legend prose like "o|| - end of repeat" that contains words
         const trimmed = line.trim();
@@ -484,10 +488,12 @@ export function groupBlocks(lines) {
         const next = rawSystems[s + 1];
         const curLines = cur.staffEnd - cur.staffStart + 1;
         const nextLines = next ? next.staffEnd - next.staffStart + 1 : 0;
-        if (next && curLines === 6 && nextLines === 6 && next.staffStart - cur.staffEnd - 1 <= 2) {
+        if (next && curLines === 6 && nextLines === 6 && next.staffStart - cur.staffEnd - 1 <= 4) {
             const mid = lines.slice(cur.staffEnd + 1, next.staffStart);
             const hasBlankMid = mid.some(isBlank);
-            const hasDuetCue = mid.length === 0 || mid.some(l => DUET_LABEL.test(l) || isRulerLine(l)) || DUET_LABEL.test(lines[cur.start]);
+            const hasDuetCue = mid.length === 0
+                || mid.some(l => DUET_LABEL.test(l) || isRulerLine(l) || /^\s*\|/.test(l))
+                || DUET_LABEL.test(lines[cur.start]);
             if (!hasBlankMid && hasDuetCue) {
                 systems.push({
                     start: cur.start,
