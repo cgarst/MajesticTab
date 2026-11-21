@@ -423,7 +423,7 @@
   <div class="wrap">
     <div class="sec-head rv">
       <h2 id="dl-h">Download MajesticTab</h2>
-      <p class="muted">A native app that runs offline, with every feature included.</p>
+      <p class="muted">A native app that runs offline, with every feature included. Or, <a href="https://majestictab.zathu.net/app" target="_blank" rel="noopener noreferrer">run it on the web</a><span class="tip"><button type="button" class="tip-btn" aria-label="About the web version" aria-expanded="false" aria-controls="webTip">i</button><span class="tip-body" id="webTip" role="tooltip">The web app is a limited version. Tabs saved in the browser can be cleared by your system. It has no offline storage, local Jam hosting, backing track separation, secure credential store, or iCloud sync for Apple devices.</span></span>.</p>
     </div>
     <div class="dl-grid">
       <div class="dl">
@@ -631,6 +631,15 @@
     stage.addEventListener('pointerup', end);
     stage.addEventListener('pointercancel', end);
   }
+})();
+(function () {
+  var tip = document.querySelector('.tip');
+  if (!tip) return;
+  var btn = tip.querySelector('.tip-btn');
+  var set = function (on) { tip.classList.toggle('is-open', on); btn.setAttribute('aria-expanded', on); };
+  btn.addEventListener('click', function (e) { e.stopPropagation(); set(!tip.classList.contains('is-open')); });
+  document.addEventListener('click', function (e) { if (!tip.contains(e.target)) set(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
 })();
 </script>
 </body>
