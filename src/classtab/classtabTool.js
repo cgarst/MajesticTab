@@ -261,7 +261,22 @@ export function renderClasstabTool(container, { onBack } = {}) {
         </div>`;
     }
 
-    function renderBrowse() {
+    function piecesPaneInnerHtml(res, searching, chosen, pins, pinnedPieces, pinnedActive, shown) {
+        return `
+            <button type="button" class="ct-back" data-act="back"><i class="bi-chevron-left" aria-hidden="true"></i> Composers</button>
+            <div class="ct-head-row">
+              <h3 class="ct-pieces-title">${searching ? esc(plural(res.pieces.length, 'result', 'results')) : pinnedActive ? 'Pinned' : chosen ? esc(composerHeading(chosen)) : ''}</h3>
+            </div>
+            ${!searching && !pinnedActive && chosen?.aliases ? `<p class="ct-sub">Also ${esc(chosen.aliases)}</p>` : ''}
+            <div class="ct-list" role="list">
+              ${pinnedActive
+        ? `${pins.composers.map(composerRow).join('')}${pinnedPieces.map((m) => pieceRow(m, true)).join('')}${!pins.composers.length && !pinnedPieces.length ? '<p class="ct-empty">No pinned pieces match the filters.</p>' : ''}`
+        : `${shown.map((m) => pieceRow(m, searching)).join('') || '<p class="ct-empty">No pieces match. <button type="button" class="ct-text" data-act="clear">Clear filters</button></p>'}
+              ${res.pieces.length > shown.length ? `<p class="ct-empty">Showing the first ${MAX_ROWS}. Narrow the search to see more.</p>` : ''}`}
+            </div>`;
+    }
+
+    function browseViewData() {
         const { composers } = state.rec;
         const q = { query: state.query, filters: [...state.filters], composer: state.composer };
         const res = browse(composers, q);
@@ -275,6 +290,27 @@ export function renderClasstabTool(container, { onBack } = {}) {
         const pinnedActive = !searching && pinCount > 0 && state.showPinned !== false;
         const shown = res.pieces.slice(0, MAX_ROWS);
         list = res.pieces;
+        return { res, comps, searching, chosen, pins, pinnedPieces, pinCount, pinnedActive, shown };
+    }
+
+    function renderPiecesOnly() {
+        const cols = root.querySelector('.ct-cols');
+        const piecesEl = root.querySelector('.ct-pieces');
+        if (!cols || !piecesEl || !state.rec) { render(); return; }
+        const { res, searching, chosen, pins, pinnedPieces, pinnedActive, shown } = browseViewData();
+        cols.dataset.pane = state.pane || 'composers';
+        root.querySelectorAll('.ct-composers [data-act="showpinned"]').forEach((el) => {
+            el.setAttribute('aria-current', String(pinnedActive));
+        });
+        root.querySelectorAll('.ct-composers [data-comp]').forEach((el) => {
+            el.setAttribute('aria-current', String(!searching && !pinnedActive && Number(el.dataset.comp) === state.composer));
+        });
+        piecesEl.innerHTML = piecesPaneInnerHtml(res, searching, chosen, pins, pinnedPieces, pinnedActive, shown);
+        piecesEl.scrollTop = 0;
+    }
+
+    function renderBrowse() {
+        const { res, comps, searching, chosen, pins, pinnedPieces, pinCount, pinnedActive, shown } = browseViewData();
         const filterBtn = (f) => `<button type="button" class="ct-filter" data-filter="${f.id}" aria-pressed="${state.filters.has(f.id)}">${f.label}</button>`;
         const moreOn = MORE_FILTERS.some((f) => state.filters.has(f.id));
         root.innerHTML = `
@@ -298,27 +334,19 @@ export function renderClasstabTool(container, { onBack } = {}) {
             }).join('') || '<p class="ct-empty">No composers match.</p>'}
           </nav>
           <section class="ct-pieces" aria-label="Pieces">
-            <button type="button" class="ct-back" data-act="back"><i class="bi-chevron-left" aria-hidden="true"></i> Composers</button>
-            <div class="ct-head-row">
-              <h3 class="ct-pieces-title">${searching ? esc(plural(res.pieces.length, 'result', 'results')) : pinnedActive ? 'Pinned' : chosen ? esc(composerHeading(chosen)) : ''}</h3>
-            </div>
-            ${!searching && !pinnedActive && chosen?.aliases ? `<p class="ct-sub">Also ${esc(chosen.aliases)}</p>` : ''}
-            <div class="ct-list" role="list">
-              ${pinnedActive
-        ? `${pins.composers.map(composerRow).join('')}${pinnedPieces.map((m) => pieceRow(m, true)).join('')}${!pins.composers.length && !pinnedPieces.length ? '<p class="ct-empty">No pinned pieces match the filters.</p>' : ''}`
-        : `${shown.map((m) => pieceRow(m, searching)).join('') || '<p class="ct-empty">No pieces match. <button type="button" class="ct-text" data-act="clear">Clear filters</button></p>'}
-              ${res.pieces.length > shown.length ? `<p class="ct-empty">Showing the first ${MAX_ROWS}. Narrow the search to see more.</p>` : ''}`}
-            </div>
+            ${piecesPaneInnerHtml(res, searching, chosen, pins, pinnedPieces, pinnedActive, shown)}
           </section>
         </div>`;
     }
 
     let listScroll = 0;
-    function render() {
+    function render({ keepComposersScroll = true, keepPiecesScroll = false } = {}) {
         if (!alive || !root.isConnected) return;
         // Keep focus and caret in the search box while typing
         const hadSearch = document.activeElement?.classList?.contains('ct-search');
         const caret = hadSearch ? document.activeElement.selectionStart : 0;
+        const prevComposersScroll = keepComposersScroll ? (root.querySelector('.ct-composers')?.scrollTop || 0) : 0;
+        const prevPiecesScroll = keepPiecesScroll ? (root.querySelector('.ct-pieces')?.scrollTop || 0) : 0;
         if (!state.rec) renderEmpty();
         else renderBrowse();
         if (restoreScroll && state.rec) {
@@ -333,6 +361,19 @@ export function renderClasstabTool(container, { onBack } = {}) {
             };
             apply();
             requestAnimationFrame(apply);
+        } else if (state.rec) {
+            const c = root.querySelector('.ct-composers');
+            const p = root.querySelector('.ct-pieces');
+            if (c && prevComposersScroll) {
+                void c.offsetHeight;
+                c.scrollTop = prevComposersScroll;
+                requestAnimationFrame(() => { if (c.isConnected) c.scrollTop = prevComposersScroll; });
+            }
+            if (p && prevPiecesScroll) {
+                void p.offsetHeight;
+                p.scrollTop = prevPiecesScroll;
+                requestAnimationFrame(() => { if (p.isConnected) p.scrollTop = prevPiecesScroll; });
+            }
         }
         if (hadSearch) {
             const s = root.querySelector('.ct-search');
@@ -368,37 +409,52 @@ export function renderClasstabTool(container, { onBack } = {}) {
         if (pinComp) {
             const c = state.rec.composers[Number(pinComp.dataset.pincomp)];
             if (c) toggleComposerPin(c.name);
-            render();
+            render({ keepPiecesScroll: true });
             return;
         }
         const comp = e.target.closest('[data-comp]');
         if (comp) {
+            const hadQuery = state.query.trim().length > 0;
             state.composer = Number(comp.dataset.comp);
             state.query = '';
             state.pane = 'pieces';
             state.showPinned = false;
             listScroll = root.scrollTop;
-            render();
-            root.scrollTop = 0; // the phone page scrolls as one, so a new composer starts at the top of its pieces
+            if (hadQuery) {
+                const s = root.querySelector('.ct-search');
+                if (s) s.value = '';
+                render();
+            } else {
+                renderPiecesOnly();
+            }
+            if (window.innerWidth < 900) root.scrollTop = 0; // the phone page scrolls as one, so a new composer starts at the top of its pieces
             root.querySelector('.ct-pieces')?.scrollTo?.(0, 0);
             return;
         }
         const btn = e.target.closest('[data-act]');
-        if (!btn) { if (state.menuFor || state.moreOpen) { state.menuFor = null; state.moreOpen = false; render(); } return; }
+        if (!btn) { if (state.menuFor || state.moreOpen) { state.menuFor = null; state.moreOpen = false; render({ keepPiecesScroll: true }); } return; }
         const act = btn.dataset.act;
         if (act === 'download') startDownload();
         else if (act === 'choose') chooseZip();
         else if (act === 'cancel') state.job?.cancel?.();
-        else if (act === 'more') { state.moreOpen = !state.moreOpen; render(); }
+        else if (act === 'more') { state.moreOpen = !state.moreOpen; render({ keepPiecesScroll: true }); }
         else if (act === 'clear') { state.filters.clear(); state.query = ''; render(); }
-        else if (act === 'showpinned') { state.showPinned = true; state.query = ''; state.pane = 'pieces'; listScroll = root.scrollTop; render(); root.scrollTop = 0; }
+        else if (act === 'showpinned') {
+            const hadQuery = state.query.trim().length > 0;
+            state.showPinned = true; state.query = ''; state.pane = 'pieces';
+            listScroll = root.scrollTop;
+            if (hadQuery) render();
+            else renderPiecesOnly();
+            if (window.innerWidth < 900) root.scrollTop = 0;
+            root.querySelector('.ct-pieces')?.scrollTo?.(0, 0);
+        }
         else if (act === 'pin') {
             const { composer, piece } = findPiece(btn.dataset.key);
             if (composer && piece) togglePiecePin(composer.name, piece.title);
-            render();
+            render({ keepPiecesScroll: true });
         }
         else if (act === 'back') { state.pane = 'composers'; render(); root.scrollTop = listScroll; }
-        else if (act === 'menu') { state.menuFor = state.menuFor === btn.dataset.key ? null : btn.dataset.key; render(); }
+        else if (act === 'menu') { state.menuFor = state.menuFor === btn.dataset.key ? null : btn.dataset.key; render({ keepPiecesScroll: true }); }
         else if (['open', 'add', 'video'].includes(act)) {
             const { composer, piece } = findPiece(btn.dataset.key);
             state.menuFor = null;

@@ -1001,8 +1001,12 @@ function renderMiniBarRulerHtml(currentBar, totalBars) {
 // // -----------------------------------------------------------------------------
 // 1. LIBRARY BROWSER VIEW (Collection > Artist > Album > Song / Tunings)
 // -----------------------------------------------------------------------------
-async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
+async function renderLibraryBrowseView(container, { keepScroll = false, keepSongsScroll = false } = {}) {
     const savedScroll = container ? container.scrollTop : 0;
+    const savedListPaneScroll = (keepScroll && container) ? (container.querySelector('.pane.list')?.scrollTop || 0) : 0;
+    const savedListScroll = (keepScroll && container) ? (container.querySelector('.pane.list .pane-scroll')?.scrollTop || 0) : 0;
+    const savedSongsPaneScroll = (keepSongsScroll && container) ? (container.querySelector('.pane.songs')?.scrollTop || 0) : 0;
+    const savedSongsScroll = (keepSongsScroll && container) ? (container.querySelector('.pane.songs .pane-scroll')?.scrollTop || 0) : 0;
     if (container) {
         if (!keepScroll) container.scrollTop = 0;
         blurActiveLibraryElement(container);
@@ -1955,7 +1959,7 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
         pushLibraryNavigationState();
         pinnedGroupSelected = true;
         activeLibraryPane = 'songs';
-        renderLibraryBrowseView(container);
+        renderLibraryBrowseView(container, { keepScroll: true });
     });
 
 
@@ -1964,9 +1968,9 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
         pushLibraryNavigationState();
         pinnedGroupSelected = 'recents';
         activeLibraryPane = 'songs';
-        renderLibraryBrowseView(container);
+        renderLibraryBrowseView(container, { keepScroll: true });
     });
-    if (container.querySelector('#recentsList')) bindRecentRows(container, () => renderLibraryBrowseView(container));
+    if (container.querySelector('#recentsList')) bindRecentRows(container, () => renderLibraryBrowseView(container, { keepScroll: true, keepSongsScroll: true }));
 
     // Artist card clicks
     container.querySelectorAll('.artist-card').forEach(card => {
@@ -1981,7 +1985,7 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
             selectedAlbumFilter = 'all';
             selectedFolderPath = [];
             activeLibraryPane = 'songs';
-            renderLibraryBrowseView(container);
+            renderLibraryBrowseView(container, { keepScroll: true });
         });
     });
 
@@ -1992,7 +1996,7 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
             const artistName = btn.dataset.artistName;
             const pinned = toggleArtistPinned(artistName);
             showToast(pinned ? `Pinned ${artistName}` : `Unpinned ${artistName}`, 'info');
-            renderLibraryBrowseView(container);
+            renderLibraryBrowseView(container, { keepScroll: true, keepSongsScroll: true });
         });
     });
 
@@ -2006,7 +2010,7 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
             } else {
                 selectedAlbum = null;
             }
-            renderLibraryBrowseView(container);
+            renderLibraryBrowseView(container, { keepScroll: true });
         });
     });
 
@@ -2018,7 +2022,7 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
             const tuningKey = card.dataset.tuningKey || card.dataset.tuningName;
             selectedTuning = tuningKey;
             activeLibraryPane = 'songs';
-            renderLibraryBrowseView(container);
+            renderLibraryBrowseView(container, { keepScroll: true });
         };
         card.addEventListener('click', (e) => {
             if (e.target.closest('.edit-tuning-btn')) return;
@@ -2150,7 +2154,17 @@ async function renderLibraryBrowseView(container, { keepScroll = false } = {}) {
 
     // Hydrate cached images
     hydrateCachedImages(container);
-    if (keepScroll && container) container.scrollTop = savedScroll;
+    if (keepScroll && container) {
+        container.scrollTop = savedScroll;
+        const listPaneEl = container.querySelector('.pane.list');
+        if (listPaneEl && savedListPaneScroll) listPaneEl.scrollTop = savedListPaneScroll;
+        const listScrollEl = container.querySelector('.pane.list .pane-scroll');
+        if (listScrollEl && savedListScroll) listScrollEl.scrollTop = savedListScroll;
+        const songsPaneEl = container.querySelector('.pane.songs');
+        if (songsPaneEl && savedSongsPaneScroll) songsPaneEl.scrollTop = savedSongsPaneScroll;
+        const songsScrollEl = container.querySelector('.pane.songs .pane-scroll');
+        if (songsScrollEl && savedSongsScroll) songsScrollEl.scrollTop = savedSongsScroll;
+    }
 }
 
 const LIBRARY_TABS = [
