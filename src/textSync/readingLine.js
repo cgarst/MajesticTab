@@ -106,6 +106,41 @@ export function positionAt(points, unitIds, timeMs, endMs = null) {
 }
 
 /**
+ * How far through its unit the recording is, by time alone. The sync points of a staff are per note or per bar, so the
+ * position from `positionAt` only changes between bars; this runs from the first point of the unit to the first point after it,
+ * so a marker on the side of the tab can move at an even pace through the whole unit.
+ *
+ * @param {Array<{barIndex:number|string,timeMs:number,endTimeMs?:number}>} points sorted by timeMs
+ * @param {Array<number|string>} unitIds every unit in reading order
+ * @param {number} timeMs the heard time
+ * @param {number|null} [endMs=null] length of the recording
+ * @returns {{ unitIndex: number, frac: number, forward: boolean } | null} `frac` 0..1 through the unit; `forward` when the next point is in a later unit (the marker may travel on to it), false for a repeat or the last unit
+ */
+export function unitProgressAt(points, unitIds, timeMs, endMs = null) {
+    const rk = (p) => rankOf(unitIds, p.barIndex);
+    let i = -1;
+    for (let j = 0; j < points.length; j++) {
+        if (points[j].timeMs > timeMs) break;
+        if (rk(points[j]) >= 0) i = j;
+    }
+    if (i < 0) {
+        const first = points.find((p) => rk(p) >= 0);
+        return first ? { unitIndex: rk(first), frac: 0, forward: false } : null;
+    }
+    const unitIndex = rk(points[i]);
+    let a = i;
+    while (a > 0 && rk(points[a - 1]) === unitIndex) a--;
+    let b = i + 1;
+    while (b < points.length && (rk(points[b]) < 0 || rk(points[b]) === unitIndex)) b++;
+    const start = points[a].timeMs;
+    const next = points[b];
+    const last = points[b - 1];
+    const end = next ? next.timeMs : Math.min(last.endTimeMs ?? (endMs || last.timeMs), start + 20000);
+    const frac = end > start ? Math.max(0, Math.min(1, (timeMs - start) / (end - start))) : 0;
+    return { unitIndex, frac, forward: Boolean(next) && rk(next) > unitIndex };
+}
+
+/**
  * Returns detailed intra-system & intra-bar progress at `timeMs`, including `colFrac` (0..1 across the active system)
  * and `barFrac` (0..1 across the active bar) for both Vertical column cursor and Horizontal ribbon scrolling.
  *
