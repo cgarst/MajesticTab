@@ -296,8 +296,11 @@ window.addEventListener('dragover', (e) => {
 }, false);
 
 window.addEventListener('drop', async (e) => {
+    // A specific drop target (library folder or album, Open file dropzone, backup restore) calls
+    // preventDefault when it handles a drop. Everything else, anywhere in the UI, opens the file here.
+    const claimed = e.defaultPrevented;
     e.preventDefault();
-    if (e.target.closest('#libraryPage') || e.target.closest('.drop-zone')) return;
+    if (claimed) return;
 
     const file = e.dataTransfer?.files?.[0];
     if (!file) return;
