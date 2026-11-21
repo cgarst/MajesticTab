@@ -35,7 +35,7 @@ import { initMixerPanel, wireModal, closeModal } from './gpProcessor/mixerPanel.
 import { initAudioLatencyModal } from './gpProcessor/audioLatencyModal.js';
 import { initMidiSynthUi, midiSynthIsFor } from './classtab/midiSynth.js';
 import { initClasstabSongMenu } from './classtab/songMenu.js';
-import { initSynthPlayer, initScoreOptionsPanel, showScoreOptions, hideScoreOptions, syncSynthTrackModeLabels, setKeepPlayerOnReset } from './gpProcessor/gpPlayer.js';
+import { initSynthPlayer, synthPlayerState, playClick, initScoreOptionsPanel, showScoreOptions, hideScoreOptions, syncSynthTrackModeLabels, setKeepPlayerOnReset } from './gpProcessor/gpPlayer.js';
 import { setPdfDocument, setBookmarkCurrentPageIndex, clearPdfBookmarks, initPdfBookmarksUI } from './pdfProcessor/pdfBookmarks.js';
 import { initTheming } from './themeEngine.js';
 import { initUpdater } from './updater.js';
@@ -63,6 +63,7 @@ import { initReaderViewMenu } from './utils/readerViewMenu.js';
 import { initGuitarMenu } from './utils/guitarMenu.js';
 import { initSongTuningMenu } from './utils/songTuningMenu.js';
 import { initPracticeMenu } from './utils/practiceMenu.js';
+import { initFreeClick } from './utils/freeClick.js';
 import { initReaderPanels } from './utils/readerPanels.js';
 import { initBarRuler } from './gpProcessor/barRuler.js';
 import { initScoreRecordingStrip } from './audioSync/scoreRecordingStrip.js';
@@ -1111,6 +1112,7 @@ async function initAppInner() {
     initReaderViewMenu();
     initGuitarMenu();
     initSongTuningMenu();
+    initFreeClick({ playClick, isMetronomeOn: () => synthPlayerState.metronomeEnabled, isCountInOn: () => synthPlayerState.countInEnabled });
     initPracticeMenu();
     initReaderPanels();
     initBarRuler();

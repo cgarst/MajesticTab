@@ -33,7 +33,8 @@ import { showToast } from '../utils/toast.js';
 import { positionAt, barProgressAt, backJumps, followTarget, glide } from './readingLine.js';
 import { createGlide, lineNeedsTurn, isLastLine } from '../utils/pagedScroll.js';
 import { textState } from '../textProcessor/textHandler.js';
-import { autoSource, setAutoScrollAvailable, setAutoTotal, resetAutoScroll, buildAutoPoints, initAutoScrollDock, UNIT_MS, PDF_PAGE_MS } from '../utils/autoScroll.js';
+import { autoSource, setAutoScrollAvailable, setAutoTotal, resetAutoScroll, buildAutoPoints, initAutoScrollDock, getAutoPace, UNIT_MS, PDF_PAGE_MS } from '../utils/autoScroll.js';
+import { setFreeClickSource } from '../utils/freeClick.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -903,6 +904,9 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         // No sound and nothing to follow: Play scrolls the tab at a pace of its own
         if (eligible && !next && tab) next = autoRec;
         setAutoScrollAvailable(next === autoRec, textKey() || '');
+        // Every transport here except the MIDI file's own (which brings its clicks) gets the free click
+        const freeSrc = next && next.source !== midiSource ? next.source : null;
+        setFreeClickSource(freeSrc, textKey() || '', freeSrc === autoSource ? getAutoPace : () => freeSrc?.getRate?.() || 1);
         if (rec?.source === autoSource && next?.source !== autoSource) autoSource.pause();
         const sameMedia = next && rec && next.source === rec.source && JSON.stringify(next.media) === JSON.stringify(rec.media);
         if (!sameMedia) {

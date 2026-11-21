@@ -2394,6 +2394,9 @@ export function getPlayerContext() {
     return { api: currentApi, score: currentScore };
 }
 
+/** A score with bars is attached: Guitar Pro, or a MIDI file's virtual score on a text tab. */
+export const hasAttachedScore = () => Boolean(currentApi && currentScore?.masterBars?.length);
+
 export function isSynthAvailable() {
     const synthBtn = document.getElementById('synthToggleBtn');
     return Boolean(synthBtn && synthBtn.style.display !== 'none' && currentApi);

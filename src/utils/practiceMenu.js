@@ -6,8 +6,12 @@
 
 import { showPanel, hidePanel, isShown, placePanel, outsideTapCloses } from './readerPanels.js';
 import { isTabletop } from '../foldState.js';
-import { getRealAudioActiveSource, getRealAudioRate, setRealAudioRate } from '../audioSync/realAudioController.js';
+import { getRealAudioActiveSource, getRealAudioRate, setRealAudioRate, isRealAudioAvailable } from '../audioSync/realAudioController.js';
 import { nextPercentRate } from './practiceSpeed.js';
+import { practiceCaps } from './practiceCaps.js';
+import { hasAttachedScore } from '../gpProcessor/gpPlayer.js';
+import { isAutoScrollAvailable, getAutoPace, stepAutoPace, formatPace, AUTO_EVENT } from './autoScroll.js';
+import { isFreeClick, getFreeTempo, stepBpm, setBeats, tap, BEAT_CHOICES, FREE_EVENT } from './freeClick.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -17,6 +21,7 @@ function onRecording() {
 
 /** Preset buttons of the active sound: [{label, value, button, active}] */
 function activePresets() {
+    if (isAutoScrollAvailable()) return [];
     const sel = onRecording() ? '#realAudioRates button[data-rate]' : '#synthSpeedButtons button[data-speed]';
     return [...document.querySelectorAll(sel)].map((b) => ({
         label: b.textContent.trim(), value: parseFloat(b.dataset.rate ?? b.dataset.speed), button: b, active: b.classList.contains('active')
@@ -33,7 +38,23 @@ function onLocalRecording() {
     return src === 'local' || src === 'embedded';
 }
 
+/** What the panel can offer for what is open now (see practiceCaps.js). */
+function readCaps() {
+    const kind = getRealAudioActiveSource();
+    const rec = onRecording();
+    return practiceCaps({
+        hasScore: hasAttachedScore(),
+        auto: isAutoScrollAvailable(),
+        freeClick: isFreeClick(),
+        onRecording: rec,
+        originalKind: kind === 'local' || kind === 'embedded' || kind === 'youtube' ? kind : null,
+        originalAttached: rec && isRealAudioAvailable(),
+        hasPresets: document.querySelectorAll('#realAudioRates button[data-rate]').length > 0
+    });
+}
+
 function currentSpeedLabel() {
+    if (isAutoScrollAvailable()) return formatPace(getAutoPace());
     if (onLocalRecording()) return `${Math.round(getRealAudioRate() * 100)}%`;
     if (onRecording()) {
         const a = document.querySelector('#realAudioRates button.active');
@@ -65,7 +86,29 @@ export function initPracticeMenu() {
     const sections = $('synthSectionsContainer');
     const sectionsLabel = sections?.querySelector('label.form-label');
     if (sectionsLabel) sectionsLabel.textContent = 'Parts';
-    menu.replaceChildren(...[head, clickBlock, speed, sections, loopBlock].filter(Boolean));
+    // The free click's tempo: only while nothing has a tempo of its own (a PDF, text with no MIDI, a recording with no map)
+    const tempo = document.createElement('div');
+    tempo.id = 'practiceTempo';
+    tempo.innerHTML = '<div class="practice-speed-head">'
+        + '<button type="button" class="btn practice-step" id="practiceTempoDown" aria-label="Slower tempo">&minus;</button>'
+        + '<div><div class="practice-label">Tempo</div><div class="practice-speed-value" id="practiceTempoValue">100</div></div>'
+        + '<button type="button" class="btn practice-step" id="practiceTempoUp" aria-label="Faster tempo">+</button></div>'
+        + '<div class="practice-presets practice-tempo-row" id="practiceTempoRow">'
+        + '<button type="button" class="btn btn-sm practice-preset" id="practiceTap">Tap</button>'
+        + BEAT_CHOICES.map((n) => `<button type="button" class="btn btn-sm practice-preset" data-beats="${n}">${n} beats</button>`).join('')
+        + '</div><div class="practice-sub">Steady click. Tap along to line it up.</div>';
+    menu.replaceChildren(...[head, clickBlock, tempo, speed, sections, loopBlock].filter(Boolean));
+    const blocks = { speed, loopBars: loopBlock, parts: sections, tempo };
+    /** Hides what does not apply to what is open (data-cap-hidden, see design.css). */
+    function applyCaps() {
+        const caps = readCaps();
+        for (const [key, el] of Object.entries(blocks)) {
+            if (!el) continue;
+            const on = key === 'speed' ? Boolean(caps.speed) : caps[key];
+            if (on) el.removeAttribute('data-cap-hidden'); else el.setAttribute('data-cap-hidden', '');
+        }
+        return caps;
+    }
 
     // ---- Open, close, placement ----
     const isOpen = () => isShown(menu);
@@ -90,7 +133,14 @@ export function initPracticeMenu() {
 
     // ---- Speed ----
     let presetKey = '';
+    function renderTempo() {
+        const t = getFreeTempo();
+        $('practiceTempoValue').textContent = String(t.bpm);
+        tempo.querySelectorAll('[data-beats]').forEach((b) => b.classList.toggle('active', Number(b.dataset.beats) === t.beats));
+    }
     function render() {
+        applyCaps();
+        renderTempo();
         $('practiceSpeedValue').textContent = currentSpeedLabel();
         // While playing, the speed readout updates constantly; rebuilding identical buttons would swallow a click between press and release.
         const key = activePresets().map((p) => p.label + (p.active ? '*' : '')).join('|');
@@ -106,7 +156,9 @@ export function initPracticeMenu() {
         }));
     }
     function step(dir) {
-        if (onLocalRecording()) {
+        if (isAutoScrollAvailable()) {
+            stepAutoPace(dir);
+        } else if (onLocalRecording()) {
             setRealAudioRate(nextPercentRate(getRealAudioRate(), dir));
         } else if (onRecording()) {
             const list = activePresets();
@@ -118,6 +170,12 @@ export function initPracticeMenu() {
         }
         setTimeout(render, 0);
     }
+    $('practiceTempoDown').addEventListener('click', () => stepBpm(-1));
+    $('practiceTempoUp').addEventListener('click', () => stepBpm(1));
+    $('practiceTap').addEventListener('click', () => tap());
+    tempo.querySelectorAll('[data-beats]').forEach((b) => b.addEventListener('click', () => setBeats(Number(b.dataset.beats))));
+    window.addEventListener(AUTO_EVENT, () => { if (isOpen()) render(); });
+    window.addEventListener(FREE_EVENT, () => { if (isOpen()) render(); });
     $('practiceSlower').addEventListener('click', () => step(-1));
     $('practiceFaster').addEventListener('click', () => step(1));
     const watch = (el, opts) => { if (el) new MutationObserver(() => { if (isOpen()) render(); }).observe(el, opts); };
@@ -128,7 +186,7 @@ export function initPracticeMenu() {
 
     // ---- The button shows a dot while a loop or the click is on, so nothing runs unseen ----
     const syncState = () => {
-        const on = $('dockLoopBtn')?.getAttribute('aria-pressed') === 'true' || $('dockMetroBtn')?.getAttribute('aria-pressed') === 'true';
+        const on = (hasAttachedScore() && $('dockLoopBtn')?.getAttribute('aria-pressed') === 'true') || $('dockMetroBtn')?.getAttribute('aria-pressed') === 'true';
         btn.classList.toggle('has-state', on);
     };
     ['dockLoopBtn', 'dockMetroBtn'].forEach((id) => {

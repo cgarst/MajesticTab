@@ -5,6 +5,7 @@ import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView, isPhoneReader, phoneTapZone } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
 import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel, synthPlayerState } from '../gpProcessor/gpPlayer.js';
+import { countInThen } from './freeClick.js';
 import { isAutoScrollAvailable, isAutoScrolling, toggleAutoScroll, rewindAutoScroll, AUTO_EVENT } from './autoScroll.js';
 import { gamepadManager } from './gamepadManager.js';
 import { isTvMode } from '../tvMode.js';
@@ -1347,6 +1348,12 @@ export function handleGlobalRewind10Seconds() {
  * Handle Play / Pause for whichever audio player is active/playing or available
  */
 export function handleGlobalPlayPause() {
+    // A tab with no tempo of its own counts in with the free click (src/utils/freeClick.js)
+    if (countInThen(startGlobalPlayPause)) return;
+    startGlobalPlayPause();
+}
+
+function startGlobalPlayPause() {
     if (isAutoScrollAvailable()) {
         toggleAutoScroll();
         return;
