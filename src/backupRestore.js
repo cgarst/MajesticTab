@@ -7,7 +7,8 @@ import { recordStorage, flushSyncRecords } from './audioSync/syncRecordStore.js'
 import { entryOf, planShrink, shrunkRestore, stemIsCopy, mediaKeyOf } from './audioSync/syncShrink.js';
 import { clearAllAudioFiles } from './audioSync/audioFileStore.js';
 import { isAudioChoiceKey, assignRestoredAudioSlot } from './audioSync/libraryAudio.js';
-import { isRecordingMetaKey, listRecordingMeta } from './audioSync/recordingMeta.js';
+import { isRecordingMetaKey, listRecordingMeta, setRecordingMeta, REC_META_PREFIX } from './audioSync/recordingMeta.js';
+import { planStemRepair } from './audioSync/stemRepair.js';
 import {
     AUDIO_BACKUP_STORE, iterateAudioBackupEntries, audioBackupPlan, audioBackupOverview, restoreAudioEntry,
     LARGE_AUDIO_UPLOAD_BYTES, SINGLE_FILE_AUDIO_LIMIT
@@ -1242,7 +1243,7 @@ function leaveEmbeddedBackup() {
 
 /**
  * Open the Data Management modal
- * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'mixedalbums'|'dupetabs'|'missing'|'syncshrink'|'rebuild'|'cache'|'delete'} initialTab
+ * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'mixedalbums'|'dupetabs'|'missing'|'stemrepair'|'syncshrink'|'rebuild'|'cache'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup', options = {}) {
     // Data management lives in Settings, on the Data management page. There is no popup.
@@ -1720,6 +1721,22 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="missingCancelBtn">Close</button>
             <button type="button" class="btn btn-sm btn-theme-primary px-4" id="missingRestoreBtn" style="display:none;">Find files in cloud storage</button>
             <button type="button" class="btn btn-sm btn-theme-danger px-4" id="missingDeleteBtn" disabled>Remove selected</button>
+          </div>
+        </div>
+
+        <!-- TAB: STEMS LISTED AS AUDIO -->
+        <div id="stemrepairTabContent" style="display: ${activeTab === 'stemrepair' ? 'block' : 'none'};">
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2">Stems listed as audio</div>
+            <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+              A file saved as a recording of its own and added to a set of stems later can stay in the list as a separate recording. This files it as a stem of its set. No audio is deleted, and each part keeps its name. Create a backup first.
+            </div>
+            <div id="stemrepairList"></div>
+          </div>
+          <div id="stemrepairStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="stemrepairCancelBtn">Close</button>
+            <button type="button" class="btn btn-sm btn-theme-primary px-4" id="stemrepairBtn" disabled>File selected as stems</button>
           </div>
         </div>
 
@@ -2330,6 +2347,77 @@ function attachModalHandlers(modal, options = {}) {
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
     });
     if (modal.querySelector('#missingTabContent')?.style.display !== 'none') renderMissing();
+
+    // --- STEMS LISTED AS AUDIO ---
+    const stemrepairList = modal.querySelector('#stemrepairList');
+    const stemrepairBtn = modal.querySelector('#stemrepairBtn');
+    const stemrepairStatusAlert = modal.querySelector('#stemrepairStatusAlert');
+    // One entry per song with something to fix: { song, fixes }. The song key is the decoded one recordingMeta.js stores under.
+    const scanStemRepair = async () => {
+        const out = [];
+        let n = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k || !isRecordingMetaKey(k)) continue;
+            let song;
+            try { song = decodeURIComponent(k.slice(REC_META_PREFIX.length)); } catch { continue; }
+            const fixes = planStemRepair(listRecordingMeta(song));
+            if (fixes.length) out.push({ song, fixes });
+            if (++n % 100 === 0) await new Promise((r) => setTimeout(r, 0));
+        }
+        return out;
+    };
+    const updateStemrepairBtn = () => {
+        stemrepairBtn.disabled = stemrepairList.querySelectorAll('.stemrepair-check:checked').length === 0;
+    };
+    const renderStemrepair = async () => {
+        stemrepairList.innerHTML = '<div class="text-white-50 small">Looking for stems listed as audio…</div>';
+        stemrepairBtn.disabled = true;
+        let plan;
+        try {
+            plan = await scanStemRepair();
+        } catch (err) {
+            console.error('Failed to scan for stems listed as audio:', err);
+            stemrepairList.innerHTML = `<div class="text-danger small">Failed to scan: ${escapeHtml(err.message)}</div>`;
+            return;
+        }
+        if (!plan.length) {
+            stemrepairList.innerHTML = '<div class="text-white-50 small">No stem is listed as a recording of its own.</div>';
+            updateStemrepairBtn();
+            return;
+        }
+        stemrepairList.innerHTML = `<div class="d-flex flex-column gap-2">${plan.map(({ song, fixes }) => `
+          <label class="d-flex align-items-start gap-2 mb-0 mt-1 p-2 rounded-2 backup-stat-card" style="cursor: pointer;">
+            <input type="checkbox" class="form-check-input stemrepair-check flex-shrink-0 mt-1" data-song="${escapeHtml(encodeURIComponent(song))}" checked>
+            <span class="small text-white-50"><span class="text-white">${escapeHtml(song.replace(/^score:[^:]*:/, '').replace(/^text:/, ''))}</span><br>${fixes.length} ${fixes.length === 1 ? 'part' : 'parts'}: ${escapeHtml(fixes.map((f) => f.meta.label).join(', '))}</span>
+          </label>`).join('')}</div>`;
+        stemrepairList.querySelectorAll('.stemrepair-check').forEach((cb) => cb.addEventListener('change', updateStemrepairBtn));
+        updateStemrepairBtn();
+    };
+    modal.querySelector('#stemrepairCancelBtn')?.addEventListener('click', closeBackupModal);
+    stemrepairBtn?.addEventListener('click', async () => {
+        const chosen = new Set([...stemrepairList.querySelectorAll('.stemrepair-check:checked')].map((cb) => decodeURIComponent(cb.dataset.song)));
+        if (!chosen.size) return;
+        stemrepairBtn.disabled = true;
+        try {
+            // Read again: the list may be old
+            let filed = 0;
+            for (const { song, fixes } of await scanStemRepair()) {
+                if (!chosen.has(song)) continue;
+                for (const f of fixes) {
+                    setRecordingMeta(song, { kind: 'local', audioId: f.key.slice('local_'.length) }, f.meta);
+                    filed++;
+                }
+            }
+            window.dispatchEvent(new CustomEvent('majestictab:data-changed'));
+            showTaskResult(stemrepairStatusAlert, 'done', `${filed} ${filed === 1 ? 'part' : 'parts'} filed as stems`);
+        } catch (err) {
+            console.error('Failed to file stems:', err);
+            showTaskResult(stemrepairStatusAlert, 'error', `Could not file the stems. ${err.message}`);
+        }
+        await renderStemrepair();
+    });
+    if (modal.querySelector('#stemrepairTabContent')?.style.display !== 'none') renderStemrepair();
 
     // --- MAP RECORDS ---
     const syncshrinkList = modal.querySelector('#syncshrinkList');
