@@ -20,6 +20,8 @@ export function attachPillCursor(el) {
     svg.setAttribute('class', 'pill-cursor-svg');
     svg.setAttribute('width', String(READER_CURSOR_WIDTH));
     const path = document.createElementNS(NS, 'path');
+    // The dark and themed sheet rules fill every #output path that lacks this attribute, which turned the pill gray
+    path.setAttribute('fill', 'none');
     svg.appendChild(path);
     el.appendChild(svg);
     let lastH = 0;
