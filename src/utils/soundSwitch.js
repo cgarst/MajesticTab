@@ -7,7 +7,7 @@
 // Both only press the controls that already hold the state (the track-mode radios, the slot rows and the hidden Synth and
 // Original buttons that carry `active-audio-mode`), so the code that reads those keeps working.
 
-import { onMixerChange } from '../gpProcessor/gpPlayer.js';
+import { onMixerChange, setSoundOff, isSoundOff, isSynthAvailable } from '../gpProcessor/gpPlayer.js';
 import { switchRealAudioSlot, getActiveRecording } from '../audioSync/realAudioController.js';
 import { isShown } from './readerPanels.js';
 import { initSlotRecordings } from '../audioSync/slotRecordings.js';
@@ -16,7 +16,19 @@ const $ = (id) => document.getElementById(id);
 const shown = (el) => Boolean(el) && el.style.display !== 'none';
 const watch = (el, filter, cb) => { if (el) new MutationObserver(cb).observe(el, { attributes: true, attributeFilter: filter }); };
 
+// Sound Off: the Synth keeps driving the cursor and the page, silently. Temporary: it ends when another file opens.
+export const SOUND_OFF_EVENT = 'majestictab:sound-off';
+function applySoundOff(on) {
+    if (isSoundOff() === on) return;
+    setSoundOff(on);
+    document.body.classList.toggle('sound-off', on);
+    const label = $('soundToggleBtn')?.querySelector('.bar-btn-label');
+    if (label) label.textContent = on ? 'Sound off' : 'Sound';
+    window.dispatchEvent(new CustomEvent(SOUND_OFF_EVENT, { detail: { off: on } }));
+}
+
 export function initSoundSwitch() {
+    window.addEventListener('majestictab:file-loaded', () => applySoundOff(false));
     initSourceSwitch();
     initPartToggle();
     initSlotRecordings();
@@ -38,7 +50,7 @@ function initSourceSwitch() {
         group.className = 'hud-pill-group sound-source';
         group.setAttribute('role', 'group');
         group.setAttribute('aria-label', 'Sound');
-        [['synth', 'Synth', synthBtn], ['original', 'Original', originalBtn]].forEach(([kind, label, legacy]) => {
+        [['synth', 'Synth', synthBtn], ['original', 'Original', originalBtn], ['off', 'Off', null]].forEach(([kind, label, legacy]) => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn btn-sm';
@@ -47,6 +59,14 @@ function initSourceSwitch() {
             // The hidden dock button owns the switch (selectSound): the open panel follows the selection
             btn.addEventListener('click', () => {
                 if (btn.getAttribute('aria-pressed') === 'true') return;
+                if (kind === 'off') {
+                    // Off is the Synth made silent: Original stops (its video sheet closes) and the Synth takes the transport
+                    if (!synthBtn.classList.contains('active-audio-mode')) synthBtn.click();
+                    applySoundOff(true);
+                    sync();
+                    return;
+                }
+                applySoundOff(false);
                 // The two panels hang from the same bottom edge but differ in height, so the sheet's top edge (and the score
                 // behind it) jumped on every switch. The panel that takes over keeps the height of the one it replaces.
                 const open = groups.find(({ panel }) => panel.offsetHeight > 0 && getComputedStyle(panel).display !== 'none');
@@ -56,23 +76,32 @@ function initSourceSwitch() {
             group.append(btn);
         });
         header.insertBefore(group, header.firstElementChild);
+        if (panelId === 'synthDropdownPanel') {
+            const note = document.createElement('p');
+            note.id = 'soundOffNote';
+            note.className = 'small text-muted mb-0';
+            note.textContent = 'No sound. Play scrolls the tab and moves the cursor. The click still sounds.';
+            panel.querySelector('.synth-panel-body')?.prepend(note);
+        }
         groups.push({ group, panel });
     });
 
     const sync = () => {
         const synthOn = synthBtn.classList.contains('active-audio-mode');
         const originalOn = originalBtn.classList.contains('active-audio-mode');
-        const selected = originalOn ? 'original' : synthOn ? 'synth' : (shown(synthBtn) ? 'synth' : 'original');
+        if (originalOn && isSoundOff()) applySoundOff(false);
+        const selected = isSoundOff() ? 'off' : originalOn ? 'original' : synthOn ? 'synth' : (shown(synthBtn) ? 'synth' : 'original');
         groups.forEach(({ group, panel }) => {
             group.querySelectorAll('button').forEach((btn) => {
                 const kind = btn.dataset.source;
                 btn.setAttribute('aria-pressed', String(kind === selected));
-                btn.disabled = !shown(kind === 'synth' ? synthBtn : originalBtn);
+                btn.disabled = kind === 'off' ? !(shown(synthBtn) && isSynthAvailable()) : !shown(kind === 'synth' ? synthBtn : originalBtn);
             });
             window.refreshSlidingPills?.(panel, true);
         });
     };
     [synthBtn, originalBtn].forEach((el) => watch(el, ['style', 'class'], sync));
+    onMixerChange(sync);
     // The held height only lasts while the panel stays open
     groups.forEach(({ panel }) => watch(panel, ['style', 'class'], () => {
         if (panel.style.minHeight && getComputedStyle(panel).display === 'none') panel.style.minHeight = '';
@@ -112,8 +141,8 @@ function initPartToggle() {
         }
         full.setAttribute('aria-pressed', String(part === 'full'));
         back.setAttribute('aria-pressed', String(part === 'backing'));
-        full.disabled = !enabled && !originalOn();
-        back.disabled = !enabled && !originalOn();
+        full.disabled = isSoundOff() || (!enabled && !originalOn());
+        back.disabled = isSoundOff() || (!enabled && !originalOn());
         full.title = 'Play the full band';
         back.title = originalOn() ? 'Play the backing' : `Play the backing, without ${backingName}`;
     };
@@ -137,6 +166,7 @@ function initPartToggle() {
         watch(radio, ['disabled'], sync);
     });
     watch(document.body, ['class'], sync);
+    window.addEventListener(SOUND_OFF_EVENT, sync);
     onMixerChange(sync);
     sync();
 }

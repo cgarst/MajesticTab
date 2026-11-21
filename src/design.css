@@ -6246,6 +6246,21 @@ body.theme-sheet-active .txt-ribbon-gutter {
   color: var(--text-primary, var(--ink)) !important;
 }
 
+/* Paged follow (horizontal score and text ribbon): the last bar before the view glides takes one tone step, so the turn is seen coming */
+.gp-turn-bar {
+  position: absolute;
+  left: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: color-mix(in srgb, var(--sheet-text, #1a1a1a) 7%, transparent);
+  transition: opacity var(--dur-fast, 150ms) var(--ease-out, ease-out);
+}
+.gp-turn-bar.is-on { opacity: 1; }
+.ts-bar.is-turn-bar { background-color: color-mix(in srgb, var(--sheet-text, #1a1a1a) 7%, transparent); }
+@media (prefers-reduced-motion: reduce) {
+  .gp-turn-bar { transition: none; }
+}
+
 .txt-ribbon-playhead {
   position: absolute;
   left: 25%;
@@ -6793,3 +6808,9 @@ body.reader-loading :is(#viewPill, #practicePill, #soundPill, #guitarPill, #tool
 }
 /* Shortcuts that only exist on a Mac are listed on a Mac only (the class is set in gamepadManager.js) */
 html:not(.is-mac) .mac-only { display: none !important; }
+
+/* Sound Off: the Synth panel shows the switch and one line; the volume and the mix have nothing to set */
+#soundOffNote { display: none; }
+body.sound-off #synthDropdownPanel .synth-panel-body > :not(#soundOffNote) { display: none !important; }
+body.sound-off #soundOffNote { display: block; }
+body.sound-off #synthVolumeSlider, body.sound-off #dockVolumeBtn { opacity: 0.38; pointer-events: none; }

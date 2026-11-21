@@ -13,6 +13,7 @@ import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, r
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { deriveSections, DEFAULT_MIN_BARS } from './songSections.js';
+import { createPagedFollow } from '../utils/pagedFollow.js';
 import { buildScoreTimeline, playedBarsFromLookup, buildClickList, tickToScoreMs } from '../audioSync/scorePositions.js';
 
 const STORAGE_KEY_SYNTH_VOLUME = 'majestic_synth_volume';
@@ -102,7 +103,16 @@ let lastPositionSongMs = 0;
 let lastPositionEventAt = 0;
 let jamMuted = false; // Jam host muted guests: synth stays silent regardless of the volume slider
 let silentSynth = false; // Silent (scroll only) mode on text tabs: synth notes muted while clickContext plays metronome/count-in
-const effectiveVolume = () => (jamMuted || silentSynth ? 0 : synthPlayerState.masterVolume);
+let soundOff = false; // Sound Off (Sound panel): the synth stays silent and Play only moves the cursor and the page; the click still sounds
+const effectiveVolume = () => (jamMuted || silentSynth || soundOff ? 0 : synthPlayerState.masterVolume);
+
+export function setSoundOff(off) {
+    soundOff = Boolean(off);
+    if (currentApi) {
+        try { currentApi.masterVolume = effectiveVolume(); } catch (_) {}
+    }
+}
+export const isSoundOff = () => soundOff;
 
 export function setSilentSynthMode(silent) {
     silentSynth = Boolean(silent);
@@ -1052,8 +1062,15 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
         if (output.classList.contains('gp-horizontal-mode')) {
             const maxScrollLeft = Math.max(0, output.scrollWidth - output.clientWidth);
             const cursorCenterRel = (cursorRect.left + cursorRect.width / 2) - outputRect.left;
-            const targetScrollLeft = Math.max(0, Math.min(maxScrollLeft, output.scrollLeft + cursorCenterRel - (output.clientWidth / 2)));
-            if ((playbackActive() || bringIntoView) && Math.abs(output.scrollLeft - targetScrollLeft) >= 1) {
+            // A seek or a start shows the cursor's page without a glide; following playback is paged (see horizGlide)
+            const targetScrollLeft = pagedFollow.place({
+                cx: output.scrollLeft + cursorCenterRel,
+                scrollLeft: output.scrollLeft,
+                viewW: output.clientWidth,
+                maxScroll: maxScrollLeft,
+                getBarlines: horizontalBarlines
+            });
+            if ((playbackActive() || bringIntoView) && targetScrollLeft != null && Math.abs(output.scrollLeft - targetScrollLeft) >= 1) {
                 markAutoScrollWrite();
                 output.scrollLeft = targetScrollLeft;
             }
@@ -1165,6 +1182,59 @@ function isHorizontalMode() {
     return Boolean(document.getElementById('output')?.classList.contains('gp-horizontal-mode'));
 }
 
+// Horizontal layout follows in pages: the cursor travels over still notation, the last bar before the turn is toned,
+// and the view glides once to put that barline at the anchor (see src/utils/pagedFollow.js).
+const pagedFollow = createPagedFollow();
+const reduceMotionMq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+let barlineCache = { lookup: null, origin: 0, xs: [] };
+let turnBarEl = null;
+let turnBarKey = '';
+
+/** Barlines of the horizontal score in scroll space, ascending. Rebuilt when the score is re-rendered. */
+function horizontalBarlines() {
+    const lookup = currentApi?.renderer?.boundsLookup;
+    const container = gpState.canvases[0]?.container;
+    if (!lookup || !container) return [];
+    const origin = container.offsetLeft;
+    if (barlineCache.lookup !== lookup || barlineCache.origin !== origin) {
+        const xs = new Set();
+        for (const sys of (lookup.staffSystems || [])) {
+            for (const b of (sys.bars || [])) {
+                const v = b.realBounds || b.visualBounds;
+                if (!v) continue;
+                xs.add(Math.round(origin + v.x));
+                xs.add(Math.round(origin + v.x + v.w));
+            }
+        }
+        barlineCache = { lookup, origin, xs: Array.from(xs).sort((a, b) => a - b) };
+        pagedFollow.reset();
+    }
+    return barlineCache.xs;
+}
+
+/** Tones the last bar of the page while the cursor is in it, so the turn is seen coming. */
+function showTurnBar(reader, warn, origin) {
+    const wrapper = reader?.parentElement;
+    if (!wrapper) return;
+    if (!turnBarEl || turnBarEl.parentElement !== wrapper) {
+        turnBarEl = document.createElement('div');
+        turnBarEl.className = 'gp-turn-bar';
+        turnBarEl.setAttribute('aria-hidden', 'true');
+        wrapper.insertBefore(turnBarEl, wrapper.firstChild);
+        turnBarKey = '';
+    }
+    const key = warn ? `${warn.from}|${warn.to}|${reader.style.top}|${reader.style.height}` : '';
+    if (key === turnBarKey) return;
+    turnBarKey = key;
+    if (warn) {
+        turnBarEl.style.top = reader.style.top;
+        turnBarEl.style.height = reader.style.height;
+        turnBarEl.style.width = `${warn.to - warn.from}px`;
+        turnBarEl.style.transform = `translate3d(${warn.from - origin}px, 0, 0)`;
+    }
+    turnBarEl.classList.toggle('is-on', Boolean(warn));
+}
+
 function syncHorizontalScrollToX(x) {
     const output = document.getElementById('output');
     const container = gpState.canvases[0]?.container;
@@ -1225,6 +1295,7 @@ export function createCustomCursorHandler(api) {
         horizGlide = null;
         if (vertGlide?.rafId) cancelAnimationFrame(vertGlide.rafId);
         vertGlide = null;
+        if (turnBarEl) { turnBarEl.classList.remove('is-on'); turnBarKey = ''; }
     }
 
     function getOrCreateReader() {
@@ -1564,7 +1635,7 @@ export function createCustomCursorHandler(api) {
                     const maxScroll = (output && output.scrollWidth > output.clientWidth + 1)
                         ? Math.max(0, output.scrollWidth - output.clientWidth)
                         : 0;
-                    const originLeft = (output && container) ? (container.offsetLeft - (output.clientWidth / 2)) : 0;
+                    const origin = container ? container.offsetLeft : 0;
                     reader.style.transition = 'none';
                     if (!horizGlide) {
                         const glide = {
@@ -1576,7 +1647,7 @@ export function createCustomCursorHandler(api) {
                             startTime: performance.now(),
                             duration: animDuration,
                             maxScroll,
-                            originLeft
+                            origin
                         };
                         horizGlide = glide;
                         const step = (now) => {
@@ -1585,11 +1656,23 @@ export function createCustomCursorHandler(api) {
                             const curX = glide.startX + (glide.targetX - glide.startX) * t;
                             setCursorX(glide.reader, curX);
                             if (glide.output && glide.maxScroll > 0 && now >= userScrollingUntil) {
-                                const targetScrollLeft = Math.max(0, Math.min(glide.maxScroll, glide.originLeft + curX));
-                                markAutoScrollWrite();
-                                glide.output.scrollLeft = targetScrollLeft;
+                                const res = pagedFollow.step({
+                                    now,
+                                    cx: glide.origin + curX,
+                                    scrollLeft: glide.output.scrollLeft,
+                                    viewW: glide.output.clientWidth,
+                                    maxScroll: glide.maxScroll,
+                                    getBarlines: horizontalBarlines,
+                                    vx: glide.duration > 0 ? (glide.targetX - glide.startX) / glide.duration : 0,
+                                    reduce: Boolean(reduceMotionMq?.matches)
+                                });
+                                if (res.scrollLeft != null) {
+                                    markAutoScrollWrite();
+                                    glide.output.scrollLeft = res.scrollLeft;
+                                }
+                                showTurnBar(glide.reader, res.warn, glide.origin);
                             }
-                            if (t < 1 || playbackActive()) {
+                            if (t < 1 || playbackActive() || pagedFollow.gliding) {
                                 glide.rafId = requestAnimationFrame(step);
                             } else {
                                 horizGlide = null;
@@ -1597,8 +1680,11 @@ export function createCustomCursorHandler(api) {
                         };
                         setCursorX(reader, startBeatX);
                         if (output && maxScroll > 0 && performance.now() >= userScrollingUntil) {
-                            markAutoScrollWrite();
-                            output.scrollLeft = Math.max(0, Math.min(maxScroll, originLeft + startBeatX));
+                            const to = pagedFollow.place({ cx: origin + startBeatX, scrollLeft: output.scrollLeft, viewW: output.clientWidth, maxScroll, getBarlines: horizontalBarlines });
+                            if (to != null) {
+                                markAutoScrollWrite();
+                                output.scrollLeft = to;
+                            }
                         }
                         glide.rafId = requestAnimationFrame(step);
                     } else {
@@ -1610,7 +1696,7 @@ export function createCustomCursorHandler(api) {
                         horizGlide.startTime = performance.now();
                         horizGlide.duration = animDuration;
                         horizGlide.maxScroll = maxScroll;
-                        horizGlide.originLeft = originLeft;
+                        horizGlide.origin = origin;
                     }
                 } else {
                     // Moved by a frame loop, not a CSS transition. WebKit restarts an accelerated transition from a stale
