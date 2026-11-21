@@ -71,7 +71,7 @@ import { initLooseFollow } from './audioSync/looseFollow.js';
 import { initSettingsPage } from './utils/settingsPage.js';
 import { initSlidingPills } from './utils/slidingPill.js';
 import { initUrlRouter, getRouteFromUrl } from './utils/urlRouter.js';
-import { initNativeTabBar } from './nativeTabBar.js';
+import { initNativeTabBar, nativeChromeReady } from './nativeTabBar.js';
 import { initFoldState } from './foldState.js';
 import { initNarrowAlias } from './utils/narrowAlias.js';
 import { initTabletopRows } from './utils/tabletopRows.js';
@@ -1282,6 +1282,8 @@ async function initApp() {
     try {
         await initAppInner();
         await bootRender;
+        // The native rail and search field set the page's room once they are up: wait, so nothing moves after the boot screen goes
+        await nativeChromeReady();
     } catch (error) {
         console.error('[App Init] failed:', error);
     } finally {

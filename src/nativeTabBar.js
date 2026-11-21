@@ -43,7 +43,7 @@ function onEvent(msg) {
     } else if (msg.type === 'top') {
         // Room the native search field takes at the top of the window (0 when it is hidden)
         const top = Math.round(msg.value);
-        if (top > 0) lastSearchTop = top;
+        if (top > 0) { lastSearchTop = top; rememberSearchTop(top); }
         document.documentElement.style.setProperty('--native-search-top', `${top}px`);
     } else if (msg.type === 'side') {
         // Room the vertical rail takes at the screen's left or right edge (0 when the bar is horizontal)
@@ -125,11 +125,25 @@ function paneSearchBounds(input) {
     };
 }
 
-let lastSearchTop = 0;
+// The room the native search field takes is the same on every launch, so it is kept from the last run: the first
+// layout then already has it instead of padding by 0 and jumping down once the field reports its height
+const SEARCH_TOP_KEY = 'majestictab_native_search_top';
+function rememberSearchTop(top) {
+    try { localStorage.setItem(SEARCH_TOP_KEY, String(top)); } catch (_) {}
+}
+function storedSearchTop() {
+    try {
+        const saved = Number(localStorage.getItem(SEARCH_TOP_KEY));
+        if (saved > 0) return saved;
+    } catch (_) {}
+    // The macOS field always reports 68; a first launch there has nothing stored yet
+    return document.documentElement.classList.contains('tauri-macos') ? 68 : 0;
+}
+let lastSearchTop = storedSearchTop();
 let lastSearch = '';
 function syncSearch() {
     if (state !== 'on') return;
-    const input = wantVisible ? searchInput() : null;
+    const input = layoutWanted() ? searchInput() : null;
     const bounds = input ? paneSearchBounds(input) : null;
     const isHidden = bounds === 'hidden';
     const visible = Boolean(input) && !isHidden;
@@ -143,6 +157,8 @@ function syncSearch() {
         document.documentElement.style.setProperty('--native-search-top', '0px');
     }
     document.body.classList.toggle('native-search', visible);
+    // Under the boot screen only the page's layout is settled; the native field is not shown (and so reports nothing) yet
+    if (bootScreenUp()) return;
     const args = { visible, placeholder: input?.placeholder || 'Search', text: input?.value || '' };
     if (isPane && bounds) {
         args.x = bounds.x;
@@ -195,12 +211,35 @@ function dialogOpen() {
     });
 }
 
-function currentlyWanted() {
-    // The boot screen in index.html covers the whole window: the native rail and search field wait until it is gone
-    if (document.getElementById('bootSplash')) return false;
+// Whether the library layout (rail room, search room) applies. It does not wait for the boot screen, so the page is
+// already laid out in its final place under the splash and nothing moves when the splash goes.
+function layoutWanted() {
     return document.body.classList.contains('library-view-active') &&
            !document.body.classList.contains('downloader-active') &&
            !dialogOpen();
+}
+
+// The boot screen in index.html covers the whole window: the native rail and search field are native views above the
+// page, so they wait until it is gone
+function bootScreenUp() {
+    return Boolean(document.getElementById('bootSplash'));
+}
+
+function currentlyWanted() {
+    return !bootScreenUp() && layoutWanted();
+}
+
+// Resolves once the native chrome has said what room it takes (or that there is none), so the boot screen can wait
+// for it and the first frame after it is the final layout. Gives up after a moment: the page works without it.
+export function nativeChromeReady(timeoutMs = 1500) {
+    return new Promise(resolve => {
+        const started = Date.now();
+        const check = () => {
+            if (state === 'on' || state === 'unsupported' || initNativeTabBar.done !== true || Date.now() - started > timeoutMs) resolve();
+            else setTimeout(check, 25);
+        };
+        check();
+    });
 }
 
 async function start() {
