@@ -31,9 +31,10 @@ export const isHybridSyncEnabled = () => { try { return localStorage.getItem(HYB
 export const setHybridSyncEnabled = (on) => { try { localStorage.setItem(HYBRID_SYNC_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ } };
 import { fingerprintValue } from './recordSync.js';
 import { sha256 } from './mpak/core/index.js';
+import { songKeyFor } from './songKey.js';
 
 const enc = (s) => encodeURIComponent(String(s).toLowerCase());
-const songKeyOf = (song) => [song.artist, song.title].filter(Boolean).join(' - ') || song.title || '';
+const songKeyOf = songKeyFor;
 const SLOT_NAMES = new Set(['original', 'backing']);
 const SLOT_KEY = /^(audio_file_|real_audio_source_|yt_track_)(?:last_)?(.+)$/;
 const SCORE_SYNC = /^audio_sync_score%3A[0-9a-f]{64}%3A(.+)$/;

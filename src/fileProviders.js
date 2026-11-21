@@ -19,6 +19,7 @@ import { detectFileMetadata } from './utils/tuningUtils.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
 import { isMpakFile, openMpak, unpackMpak, applyMpakExtras } from './mpak.js';
 import { showToast } from './utils/toast.js';
+import { songKeyFor, ownSongKey } from './songKey.js';
 
 const providers = new Map();
 
@@ -210,11 +211,11 @@ async function handlePickedFile(file, options = {}) {
             });
             if (mpakBundle) {
                 const song = await getSongById(targetId).catch(() => null);
-                const mainKey = (song?.artist && song?.title) ? `${song.artist} - ${song.title}` : (song?.title || file.name.replace(/\.[^/.]+$/, ''));
+                const mainKey = (song?.artist && song?.title) ? songKeyFor(song) : (song?.title || file.name.replace(/\.[^/.]+$/, ''));
                 const aliasKeys = [];
                 if (mpakBundle.header?.song?.artist && mpakBundle.header?.song?.title) {
                     const hk = `${mpakBundle.header.song.artist} - ${mpakBundle.header.song.title}`;
-                    if (hk.toLowerCase() !== mainKey.toLowerCase()) aliasKeys.push(hk);
+                    if (hk.toLowerCase() !== mainKey.toLowerCase() && !(song && ownSongKey(song.id))) aliasKeys.push(hk);
                 }
                 const { rememberSongKey } = await import('./soundPlayer.js');
                 rememberSongKey(targetId, mainKey, { filename: file.name, tabName: addedOption?.name || file.name });

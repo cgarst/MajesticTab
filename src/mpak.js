@@ -22,6 +22,7 @@ import { newPackId } from './mpakSession.js';
 import { toSyncPoints, fromSyncPoints } from './audioSync/syncStore.js';
 import { fitBarPoints } from './audioSync/fitBarPoints.js';
 import { unitsToPoints, scoreSyncKey, legacyScoreSyncKey, textBlocksOf } from './audioSync/anchors.js';
+import { songKeyFor, ownSongKey } from './songKey.js';
 
 export const MPAK_FORMAT = 'mpak';
 export const MPAK_VERSION = 1;
@@ -1674,16 +1675,18 @@ export async function saveMpakToLibrary(input, options = {}) {
     song = (await linkImportedSets(song, tabOptions)) || song;
 
     const mainKey = (song.artist && song.title)
-        ? `${song.artist} - ${song.title}`
+        ? songKeyFor(song)
         : (song.title || tabFile.name.replace(/\.[^/.]+$/, ''));
 
+    // A song with a key of its own has no other names: the plain artist and title, or a file name, would be the other song's
     const aliasSet = new Set();
+    const hasOwnKey = Boolean(ownSongKey(song.id));
     const headerKey = (header.song?.artist && header.song?.title)
         ? `${header.song.artist} - ${header.song.title}`
         : (header.song?.title || '');
-    if (headerKey && headerKey.toLowerCase() !== mainKey.toLowerCase()) aliasSet.add(headerKey);
+    if (!hasOwnKey && headerKey && headerKey.toLowerCase() !== mainKey.toLowerCase()) aliasSet.add(headerKey);
     const baseName = (tabFile.name || '').replace(/\.[^/.]+$/, '').trim();
-    if (baseName && baseName.toLowerCase() !== mainKey.toLowerCase() && isSongSpecificName(baseName, song.title)) aliasSet.add(baseName);
+    if (!hasOwnKey && baseName && baseName.toLowerCase() !== mainKey.toLowerCase() && isSongSpecificName(baseName, song.title)) aliasSet.add(baseName);
     const aliasKeys = Array.from(aliasSet);
 
     const keyMeta = {

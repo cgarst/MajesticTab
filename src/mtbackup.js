@@ -13,8 +13,9 @@ import { toLibraryDoc, toProfileDoc, fromLibraryDoc, fromProfileDoc, applyIndexT
 import { sha256 } from './mpak/core/index.js';
 import { writeBackup, openBackup, backupKind, blobSource } from './storage/mtbackup.js';
 import { openSpool } from './storage/spool.js';
+import { songKeyFor } from './songKey.js';
 
-const songKeyOf = (song) => [song.artist, song.title].filter(Boolean).join(' - ') || song.title || '';
+const songKeyOf = songKeyFor;
 
 /** The tab of a song that goes in its pack: the default tab when its file is stored here, else the first stored one. */
 async function primaryTabFile(song) {

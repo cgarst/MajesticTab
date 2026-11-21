@@ -6,15 +6,19 @@ import { songHasLocalSlot, songAudioKeys, readLibraryAudio } from './audioSync/l
 import { listRecordingMeta } from './audioSync/recordingMeta.js';
 import { stemsOfMeta } from './audioSync/stemSet.js';
 import { slotFileKey } from './stemdeck/backingCandidates.js';
+import { ownSongKey } from './songKey.js';
 
 export const TAG_FLAGS = ['hasAudioFile', 'hasYouTube', 'hasStems', 'mapped'];
 
 /** The keys a song is opened by: its own names and its tabs' names. */
-export const songTagKeys = (song) => [
-    [song.artist, song.title].filter(Boolean).join(' - '),
-    song.title,
-    ...(song.tabOptions || []).map((t) => t.name),
-].filter(Boolean);
+export const songTagKeys = (song) => {
+    // A song with a key of its own does not read the plain artist and title: that key is another song's
+    const own = ownSongKey(song.id);
+    return [
+        ...(own ? [own] : [[song.artist, song.title].filter(Boolean).join(' - '), song.title]),
+        ...(song.tabOptions || []).map((t) => t.name),
+    ].filter(Boolean);
+};
 
 /** What this device holds for the song. */
 export function localMediaTags(song) {

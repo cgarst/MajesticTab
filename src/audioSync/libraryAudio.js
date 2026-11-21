@@ -6,6 +6,7 @@
 // A plain localStorage entry per song, no DOM.
 
 import { slotFileKey, slotSourceKey } from '../stemdeck/backingCandidates.js';
+import { ownSongKey } from '../songKey.js';
 
 const REGISTRY = (songId) => `audio_lib_${songId}`;
 const SONG_KEYS = (songId) => `yt_song_keys_${songId}`;
@@ -13,7 +14,7 @@ const SLOTS = ['original', 'backing'];
 
 /** The storage keys that say which file is a song's Original or Backing, and its source: backed up with the video choices. */
 export const isAudioChoiceKey = (key) => typeof key === 'string'
-    && (key.startsWith('audio_file_') || key.startsWith('real_audio_source_') || key.startsWith('real_audio_last_slot_') || key.startsWith('audio_lib_'));
+    && (key.startsWith('audio_file_') || key.startsWith('real_audio_source_') || key.startsWith('real_audio_last_slot_') || key.startsWith('audio_lib_') || key.startsWith('audio_key_'));
 
 const BACKING_NAME = /backing[\s_.-]*tracks?|no[\s_.-]*guitars?/i;
 
@@ -37,7 +38,7 @@ const read = (key) => { try { return localStorage.getItem(key); } catch { return
 const write = (key, value) => { try { localStorage.setItem(key, value); } catch { /* optional */ } };
 
 /** The song key the library's own names give: how the reader keys a tab with no score title of its own. */
-export const libraryAudioKey = (song) => [song?.artist, song?.title].filter(Boolean).join(' - ');
+export const libraryAudioKey = (song) => (song?.id && ownSongKey(song.id)) || [song?.artist, song?.title].filter(Boolean).join(' - ');
 
 /** [{ audioId, slot }] attached to a library song by the bulk import. */
 export function readLibraryAudio(songId) {

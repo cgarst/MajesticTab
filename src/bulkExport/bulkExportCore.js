@@ -6,6 +6,7 @@
 // 3. PDF bulk export (runs all tabs in library through the score PDF export code, bundled into a ZIP archive)
 
 import { listRecords } from '../audioSync/syncStore.js';
+import { songKeyFor, ownSongKey } from '../songKey.js';
 import { listHistory } from '../audioSync/videoHistory.js';
 import { listRecordingMeta } from '../audioSync/recordingMeta.js';
 import { readLibraryAudio } from '../audioSync/libraryAudio.js';
@@ -52,9 +53,10 @@ export function uniquePath(path, used) {
  */
 export function getCandidateKeysForSong(song, storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
     const candidateKeys = new Set();
-    const primaryKey = [song.artist, song.title].filter(Boolean).join(' - ') || song.title || '';
+    const primaryKey = songKeyFor(song);
     if (primaryKey) candidateKeys.add(primaryKey);
-    if (song.title) candidateKeys.add(song.title);
+    // A song with a key of its own does not read the plain title: that key is another song's
+    if (song.title && !ownSongKey(song.id)) candidateKeys.add(song.title);
 
     if (song.id && storage) {
         try {

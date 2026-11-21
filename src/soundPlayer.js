@@ -12,6 +12,7 @@ import { listRecordingMeta, forgetRecordingMeta, getRecordingMeta, setRecordingM
 import { showToast } from './utils/toast.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 import { packSongKey, plainSongKey } from './mpakSession.js';
+import { ownSongKey } from './songKey.js';
 import { isRemoveMode, setRecordingsPresent, REC_REMOVE_MODE_EVENT } from './audioSync/removeMode.js';
 import { showSheet, closeSheet, resetPeek, isVideoShown, visibleVideoRect, onSheetChange, onSheetMove, onSheetTransition, initYtSheet } from './ytSheet.js';
 
@@ -390,6 +391,9 @@ function getStorageKey(mode = playerState.trackMode) {
 
 /** Identity of the loaded song (artist and title, or the file name); also keys the song's audio sync data. */
 export function getSongKey() {
+    // A library song that shares its artist and title with another has a key of its own
+    const own = !playerState.packId && playerState.librarySongId ? ownSongKey(playerState.librarySongId) : null;
+    if (own) return own;
     const base = [playerState.artist, playerState.title].filter(Boolean).join(' - ') || playerState.filename;
     // A pack opened from a file keeps its own audio and sync data, apart from a library song of the same name
     return playerState.packId ? packSongKey(playerState.packId, base) : base;

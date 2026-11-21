@@ -5,11 +5,13 @@
 // The fingerprint that decides whether sync sends a pack covers the song's own data, not the files a rebuilt pack would drop, so a
 // repaired pack is sent only when it is marked here: packSyncLocal.js adds the marker to the song's fingerprint.
 
+import { songKeyFor } from './songKey.js';
+
 const SONG_KEYS_PREFIX = 'yt_song_keys_';
 export const REBUILD_KEY = 'majestictab_pack_rebuild';
 
 const lower = (k) => String(k || '').toLowerCase();
-const ownKeyOf = (song) => [song.artist, song.title].filter(Boolean).join(' - ') || song.title || '';
+const ownKeyOf = songKeyFor;
 
 /** Map<songId, string[]> of the keys each library song remembers (yt_song_keys_<id>). */
 export function readRememberedKeys(storage = localStorage) {

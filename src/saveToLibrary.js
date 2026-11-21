@@ -6,6 +6,7 @@ import { getCollections, saveSongToLibrary, mapOpenFileToSong, resolveAndSaveOrM
 import { searchMusicBrainz, lookupMusicBrainzByIds, getPlaceholderCoverSvg, hydrateCachedImages, getSynchronousCachedArtUrl } from './musicbrainz.js';
 import { detectFileMetadata, getTuningInfo } from './utils/tuningUtils.js';
 import { showToast } from './utils/toast.js';
+import { songKeyFor } from './songKey.js';
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -312,7 +313,7 @@ export async function openSaveToLibraryModal(file) {
                     const { isPackKey } = await import('./mpakSession.js');
                     const { listRecords, saveRecord, isSyncSharedFromOriginal, setSyncSharedFromOriginal } = await import('./audioSync/syncStore.js');
                     const openKey = getSongKey();
-                    const libKey = (song.artist && song.title) ? `${song.artist} - ${song.title}` : song.title;
+                    const libKey = (song.artist && song.title) ? songKeyFor(song) : song.title;
                     const enc = (s) => encodeURIComponent(String(s).toLowerCase());
                     if (openKey && !isPackKey(openKey)) rememberSongKey(song.id, openKey, { filename: file.name, tabName: tabOption.name });
                     if (libKey) rememberSongKey(song.id, libKey, { filename: file.name, tabName: tabOption.name });

@@ -56,6 +56,7 @@ async () => {
       return unb64(r);
     },
     async write(path, bytes, { ifVersion } = {}) {
+      if (bytes instanceof Blob) bytes = new Uint8Array(await bytes.arrayBuffer());
       const r = JSON.parse(await window.st_write(path, b64(bytes), ifVersion === undefined ? 'none' : 'check', ifVersion === undefined ? null : ifVersion));
       if (r.conflict) throw new c.ConflictError('Version mismatch', r.current);
       return r;

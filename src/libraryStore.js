@@ -7,6 +7,7 @@ import { detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingI
 import { canReplaceTuning } from './utils/tabTuningMeta.js';
 import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, filterInstrumentalBonusDiscs, lookupMusicBrainzByIds } from './musicbrainz.js';
 import { takeTabs } from './tabSets.js';
+import { baseSongKey, ownSongKey, assignOwnSongKey } from './songKey.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
 
@@ -443,8 +444,35 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
 /**
  * Add or update a song in library
  */
+// The songs' plain keys (artist and title), read once: a new song whose key one of them already has gets a key of its own
+let plainKeysSeen = null;
+const plainKeyOf = (song) => baseSongKey(song).toLowerCase();
+export function forgetPlainSongKeys() { plainKeysSeen = null; }
+
+/**
+ * Called for a song that has just been added to the library. When another song already has its artist and title (the studio
+ * and the live version of one title), the new song gets a key of its own, so the two do not share audio, slots or sync. A
+ * song that was already here keeps the plain key, and songs that collided before this existed are left as they are.
+ */
+async function noteNewSong(song) {
+    if (!song || song.isCustom || song.isAlbumTabContainer) return;
+    const key = plainKeyOf(song);
+    if (!key) return;
+    if (!plainKeysSeen) {
+        const seen = new Map();
+        for (const s of await getAllSongs()) {
+            if (s.id === song.id || s.isCustom || s.isAlbumTabContainer) continue;
+            seen.set(plainKeyOf(s), (seen.get(plainKeyOf(s)) || 0) + 1);
+        }
+        plainKeysSeen = seen;
+    }
+    if (plainKeysSeen.has(key) && !ownSongKey(song.id)) assignOwnSongKey(song);
+    plainKeysSeen.set(key, (plainKeysSeen.get(key) || 0) + 1);
+}
+
 export async function saveSongToLibrary(songData, collectionId = DEFAULT_COLLECTION_ID) {
     const db = await getDB();
+    const isNew = !songData.id || !(await getSongById(songData.id));
     const id = songData.id || `song_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const song = {
         id,
@@ -483,7 +511,7 @@ export async function saveSongToLibrary(songData, collectionId = DEFAULT_COLLECT
         const req = store.put(song);
         req.onsuccess = () => resolve(song);
         req.onerror = () => reject(req.error);
-    });
+    }).then(async (saved) => { if (isNew) await noteNewSong(saved); return saved; });
 }
 
 /**
@@ -1194,6 +1222,32 @@ function isPlaceholderAlbum(album) {
 }
 
 /**
+ * Of the songs that share an artist and title with a pack or a search result, the one it is. A song on another real album
+ * is another song (the studio and the live version of one title), so the choice never falls back to it: only a song
+ * whose album matches, or one that has no real album yet, can be it. `info` is the incoming song's fields.
+ */
+export function pickByTitleAndArtist(candidates, info) {
+    if (!candidates.length) return null;
+    const albumClean = cleanTitle(info.album);
+    const hasAlbum = albumClean && !isPlaceholderAlbum(info.album);
+    if (info.albumMbid) {
+        const exactAlbMbid = candidates.find(s => s.albumMbid === info.albumMbid);
+        if (exactAlbMbid) return exactAlbMbid;
+    }
+    if (hasAlbum) {
+        const exactAlb = candidates.find(s => cleanTitle(s.album) === albumClean);
+        if (exactAlb) return exactAlb;
+    }
+    // A candidate on a different real album, or with a different album id, is not this song
+    const open = candidates.filter(s => {
+        if (info.albumMbid && s.albumMbid && s.albumMbid !== info.albumMbid) return false;
+        return !hasAlbum || isPlaceholderAlbum(s.album);
+    });
+    // Prefer a candidate that already belongs to a real album over a placeholder album
+    return open.find(s => !isPlaceholderAlbum(s.album)) || open[0] || null;
+}
+
+/**
  * Find an existing song in a library collection matching MusicBrainz IDs or Artist/Album/Title.
  */
 export async function findMatchingSongInLibrary(songInfo = {}, collectionId = DEFAULT_COLLECTION_ID) {
@@ -1257,19 +1311,8 @@ export async function findMatchingSongInLibrary(songInfo = {}, collectionId = DE
             return false;
         });
 
-        if (candidates.length > 0) {
-            if (info.albumMbid) {
-                const exactAlbMbid = candidates.find(s => s.albumMbid === info.albumMbid);
-                if (exactAlbMbid) return exactAlbMbid;
-            }
-            if (albumClean && !isPlaceholderAlbum(info.album)) {
-                const exactAlb = candidates.find(s => cleanTitle(s.album) === albumClean);
-                if (exactAlb) return exactAlb;
-            }
-            // Prefer a candidate that already belongs to a real album over a placeholder album
-            const withRealAlbum = candidates.find(s => !isPlaceholderAlbum(s.album));
-            return withRealAlbum || candidates[0];
-        }
+        const picked = pickByTitleAndArtist(candidates, info);
+        if (picked) return picked;
     }
 
     return null;
@@ -1797,11 +1840,13 @@ export async function putLibraryRecord(kind, record) {
     const name = RECORD_STORES[kind];
     if (!name) throw new Error(`Unknown library record kind: ${kind}`);
     const db = await getDB();
+    const isNewSong = kind === 'song' && !(await getSongById(record.id));
     await new Promise((resolve, reject) => {
         const req = db.transaction(name, 'readwrite').objectStore(name).put(record);
         req.onsuccess = () => resolve();
         req.onerror = () => reject(req.error);
     });
+    if (isNewSong) await noteNewSong(record);
 }
 
 /** Remove one collection, song, recent or setlist by id (sync carries a removal from another device this way). */
@@ -1830,7 +1875,7 @@ export async function clearAllLibraryData() {
         tx.objectStore(STORE_RECENTS).clear();
         tx.oncomplete = () => resolve(true);
         tx.onerror = () => reject(tx.error);
-    }).then(async (ok) => { await clearAllSetlists(); return ok; });
+    }).then(async (ok) => { forgetPlainSongKeys(); await clearAllSetlists(); return ok; });
 }
 
 /**
@@ -1949,6 +1994,7 @@ export async function importLibraryData(data = {}, { wipe = false } = {}) {
     if (wipe) {
         await clearAllLibraryData();
     }
+    forgetPlainSongKeys();
 
     await ensureDefaultCollection();
     const db = await getDB();

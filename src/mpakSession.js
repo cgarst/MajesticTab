@@ -4,6 +4,8 @@
 // id of its own. It then shares nothing with a library song of the same artist and title, and clearing the pack is
 // removing what carries that id. No DOM; the stores are read through dynamic imports so a test can run it without them.
 
+import { plainOwnKey } from './songKey.js';
+
 /** Starts every song key of an opened pack; followed by the pack's id and a space. */
 export const PACK_KEY_MARK = 'mpak~';
 
@@ -31,7 +33,7 @@ export const packSongKey = (packId, baseKey) => `${PACK_KEY_MARK}${packId} ${bas
 export const isPackKey = (key) => typeof key === 'string' && key.startsWith(PACK_KEY_MARK);
 
 /** A song key as a person reads it: without the pack's marker. */
-export const plainSongKey = (key) => (isPackKey(key) ? key.replace(/^mpak~\S+ /, '') : key);
+export const plainSongKey = (key) => plainOwnKey(isPackKey(key) ? key.replace(/^mpak~\S+ /, '') : key);
 
 /**
  * Removes what a pack stored: its settings, sync points and audio files. `packId` names one pack; without it every
