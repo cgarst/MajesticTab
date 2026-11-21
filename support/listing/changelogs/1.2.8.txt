@@ -1,0 +1,1 @@
+- Text tabs: the side marker now moves with time, shows a countdown before a repeat pages back up, and page turns are smoother
