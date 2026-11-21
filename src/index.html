@@ -2184,6 +2184,12 @@
         <button type="button" id="dockLoopBtn" aria-pressed="false" tabindex="-1">Loop</button>
         <button type="button" id="dockMetroBtn" aria-pressed="false" tabindex="-1">Click</button>
       </div>
+      <!-- No sound and nothing to follow (a text or PDF tab): Play scrolls the tab, and this group sets the pace (utils/autoScroll.js). It takes the sound switch's place and shares its sizing. -->
+      <div class="dock-src dock-pace" id="dockPace" role="group" aria-label="Scroll speed">
+        <button type="button" class="btn mobile-dock-btn rbtn" id="dockPaceSlower" aria-label="Slower" title="Slower"><i class="bi-dash-lg" aria-hidden="true"></i></button>
+        <output class="dock-pace-value" id="dockPaceValue" aria-live="polite">1.0&times;</output>
+        <button type="button" class="btn mobile-dock-btn rbtn" id="dockPaceFaster" aria-label="Faster" title="Faster"><i class="bi-plus-lg" aria-hidden="true"></i></button>
+      </div>
       <div class="dock-src" role="group" aria-label="Sound">
         <div class="mobile-dock-divider" id="mobileAudioSourceDivider" style="display: none;"></div>
         <!-- What you play: the whole band, or the backing (no guitars). Same words for Synth and Original; the source itself is chosen in the Sound panel (soundSwitch.js) -->

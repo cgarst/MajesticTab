@@ -5,6 +5,7 @@ import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView, isPhoneReader, phoneTapZone } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
 import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel, synthPlayerState } from '../gpProcessor/gpPlayer.js';
+import { isAutoScrollAvailable, isAutoScrolling, toggleAutoScroll, rewindAutoScroll, AUTO_EVENT } from './autoScroll.js';
 import { gamepadManager } from './gamepadManager.js';
 import { isTvMode } from '../tvMode.js';
 import { stepSetlist } from '../setlistPlayer.js';
@@ -1217,13 +1218,15 @@ export function updateGlobalAudioControls() {
     const isSynthVisible = Boolean(synthBtn && synthBtn.style.display !== 'none');
     const isRealAudioVisible = Boolean(realAudioBtn && realAudioBtn.style.display !== 'none');
     const anySource = isSynthVisible || isRealAudioVisible;
+    // A text or PDF tab with nothing to play still gets the transport: Play scrolls it (utils/autoScroll.js)
+    const autoOn = isAutoScrollAvailable();
 
     if (sourcePill) {
         sourcePill.style.display = anySource ? 'inline-flex' : 'none';
     }
 
     if (controlsContainer) {
-        if (anySource) {
+        if (anySource || autoOn) {
             controlsContainer.style.display = 'inline-flex';
         } else {
             controlsContainer.style.display = 'none';
@@ -1236,7 +1239,7 @@ export function updateGlobalAudioControls() {
 
     // Whichever sound the transport will use is shown as selected before anything plays
     const synthIsAvailable = isSynthAvailable();
-    if (!synthBtn?.classList.contains('active-audio-mode') && !realAudioBtn?.classList.contains('active-audio-mode')) {
+    if (anySource && !synthBtn?.classList.contains('active-audio-mode') && !realAudioBtn?.classList.contains('active-audio-mode')) {
         // A synth button with no player behind it (a text or PDF tab with no MIDI linked yet) is not a sound to default to
         const useReal = isRealAudioVisible && (!isSynthVisible || !synthIsAvailable || (isRealAudioAvailable() && (songHasSyncPoints(getSongKey()) || songHasLocalAudio(getSongKey()))));
         setActiveAudioMode(useReal ? 'real' : 'synth');
@@ -1244,13 +1247,13 @@ export function updateGlobalAudioControls() {
 
     const synthPlayable = isSynthAvailable();
     const realAudioPlayable = isRealAudioAvailable();
-    const canPlay = synthPlayable || realAudioPlayable;
+    const canPlay = synthPlayable || realAudioPlayable || autoOn;
 
     if (rewindBtn) {
         rewindBtn.disabled = !canPlay;
     }
 
-    const isPlaying = isSynthPlaying() || isRealAudioPlaying();
+    const isPlaying = isSynthPlaying() || isRealAudioPlaying() || (autoOn && isAutoScrolling());
     document.body.classList.toggle('is-playing', isPlaying);
 
     if (playPauseBtn) {
@@ -1273,7 +1276,7 @@ export function updateGlobalAudioControls() {
     if (mobileDock) {
         const mainContent = document.getElementById('mainContent');
         const isScoreMode = mainContent && mainContent.style.display !== 'none';
-        mobileDock.classList.toggle('has-audio-sources', Boolean(isScoreMode && anySource));
+        mobileDock.classList.toggle('has-audio-sources', Boolean(isScoreMode && (anySource || autoOn)));
     }
     if (mobileRewindBtn) mobileRewindBtn.disabled = !canPlay;
     if (mobilePlayPauseBtn) {
@@ -1314,6 +1317,10 @@ function preferRealAudio() {
  * Handle Back 10 Seconds for whichever audio player is active/playing
  */
 export function handleGlobalRewind10Seconds() {
+    if (isAutoScrollAvailable()) {
+        rewindAutoScroll();
+        return;
+    }
     if (isSynthPlaying()) {
         rewindSynth10Seconds();
         return;
@@ -1340,6 +1347,10 @@ export function handleGlobalRewind10Seconds() {
  * Handle Play / Pause for whichever audio player is active/playing or available
  */
 export function handleGlobalPlayPause() {
+    if (isAutoScrollAvailable()) {
+        toggleAutoScroll();
+        return;
+    }
     if (isSynthPlaying()) {
         playPauseSynth();
         return;
@@ -1413,6 +1424,7 @@ export function setupGlobalAudioControls() {
         selectSound('original');
     });
 
+    window.addEventListener(AUTO_EVENT, updateGlobalAudioControls);
     updateGlobalAudioControls();
 }
 

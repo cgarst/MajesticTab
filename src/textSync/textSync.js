@@ -33,6 +33,7 @@ import { showToast } from '../utils/toast.js';
 import { positionAt, barProgressAt, backJumps, followTarget, glide } from './readingLine.js';
 import { createGlide, lineNeedsTurn, isLastLine } from '../utils/pagedScroll.js';
 import { textState } from '../textProcessor/textHandler.js';
+import { autoSource, setAutoScrollAvailable, setAutoTotal, resetAutoScroll, buildAutoPoints, initAutoScrollDock, UNIT_MS, PDF_PAGE_MS } from '../utils/autoScroll.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -52,6 +53,8 @@ const midiSource = {
     isBuffering: () => false
 };
 
+const autoRec = { source: autoSource, label: 'Auto-scroll', media: { kind: 'auto' } };
+
 const durationOf = (rec) => rec.source.durationMs || (rec.source.kind === 'youtube' && playerState.duration ? playerState.duration * 1000 : null);
 
 let stickyKind = null; // the recording last played, kept while nothing is playing
@@ -59,10 +62,11 @@ let stickyKind = null; // the recording last played, kept while nothing is playi
 /** The recording in use, as { source, media, label }, or null: what is playing, else the last one used, else the dock's choice. */
 // Synth counts as the selected sound only while its button is there to choose it. A text or PDF tab with no MIDI has the
 // Original button alone, but the hidden Synth button keeps its class until the first Play, which kept the recording bar
-// away after a recording was attached.
+// away after a recording was attached. "There" is the inline display the app sets (soundSwitch.js reads it the same way):
+// the dock buttons are always hidden by CSS now that the Sound panel holds the switch, so their layout says nothing.
 function synthSelected() {
     const btn = $('mobileSynthToggleBtn');
-    return Boolean(btn?.classList.contains('active-audio-mode') && btn.getClientRects().length > 0);
+    return Boolean(btn?.classList.contains('active-audio-mode') && btn.style.display !== 'none');
 }
 
 function activeRecording(file) {
@@ -162,6 +166,13 @@ export function initTextSync({ getConfig, getCurrentFile }) {
 
     function readPoints() {
         if (!rec) { points = []; return; }
+        if (rec.source === autoSource) {
+            // Nothing to follow: lay the points evenly over the lines (or pages) at the steady pace
+            const built = buildAutoPoints(unitIds(), isPdf(getCurrentFile()) ? PDF_PAGE_MS : UNIT_MS);
+            points = built.points;
+            setAutoTotal(built.total);
+            return;
+        }
         const saved = savedUnits();
         if (saved.length > 0 && !saved.every((p) => p.source === 'auto')) {
             points = saved;
@@ -546,6 +557,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         if (!e.target.closest?.('.ts-bar')) hold();
     }, true);
     pageStrip.addEventListener('pointerdown', hold, true);
+    document.getElementById('navButtons')?.addEventListener('pointerdown', hold, true);
     document.addEventListener('keydown', (e) => {
         const tag = e.target?.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return;
@@ -634,6 +646,25 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         pdfCursor.hidden = true;
     }
 
+    let autoHeld = false;
+    /** Put the auto-scroll clock at what the reader has on screen (the first line or page showing, or the ribbon's offset). */
+    function resyncAutoToView() {
+        const total = autoSource.durationMs || 0;
+        const sc = output.querySelector('.txt-ribbon-scroll');
+        if (sc && textState.layoutMode === 'horizontal') {
+            const max = Math.max(1, sc.scrollWidth - sc.clientWidth);
+            autoSource.seek((sc.scrollLeft / max) * total);
+            return;
+        }
+        const ids = unitIds();
+        const top = output.getBoundingClientRect().top;
+        const unitMs = isPdf(getCurrentFile()) ? PDF_PAGE_MS : UNIT_MS;
+        for (let i = 0; i < ids.length; i++) {
+            const el = unitEl(ids[i]);
+            if (el && el.getBoundingClientRect().bottom > top + 8) { autoSource.seek(i * unitMs); return; }
+        }
+    }
+
     function ensureFrame() {
         if (!raf) raf = requestAnimationFrame(frame);
     }
@@ -652,11 +683,24 @@ export function initTextSync({ getConfig, getCurrentFile }) {
 
         const ids = unitIds();
         const dur = durationOf(rec);
-        const effTime = t - latency();
+        const isAuto = rec.source === autoSource;
+        const effTime = t - (isAuto ? 0 : latency());
+
+        // The reader scrolled or turned the page while auto-scroll ran: when the hold ends, carry on from what they see
+        if (isAuto) {
+            if (now <= holdUntil) { autoHeld = true; } else if (autoHeld) { autoHeld = false; resyncAutoToView(); ensureFrame(); return; }
+        }
 
         // Horizontal Ribbon mode: pan `.txt-ribbon-scroll` so the active bar glides past the stationary 25% playhead
         if (isText(getCurrentFile()) && textState.hasSystems && textState.layoutMode === 'horizontal') {
             hideLine();
+            if (isAuto) {
+                // No bars to follow: the whole ribbon passes the playhead over the tab's length
+                const sc = output.querySelector('.txt-ribbon-scroll');
+                if (sc && now > holdUntil) sc.scrollLeft = dur ? Math.min(1, t / dur) * Math.max(0, sc.scrollWidth - sc.clientWidth) : 0;
+                if (playing) ensureFrame();
+                return;
+            }
             const prog = barProgressAt(points, ids, effTime, dur);
             const scrollEl = output.querySelector('.txt-ribbon-scroll');
             if (!prog || !scrollEl) {
@@ -823,6 +867,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     // -- The loop: show the strip, move the progress, and keep the reading line going when there are some points
 
     let lastFileRef = null;
+    let autoSig = '';
     function tick() {
         const file = getCurrentFile();
         const eligible = (isText(file) || isPdf(file)) && !document.body.classList.contains('library-view-active');
@@ -834,6 +879,8 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             if (tapping) stopTapping();
             lastUnit = null;
             drawnKey = '';
+            resetAutoScroll();
+            autoSig = '';
             markCurrent(null);
         }
         if (eligible && !tab && tabLoadingFor !== file) {
@@ -853,6 +900,10 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         let next = eligible ? activeRecording(file) : null;
         // With Synth selected, a video or audio file is not what plays, so it gets no recording bar and the page strip stays
         if (next && next.source !== midiSource && synthSelected()) next = null;
+        // No sound and nothing to follow: Play scrolls the tab at a pace of its own
+        if (eligible && !next && tab) next = autoRec;
+        setAutoScrollAvailable(next === autoRec, textKey() || '');
+        if (rec?.source === autoSource && next?.source !== autoSource) autoSource.pause();
         const sameMedia = next && rec && next.source === rec.source && JSON.stringify(next.media) === JSON.stringify(rec.media);
         if (!sameMedia) {
             if (tapping) stopTapping();
@@ -861,9 +912,16 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             readPoints();
             drawn(true);
         }
-        strip.hidden = !rec;
-        document.body.classList.toggle('rec-strip-on', Boolean(rec));
+        const showStrip = Boolean(rec) && rec.source !== autoSource;
+        strip.hidden = !showStrip;
+        document.body.classList.toggle('rec-strip-on', showStrip);
         if (!rec) { hideLine(); return; }
+        if (rec.source === autoSource) {
+            // The lines (or pages) can change under it: a version, another layout, a page cut again
+            const ids = unitIds();
+            const sig = `${isPdf(file)}|${ids.length}|${ids[0]}|${ids[ids.length - 1]}`;
+            if (sig !== autoSig) { autoSig = sig; readPoints(); }
+        }
         // Keep the strip directly above the page strip, wherever that strip is currently placed
         if (strip.nextElementSibling !== pageStrip) pageStrip.before(strip);
         const t = rec.source.getTimeMs() || 0;
@@ -883,6 +941,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             for (const p of points) blockEl(p.barIndex)?.classList.add('ts-pinned');
         }
     }
+    initAutoScrollDock();
     setInterval(tick, 150);
     window.addEventListener('audiosync:changed', () => { readPoints(); drawn(true); });
     window.addEventListener('majestictab:txt-aligned', () => {

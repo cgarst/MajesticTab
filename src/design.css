@@ -3192,7 +3192,7 @@ body.phone-reader.reading-mode:not(.library-view-active) .dock-ruler { margin-le
 body.reading-mode:not(.library-view-active) #mobileRewindBtn,
 body.reading-mode:not(.library-view-active) .dock-time,
 body.reading-mode:not(.library-view-active) .dock-bpm,
-body.reading-mode:not(.library-view-active) .dock-tools > :not(#readingDockBtn),
+body.reading-mode:not(.library-view-active) .dock-tools > :not(#readingDockBtn):not(.dock-pace),
 body.reading-mode:not(.library-view-active) .rec-status,
 body.reading-mode:not(.library-view-active) .rec-actions { display: none !important; }
 /* An open fretboard stays open in Reading mode, without its header (track list, Notes | Frets); the dock's height follows */
@@ -6814,3 +6814,16 @@ html:not(.is-mac) .mac-only { display: none !important; }
 body.sound-off #synthDropdownPanel .synth-panel-body > :not(#soundOffNote) { display: none !important; }
 body.sound-off #soundOffNote { display: block; }
 body.sound-off #synthVolumeSlider, body.sound-off #dockVolumeBtn { opacity: 0.38; pointer-events: none; }
+
+/* ==========================================================================
+   Auto-scroll pace (utils/autoScroll.js): Slower | 1.0x | Faster
+   The group is a .dock-src too, so every size (phone strip, short landscape, Duo tabletop) sizes it like the sound switch.
+   ========================================================================== */
+body:not(.auto-scroll-on) .dock-pace, body.auto-scroll-on .dock-src:not(.dock-pace) { display: none !important; }
+.dock-pace-value { align-self: center; min-width: 5ch; padding: 0 4px; text-align: center; font: 600 13px/1 var(--font-display); font-variant-numeric: tabular-nums; color: var(--ink2); }
+.dock-pace .rbtn:disabled { opacity: .35; }
+.dock-pace .rbtn i { font-size: 1.1em; }
+/* Reading mode keeps the two keys and drops the number, so the progress track keeps its room */
+body.reading-mode .dock-pace-value { display: none; }
+html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) .dock-pace-value { flex: none; min-width: 6ch; font-size: 20px; }
+html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) .dock-pace .rbtn i { font-size: 1.5em; }
