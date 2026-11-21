@@ -58,7 +58,9 @@ function context() {
     const bars = timeline.bars;
     ctx = { api, lookup, timeline, map, glide: createCursorGlide(api, map), total: bars.length ? bars[bars.length - 1].endMs : 0 };
     shownKey = '';
-    api.renderFinished?.on(() => { shownKey = ''; });
+    barBoundsCache = null;
+    barBoundsLookup = null;
+    api.renderFinished?.on(() => { shownKey = ''; barBoundsCache = null; barBoundsLookup = null; });
     return ctx;
 }
 
@@ -109,6 +111,7 @@ function stop() {
     place = null;
     drawnY = null;
     scrollPos = null;
+    scrollSettling = false;
     shownKey = '';
     document.body.classList.remove('loose-follow');
     if (active) { active = false; emit(); }
@@ -124,7 +127,39 @@ function tick() {
 }
 
 let lastAt = 0;
-let scrollPos = null;    // the page's scroll as a fraction: the browser rounds what is written to scrollTop, which eats a slow glide's small steps
+let scrollPos = null;    // the page's scroll as a fraction: the browser rounds what is written to scrollTop/scrollLeft, which eats a slow glide's small steps
+let scrollSettling = false;
+let wasHoriz = false;
+let barBoundsCache = null;
+let barBoundsLookup = null;
+
+function barBoundsMap(api) {
+    const lookup = api.renderer?.boundsLookup;
+    if (!lookup) return new Map();
+    if (barBoundsCache && barBoundsLookup === lookup) return barBoundsCache;
+    const map = new Map();
+    for (const sys of lookup.staffSystems || []) {
+        for (const mb of sys.bars || []) {
+            if (map.has(mb.index)) continue;
+            const vb = mb.visualBounds || mb.realBounds;
+            if (vb && vb.w > 0) map.set(mb.index, { x: vb.x, w: vb.w });
+        }
+    }
+    barBoundsCache = map;
+    barBoundsLookup = lookup;
+    return map;
+}
+
+function playedBarIndexAt(timeline, ms) {
+    const bars = timeline.bars;
+    let idx = 0;
+    for (let i = 0; i < bars.length; i++) {
+        if (bars[i].startMs <= ms) idx = i;
+        else break;
+    }
+    return idx;
+}
+
 function frame(now) {
     raf = requestAnimationFrame(frame);
     const rec = curRec;
@@ -133,6 +168,18 @@ function frame(now) {
     if (!rec || !c || !output) return;
     const dt = Math.min(0.1, lastAt ? (now - lastAt) / 1000 : 0.016);
     lastAt = now;
+
+    const isHoriz = output.classList.contains('gp-horizontal-mode');
+    if (isHoriz !== wasHoriz) {
+        wasHoriz = isHoriz;
+        shownKey = '';
+        scrollPos = null;
+        scrollSettling = false;
+        barBoundsCache = null;
+        barBoundsLookup = null;
+        drawnY = null;
+        place = null;
+    }
 
     const t = rec.source.getTimeMs() || 0;
     const recKey = JSON.stringify(rec.media);
@@ -147,6 +194,61 @@ function frame(now) {
     if (estTick !== lastEmitTick) { lastEmitTick = estTick; emitEstimatedPosition(estTick); }
     const pos = scoreMsToPosition(c.timeline, scoreMs);
     if (!pos) return;
+
+    const moved = Math.abs(scoreMs - lastScoreMs) > 800;
+    lastScoreMs = scoreMs;
+    const outR = output.getBoundingClientRect();
+    const host = mark.parentElement;
+    const hostR = host.getBoundingClientRect();
+
+    if (isHoriz) {
+        if (shownKey !== 'h' || !place?.parent?.isConnected) {
+            const entry = c.map.bars[0];
+            const line = entry && c.glide.locate(entry.startTick);
+            if (!line?.from) return;
+            c.api.customCursorHandler?.placeBeatCursorNow?.(null, line.from, startOf(line.from));
+            const cursor = document.querySelector('.gp-page-cursor-beat') || document.querySelector('.gp-reader-cursor');
+            if (!cursor?.parentElement) return;
+            place = { parent: cursor.parentElement, top: parseFloat(cursor.style.top) || 0, h: parseFloat(cursor.style.height) || 100, bars: [] };
+            shownKey = 'h';
+        }
+        const idx = playedBarIndexAt(c.timeline, scoreMs);
+        const next = [idx > 0, idx < c.timeline.bars.length - 1];
+        if (next[0] !== ends[0] || next[1] !== ends[1]) { ends = next; emit(); }
+
+        const bb = barBoundsMap(c.api).get(pos.barIndex);
+        if (!bb) return;
+        const parentR = place.parent.getBoundingClientRect();
+        const x = parentR.left + bb.x + pos.pos * bb.w;
+        const y = parentR.top + place.top;
+        let xDrawn = x;
+
+        if (performance.now() > holdUntil && (rec.source.isPlaying() || moved || scrollSettling)) {
+            const viewW = output.clientWidth;
+            const xDoc = x - outR.left + output.scrollLeft;
+            const target = followTarget({ lineY: xDoc, viewH: viewW, scrollTop: output.scrollLeft, top: 0.25, bottom: 0.55 });
+            if (target != null) {
+                const maxScroll = Math.max(0, output.scrollWidth - viewW);
+                const clamped = Math.min(maxScroll, target);
+                const before = output.scrollLeft;
+                const far = Math.abs(clamped - before) > viewW * 1.2 || matchMedia('(prefers-reduced-motion: reduce)').matches;
+                if (scrollPos == null || Math.abs(scrollPos - before) > 1.5) scrollPos = before;
+                scrollPos = far ? Math.min(maxScroll, Math.max(0, xDoc - viewW * 0.25)) : glide(scrollPos, clamped, dt);
+                output.scrollLeft = scrollPos;
+                xDrawn = x - (output.scrollLeft - before);
+                scrollSettling = !far && Math.abs(clamped - scrollPos) > 0.5;
+            } else {
+                scrollSettling = false;
+            }
+        } else {
+            scrollSettling = false;
+        }
+        mark.hidden = false;
+        mark.classList.toggle('is-off', xDrawn < outR.left || xDrawn > outR.right);
+        mark.style.transform = `translate3d(${xDrawn - hostR.left + host.scrollLeft}px, ${y - hostR.top + host.scrollTop}px, 0)`;
+        return;
+    }
+
     const bars = systemBars(c.api, pos.barIndex);
     const key = `${bars[0]}|${pos.occurrence}`;
     if (key !== shownKey || !place?.parent?.isConnected) {
@@ -175,11 +277,8 @@ function frame(now) {
     if (Math.abs(place.ease || 0) < 0.5) place.ease = 0;
 
     // The page follows the marker the way it follows a text tab's: it roams the upper part of the view, then the page glides
-    const outR = output.getBoundingClientRect();
     let yDrawn = y;
     const scrollMode = output.classList.contains('continuous-mode');
-    const moved = Math.abs(scoreMs - lastScoreMs) > 800;
-    lastScoreMs = scoreMs;
     if (scrollMode && performance.now() > holdUntil && (rec.source.isPlaying() || moved || place.ease)) {
         const viewH = output.clientHeight;
         const lineDoc = y - outR.top + output.scrollTop;
@@ -196,8 +295,6 @@ function frame(now) {
     }
     drawnY = yDrawn;
 
-    const host = mark.parentElement;
-    const hostR = host.getBoundingClientRect();
     // The arrow is drawn to the left of its origin: put the origin at the start of the line so the arrow sits in the paper margin
     const left = place.parent.getBoundingClientRect().left + 22;
     mark.hidden = false;
@@ -212,10 +309,21 @@ function lineY(pl, pos) {
     return pl.parent.getBoundingClientRect().top + pl.top + f * pl.h;
 }
 
-/** Moves the estimate to the start of the next (dir 1) or previous (dir -1) line of music. */
+/** Moves the estimate to the start of the next (dir 1) or previous (dir -1) line of music (or 4 bars in horizontal mode). */
 export function nudgeLine(dir) {
     const c = ctx;
     if (!c || !curRec) return;
+    if ($('output')?.classList.contains('gp-horizontal-mode')) {
+        const idx = playedBarIndexAt(c.timeline, lastEst);
+        const targetIdx = Math.max(0, Math.min(c.timeline.bars.length - 1, idx + dir * 4));
+        if (targetIdx === idx) return;
+        const target = c.timeline.bars[targetIdx].startMs;
+        offsetMs += target + 1 - lastEst;
+        lastEst = target + 1;
+        lastScoreMs = -1;
+        holdUntil = 0;
+        return;
+    }
     const systems = c.api.renderer?.boundsLookup?.staffSystems || [];
     const pos = scoreMsToPosition(c.timeline, lastEst);
     const i = systems.findIndex((sys) => (sys.bars || []).some((b) => b.index === pos?.barIndex));
@@ -226,6 +334,9 @@ export function nudgeLine(dir) {
     if (!ahead.length) return;
     const target = dir > 0 ? Math.min(...ahead) : Math.max(...ahead);
     offsetMs += target + 1 - lastEst;
+    lastEst = target + 1;
+    lastScoreMs = -1;
+    holdUntil = 0;
 }
 
 function scoreMsToTickIn(c, scoreMs) { return scoreMsToTick(c.timeline, scoreMs); }
@@ -243,6 +354,8 @@ function seekToEstimate(tick) {
     const ms = Math.min(dur, Math.max(0, (target - offsetMs) / c.total * dur));
     seekGuardUntil = performance.now() + 800; // the clock jumps here: it is not a seek that drops the shift
     lastT = ms;
+    lastScoreMs = -1;
+    holdUntil = 0;
     rec.source.seek(ms);
 }
 
