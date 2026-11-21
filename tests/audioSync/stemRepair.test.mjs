@@ -35,3 +35,20 @@ test('a stem pointing at the wrong parent is pointed at its set', () => {
     const fixes = planStemRepair({ local_a: lead, local_b: { role: 'stem', stemOf: 'local_zzz', label: 'Bass' } });
     assert.equal(fixes[0].meta.stemOf, 'local_a');
 });
+
+test('an alternate named like a part of the set is a copy of it; a full mix or backing track is not', async () => {
+    const { planStemCopies } = await import('../../src/audioSync/stemRepair.js');
+    const set = { role: 'original', label: 'All stems', stems: [{ audioId: 'a', label: 'Guitar 1' }, { audioId: 'b', label: 'B Vocals' }, { audioId: 'c', label: 'Keys 1' }] };
+    const copies = planStemCopies({
+        local_a: set,
+        local_b: { role: 'stem', stemOf: 'local_a', label: 'B Vocals' },
+        local_x: { role: 'alternate', label: 'b-vocals' },
+        local_y: { role: 'alternate', label: 'guitar-1' },
+        local_band: { role: 'alternate', label: 'band' },
+        local_ng: { role: 'backing', label: 'no-guitar' },
+        local_k: { role: 'live', label: 'keys-1' },
+        yt_v: { role: 'alternate', label: 'vocal' },
+    });
+    assert.deepEqual(copies.map((c) => [c.key, c.copyOf]), [['local_x', 'B Vocals'], ['local_y', 'Guitar 1']]);
+    assert.deepEqual(planStemCopies({ local_x: { role: 'alternate', label: 'bass' } }), []);
+});

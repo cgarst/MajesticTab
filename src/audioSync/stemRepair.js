@@ -40,3 +40,36 @@ export function planStemRepair(metas) {
     }
     return fixes;
 }
+
+const nameKey = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+/**
+ * Recordings that are another file of a part the song's stem set already has: an alternate named like one part of a set
+ * ("b-vocals" beside the part "B Vocals", "guitar-1" beside "Guitar 1"), which is not itself a part. A lossless copy of
+ * the stems saved beside the set lists like this. `metas` is `{ mediaKey: meta }` for one song. Returns
+ * `[{ key, label, copyOf }]`. A name that two parts share, a recording the set claims, and a recording whose name is none
+ * of the parts' (a full mix, a backing track) are left alone.
+ */
+export function planStemCopies(metas) {
+    const entries = Object.entries(metas || {});
+    const claimed = new Set();
+    const partNames = new Map(); // normalised part name -> part labels, over every set
+    for (const [leadKey, meta] of entries) {
+        if (!Array.isArray(meta?.stems)) continue;
+        claimed.add(leadKey);
+        for (const s of meta.stems) {
+            claimed.add(keyOfAudioId(s.audioId));
+            const n = nameKey(s.label);
+            if (!n) continue;
+            if (!partNames.has(n)) partNames.set(n, new Set());
+            partNames.get(n).add(s.label);
+        }
+    }
+    const out = [];
+    for (const [key, meta] of entries) {
+        if (claimed.has(key) || meta?.role !== 'alternate' || !key.startsWith('local_')) continue;
+        const parts = partNames.get(nameKey(meta.label));
+        if (parts?.size === 1) out.push({ key, label: meta.label, copyOf: [...parts][0] });
+    }
+    return out;
+}

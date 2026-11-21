@@ -463,7 +463,7 @@ export function initSettingsPage() {
             taskRow('tabsets', 'Tab sets', 'Put the notation and tablature of one part in a single row, so a song lists once.', 'Review', false, 'Review tab sets'),
             taskRow('dupetabs', 'Duplicate tabs', 'Find tabs stored twice under one song, whatever they are called.', 'Review', false, 'Review duplicate tabs'),
             taskRow('missing', 'Missing files', 'Find tabs whose file is no longer stored on this device.', 'Review', false, 'Review missing files'),
-            taskRow('stemrepair', 'Stems listed as audio', 'Find stems that are still listed as recordings of their own beside the set they were added to, and file them as stems.', 'Review', false, 'Review stems listed as audio'),
+            taskRow('stemrepair', 'Stems listed as audio', 'Find stems still listed as recordings of their own beside their set and file them as stems, and remove a second file of a part the set already has.', 'Review', false, 'Review stems listed as audio'),
             taskRow('syncshrink', 'Map records', 'Shrink map points that older imports saved more than once.', 'Review', false, 'Review map records'),
             taskRow('rebuild', 'Packs with extra audio', 'Find songs whose pack holds audio of other songs, and send them again.', 'Review', false, 'Review packs with extra audio')]));
     // Classical tab sits in Data management, above the Danger zone; renderClasstabPane fills it

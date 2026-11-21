@@ -2,13 +2,13 @@
 // Complete single-file Backup and Restore engine for MajesticTab.
 // Bundles all settings, custom extensions, downloaded tabs local store, and library hierarchy.
 
-import { collectAudioSync, mergeAudioSync, clearAudioSync, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
+import { collectAudioSync, mergeAudioSync, clearAudioSync, deleteRecord, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
 import { recordStorage, flushSyncRecords } from './audioSync/syncRecordStore.js';
 import { entryOf, planShrink, shrunkRestore, stemIsCopy, mediaKeyOf } from './audioSync/syncShrink.js';
-import { clearAllAudioFiles } from './audioSync/audioFileStore.js';
+import { clearAllAudioFiles, getAudioFile, unlinkAudioFile, recordRemovedAudio } from './audioSync/audioFileStore.js';
 import { isAudioChoiceKey, assignRestoredAudioSlot } from './audioSync/libraryAudio.js';
-import { isRecordingMetaKey, listRecordingMeta, setRecordingMeta, REC_META_PREFIX } from './audioSync/recordingMeta.js';
-import { planStemRepair } from './audioSync/stemRepair.js';
+import { isRecordingMetaKey, listRecordingMeta, setRecordingMeta, forgetRecordingMeta, REC_META_PREFIX } from './audioSync/recordingMeta.js';
+import { planStemRepair, planStemCopies } from './audioSync/stemRepair.js';
 import {
     AUDIO_BACKUP_STORE, iterateAudioBackupEntries, audioBackupPlan, audioBackupOverview, restoreAudioEntry,
     LARGE_AUDIO_UPLOAD_BYTES, SINGLE_FILE_AUDIO_LIMIT
@@ -28,7 +28,7 @@ import { findMissingTabFiles, findUnreachableTabs, songsWithUnstoredTabs } from 
 import { isPackId } from './mpak.js';
 import { findTabFiles, restoreTabFiles } from './unreachableRepair.js';
 import { sha256 as sha256Bytes } from './mpak/core/index.js';
-import { readLibraryAudio } from './audioSync/libraryAudio.js';
+import { readLibraryAudio, detachLibraryAudio } from './audioSync/libraryAudio.js';
 import { findPooledSongs, readRememberedKeys, readRebuildMarks, markPacksForRebuild } from './packRepair.js';
 import { listAudioFiles } from './audioSync/audioFileStore.js';
 import {
@@ -1242,6 +1242,28 @@ function leaveEmbeddedBackup() {
 }
 
 /**
+ * Removes one audio file from a song as the player's Remove does: the file (once no song uses it), its map points, its place
+ * in a part, its library attachment and its entry. `song` is the lowercased key the recording meta is stored under, so the
+ * file's own song keys are matched without regard to case.
+ */
+async function removeStemCopy(song, audioId) {
+    const rec = await getAudioFile(audioId);
+    const keys = (rec?.songKeys || []).filter((k) => String(k).toLowerCase() === song);
+    if (!keys.length) keys.push(song);
+    detachLibraryAudio(audioId);
+    for (const k of keys) {
+        for (const slot of ['original', 'backing']) {
+            const slotKey = `audio_file_${encodeURIComponent(String(k).toLowerCase())}_${slot}`;
+            try { if (localStorage.getItem(slotKey) === audioId) localStorage.removeItem(slotKey); } catch { /* optional */ }
+        }
+        await unlinkAudioFile(audioId, k);
+        if (rec?.name) recordRemovedAudio(k, { name: rec.name, size: rec.size || 0 });
+        deleteRecord(k, { kind: 'local', audioId, name: rec?.name || '' });
+        forgetRecordingMeta(k, { kind: 'local', audioId });
+    }
+}
+
+/**
  * Open the Data Management modal
  * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'mixedalbums'|'dupetabs'|'missing'|'stemrepair'|'syncshrink'|'rebuild'|'cache'|'delete'} initialTab
  */
@@ -1729,14 +1751,14 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="backup-summary-box p-3 rounded-3 mb-3">
             <div class="small fw-semibold text-white mb-2">Stems listed as audio</div>
             <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
-              A file saved as a recording of its own and added to a set of stems later can stay in the list as a separate recording. This files it as a stem of its set. No audio is deleted, and each part keeps its name. Create a backup first.
+              A file saved as a recording of its own and added to a set of stems later can stay in the list as a separate recording. This files it as a stem of its set, and each part keeps its name. A recording named like a part of the set (another file of the same part, such as a lossless copy) is removed from this device, with its map points. Create a backup first.
             </div>
             <div id="stemrepairList"></div>
           </div>
           <div id="stemrepairStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="stemrepairCancelBtn">Close</button>
-            <button type="button" class="btn btn-sm btn-theme-primary px-4" id="stemrepairBtn" disabled>File selected as stems</button>
+            <button type="button" class="btn btn-sm btn-theme-primary px-4" id="stemrepairBtn" disabled>Apply selected</button>
           </div>
         </div>
 
@@ -2361,8 +2383,10 @@ function attachModalHandlers(modal, options = {}) {
             if (!k || !isRecordingMetaKey(k)) continue;
             let song;
             try { song = decodeURIComponent(k.slice(REC_META_PREFIX.length)); } catch { continue; }
-            const fixes = planStemRepair(listRecordingMeta(song));
-            if (fixes.length) out.push({ song, fixes });
+            const metas = listRecordingMeta(song);
+            const fixes = planStemRepair(metas);
+            const copies = planStemCopies(metas);
+            if (fixes.length || copies.length) out.push({ song, fixes, copies });
             if (++n % 100 === 0) await new Promise((r) => setTimeout(r, 0));
         }
         return out;
@@ -2386,10 +2410,14 @@ function attachModalHandlers(modal, options = {}) {
             updateStemrepairBtn();
             return;
         }
-        stemrepairList.innerHTML = `<div class="d-flex flex-column gap-2">${plan.map(({ song, fixes }) => `
+        const describe = ({ fixes, copies }) => [
+            fixes.length ? `${fixes.length} ${fixes.length === 1 ? 'part' : 'parts'} to file as stems: ${fixes.map((f) => f.meta.label).join(', ')}` : '',
+            copies.length ? `${copies.length} ${copies.length === 1 ? 'copy' : 'copies'} of a part to remove: ${copies.map((c) => c.label).join(', ')}` : ''
+        ].filter(Boolean);
+        stemrepairList.innerHTML = `<div class="d-flex flex-column gap-2">${plan.map((entry) => `
           <label class="d-flex align-items-start gap-2 mb-0 mt-1 p-2 rounded-2 backup-stat-card" style="cursor: pointer;">
-            <input type="checkbox" class="form-check-input stemrepair-check flex-shrink-0 mt-1" data-song="${escapeHtml(encodeURIComponent(song))}" checked>
-            <span class="small text-white-50"><span class="text-white">${escapeHtml(song.replace(/^score:[^:]*:/, '').replace(/^text:/, ''))}</span><br>${fixes.length} ${fixes.length === 1 ? 'part' : 'parts'}: ${escapeHtml(fixes.map((f) => f.meta.label).join(', '))}</span>
+            <input type="checkbox" class="form-check-input stemrepair-check flex-shrink-0 mt-1" data-song="${escapeHtml(encodeURIComponent(entry.song))}" checked>
+            <span class="small text-white-50"><span class="text-white">${escapeHtml(entry.song.replace(/^score:[^:]*:/, '').replace(/^text:/, ''))}</span><br>${describe(entry).map(escapeHtml).join('<br>')}</span>
           </label>`).join('')}</div>`;
         stemrepairList.querySelectorAll('.stemrepair-check').forEach((cb) => cb.addEventListener('change', updateStemrepairBtn));
         updateStemrepairBtn();
@@ -2402,15 +2430,24 @@ function attachModalHandlers(modal, options = {}) {
         try {
             // Read again: the list may be old
             let filed = 0;
-            for (const { song, fixes } of await scanStemRepair()) {
+            let removed = 0;
+            for (const { song, fixes, copies } of await scanStemRepair()) {
                 if (!chosen.has(song)) continue;
                 for (const f of fixes) {
                     setRecordingMeta(song, { kind: 'local', audioId: f.key.slice('local_'.length) }, f.meta);
                     filed++;
                 }
+                for (const c of copies) {
+                    await removeStemCopy(song, c.key.slice('local_'.length));
+                    removed++;
+                }
             }
             window.dispatchEvent(new CustomEvent('majestictab:data-changed'));
-            showTaskResult(stemrepairStatusAlert, 'done', `${filed} ${filed === 1 ? 'part' : 'parts'} filed as stems`);
+            window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+            showTaskResult(stemrepairStatusAlert, 'done', [
+                filed ? `${filed} ${filed === 1 ? 'part' : 'parts'} filed as stems` : '',
+                removed ? `${removed} ${removed === 1 ? 'copy' : 'copies'} removed` : ''
+            ].filter(Boolean).join(', '));
         } catch (err) {
             console.error('Failed to file stems:', err);
             showTaskResult(stemrepairStatusAlert, 'error', `Could not file the stems. ${err.message}`);
