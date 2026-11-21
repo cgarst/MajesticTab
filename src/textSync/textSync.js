@@ -781,6 +781,14 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         let y = nr && nr.top > r.top + 1 && Math.abs(nr.left - r.left) < 12
             ? r.top + (nr.top - r.top) * f
             : r.top + r.height * f;
+        // A text tab of staves: the arrow sits level with the middle of the stave, not on its top edge, and glides to the
+        // middle of the next one
+        if (isText(getCurrentFile()) && textState.hasSystems) {
+            const mid = r.top + r.height / 2;
+            y = nr && nr.top > r.top + 1 && Math.abs(nr.left - r.left) < 12
+                ? mid + (nr.top + nr.height / 2 - mid) * f
+                : mid;
+        }
 
         let box = null;
         if (placed && el.height) {
