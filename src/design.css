@@ -5405,6 +5405,18 @@ body.score-cursor-hidden .gp-page-cursor-beat {
   display: none !important;
 }
 
+/* Cursor over notes set to Hide (View, Settings > Defaults): every cursor and reading marker, in every layout */
+body.cursor-off .gp-reader-cursor,
+body.cursor-off .gp-page-cursor-beat,
+body.cursor-off .at-cursor-bar,
+body.cursor-off .at-cursor-beat,
+body.cursor-off .reading-line,
+body.cursor-off .pdf-cursor,
+body.cursor-off .ts-bar-cursor,
+body.cursor-off .txt-ribbon-playhead {
+  display: none !important;
+}
+
 /* A MIDI file as the sound source has no bars to loop (its player holds a one-bar placeholder) */
 /* A text or PDF tab with no MIDI linked: the Synth panel offers only the link action */
 body.midi-synth-none #synthDropdownPanel .synth-panel-body > :not(#synthMidiSection) { display: none !important; }

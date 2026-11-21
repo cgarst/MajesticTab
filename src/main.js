@@ -1,4 +1,5 @@
 // main.js
+import { initScoreCursor } from './utils/scoreCursor.js';
 import './utils/pointerFocus.js';
 import './utils/functionKeyGuard.js';
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
@@ -646,6 +647,8 @@ function setupSettings() {
     
     // Initialize modern theme engine
     initTheming();
+
+    initScoreCursor();
 
     // Setup dual-page advance selector
     let savedPageAdvance = localStorage.getItem('pageAdvancePages');

@@ -987,6 +987,17 @@
         </div>
       </div>
 
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Cursor over notes:</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="scoreCursorRadio" id="scoreCursorShow" value="show" autocomplete="off" checked>
+          <label class="btn btn-sm w-50" for="scoreCursorShow">Show</label>
+
+          <input type="radio" class="btn-check" name="scoreCursorRadio" id="scoreCursorHide" value="hide" autocomplete="off">
+          <label class="btn btn-sm w-50" for="scoreCursorHide">Hide</label>
+        </div>
+      </div>
+
       </div>
       <button class="btn theme-control-btn w-100 d-flex align-items-center justify-content-center gap-2 py-2" id="defaultsModalBtn" type="button">
         <i class="bi-sliders2 text-info"></i> Defaults...
@@ -1200,6 +1211,15 @@
           <label class="btn btn-sm" for="txtDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Vertical</label>
           <input type="radio" class="btn-check" name="txtDefaultViewRadio" id="txtDefaultHorizontal" value="horizontal" autocomplete="off">
           <label class="btn btn-sm" for="txtDefaultHorizontal"><i class="bi-arrow-left-right me-1"></i> Horizontal</label>
+        </div>
+      </div>
+      <div class="defaults-row">
+        <span class="defaults-row-label">Cursor over notes</span>
+        <div class="hud-pill-group defaults-pills">
+          <input type="radio" class="btn-check" name="scoreCursorDefaultRadio" id="scoreCursorDefaultShow" value="show" autocomplete="off" checked>
+          <label class="btn btn-sm" for="scoreCursorDefaultShow">Show</label>
+          <input type="radio" class="btn-check" name="scoreCursorDefaultRadio" id="scoreCursorDefaultHide" value="hide" autocomplete="off">
+          <label class="btn btn-sm" for="scoreCursorDefaultHide">Hide</label>
         </div>
       </div>
       </section>
