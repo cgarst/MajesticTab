@@ -26,6 +26,10 @@ const listeners = new Set();
 
 const $ = (id) => document.getElementById(id);
 
+/** The sheet can be lowered to a peek only at phone and tablet widths; at desktop widths there is no grabber (design.css). */
+const DESKTOP_QUERY = '(min-width: 1025px)';
+const canLower = () => !(matchMedia(DESKTOP_QUERY).matches && !document.body.classList.contains('phone-reader'));
+
 export const onSheetChange = (cb) => { listeners.add(cb); return () => listeners.delete(cb); };
 const moveListeners = new Set();
 const startListeners = new Set();
@@ -135,12 +139,13 @@ function setState(next) {
 /** The sheet opens when YouTube starts playing. It comes back lowered only if the person lowered it for this video. */
 export function showSheet() {
     if (state !== 'hidden') return;
-    setState(userPeek ? 'peek' : 'open');
+    setState(userPeek && canLower() ? 'peek' : 'open');
 }
 
 /** Lower (peek) or raise the sheet. Only the person's gesture or a press on the grabber calls this. */
 export function setPeek(peek) {
     if (state === 'hidden') return;
+    if (peek && !canLower()) return;
     userPeek = peek;
     setState(peek ? 'peek' : 'open');
 }
@@ -184,7 +189,7 @@ export function initYtSheet({ onClose, onReaderShown } = {}) {
     let moved = false;
     let pid = null;
     grab.addEventListener('pointerdown', (e) => {
-        if (state === 'hidden' || e.button > 0) return;
+        if (state === 'hidden' || e.button > 0 || !canLower()) return;
         const m = metrics();
         if (!m) return;
         pid = e.pointerId;
@@ -226,10 +231,16 @@ export function initYtSheet({ onClose, onReaderShown } = {}) {
     // would also fire a click, so the click handler ignores pointer-initiated ones).
     grab.addEventListener('click', (e) => { if (e.detail === 0) setPeek(state !== 'peek'); });
 
+    // Resized to a desktop width while lowered: raise it, since desktop has no grabber.
+    matchMedia(DESKTOP_QUERY).addEventListener?.('change', () => {
+        if (state === 'peek' && !canLower()) { userPeek = false; setState('open'); }
+    });
+
     // The width changes the video's height: keep the clip and the published height right.
     if (typeof ResizeObserver !== 'undefined') {
         new ResizeObserver(() => {
             if (state === 'hidden' || dragging) return;
+            if (state === 'peek' && !canLower()) { userPeek = false; setState('open'); return; } // resized to a desktop width
             const m = metrics();
             apply(state === 'peek' ? m.travel : 0, { animate: false });
             publishHeight();

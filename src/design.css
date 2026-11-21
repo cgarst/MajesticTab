@@ -5732,7 +5732,11 @@ html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active)
 .yt-sheet .yt-state-card { background: var(--s1); border: 0; color: var(--ink); }
 .yt-sheet .yt-state-card .text-muted { color: var(--ink2) !important; }
 
-/* Desktop: the minimum-size player at the right, over the page. The menus (the sound panels included) open over it. */
+/* Desktop: the minimum-size player at the right, over the page. The menus (the sound panels included) open over it.
+   Desktop widths (over 1024px, not the phone reader) have no grabber row: the player cannot be lowered there (see canLower() in ytSheet.js). */
+@media (min-width: 1025px) {
+  body:not(.phone-reader) .yt-sheet-head { display: none; }
+}
 
 /* Phone, portrait: full width above the fretboard and the five words, and every sheet that opens stays above it */
 @media (max-width: 640px) {
