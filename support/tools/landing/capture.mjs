@@ -207,11 +207,17 @@ if (want('hero') && !process.argv.includes('--no-video')) {
   await sleep(500);
   await record('txt', 6, async () => { await play(); setTimeout(play, 5800); });
 
-  // 3. PDF: Equinox with its recording open in the video sheet
+  // 3. PDF: Equinox with its recording open in the video sheet, then the Tools menu and the Chord library
   await openPack('Equinox.mpak');
   await sleep(6000); // the video sheet opens by itself with Original selected; the embedded player needs the network
   await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await sleep(800);
-  await record('pdf', 6, async () => { await play(); setTimeout(play, 5800); });
+  // halfway through, the Tools menu opens and the Chord library is chosen from it; the sheet stays open until the push
+  await record('pdf', 9, async () => {
+    await play();
+    setTimeout(() => click('#toolsToggleBtn'), 3500);
+    setTimeout(() => click('#toolsMenu [data-ref-tab="chords"]'), 5200);
+    setTimeout(play, 8800);
+  });
 
   // Frame each part in a thin tablet bezel on the page's ground colour, then join them: each device pushes the next in from the
   // right, so the bezel travels with the screen. The page shows the video with no frame of its own (docs/site.css .hero-video).

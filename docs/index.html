@@ -92,15 +92,15 @@
     </div>
     <div class="hero-media">
       <div class="hero-video">
-        <video autoplay muted loop playsinline preload="auto" poster="img/app/hero-poster.webp" width="868" height="1148" data-segments="0,5.77,11.23,16.8" aria-label="MajesticTab playing three kinds of tab in turn: a Guitar Pro tab with a lit fretboard, a text tab scrolling, and a PDF chart beside its YouTube recording">
+        <video autoplay muted loop playsinline preload="auto" poster="img/app/hero-poster.webp" width="868" height="1148" data-segments="0,5.77,11.3,19.87" aria-label="MajesticTab playing three kinds of tab in turn: a Guitar Pro tab with a lit fretboard, a text tab scrolling, and a PDF chart beside its YouTube recording">
           <source src="img/app/hero.webm" type="video/webm">
           <source src="img/app/hero.mp4" type="video/mp4">
         </video>
       </div>
-      <ol class="hero-kinds" aria-label="Tab types MajesticTab opens">
-        <li><span>Guitar Pro</span></li>
-        <li><span>Text</span></li>
-        <li><span>PDF</span></li>
+      <ol class="hero-kinds" aria-label="Tab types MajesticTab opens, select one to see it">
+        <li><button type="button">Guitar Pro</button></li>
+        <li><button type="button">Text</button></li>
+        <li><button type="button">PDF</button></li>
       </ol>
     </div>
   </div>
@@ -495,6 +495,18 @@
     v.addEventListener('play', function () { requestAnimationFrame(tick); });
     paint();
   } else if (kinds.length) { kinds[0].classList.add('is-on'); }
+  // Each label jumps the loop to its part (just after the swipe that brings it in). With reduced motion the video stays
+  // paused on that frame, so the label only chooses which picture is shown.
+  if (v && kinds.length) {
+    var starts = (v.dataset.segments || '').split(',').map(Number);
+    kinds.forEach(function (k, i) {
+      k.querySelector('button').addEventListener('click', function () {
+        v.currentTime = (starts[i] || 0) + (i ? 0.4 : 0);
+        if (reduce) kinds.forEach(function (o, j) { o.classList.toggle('is-on', j === i); });
+        else if (v.paused) v.play();
+      });
+    });
+  }
 
   // Download links: point each at the newest release's file. Without the lookup
   // they keep the releases page as their href, which always has the latest files.
