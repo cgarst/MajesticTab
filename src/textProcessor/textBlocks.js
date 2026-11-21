@@ -374,6 +374,7 @@ export function decomposeSystem(lines, sys) {
     const directives = {
         dc: /\bD\.?\s*C\.?\b|\bDa\s+Capo\b/i.test(annoText),
         ds: /\bD\.?\s*S\.?\b|\bDal\s+Segno\b/i.test(annoText),
+        segno: /\bsegno\b|(?:^|\s)[%§](?:\s|$)/i.test(annoText),
         fine: /\bFine\b/i.test(annoText),
         coda: /\bCoda\b|\bTo\s+Coda\b/i.test(annoText)
     };

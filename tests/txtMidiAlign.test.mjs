@@ -136,3 +136,46 @@ test('alignTxtAndMidi Tier A aligns tab bars against a synthesized MIDI note seq
     assert.equal(alignment.points[1].timeMs, 2400);
     assert.equal(alignment.points[2].timeMs, 4800);
 });
+
+test('alignTxtAndMidi handles degenerate 1/16 MIDI signatures, 2:1 bar ratios, and trailing D.C. lines', () => {
+    const lines = [
+        'E|---0---------|---1---------|---3---------|',
+        'B|-------1-----|-------3-----|-------0-----|',
+        'G|-----------2-|-----------2-|-----------0-|',
+        'D|-------------|-------------|-------------|',
+        'A|-0-----------|-5-----------|-------------|',
+        'E|-------------|-------------|-3-----------|',
+        '',
+        'D.C. al Fine'
+    ];
+    const blocks = groupBlocks(lines);
+    const { unfoldedBars } = unfoldVisualBars(blocks);
+    assert.ok(unfoldedBars.length > 3, 'trailing D.C. line unfolds repeat');
+
+    // Degenerate 1/16 MIDI bars (12 tiny bars for 3 tab bars) should rebuild onto 4/4 custom grid
+    const midiData = {
+        division: 480,
+        lastTick: 5760,
+        primaryBpm: 120,
+        initialTimeSig: { num: 1, den: 16 },
+        millis: (a, b) => ((b - a) / 480) * 500,
+        notes: [
+            { tick: 0, pitch: 45 }, { tick: 100, pitch: 60 }, { tick: 200, pitch: 64 },
+            { tick: 1920, pitch: 50 }, { tick: 2020, pitch: 65 }, { tick: 2120, pitch: 69 },
+            { tick: 3840, pitch: 43 }, { tick: 3940, pitch: 59 }, { tick: 4040, pitch: 67 }
+        ],
+        bars: Array.from({ length: 24 }, (_, i) => ({
+            index: i, startTick: i * 120, endTick: (i + 1) * 120,
+            startMs: i * 125, endMs: (i + 1) * 125, beats: 1, num: 1, den: 16
+        }))
+    };
+    const alignment = alignTxtAndMidi({
+        blocks,
+        midiData,
+        baseBpm: 120,
+        timeSig: { num: 1, den: 16 },
+        mode: 'midi'
+    });
+    assert.equal(alignment.tier, 'A');
+    assert.ok(alignment.points.every((p, i) => i === 0 || p.timeMs >= alignment.points[i - 1].timeMs));
+});

@@ -103,11 +103,14 @@ export function readMidiFile(b, at = globalThis.alphaTab || FALLBACK_AT) {
         lastTick = Math.max(lastTick, tick);
     }
     const hadExplicitSig = sigs.length > 0;
-    const { clicks, bars, millis, primaryBpm } = addClickAndBars(list, add, midi, division, tempos, sigs, lastTick);
+    rawNotes.sort((a, b) => a.tick - b.tick);
+    const lastNoteTick = rawNotes.length ? rawNotes[rawNotes.length - 1].tick : lastTick;
+    // Cap bar/click generation to just past the last note so stray trailing meta/CC events don't add minutes of empty bars.
+    const effectiveEndTick = rawNotes.length ? Math.min(lastTick, lastNoteTick + division * 4) : lastTick;
+    const { clicks, bars, millis, primaryBpm } = addClickAndBars(list, add, midi, division, tempos, sigs, effectiveEndTick);
     const initialTimeSig = hadExplicitSig
         ? { num: sigs[0].num, den: Math.max(1, 2 ** sigs[0].den) }
         : null;
-    rawNotes.sort((a, b) => a.tick - b.tick);
     const notes = rawNotes.map(n => ({
         tick: n.tick,
         ms: millis(0, n.tick),

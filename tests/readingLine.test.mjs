@@ -90,3 +90,11 @@ test('barProgressAt interpolates intra-system bar offsets and colFrac across bar
     assert.ok(Math.abs(pMidSecond.colFrac - 0.75) < 1e-6);
 });
 
+test('backJumps includes 1-bar in-place repeats on the same unit and barOffset', () => {
+    const pts = [
+        { id: 'p0', barIndex: '5', barOffset: 0, timeMs: 0 },
+        { id: 'p1', barIndex: '5', barOffset: 0, timeMs: 2000 }
+    ];
+    assert.deepEqual([...backJumps(pts, ['5'])], ['p1']);
+});
+

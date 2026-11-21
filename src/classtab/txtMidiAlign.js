@@ -87,6 +87,7 @@ export function unfoldVisualBars(blocks, { version = 1, tuning = null, capoFret 
     let pendingPlayTwiceStart = false;
     let inPlayTwiceSection = false;
 
+    let trailingDc = false;
     for (let bIdx = 0; bIdx < blocks.length; bIdx++) {
         const blk = blocks[bIdx];
         if (blk.kind === 'line') {
@@ -97,10 +98,14 @@ export function unfoldVisualBars(blocks, { version = 1, tuning = null, capoFret 
                 pendingPlayTwiceStart = true;
                 inPlayTwiceSection = true;
             }
+            if (visualBars.length > 0 && /\bD\.?\s*C\.?\b|\bDa\s+Capo\b/i.test(blk.text || '')) {
+                trailingDc = true;
+            }
             continue;
         }
         if (blk.kind !== 'system') continue;
         if (blk.version && blk.version !== version) continue;
+        trailingDc = false;
 
         if (!pendingPlayTwiceStart && Array.isArray(blk.above) && blk.above.some(l => /\bplay\s+twice\b/i.test(l))) {
             if (inPlayTwiceSection && visualBars.length > 0) {
@@ -190,7 +195,7 @@ export function unfoldVisualBars(blocks, { version = 1, tuning = null, capoFret 
             repeatAnchor = i;
             firstEndingIdx = -1;
         }
-        if (vb.ending === 1 && !inRepeatPass) {
+        if (vb.ending === 1 && !inRepeatPass && i > repeatAnchor) {
             firstEndingIdx = i;
         }
         if (inRepeatPass && firstEndingIdx !== -1 && i === firstEndingIdx) {
@@ -228,15 +233,41 @@ export function unfoldVisualBars(blocks, { version = 1, tuning = null, capoFret 
         i++;
     }
 
-    // Handle D.C. (Da Capo) at the end of the piece if present
-    if (visualBars.length > 0 && visualBars[visualBars.length - 1].directives?.dc) {
+    // Handle D.C. (Da Capo) or D.S. (Dal Segno) at or near the end of the piece
+    let dcIdx = visualBars.length > 0 && (visualBars[visualBars.length - 1].directives?.dc || trailingDc)
+        ? visualBars.length - 1
+        : -1;
+    if (dcIdx < 0 && visualBars.length > 0) {
+        for (let k = visualBars.length - 1; k >= Math.max(0, visualBars.length - 8); k--) {
+            if (visualBars[k].directives?.dc) { dcIdx = k; break; }
+        }
+    }
+    if (dcIdx >= 0) {
         const fineIdx = visualBars.findIndex(b => b.directives?.fine);
-        const stopAt = fineIdx >= 0 ? fineIdx : Math.min(visualBars.length - 1, Math.floor(visualBars.length / 2));
+        const stopAt = fineIdx >= 0 && fineIdx < dcIdx
+            ? fineIdx
+            : Math.min(dcIdx, Math.floor(visualBars.length / 2));
         for (let k = 0; k <= stopAt && unfoldedBars.length < maxUnfolded; k++) {
             unfoldedBars.push({
                 playIndex: unfoldedBars.length,
                 visualBar: visualBars[k]
             });
+        }
+    } else if (visualBars.length > 0) {
+        let dsIdx = -1;
+        for (let k = visualBars.length - 1; k >= Math.max(0, visualBars.length - 8); k--) {
+            if (visualBars[k].directives?.ds) { dsIdx = k; break; }
+        }
+        if (dsIdx > 0) {
+            const segnoIdx = Math.max(0, visualBars.findIndex((b, idx) => idx < dsIdx && b.directives?.segno));
+            const fineIdx = visualBars.findIndex((b, idx) => idx >= segnoIdx && idx < dsIdx && b.directives?.fine);
+            const stopAt = fineIdx >= segnoIdx ? fineIdx : Math.min(dsIdx, Math.floor((segnoIdx + dsIdx) / 2));
+            for (let k = segnoIdx; k <= stopAt && unfoldedBars.length < maxUnfolded; k++) {
+                unfoldedBars.push({
+                    playIndex: unfoldedBars.length,
+                    visualBar: visualBars[k]
+                });
+            }
         }
     }
 
@@ -304,7 +335,27 @@ function alignBarSequences(seqBars, midiBars, midiNotes) {
     // Banded DTW between P tab bars and M MIDI bars
     const dp = Array.from({ length: P }, () => new Float32Array(M).fill(-1e9));
     const prev = Array.from({ length: P }, () => new Int16Array(M).fill(0));
+    const ratio = M / Math.max(1, P);
+    const maxStep = ratio > 1.6 ? Math.min(4, Math.ceil(ratio) + 1) : 2;
     const band = Math.max(12, Math.abs(P - M) + 8);
+
+    // Transition priors adapt when MIDI has ~2x or ~0.5x as many bars as the tab (e.g. 2/2 vs 4/4)
+    const stepBonus = (step) => {
+        if (ratio > 1.6) {
+            if (step === 2) return 0.15;
+            if (step === 1) return 0.0;
+            if (step === 0) return -0.35;
+            return -0.1 * (step - 2);
+        }
+        if (ratio < 0.65) {
+            if (step === 0) return 0.05;
+            if (step === 1) return 0.1;
+            return -0.25;
+        }
+        if (step === 1) return 0.15;
+        if (step === 0) return -0.25;
+        return -0.2;
+    };
 
     for (let m = 0; m < Math.min(M, band); m++) {
         const pMask = rotateMask12(seqBars[0].visualBar.pitchMask, bestShift);
@@ -319,17 +370,15 @@ function alignBarSequences(seqBars, midiBars, midiNotes) {
 
         for (let m = mMin; m <= mMax; m++) {
             const sim = maskSimilarity(pMask, midiMasks[m]);
-            // Transitions from p - 1: m (2 tab bars in 1 MIDI bar), m - 1 (1:1 step), m - 2 (skip 1 MIDI bar)
-            let bestPrevVal = dp[p - 1][m] - 0.25;
+            let bestPrevVal = -1e9;
             let bestPrevM = m;
-
-            if (m >= 1 && dp[p - 1][m - 1] + 0.15 > bestPrevVal) {
-                bestPrevVal = dp[p - 1][m - 1] + 0.15;
-                bestPrevM = m - 1;
-            }
-            if (m >= 2 && dp[p - 1][m - 2] - 0.2 > bestPrevVal) {
-                bestPrevVal = dp[p - 1][m - 2] - 0.2;
-                bestPrevM = m - 2;
+            for (let step = 0; step <= maxStep; step++) {
+                if (m < step) break;
+                const cand = dp[p - 1][m - step] + stepBonus(step);
+                if (cand > bestPrevVal) {
+                    bestPrevVal = cand;
+                    bestPrevM = m - step;
+                }
             }
             dp[p][m] = bestPrevVal + sim;
             prev[p][m] = bestPrevM;
@@ -431,18 +480,25 @@ export function alignTxtAndMidi({
 
     if (hasMidi) {
         const midiNotes = midiData.notes || [];
-        const effTimeSig = midiData.initialTimeSig || timeSig || { num: 4, den: 4 };
+        // If the MIDI file omitted a 0x58 Time Signature event (so midiData.bars defaulted to 4/4), has a degenerate
+        // 1/16-style grid that fragments the piece, or starts with a pickup lead-in while the tab has a narrow initial
+        // pickup bar, build a time-signature-accurate MIDI bar grid.
+        const hasInitialPickup = Boolean(visualBars[0]?.isPickup);
+        const degenerateMidiSig = Boolean(
+            midiData.initialTimeSig &&
+            midiData.initialTimeSig.num === 1 &&
+            midiData.initialTimeSig.den >= 8 &&
+            midiData.bars.length > visualBars.length * 4
+        );
+        const fallbackSig = (timeSig && !(timeSig.num === 1 && timeSig.den >= 8)) ? timeSig : { num: 4, den: 4 };
+        const effTimeSig = degenerateMidiSig ? fallbackSig : (midiData.initialTimeSig || fallbackSig);
         let midiBars = midiData.bars;
         let pickupBar0 = null;
         let fullMidiBars = midiBars;
-
-        // If the MIDI file omitted a 0x58 Time Signature event (so midiData.bars defaulted to 4/4) or starts with a pickup
-        // lead-in while the tab has a narrow initial pickup bar, build a time-signature-accurate MIDI bar grid.
-        const hasInitialPickup = Boolean(visualBars[0]?.isPickup);
         const needCustomGrid = Boolean(
             midiData.division &&
             typeof midiData.millis === 'function' &&
-            (!midiData.initialTimeSig || (hasInitialPickup && midiNotes.length > 0 && midiNotes[0].tick > 0))
+            (!midiData.initialTimeSig || degenerateMidiSig || (hasInitialPickup && midiNotes.length > 0 && midiNotes[0].tick > 0))
         );
 
         if (needCustomGrid) {
@@ -562,18 +618,28 @@ export function alignTxtAndMidi({
                 } else if (item.visualBar.isPickup && combined.length > 0) {
                     // Internal section pickup (or repeated initial pickup): carve its duration from the end of the preceding bar
                     const prev = combined[combined.length - 1];
-                    const prevDur = Math.max(200, prev.endMs - prev.startMs);
-                    const stealMs = Math.min(defaultPickupMs, prevDur * 0.35);
-                    const pickupStartMs = prev.endMs - stealMs;
-                    const pickupEndMs = prev.endMs;
-                    prev.endMs = pickupStartMs;
-                    combined.push({
-                        ...item,
-                        startMs: pickupStartMs,
-                        endMs: pickupEndMs,
-                        beats: pickupBar0?.beats || 0.5,
-                        sim: 1
-                    });
+                    const rawPrevDur = Math.max(0, prev.endMs - prev.startMs);
+                    if (rawPrevDur > 40) {
+                        const stealMs = Math.min(defaultPickupMs, rawPrevDur * 0.35);
+                        const pickupStartMs = prev.endMs - stealMs;
+                        const pickupEndMs = prev.endMs;
+                        prev.endMs = pickupStartMs;
+                        combined.push({
+                            ...item,
+                            startMs: pickupStartMs,
+                            endMs: pickupEndMs,
+                            beats: pickupBar0?.beats || 0.5,
+                            sim: 1
+                        });
+                    } else {
+                        combined.push({
+                            ...item,
+                            startMs: prev.endMs,
+                            endMs: prev.endMs + 1,
+                            beats: pickupBar0?.beats || 0.5,
+                            sim: 1
+                        });
+                    }
                 } else {
                     const fm = fullMapped[Math.min(fullCursor, fullMapped.length - 1)];
                     fullCursor++;

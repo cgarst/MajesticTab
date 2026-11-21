@@ -27,7 +27,7 @@ export function backJumps(points, unitIds) {
         const r = rankOf(unitIds, p.barIndex);
         if (r < 0) continue;
         const bo = p.barOffset ?? 0;
-        if (prev >= 0 && (r < prev || (r === prev && bo < prevBarOffset))) out.add(p.id);
+        if (prev >= 0 && (r < prev || (r === prev && bo <= prevBarOffset))) out.add(p.id);
         prev = r;
         prevBarOffset = bo;
     }
