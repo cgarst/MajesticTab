@@ -1,1 +1,5 @@
-- Bug fixes and stability improvements
+- Auto-scroll for text and PDF tabs with no sound, with Slower and Faster, and Off in the Sound panel
+- Text tabs: chord-over-lyric layout, steadier cursor, countdown on the side marker
+- Classical tab browser: filter by era, one back control on phones
+- Duplicate songs can be merged; misfiled songs can be moved back in Upkeep
+- Fixes for audio reload loops, stems, duet horizontal view, controller navigation and launch screens
