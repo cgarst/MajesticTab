@@ -208,11 +208,13 @@ export function barProgressAt(points, unitIds, timeMs, endMs = null) {
  * so the line stays there, above `top` it brings the line back to `top`.
  * @returns {number|null} the wanted scrollTop, or null when the line is already in the comfortable band
  */
-export function followTarget({ lineY, viewH, scrollTop, top = 0.2, bottom = 0.6 }) {
-    // lineY is the line's position inside the scrolled content
+export function followTarget({ lineY, viewH, scrollTop, top = 0.2, bottom = 0.6, inset = 0 }) {
+    // lineY is the line's position inside the scrolled content; `inset` is the strip at the top of the view that a bar
+    // covers (the phone reader's top bar floats over the page), so the fractions count from below it
+    const room = Math.max(1, viewH - inset);
     const inView = lineY - scrollTop;
-    if (inView > viewH * bottom) return lineY - viewH * bottom;
-    if (inView < viewH * top) return Math.max(0, lineY - viewH * top);
+    if (inView > inset + room * bottom) return lineY - inset - room * bottom;
+    if (inView < inset + room * top) return Math.max(0, lineY - inset - room * top);
     return null;
 }
 

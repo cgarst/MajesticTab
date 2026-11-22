@@ -851,7 +851,10 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             // Paged follow: a unit that fits a page stays still while the line travels it; entering one that runs past the
             // bottom turns the page with one quick glide that puts it at the top. Taller units keep the old gliding follow.
             const dockRoom = Math.min(parseFloat(getComputedStyle(output).paddingBottom) || 0, viewH * 0.25);
-            const usable = { usableTop: 0, usableBottom: viewH - dockRoom };
+            // On the phone the top bar floats over the page: the output pads its top by the bar's height, so a unit put at the
+            // output's top edge would sit under the bar
+            const topInset = parseFloat(getComputedStyle(output).paddingTop) || 0;
+            const usable = { usableTop: topInset, usableBottom: viewH - dockRoom };
             const unitView = { top: r.top - outR.top, bottom: r.bottom - outR.top };
             const paged = !placed && (pageGlide.active || (r.height <= (usable.usableBottom - usable.usableTop) * 0.8));
             // Read-ahead: with room for this unit and the next one below it, the next one is always fully in view, so the
@@ -869,7 +872,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
                 const before = output.scrollTop;
                 const maxScroll = Math.max(0, output.scrollHeight - viewH);
                 if (!pageGlide.active && (playing || cursorMoved) && lineNeedsTurn({ top: unitView.top, bottom: reach, ...usable, maxFrac: 10 })) {
-                    const to = Math.max(0, Math.min(maxScroll, before + unitView.top - 12));
+                    const to = Math.max(0, Math.min(maxScroll, before + unitView.top - topInset - 12));
                     if (Math.abs(to - before) > 1) {
                         if (!playing || reduceMotion.matches || Math.abs(to - before) > viewH * 1.2) output.scrollTop = to;
                         else pageGlide.start(before, to, now, turnMs(to - before), easeSoft);
@@ -889,10 +892,11 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             } else {
                 pageGlide.cancel();
                 const lineY = y - outR.top + output.scrollTop;
-                let target = followTarget({ lineY, viewH, scrollTop: output.scrollTop });
+                const inset = parseFloat(getComputedStyle(output).paddingTop) || 0;
+                let target = followTarget({ lineY, viewH, scrollTop: output.scrollTop, inset });
                 if (target != null) {
                     // With reduced motion the page moves in one step, putting the line near the top, instead of gliding
-                    if (reduceMotion.matches) target = Math.max(0, lineY - viewH * 0.2);
+                    if (reduceMotion.matches) target = Math.max(0, lineY - inset - (viewH - inset) * 0.2);
                     const before = output.scrollTop;
                     output.scrollTop = reduceMotion.matches ? target : glide(before, target, dt);
                     y -= output.scrollTop - before;

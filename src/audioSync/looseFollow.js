@@ -282,13 +282,14 @@ function frame(now) {
     if (scrollMode && performance.now() > holdUntil && (rec.source.isPlaying() || moved || place.ease)) {
         const viewH = output.clientHeight;
         const lineDoc = y - outR.top + output.scrollTop;
-        const target = followTarget({ lineY: lineDoc, viewH, scrollTop: output.scrollTop });
+        const inset = parseFloat(getComputedStyle(output).paddingTop) || 0; // the phone's top bar floats over the page
+        const target = followTarget({ lineY: lineDoc, viewH, scrollTop: output.scrollTop, inset });
         if (target != null) {
             const before = output.scrollTop;
             const far = Math.abs(target - before) > viewH * 1.2 || matchMedia('(prefers-reduced-motion: reduce)').matches;
             // Keep our own fractional position unless something else (the user, a seek) moved the page
             if (scrollPos == null || Math.abs(scrollPos - before) > 1.5) scrollPos = before;
-            scrollPos = far ? Math.max(0, lineDoc - viewH * 0.2) : glide(scrollPos, target, dt);
+            scrollPos = far ? Math.max(0, lineDoc - inset - (viewH - inset) * 0.2) : glide(scrollPos, target, dt);
             output.scrollTop = scrollPos;
             yDrawn = y - (output.scrollTop - before);
         }
