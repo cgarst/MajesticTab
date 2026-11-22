@@ -19,6 +19,11 @@ import { createStorageDiagram } from './storageUsage.js';
 
 const $ = (id) => document.getElementById(id);
 
+// WebKit keeps :hover on the last element under the cursor after it leaves the window, so a row stays highlighted.
+// Mark the document while the pointer is outside so hover styles can step aside.
+document.documentElement.addEventListener('mouseleave', () => document.documentElement.classList.add('pointer-out'));
+document.documentElement.addEventListener('mouseenter', () => document.documentElement.classList.remove('pointer-out'));
+
 const SECTIONS = [
     { id: 'cloud', label: 'Cloud sync', icon: 'bi-cloud' },
     { id: 'library', label: 'Data management', icon: 'bi-collection' },

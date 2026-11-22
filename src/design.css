@@ -3488,7 +3488,7 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
   .setshell .setnav { grid-column: 1; grid-row: 2; min-height: 0; }
   .setshell .setpage { grid-column: 2; grid-row: 1 / span 2; min-height: 0; }
   .setshell .setnav { background: var(--setnav-ground); }
-  @media (hover: hover) { .setshell .setnav button:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 5%, var(--setnav-ground)); } }
+  @media (hover: hover) { html:not(.pointer-out) .setshell .setnav button:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 5%, var(--setnav-ground)); } }
   .setshell .setnav button[aria-current="true"] { background: color-mix(in srgb, var(--ink) 9%, var(--setnav-ground)); }
   .setshell .setpage { background: var(--s1); }
 }
