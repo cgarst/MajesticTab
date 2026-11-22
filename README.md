@@ -29,7 +29,7 @@ Direct installers and packages are published on [GitHub Releases](https://github
 | **macOS** | [Mac App Store](https://apps.apple.com/us/app/majestictab/id6833538312) | [Apple Silicon `.dmg`](https://github.com/cgarst/MajesticTab/releases/latest) · [Intel `.dmg`](https://github.com/cgarst/MajesticTab/releases/latest) |
 | **Windows** | [Microsoft Store](https://apps.microsoft.com/detail/9p7mb2c84cfv) | [Installer `x86_64` (`.exe`)](https://github.com/cgarst/MajesticTab/releases/latest) · [Installer `ARM64` (`.exe`)](https://github.com/cgarst/MajesticTab/releases/latest) |
 | **Android** | [Google Play](https://play.google.com/store/apps/details?id=net.zathu.majestictab) · F-Droid (coming soon) | [Android `.apk`](https://github.com/cgarst/MajesticTab/releases/latest) |
-| **Linux and Steam Deck** | [Flatpak repository](#install-from-the-flatpak-repository) (KDE Discover, GNOME Software, `flatpak update`) | [Flatpak `x86_64`](https://github.com/cgarst/MajesticTab/releases/latest) · [Flatpak `ARM64`](https://github.com/cgarst/MajesticTab/releases/latest) · [Steam Deck art (`.zip`)](docs/img/steam/steam_deck_artwork.zip) |
+| **Linux and Steam Deck** | [Flatpak repository](#install-from-the-flatpak-repository) | [Flatpak `x86_64`](https://github.com/cgarst/MajesticTab/releases/latest) · [Flatpak `ARM64`](https://github.com/cgarst/MajesticTab/releases/latest) · [Steam Deck art (`.zip`)](docs/img/steam/steam_deck_artwork.zip) |
 
 ### Install from the Flatpak repository
 
