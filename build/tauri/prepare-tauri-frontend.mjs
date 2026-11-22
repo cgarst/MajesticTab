@@ -16,8 +16,6 @@ const iosBuild = process.argv.includes('--ios');
 const skipMinify = process.argv.includes('--no-minify') || process.env.MAJESTICTAB_NO_MINIFY === '1';
 
 const assets = [
-  ['bootstrap/dist/css/bootstrap.min.css', 'vendor/bootstrap/dist/css/bootstrap.min.css'],
-  ['bootstrap/dist/js/bootstrap.bundle.min.js', 'vendor/bootstrap/dist/js/bootstrap.bundle.min.js'],
   ['bootstrap-icons/font', 'vendor/bootstrap-icons/font'],
   ['pdfjs-dist/build/pdf.min.js', 'vendor/pdfjs-dist/build/pdf.min.js'],
   ['pdfjs-dist/build/pdf.worker.min.js', 'vendor/pdfjs-dist/build/pdf.worker.min.js'],
@@ -32,7 +30,6 @@ const assets = [
 ];
 
 const licenses = [
-  ['bootstrap/LICENSE', 'vendor/licenses/bootstrap.txt'],
   ['bootstrap-icons/LICENSE', 'vendor/licenses/bootstrap-icons.txt'],
   ['pdfjs-dist/LICENSE', 'vendor/licenses/pdfjs-dist.txt'],
   ['jspdf/LICENSE', 'vendor/licenses/jspdf.txt'],
@@ -44,13 +41,11 @@ const licenses = [
 ];
 
 const replacements = new Map([
-  ['https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css', 'vendor/bootstrap/dist/css/bootstrap.min.css'],
   ['https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css', 'vendor/bootstrap-icons/font/bootstrap-icons.css'],
   ['https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css', 'vendor/bootstrap-icons/font/bootstrap-icons.min.css'],
   ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', 'vendor/pdfjs-dist/build/pdf.min.js'],
   ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js', 'vendor/pdfjs-dist/build/pdf.worker.min.js'],
   ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js', 'vendor/jspdf/dist/jspdf.umd.min.js'],
-  ['https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js', 'vendor/bootstrap/dist/js/bootstrap.bundle.min.js'],
   ['https://cdn.jsdelivr.net/npm/fflate@0.8.3/umd/index.js', 'vendor/fflate/umd/index.js'],
   ['https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/alphaTab.min.js', 'vendor/alphatab/dist/alphaTab.min.js'],
   ['https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js', 'vendor/pdf-lib/dist/pdf-lib.min.js'],

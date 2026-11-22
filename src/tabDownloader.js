@@ -1203,7 +1203,7 @@ export function initTabDownloaderDomEvents() {
     let sourcesMenuResizeObserver = null;
     const sourcesDropdown = document.getElementById('downloaderSourcesDropdown');
     const sourcesMenu = document.getElementById('downloaderSourcesMenu');
-    sourcesDropdown?.addEventListener('show.bs.dropdown', () => {
+    sourcesDropdown?.addEventListener('dropdown:show', () => {
         isSourcesDropdownOpen = true;
         refreshDownloaderOffset();
         if (typeof ResizeObserver !== 'undefined' && sourcesMenu) {
@@ -1215,16 +1215,16 @@ export function initTabDownloaderDomEvents() {
             sourcesMenuResizeObserver.observe(sourcesMenu);
         }
     });
-    sourcesDropdown?.addEventListener('shown.bs.dropdown', () => {
+    sourcesDropdown?.addEventListener('dropdown:shown', () => {
         isSourcesDropdownOpen = true;
         refreshDownloaderOffset();
     });
-    sourcesDropdown?.addEventListener('hide.bs.dropdown', () => {
+    sourcesDropdown?.addEventListener('dropdown:hide', () => {
         isSourcesDropdownOpen = false;
         if (sourcesMenuResizeObserver) sourcesMenuResizeObserver.disconnect();
         refreshDownloaderOffset();
     });
-    sourcesDropdown?.addEventListener('hidden.bs.dropdown', () => {
+    sourcesDropdown?.addEventListener('dropdown:hidden', () => {
         isSourcesDropdownOpen = false;
         if (sourcesMenuResizeObserver) sourcesMenuResizeObserver.disconnect();
         refreshDownloaderOffset();

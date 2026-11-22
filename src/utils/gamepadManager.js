@@ -848,7 +848,7 @@ class GamepadManager {
             return true;
         }
 
-        if (el.matches?.('[data-bs-toggle="dropdown"]')) {
+        if (el.matches?.('[data-dropdown-toggle]')) {
             el.click();
             setTimeout(() => {
                 const parent = el.closest('.dropdown') || document;
@@ -865,7 +865,7 @@ class GamepadManager {
                 return true;
             }
             // If the song has no tabs attached yet, open its "+ Tab" dropdown menu so the user can import one
-            const dropdownToggle = el.querySelector('[data-bs-toggle="dropdown"]');
+            const dropdownToggle = el.querySelector('[data-dropdown-toggle]');
             if (dropdownToggle) {
                 return this.activateElement(dropdownToggle);
             }

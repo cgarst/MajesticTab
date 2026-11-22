@@ -1,5 +1,6 @@
 // navigationUtils.js
 import { showToast } from './toast.js';
+import { hideAllDropdowns } from './floating.js';
 import { isIOSDevice } from './iosAudioUnlock.js';
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView, isPhoneReader, phoneTapZone } from './viewModeUtils.js';
@@ -474,15 +475,10 @@ export function setupKeyboardNavigation(getConfig) {
  * @returns {boolean} Whether a back action was performed
  */
 export function performAppBack(getConfig = null) {
-    // 0. If any Bootstrap dropdown or Tools menu is open, dismiss it first
+    // 0. If any dropdown or Tools menu is open, dismiss it first
+    if (hideAllDropdowns()) return true;
     const openDropdownMenu = document.querySelector('.dropdown-menu.show');
     if (openDropdownMenu) {
-        const toggle = openDropdownMenu.parentElement?.querySelector('[data-bs-toggle="dropdown"]');
-        if (toggle && window.bootstrap?.Dropdown) {
-            const inst = window.bootstrap.Dropdown.getInstance(toggle);
-            if (inst) { inst.hide(); return true; }
-        }
-        if (toggle) { toggle.click(); return true; }
         openDropdownMenu.classList.remove('show');
         return true;
     }
@@ -518,7 +514,7 @@ export function performAppBack(getConfig = null) {
     const openBackdrops = Array.from(document.querySelectorAll('.theme-modal-backdrop')).filter(el => el.style.display === 'flex' || el.style.display === 'block');
     if (openBackdrops.length > 0) {
         const topModal = openBackdrops[openBackdrops.length - 1];
-        const closeBtn = topModal.querySelector('.theme-modal-close-btn, .btn-close, [data-bs-dismiss="modal"]');
+        const closeBtn = topModal.querySelector('.theme-modal-close-btn, .btn-close');
         if (closeBtn) {
             closeBtn.click();
             return true;
@@ -529,7 +525,7 @@ export function performAppBack(getConfig = null) {
 
     const openModal = document.querySelector('.modal.show');
     if (openModal) {
-        const closeBtn = openModal.querySelector('[data-bs-dismiss="modal"], .btn-close, .theme-modal-close-btn');
+        const closeBtn = openModal.querySelector('.btn-close, .theme-modal-close-btn');
         if (closeBtn) {
             closeBtn.click();
             return true;

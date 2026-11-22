@@ -151,7 +151,7 @@ For platform packaging (`macos`, `windows`, `linux`, `android`, `ios`), PDF opti
 - [The Minimal Metronome](https://github.com/ZaneH/metronome) by Zane Helton for the metronome's tempo tapper, time signatures, swing-arm display and keyboard controls
 - [Classtab](https://www.classtab.org/) for the classical guitar tabs and MIDI files in the Classical tab browser; the archive is downloaded by the user and never shipped
 - [PDF.js](https://mozilla.github.io/pdf.js/) for PDF rendering
-- [Bootstrap](https://getbootstrap.com/) for UI components
+- [Bootstrap](https://getbootstrap.com/) for the layout, form and button styles in `src/base.css` (a cut-down adaptation of its stylesheet), and [Bootstrap Icons](https://icons.getbootstrap.com/) for the icons
 - [jsPDF](https://github.com/parallax/jsPDF) for export functionality
 - [SoundTouchJS](https://github.com/cutterbl/SoundTouchJS) (`@soundtouchjs/audio-worklet`, MPL-2.0, used unmodified) for slow-down practice that keeps the pitch of a local audio file
 

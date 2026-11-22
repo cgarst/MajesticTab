@@ -5,10 +5,10 @@
 <title>MajesticTab</title>
 <meta name="theme-color" content="#06050a">
 <meta name="referrer" content="strict-origin-when-cross-origin">
+<link href="base.css" rel="stylesheet">
 <!-- Loaded without blocking the first paint: the boot screen covers the page until the app is ready -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" media="print" onload="this.media='all'">
-<noscript><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"></noscript>
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"></noscript>
 <script>if (document.querySelector('meta[name="majestictab-jam-host"]') && !window.__TAURI__) document.documentElement.classList.add('jam-web-guest');</script>
 <link href="style.css" rel="stylesheet">
 <link href="tuner/tuner.css" rel="stylesheet">
@@ -267,7 +267,7 @@
       </button>
 
       <div class="dropdown" id="downloaderSourcesDropdown">
-        <button type="button" class="btn btn-sm downloader-sources-btn dropdown-toggle" id="downloaderSourcesBtn" data-bs-toggle="dropdown" data-bs-offset="0,6" aria-expanded="false" title="Search source">
+        <button type="button" class="btn btn-sm downloader-sources-btn dropdown-toggle" id="downloaderSourcesBtn" data-dropdown-toggle data-dropdown-offset="0,6" aria-expanded="false" title="Search source">
           <span id="downloaderActiveSourceName">DuckDuckGo</span>
         </button>
         <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu" id="downloaderSourcesMenu">
@@ -963,7 +963,6 @@
       </div>
       <div>
         <label class="form-label d-block mb-1 small text-white-50">Pages shown in landscape:
-          <button type="button" class="btn btn-link p-0 ms-1 align-baseline text-white-50" data-bs-toggle="tooltip" data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="In Page mode on a wide screen: show as many pages side by side as fit, or one page scaled to the screen." aria-label="About pages shown in landscape"><i class="bi-info-circle"></i></button>
         </label>
         <div class="hud-pill-group w-100">
           <input type="radio" class="btn-check" name="landscapePageLayoutRadio" id="landscapeLayoutDual" value="dual" autocomplete="off" checked>
@@ -976,7 +975,6 @@
 
       <div>
         <label class="form-label d-block mb-1 small text-white-50">Page turn:
-          <button type="button" class="btn btn-link p-0 ms-1 align-baseline text-white-50" data-bs-toggle="tooltip" data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="When several pages are shown, turn one page at a time, or the whole view at once." aria-label="About page turn"><i class="bi-info-circle"></i></button>
         </label>
         <div class="hud-pill-group w-100">
           <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance1" value="1" autocomplete="off">
@@ -1302,7 +1300,7 @@
           <li><a href="https://github.com/jpt/barlow" target="_blank" rel="noopener noreferrer">Barlow Condensed</a> by The Barlow Project Authors (SIL Open Font License 1.1)<details class="license-expander" data-license-src="fonts/BarlowCondensed-OFL.txt"><summary>License text</summary><pre class="license-expander-text"></pre></details></li>
           <li><a href="https://github.com/steinbergmedia/bravura" target="_blank" rel="noopener noreferrer">Bravura</a> music font by Steinberg (SIL Open Font License 1.1)<details class="license-expander" data-license-src="vendor/licenses/bravura-ofl.txt"><summary>License text</summary><pre class="license-expander-text"></pre></details></li>
           <li>Sonivox EAS SoundFont, copyright Sonic Network Inc. (Apache License 2.0)<details class="license-expander" data-license-src="licenses/apache-2.0.txt"><summary>License text</summary><pre class="license-expander-text"></pre></details></li>
-          <li><a href="https://github.com/twbs/bootstrap" target="_blank" rel="noopener noreferrer">Bootstrap</a> and <a href="https://github.com/twbs/icons" target="_blank" rel="noopener noreferrer">Bootstrap Icons</a> (MIT License)<details class="license-expander" data-license-src="vendor/licenses/bootstrap.txt"><summary>Bootstrap license text</summary><pre class="license-expander-text"></pre></details><details class="license-expander" data-license-src="vendor/licenses/bootstrap-icons.txt"><summary>Bootstrap Icons license text</summary><pre class="license-expander-text"></pre></details></li>
+          <li><a href="https://github.com/twbs/bootstrap" target="_blank" rel="noopener noreferrer">Bootstrap</a> (the layout and form styles in base.css are adapted from it) and <a href="https://github.com/twbs/icons" target="_blank" rel="noopener noreferrer">Bootstrap Icons</a> (MIT License)<details class="license-expander" data-license-src="licenses/bootstrap.txt"><summary>Bootstrap license text</summary><pre class="license-expander-text"></pre></details><details class="license-expander" data-license-src="vendor/licenses/bootstrap-icons.txt"><summary>Bootstrap Icons license text</summary><pre class="license-expander-text"></pre></details></li>
         </ul>
       </div>
     </div>
@@ -2239,7 +2237,6 @@
 </aside>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.3/umd/index.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/alphaTab.min.js"></script>

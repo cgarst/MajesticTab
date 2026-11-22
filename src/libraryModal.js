@@ -3,6 +3,7 @@
 
 import { initNativeTabBar, setNativeTabActive, syncNativeSearch, focusNativeSearch } from './nativeTabBar.js';
 import { mountSettingsPage, parkSettingsPage } from './utils/settingsPage.js';
+import { setDropdownViewportInsets } from './utils/floating.js';
 import {
     getCollections, getLibraryHierarchy, getLibraryTuningsHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
@@ -73,33 +74,19 @@ window.addEventListener('library:refresh', () => {
     }
 });
 
-// The phone's bottom tab bar is fixed over the bottom of the library, and Popper does not know it is there, so a
-// menu opened near the bottom stayed below it. Keep every dropdown clear of the bar: it flips up instead.
-try {
-    const dropdown = window.bootstrap?.Dropdown;
-    if (dropdown) {
-        dropdown.Default.popperConfig = (config) => {
-            const nav = document.getElementById('libraryBottomNav');
-            const rect = nav && nav.offsetParent !== null ? nav.getBoundingClientRect() : null;
-            // A bar along the bottom edge (phone); the rail on wider screens sits at the side and needs nothing
-            const bottom = rect && rect.top > window.innerHeight / 2 ? Math.ceil(window.innerHeight - rect.top) : 0;
-            if (!bottom) return config;
-            const pad = { top: 8, left: 8, right: 8, bottom };
-            return {
-                ...config,
-                modifiers: [
-                    ...(config.modifiers || []),
-                    { name: 'flip', options: { padding: pad } },
-                    { name: 'preventOverflow', options: { padding: pad } }
-                ]
-            };
-        };
-    }
-} catch { /* the menus still work, they may sit under the bar */ }
+// The phone's bottom tab bar is fixed over the bottom of the library, and the menu placement does not know it is there,
+// so a menu opened near the bottom stayed below it. Keep every dropdown clear of the bar: it flips up instead.
+setDropdownViewportInsets(() => {
+    const nav = document.getElementById('libraryBottomNav');
+    const rect = nav && nav.offsetParent !== null ? nav.getBoundingClientRect() : null;
+    // A bar along the bottom edge (phone); the rail on wider screens sits at the side and needs nothing
+    const bottom = rect && rect.top > window.innerHeight / 2 ? Math.ceil(window.innerHeight - rect.top) : 0;
+    return bottom ? { bottom } : null;
+});
 
 // The library page scrolls and clips what hangs past it, so the last song's menu was cut off at the bottom edge.
 // Once a menu opens inside it, scroll it into view.
-document.addEventListener('shown.bs.dropdown', (e) => {
+document.addEventListener('dropdown:shown', (e) => {
     const menu = e.target?.closest?.('.library-page-body') ? e.target.querySelector('.dropdown-menu.show') : null;
     if (menu) menu.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 });
@@ -1514,7 +1501,7 @@ async function renderLibraryBrowseView(container, { keepScroll = false, keepSong
 
                         <div class="album-header-actions d-flex align-items-center gap-2 flex-shrink-0">
                           <div class="dropdown">
-                            <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" title="Album options" aria-label="Album options">
+                            <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-dropdown-toggle aria-expanded="false" title="Album options" aria-label="Album options">
                               <i class="bi-three-dots"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
@@ -1615,7 +1602,7 @@ async function renderLibraryBrowseView(container, { keepScroll = false, keepSong
                          </span>
                        `).join('')}
                       <div class="dropdown flex-shrink-0">
-                        <button class="btn btn-sm btn-theme-outline dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" title="Attach a whole-book PDF to this folder">Add book</button>
+                        <button class="btn btn-sm btn-theme-outline dropdown-toggle" type="button" data-dropdown-toggle aria-expanded="false" title="Attach a whole-book PDF to this folder">Add book</button>
                         <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
                           ${addTabProviderItemsHtml('import-album-tab-btn')}
                         </ul>
@@ -3800,7 +3787,7 @@ function renderSongRow(song, options = {}) {
             <i class="bi-pin-angle${isPinned ? '-fill' : ''}"></i>
           </button>
           <div class="dropdown">
-            <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" title="Song options" aria-label="Song options">
+            <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-dropdown-toggle aria-expanded="false" title="Song options" aria-label="Song options">
               <i class="bi-three-dots"></i>
             </button>
             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">

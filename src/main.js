@@ -71,6 +71,7 @@ import { initScoreRecordingStrip } from './audioSync/scoreRecordingStrip.js';
 import { initLooseFollow } from './audioSync/looseFollow.js';
 import { initSettingsPage } from './utils/settingsPage.js';
 import { initSlidingPills } from './utils/slidingPill.js';
+import { initFloating } from './utils/floating.js';
 import { initUrlRouter, getRouteFromUrl } from './utils/urlRouter.js';
 import { initNativeTabBar, nativeChromeReady } from './nativeTabBar.js';
 import { initFoldState } from './foldState.js';
@@ -714,7 +715,6 @@ function setupSettings() {
     });
 
     // Setup Default View selectors for GP and PDF
-    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
 
     let savedGpDefaultView = localStorage.getItem('gpDefaultView') || getDefaultView('gp');
     const gpDefaultRadios = document.querySelectorAll('input[name="gpDefaultViewRadio"]');
@@ -1126,6 +1126,7 @@ async function initAppInner() {
     initLooseFollow();
     initSettingsPage();
     initSlidingPills();
+    initFloating();
 
     document.getElementById('topBarBackToLibraryBtn')?.addEventListener('click', async () => {
         // A song opened from a tool in Tools goes back to that tool, not to the library
