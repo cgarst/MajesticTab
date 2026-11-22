@@ -166,6 +166,25 @@ function sanitizeSegment(name, fallback) {
     return cleaned && cleaned !== '.' && cleaned !== '..' ? cleaned : fallback;
 }
 
+// The MIDI linked to a tab: held on the file (just linked, or from a pack), loaded on demand, or kept with its library song
+async function synthMidiBytesOf(file) {
+    if (file?.synthMidiBytes) return file.synthMidiBytes;
+    if (typeof file?.synthMidiLoader === 'function') return file.synthMidiLoader();
+    if (!file?.librarySongId) return null;
+    const { getSongById } = await import('./libraryStore.js');
+    const song = await getSongById(file.librarySongId);
+    if (!song?.synthMidi) return null;
+    const { getAudioFile } = await import('./audioSync/audioFileStore.js');
+    const rec = await getAudioFile(song.synthMidi.audioFileId);
+    return rec?.data ? new Uint8Array(rec.data) : null;
+}
+
+async function synthMidiNameOf(file) {
+    if (!file?.librarySongId) return null;
+    const { getSongById } = await import('./libraryStore.js');
+    return (await getSongById(file.librarySongId))?.synthMidi?.name || null;
+}
+
 function inferTabFormat(file) {
     const ext = String(file?.name || '').split('.').pop().toLowerCase();
     if (ext && ext in ANCHOR) return ext;
@@ -461,6 +480,20 @@ export async function buildMpak(file, options = {}) {
             }
         }
         scoreRuns.push(run);
+    }
+    // The MIDI linked to a text or PDF tab plays it back: it goes in as a MIDI score (SPEC section 6) with no sync of its own
+    if (['txt', 'pdf'].includes(scoreRuns[0]?.entry.format)) {
+        try {
+            const midiBytes = await synthMidiBytesOf(file);
+            if (midiBytes?.byteLength) {
+                const midiName = file.synthMidiName || (await synthMidiNameOf(file)) || 'score.mid';
+                let midiPath = `score/${sanitizeSegment(midiName, 'score.mid')}`;
+                if (usedScorePaths.has(midiPath.toLowerCase())) midiPath = `score/midi-${sanitizeSegment(midiName, 'score.mid')}`;
+                const midiU8 = new Uint8Array(midiBytes);
+                files.set(midiPath, midiU8);
+                manifestScores.push({ id: usedScoreIds.has('midi') ? 'midi-2' : 'midi', path: midiPath, format: 'midi', sha256: await sha256(midiU8), name: midiName });
+            }
+        } catch (e) { console.warn('[mpak] could not add the linked MIDI:', e); }
     }
     const primary = scoreRuns[0];
     const tabFormat = primary.entry.format;
@@ -872,6 +905,13 @@ export async function unpackMpak(input, options = {}) {
         throw new MpakError(`This .mpak file references an external score (${score.externalPath || 'external PDF'}) that was not provided.`);
     }
     const tabFile = scoreFileOf(score, bytes);
+    // A MIDI score of the pack is the synth of the text or PDF tab, not a tab of its own
+    const midiEntry = header.scores.find((sc) => sc.format === 'midi');
+    const midiBytes = midiEntry && opened.scoreBytes(midiEntry.id);
+    if (midiBytes && ['txt', 'pdf'].includes(score.format)) {
+        tabFile.synthMidiBytes = midiBytes;
+        tabFile.synthMidiName = midiEntry.name || 'score.mid';
+    }
     tabFile.mpakSong = header.song;
     if (isPackId(header.id)) tabFile.mpakId = header.id;
     if (header.song?.title && !tabFile.songTitle) tabFile.songTitle = header.song.title;
@@ -1687,6 +1727,13 @@ export async function saveMpakToLibrary(input, options = {}) {
     if (tabOption) tabOptions.set(tabFile, tabOption);
 
     // The pack's other scores (a PDF beside a Guitar Pro file, say) become more tabs of the song
+    if (tabFile.synthMidiBytes && song?.id) {
+        try {
+            const { saveSongMidi } = await import('./classtab/midiSynth.js');
+            await saveSongMidi(song.id, tabFile.synthMidiName || 'score.mid', tabFile.synthMidiBytes);
+            song = (await getSongById(song.id)) || song;
+        } catch (e) { console.warn('[mpak] could not save the pack MIDI:', e); }
+    }
     for (const other of unpacked.otherScores || []) {
         try {
             const added = await addScore(other.file, other.score, null);
