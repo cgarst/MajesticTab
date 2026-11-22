@@ -345,7 +345,7 @@ export function setupKeyboardNavigation(getConfig) {
         if (!config.currentFile) return;
 
         // TV remote Menu or Select (Enter) on the score enters the top bar or playback dock
-        if (e.key === 'ContextMenu' || e.key === 'Menu') {
+        if (isTvMode() && (e.key === 'ContextMenu' || e.key === 'Menu')) {
             e.preventDefault();
             gamepadManager.enterTopBar();
             return;
@@ -437,8 +437,11 @@ export function setupKeyboardNavigation(getConfig) {
         if (isNext || isPrev) {
             // Up at the start of the score moves into the top bar; Down at the end moves into the playback dock
             const isPageMode = config.pageModeChecked || config.pageModeRadio?.checked;
-            if (e.key === 'ArrowUp' && !isPageMode && gamepadManager.isScoreScrolledToTop() && gamepadManager.enterTopBar()) return;
-            if (e.key === 'ArrowDown' && !isPageMode && gamepadManager.isScoreScrolledToBottom() && gamepadManager.enterPlaybackDock()) return;
+            // Moving focus into the chrome with the arrows is for TV remotes (and controllers, which have their own path);
+            // on a keyboard the arrows only turn pages and scroll, and no selector appears.
+            const chromeByArrows = isTvMode();
+            if (chromeByArrows && e.key === 'ArrowUp' && !isPageMode && gamepadManager.isScoreScrolledToTop() && gamepadManager.enterTopBar()) return;
+            if (chromeByArrows && e.key === 'ArrowDown' && !isPageMode && gamepadManager.isScoreScrolledToBottom() && gamepadManager.enterPlaybackDock()) return;
             const pageSnapshot = document.getElementById('pageIndicator')?.textContent;
             const scroller = (document.getElementById('output')?.classList.contains('continuous-mode')
                 ? document.getElementById('output')
@@ -451,14 +454,14 @@ export function setupKeyboardNavigation(getConfig) {
             if (result?.newPageIndex !== undefined && config.setCurrentPageIndex) {
                 config.setCurrentPageIndex(result.newPageIndex);
             }
-            if (e.key === 'ArrowUp' && isPageMode) {
+            if (chromeByArrows && e.key === 'ArrowUp' && isPageMode) {
                 requestAnimationFrame(() => requestAnimationFrame(() => {
                     const samePage = document.getElementById('pageIndicator')?.textContent === pageSnapshot;
                     const sameScroll = !scroller || Math.abs(scroller.scrollTop - scrollSnapshot) <= 1;
                     if (samePage && sameScroll) gamepadManager.enterTopBar();
                 }));
             }
-            if (e.key === 'ArrowDown' && isPageMode) {
+            if (chromeByArrows && e.key === 'ArrowDown' && isPageMode) {
                 requestAnimationFrame(() => requestAnimationFrame(() => {
                     const samePage = document.getElementById('pageIndicator')?.textContent === pageSnapshot;
                     const sameScroll = !scroller || Math.abs(scroller.scrollTop - scrollSnapshot) <= 1;
