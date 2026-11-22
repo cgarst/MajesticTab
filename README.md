@@ -1,12 +1,12 @@
-![MajesticTab — Your music stand. Without the mess.](support/store/github/social-preview-all-devices-1280x640.png)
+![MajesticTab — The app for the guitarist's music stand.](support/store/github/social-preview-all-devices-1280x640.png)
 
 <div align="center">
 
 # MajesticTab
 
-**Your music stand. Without the mess.**
+**The app for the guitarist's music stand.**
 
-Bring all your guitar tabs into one library, fitted to your guitar and mapped to the original recording.
+Stacked guitar tracks and built-in practice tools synced everywhere you play.
 
 [![License: MPL 2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/cgarst/MajesticTab?label=release)](https://github.com/cgarst/MajesticTab/releases/latest)
@@ -19,9 +19,7 @@ Bring all your guitar tabs into one library, fitted to your guitar and mapped to
 
 ---
 
-MajesticTab is a native, offline-first guitar tab reader and practice app for Guitar Pro files (`.gp`, `.gp3` to `.gp5`, `.gpx`), PDFs, and text tabs. It keeps your scores organized in a song-centric library, plays multi-track tabs with a built-in SoundFont synth or synced to the original recording, rewrites tabs to fit your guitar's strings and tuning, and lets your whole band jam on the same bar over the local network.
-
-There are **no subscriptions, no ads, no accounts, and no locked features**.
+MajesticTab is a guitar tab reader and practice app. It opens Guitar Pro files (`.gp`, `.gp3` to `.gp5`, `.gpx`), PDFs, and text tabs, and works offline. It organizes your tabs by song, plays them with a SoundFont synth or along with the original recording. It can rewrite them to fit a different guitar's tuning or string count, and lets your friends follow along over local network.
 
 ---
 
@@ -42,83 +40,54 @@ Direct installers and packages are published on [GitHub Releases](https://github
 | **Linux and Steam Deck** | Flatpak bundles | [Flatpak `x86_64`](https://github.com/cgarst/MajesticTab/releases/latest) · [Flatpak `ARM64`](https://github.com/cgarst/MajesticTab/releases/latest) · [Steam Deck art (`.zip`)](docs/img/steam/steam_deck_artwork.zip) |
 
 > [!NOTE]
-> MajesticTab is open source, and free on the Microsoft Store, Google Play, Linux, and direct downloads. On the Apple App Store, a single one-time purchase unlocks the app across iPhone, iPad, and Mac to help cover App Store distribution costs and support ongoing development.
+> MajesticTab is free on the Microsoft Store, Google Play, Linux, and direct downloads. On the Apple App Store, a one-time purchase covers iPhone, iPad, and Mac to support App Store distribution costs.
 
 ---
 
 ## Features
 
-### A library, not a folder of files
+### Library
 
-Most tab apps hand you a list of files. MajesticTab builds a library around the songs you play, fetching artist discographies, album covers, release years, and track orders so your tabs match the real releases.
+MajesticTab organizes your tabs by artist, album, and song.
 
-- **Artists, albums, and tracklists:** Link multiple Guitar Pro, PDF, and text tabs to each song, pin songs you are practicing, and reopen the last tab you used.
-- **Browse by tuning:** Group your library by Standard, Drop D, D Standard, DADGAD, 7-string, 8-string, or custom tunings so you can play a set without retuning between songs.
-- **Setlists and collections:** Build rehearsal and gig order setlists or group exercises and playlists into custom collections.
-- **Your tabs, wherever they live:** Keep files offline on your device, search tab sites directly inside the app with metadata filled in automatically, or connect your own **Google Drive, S3, WebDAV, or iCloud** for cross-device sync and `.mtbackup` full-library archives.
+- Link several Guitar Pro, PDF, text tabs, audio tracks, stems, and/or YouTube videos to one song.
+- Group your library by tuning (Standard, Drop D, D Standard, DADGAD, 7-string, 8-string, or custom).
+- Build setlists for rehearsals and gigs.
+- Keep files on your device, or connect Google Drive, S3, WebDAV, or iCloud to sync devices and save archives of your library.
 
 ![The MajesticTab library with an artist selected, showing albums, tracklists, and linked tabs](docs/img/app/library.webp)
 
 ### Play along with the original recording
 
-Map any tab to the record you learned it from, and the playhead follows the music.
+MajesticTab will automatically create a rough mapping of Guitar Pro tabs to the provided audio or YouTube video to allow auto-scrolling. You can also attach a separate backing track (e.g. no guitar) and switch between it and the original.
 
-- **Tap to map:** Link a YouTube video or a local audio file on your device, select the recording's state and then **Tap along**, and tap each bar as you hear it. The cursor, metronome, and count-in follow the recording through tempo changes and live drift.
-- **Fine-tune any section:** Re-tap a range of bars, nudge individual map points, snap a tap to the nearest audio transient, or attach a separate backing track and switch between the original and backing audio.
-- **Built-in SoundFont synth:** Play Guitar Pro tabs offline with per-track mixing, solo/mute controls, one-click "No guitars" (or "No bass") backing mode, custom `.sf2` / `.sf3` SoundFonts, speed control from 50% to 125% (pitch-preserved on local audio too), bar looping, and a 10-second rewind.
+To precicely map a YouTube video or a local audio file, select **Not mapped** and then **Tap along**, and tap each bar as you hear it. The cursor, metronome, and count-in follow the recording through tempo changes and drift. Staff-based text tabs with a linked MIDI file are aligned to it automatically, and scroll along as it plays. Other PDF and text tabs aren't mapped to a recording automatically, but you can tap along to a recording to map their pages or lines.
+
+Without a recording, the built-in SoundFont synth plays Guitar Pro tabs offline. It allows per-track mixing, custom `.sf2` and `.sf3` SoundFonts, speed adjustment, and looping.
 
 ![The Recording panel with the original recording and a backing track, and a YouTube or local audio source](docs/img/app/original.webp)
 
-### Make any tab fit your guitar
+### Fit a tab to your guitar
 
-Show a Guitar Pro tab on 6, 7, or 8 strings, or rewrite the frets to match the guitar in your hands—with a capo or transposed—while every note keeps its pitch. Changes apply to the open song and reset when you close it, or can be saved for that song or as your default guitar.
+Show a Guitar Pro tab on 6, 7, or 8 strings, or rewrite the frets for your guitar, with a capo or transposed for tunings. Every note keeps its pitch. Changes apply to the open song and reset when you close it. You can also save them for that song or as your default guitar preference.
 
 ![The Guitar panel showing the strings a tab is written for, 7 and 8 string options, and a rewrite for your own tuning](docs/img/app/guitar.webp)
 
-### One reader, five controls
+### Reader
 
-All reader controls live under five menus—**View**, **Practice**, **Tracks**, **Guitar**, and **Tools**—so the score stays front and center.
+The reader's controls are in five menus: **View**, **Practice**, **Tracks**, **Guitar**, and **Tools**.
 
-- **Multi-track reading:** Stack multiple guitar parts together in continuous scroll, single-page, or two-page book spreads while drums, bass, keys, and vocals stay out of the way.
-- **PDF optimizer and bulk export:** Condense multi-track Guitar Pro PDF exports by stripping empty staves and margins, or export your entire library as printable PDFs in a single ZIP archive.
-- **Virtual fretboard:** Watch the notes of the current beat light up with per-track colors and a left-handed flip option.
-- **Built-in practice tools:** Open the chord library (adapted to any tuning and capo), scale reference, circle of fifths, chromatic microphone tuner, and visual metronome one tap from the score.
-- **Themes and hands-free control:** Choose from nine app themes with light or dark sheets, and turn pages or control playback with a Bluetooth foot pedal (AirTurn, PageFlip, Donner) or a game controller (Xbox, PlayStation, Steam Deck).
+- Show several guitar parts together in vertical scroll, horizontal scroll, or multi-page book layout. Automatically strips empty staves, as well as drums, bass, keys, and vocals parts. Export what you see as PDF to take the consolidated view somewhere else.
+- See the notes of the current beat light up on a virtual fretboard in per-track colors, with left-handed and upside down options.
+- Open the chord library, scale reference, circle of fifths, chromatic microphone tuner, and metronome from the score.
+- Pick from nine themes with light or dark sheets.
+- Turn pages or control playback with a Bluetooth foot pedal (AirTurn, PageFlip, Donner) or a game controller (Xbox, PlayStation, Steam Deck).
 
 ![The MajesticTab reader showing a Guitar Pro score with the virtual fretboard and practice controls](docs/img/app/practice.webp)
 
-### Jam on the same page, in the same room
+### Jam
 
-Host a Jam session on your local network and let everyone else in the room join from their own phone, tablet, or laptop with a QR code. Playback position and synced audio stay locked together across devices, and the host can assign each guitarist their own track.
-
----
-
-## Keyboard shortcuts
-
-Shortcuts work while a score is open and no text field is focused. Game controller diagrams and bindings are available inside the app under **Settings → Controls**.
-
-| Key | Action |
-| --- | --- |
-| `→`, `↓`, `Page Down` | Next page (or scroll down in continuous mode) |
-| `←`, `↑`, `Page Up` | Previous page (or scroll up in continuous mode) |
-| `Space` | Play or pause audio (advances the page when no audio is loaded) |
-| `B` | Rewind audio by 10 seconds |
-| `G` | Toggle the SoundFont between full band and no guitars (no bass in bass mode) |
-| `M` | Toggle the metronome |
-| `I` | Toggle the count-in |
-| `,`, `.` | Slow down or speed up playback by 5% |
-| `[`, `]` | Previous or next tab in the open setlist |
-| `F` | Toggle the fretboard dock |
-| `T` | Toggle the chromatic tuner |
-| `C` | Toggle the chord library |
-| `S` | Toggle the scales reference |
-| `O` | Toggle the circle of fifths |
-| `R` | Toggle reading mode (hide the top bar and playback dock) |
-| `Ctrl + Wheel` / `Pinch` | Zoom score (50%–150%) |
-| `Alt + Enter` | Toggle fullscreen (Windows and Linux) |
-| `Cmd + [` / `Alt + ←` / `Mouse 4` | Back |
-| `Cmd + ]` / `Alt + →` / `Mouse 5` | Forward |
-| `Esc` | Close the open dialog, menu, or panel |
+Host a Jam session on your local network. Others join from their own phone, tablet, or laptop by scanning a QR code. Playback position and audio stay in sync across devices, and the host can assign each guitarist a track.
 
 ---
 
@@ -132,13 +101,13 @@ The frontend in `src/` runs directly in any modern browser with no build step:
 
 Then open `http://localhost:8000/src/`.
 
-To launch the native desktop app in development mode (requires [Node.js, Rust, and Tauri v2 platform prerequisites](https://v2.tauri.app/start/prerequisites/)):
+To run the desktop app in development mode, install [Node.js, Rust, and the Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/), then run:
 
 ```bash
 ./run.sh
 ```
 
-For platform packaging (`macos`, `windows`, `linux`, `android`, `ios`), PDF optimization tips, and project architecture, see [CONTRIBUTING.md](CONTRIBUTING.md).
+[CONTRIBUTING.md](CONTRIBUTING.md) covers packaging for `macos`, `windows`, `linux`, `android`, and `ios`, PDF optimization tips, and the project architecture.
 
 ---
 
