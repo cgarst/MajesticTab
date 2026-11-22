@@ -712,6 +712,7 @@ if (target === 'android') {
     channel,
     ciChannel: env.MAJESTICTAB_CHANNEL,
     buildId: env.MAJESTICTAB_BUILD_ID,
+    debugTools,
   }));
   process.on('exit', () => rmSync(manifestPath, { force: true }));
   const repoDir = path.join(tauriDir, 'target', 'flatpak-repo');
