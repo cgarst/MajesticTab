@@ -5392,6 +5392,8 @@ body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { d
 .reading-line::before { content: ''; position: absolute; left: -16px; top: -8px; border: 8px solid transparent; border-left: 12px solid var(--hue); border-right: 0; }
 body.gp-horizontal-mode .loose-line::before { left: -8px; top: -12px; border: 8px solid transparent; border-top: 12px solid var(--hue); border-bottom: 0; }
 .reading-line[hidden] { display: none; }
+/* While a tab loads, #output is faded out and the loading card is up; the marker lives beside #output, so it would hang over the card */
+body.reader-loading .reading-line { visibility: hidden; }
 /* Countdown under the arrow while the cursor is in the last staff of the page: seconds left before the page turns, then a next icon */
 .reading-line-turn { position: absolute; left: -26px; top: 12px; width: 32px; display: flex; flex-direction: column; align-items: center; gap: 1px; color: var(--hue); line-height: 1; }
 .reading-line-turn[hidden] { display: none; }
