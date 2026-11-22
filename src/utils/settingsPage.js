@@ -598,7 +598,7 @@ export function initSettingsPage() {
         dlBtn.href = 'https://majestictab.zathu.net/#download';
         dlBtn.target = '_blank';
         dlBtn.rel = 'noopener noreferrer';
-        abt.push(row('Desktop & mobile apps', 'Permanent offline storage, local Jam hosting, and built-in tab search with ad-blocking.', dlBtn));
+        abt.push(row('Desktop & mobile apps', 'Permanent offline storage and local Jam hosting.', dlBtn));
     }
     const guide = el('a', 'btn btn-sm btn-theme-outline', 'Read');
     guide.href = 'https://majestictab.zathu.net/guide/';
