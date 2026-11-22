@@ -2281,9 +2281,24 @@ function rebuildDeadSynth(reason, { resume = false } = {}) {
     // otherwise reopen the song again and again. A Play press is a gesture and always gets its attempt.
     const byPlay = reason === 'closed at Play';
     synthRebuildTimes = synthRebuildTimes.filter((t) => now - t < 300000);
-    if (now - lastSynthRebuild < 3000 || (!byPlay && synthRebuildTimes.length >= 2) || synthRebuildTimes.length >= 6) return;
-    lastSynthRebuild = now;
-    synthRebuildTimes.push(now);
+    if (now - lastSynthRebuild < 3000) return;
+    if ((!byPlay && synthRebuildTimes.length >= 2) || synthRebuildTimes.length >= 6) {
+        // Out of automatic attempts: say so, and let the user try again, instead of leaving a dead player
+        if (!document.hidden) {
+            showToast('Audio stopped responding.', 'warning', 0, 'synth-reset', {
+                label: 'Reopen',
+                onClick: () => reopenSynth(api, 'reopened by user', resume)
+            });
+        }
+        return;
+    }
+    reopenSynth(api, reason, resume);
+}
+
+function reopenSynth(api, reason, resume) {
+    if (api !== currentApi) return;
+    lastSynthRebuild = Date.now();
+    synthRebuildTimes.push(lastSynthRebuild);
     const tick = api.tickPosition;
     const wasPlaying = resume || synthPlayerState.isPlaying;
     console.warn(`[Synth Player] Synth audio is dead (${reason}); reopening the song`);
@@ -2291,10 +2306,10 @@ function rebuildDeadSynth(reason, { resume = false } = {}) {
     // The dead contexts must not count against the new player (a stale closed one would make every new context look dead)
     forgetSynthContexts();
     window.dispatchEvent(new CustomEvent('majestictab:synth-dead', { detail: { reason } }));
-    resumeOnNewPlayer(api, tick, wasPlaying);
+    resumeOnNewPlayer(api, tick, wasPlaying, reason);
 }
 
-async function resumeOnNewPlayer(oldApi, tick, wasPlaying) {
+async function resumeOnNewPlayer(oldApi, tick, wasPlaying, reason = '') {
     const start = performance.now();
     while (performance.now() - start < 20000) {
         await new Promise((r) => setTimeout(r, 100));
@@ -2306,7 +2321,15 @@ async function resumeOnNewPlayer(oldApi, tick, wasPlaying) {
     try { api.tickPosition = tick; } catch (_) { /* the position is a nicety */ }
     // iOS will not start a new AudioContext without a touch, so playback is not restarted on its own: the song waits
     // where it was and one press of Play continues. (A transport that "plays" into a dead context just freezes.)
-    if (wasPlaying) showToast('Audio was reset while the app was away. Press Play to continue.', 'info', 6000, 'synth-reset');
+    if (wasPlaying) {
+        // Say what happened: "while the app was away" is only true when iOS closed the context behind our back
+        const msg = reason === 'playback stalled'
+            ? 'Audio did not start, so it was reset. Press Play to continue.'
+            : reason === 'closed while away'
+                ? 'Audio was reset while the app was away. Press Play to continue.'
+                : 'Audio was reset. Press Play to continue.';
+        showToast(msg, 'info', 6000, 'synth-reset');
+    }
 }
 
 // The synth's context reports 'closed' / 'interrupted' the moment it happens, even in the background
@@ -2326,9 +2349,21 @@ onSynthContextState((state) => {
 async function watchPlaybackStall(api) {
     if (!synthPlayerState.isReady || synthPlayerState.audioSyncEnabled) return;
     const tick = api.tickPosition;
-    await new Promise((r) => setTimeout(r, 1800));
-    if (api !== currentApi || !synthPlayerState.isPlaying || document.hidden) return;
-    if (Math.abs(api.tickPosition - tick) < 20) rebuildDeadSynth('playback stalled', { resume: true });
+    // The first start after a load can be slow on iOS (SoundFont, context resume), and a slow start is not a dead synth:
+    // keep watching for a few seconds, nudge a suspended context, and rebuild only if the tick never moves
+    const started = performance.now();
+    const patienceMs = 5000;
+    let nudged = false;
+    while (performance.now() - started < patienceMs) {
+        await new Promise((r) => setTimeout(r, 900));
+        if (api !== currentApi || !synthPlayerState.isPlaying || document.hidden) return;
+        if (Math.abs(api.tickPosition - tick) >= 20) return;
+        if (!nudged && performance.now() - started > 1800) {
+            nudged = true;
+            recoverAudioContexts().catch(() => {});
+        }
+    }
+    rebuildDeadSynth('playback stalled', { resume: true });
 }
 
 // After a play press, check the AudioContext really runs. A context that stays suspended or
