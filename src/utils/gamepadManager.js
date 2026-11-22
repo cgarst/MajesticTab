@@ -144,8 +144,8 @@ class GamepadManager {
                 this.clearNavFocus();
             }
         }, { passive: true });
-        // Tab starts keyboard navigation; until then a focused button is only left over from a click (Bootstrap and
-        // WebKitGTK restore focus to the opener when a menu or panel closes) and must not hijack Space or the arrows.
+        // Tab starts keyboard navigation; until then a focused button is only left over from a click (WebKitGTK
+        // restores focus to the opener when a menu or panel closes) and must not hijack Space or the arrows.
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Tab') this.lastInputWasNavigation = true;
         }, true);
@@ -1071,7 +1071,7 @@ class GamepadManager {
     }
 
     getActiveFocusContainer() {
-        // 1. If a Bootstrap dropdown menu is open inside the page
+        // 1. If a dropdown menu is open inside the page
         const openDropdown = Array.from(document.querySelectorAll('.dropdown-menu.show'))
             .find(el => this.isElementVisible(el));
         if (openDropdown) return openDropdown;

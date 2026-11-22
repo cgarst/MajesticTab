@@ -645,7 +645,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 }
 .form-switch { padding-left: 0 !important; min-height: 0; }
 
-/* Checkboxes and radios outside a switch: tone fill, no outline, the action color when on (replaces Bootstrap's blue) */
+/* Checkboxes and radios outside a switch: tone fill, no outline, the action color when on (replaces the stock blue) */
 .form-check-input:not(.theme-switch)[type="checkbox"], .form-check-input:not(.theme-switch)[type="radio"] {
   width: 18px; height: 18px; margin-top: 0; border: 0 !important; background-color: var(--s3);
   cursor: pointer; flex: none; box-shadow: none;
@@ -2136,7 +2136,7 @@ body.fretboard-open {
 }
 .badge-theme-warning, .badge-no-tab { color: var(--warn) !important; }
 .album-year-badge { display: none !important; }
-/* Safety net: a Bootstrap .badge or the Experimental tag never draws a pill; it reads as grey text */
+/* Safety net: a .badge or the Experimental tag never draws a pill; it reads as grey text */
 .badge, .settings-beta-badge {
   background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
   padding: 0 !important; font-size: 12px !important; font-weight: 400 !important; letter-spacing: 0; text-transform: none; color: var(--ink2) !important;
@@ -3009,7 +3009,7 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 .score-options-group .song-row-btn + * { margin-top: 10px; }
 /* Flat text rows on the 56px pitch (not stacked filled buttons); one tone step on hover */
 #scoreOptionsSaveGroup .btn { background: transparent !important; border: 0 !important; color: var(--ink) !important; justify-content: flex-start !important; padding-inline: 12px !important; border-radius: var(--r-control) !important; min-height: 56px; }
-/* Not Bootstrap's d-flex (it is !important and beat the inline display:none that hides actions that do not apply) */
+/* Not the d-flex utility (it is !important and beat the inline display:none that hides actions that do not apply) */
 #scoreOptionsSaveGroup .btn { display: flex; align-items: center; }
 @media (hover: hover) { #scoreOptionsSaveGroup .btn:hover { background: var(--s3) !important; } }
 #scoreOptionsSaveGroup .btn i { display: none; }

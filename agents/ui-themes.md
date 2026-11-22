@@ -10,9 +10,9 @@ Verify every new or changed screen in at least two themes, one of them Snow Whit
 
 ## Themed controls
 
-Button colors live in `src/design.css` (tone steps, no borders, no gradient or glow). The classes keep the Bootstrap-era names.
+Button colors live in `src/design.css` (tone steps, no borders, no gradient or glow). The classes keep the Bootstrap-era names; their base rules are in `src/base.css`.
 
-- **Never use Bootstrap's color button classes** (`btn-primary`, `btn-secondary`, `btn-danger`, `btn-success`, `btn-info`, `btn-warning`, `btn-light`, `btn-dark` and every `btn-outline-*`). They hard-code colors (e.g. `#0d6efd`) that ignore `data-theme`.
+- **Never use the stock color button classes** (`btn-primary`, `btn-secondary`, `btn-danger`, `btn-success`, `btn-info`, `btn-warning`, `btn-light`, `btn-dark` and every `btn-outline-*`). They hard-code colors (e.g. `#0d6efd`) that ignore `data-theme`.
 - **Use the themed classes:**
   - `btn-theme-primary`: the one primary action on a screen (`--action` ground, `--on-action` label).
   - `btn-theme-outline` and `theme-control-btn`: secondary actions, one tone step up (`--s3`). The name is historical: there is no outline.

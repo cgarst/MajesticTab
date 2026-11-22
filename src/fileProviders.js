@@ -28,7 +28,7 @@ const providers = new Map();
  * @typedef {Object} FileProvider
  * @property {string} id - Unique identifier
  * @property {string} name - Display name
- * @property {string} [icon] - Bootstrap icon class
+ * @property {string} [icon] - Bootstrap Icons class
  * @property {string} [saveDescription] - Shown instead of `description` where the provider is picked as a save target (Backup)
  * @property {function(Object=): Promise<File|void>} open - Handles user interaction and importing
  */
