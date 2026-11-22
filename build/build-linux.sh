@@ -13,7 +13,9 @@
 #
 # Needs flatpak, plus either node and flatpak-builder on the host or, on immutable systems (SteamOS, Bazzite, other
 # ostree images), the Flatpak apps org.flatpak.Builder and org.gnome.Sdk with the node22 extension, which this script
-# then uses to run Node and flatpak-builder.
+# then uses to run Node and flatpak-builder. There Cargo's output is kept in ~/.cache/majestictab-dev/cargo-target, so
+# only the first build compiles every dependency; delete that folder for a clean compile, or set
+# MAJESTICTAB_CARGO_TARGET= (empty) to build as Flathub does, from scratch each time.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,10 +50,42 @@ if [ -z "${TAURI_UPDATER_PUBKEY:-}" ]; then
 fi
 export TAURI_UPDATER_PUBKEY
 
+# Ctrl+C and kill. Bash only runs a trap once its foreground command ends, so the build runs in the background and is
+# waited on. On an immutable system the builder runs on the host through flatpak-spawn, which neither forwards the
+# signal nor stops the builder when the script exits, so stop it from here and unmount its leftover rofiles mount.
+BUILD_PID=""
+HOST_BUILDER=0
+stop_build() {
+    trap - INT TERM
+    echo; echo "Stopping the build..."
+    [ -n "$BUILD_PID" ] && kill "$BUILD_PID" 2>/dev/null || true
+    if [ "$HOST_BUILDER" = 1 ]; then
+        flatpak kill org.flatpak.Builder 2>/dev/null || true
+    else
+        pkill -TERM -x flatpak-builder 2>/dev/null || true
+    fi
+    sleep 1
+    local m
+    for m in $(awk -v d="$HOME/.cache/majestictab-dev/flatpak-builder/rofiles/" 'index($2, d) == 1 { print $2 }' /proc/self/mounts); do
+        fusermount -u "$m" 2>/dev/null || fusermount3 -u "$m" 2>/dev/null || true
+    done
+    exit 130
+}
+run_build() {
+    trap stop_build INT TERM
+    "$@" &
+    BUILD_PID=$!
+    local rc=0
+    wait "$BUILD_PID" || rc=$?
+    BUILD_PID=""
+    trap - INT TERM
+    return "$rc"
+}
+
 if [ "$BUILD" = 0 ]; then
     echo "Skipping the build (--no-build)."
 elif command -v node >/dev/null && command -v flatpak-builder >/dev/null; then
-    node "$ROOT_DIR/build/build-tauri.mjs" linux ${ARGS[@]+"${ARGS[@]}"}
+    run_build node "$ROOT_DIR/build/build-tauri.mjs" linux ${ARGS[@]+"${ARGS[@]}"}
 else
     # Node from the GNOME SDK's node22 extension; flatpak and flatpak-builder (the org.flatpak.Builder app) are run on
     # the host through flatpak-spawn, via small shims that build-tauri.mjs finds on PATH.
@@ -75,6 +109,15 @@ for a in "$@"; do
         *.yml)
             copy="$(dirname "$a")/manifest.limited.yml"
             sed "s/^\( *\)CARGO_NET_OFFLINE: 'true'/&\n\1CARGO_BUILD_JOBS: '${MAJESTICTAB_BUILD_JOBS:-4}'/" "$a" > "$copy"
+            # Cargo's target folder lives on the host and is shared into the build, so a rebuild recompiles only the
+            # app, not its ~600 dependencies (the Flatpak build folder is thrown away every time). The install step
+            # reads the binary from there too.
+            if [ -n "${MAJESTICTAB_CARGO_TARGET:-}" ]; then
+                sed -i \
+                    -e "s|^\( *\)cflags-override: true|&\n\1build-args:\n\1  - --filesystem=${MAJESTICTAB_CARGO_TARGET}|" \
+                    -e "s|CARGO_TARGET_DIR: .*|CARGO_TARGET_DIR: ${MAJESTICTAB_CARGO_TARGET}|" \
+                    -e "s|build/tauri/target/release/majestictab|${MAJESTICTAB_CARGO_TARGET}/release/majestictab|" "$copy"
+            fi
             a="$copy" ;;
     esac
     args+=("$a")
@@ -83,14 +126,18 @@ exec flatpak-spawn --host --directory="$PWD" flatpak run org.flatpak.Builder --s
 SHIM
     chmod +x "$SHIMS/flatpak" "$SHIMS/flatpak-builder"
     CACHE="$HOME/.cache/majestictab-dev"
-    mkdir -p "$CACHE/npm" "$CACHE/flatpak-builder"
+    # Delete this folder for a from-scratch compile. MAJESTICTAB_CARGO_TARGET= (empty) turns the sharing off.
+    CARGO_TARGET="${MAJESTICTAB_CARGO_TARGET-$CACHE/cargo-target}"
+    mkdir -p "$CACHE/npm" "$CACHE/flatpak-builder" ${CARGO_TARGET:+"$CARGO_TARGET"}
     EXTRA=""
     [ ${#ARGS[@]} -gt 0 ] && EXTRA="$(printf '%q ' "${ARGS[@]}")"
     echo "No host node or flatpak-builder: running Node in $SDK."
-    flatpak run --talk-name=org.freedesktop.Flatpak --share=network \
+    HOST_BUILDER=1
+    run_build flatpak run --talk-name=org.freedesktop.Flatpak --share=network \
         --filesystem="$ROOT_DIR" --filesystem="$SHIMS" --filesystem="$CACHE" \
         --env=PATH="$SHIMS:/usr/lib/sdk/node22/bin:/usr/bin" --env=npm_config_cache="$CACHE/npm" \
         --env=MAJESTICTAB_BUILD_JOBS="${MAJESTICTAB_BUILD_JOBS:-4}" --env=HOME="$HOME" \
+        --env=MAJESTICTAB_CARGO_TARGET="$CARGO_TARGET" \
         --env=TAURI_UPDATER_PUBKEY="$TAURI_UPDATER_PUBKEY" \
         --command=bash "$SDK" -c "cd '$ROOT_DIR' && node build/build-tauri.mjs linux $EXTRA"
 fi
