@@ -137,8 +137,8 @@ def render_github(page, size):
     # Upper-left branding column
     m = 40
     name_px = 64
-    head = "Your music stand. Without the mess."
-    sub = "Stacked guitar tracks and built-in practice tools, synced everywhere you play."
+    head = "The app for the guitarist's music stand."
+    sub = "Stacked guitar tracks and built-in practice tools synced everywhere you play."
     css = ss.FRAME_CSS % dict(fonts=ss.FONTS_DIR.as_uri(), w=W, h=H, m=m, top=0, ptop=0, hs=0, ps=0)
     css += f"""
     .copy {{ position:absolute; left:{m}px; top:122px; width:322px; display:flex; flex-direction:column; align-items:flex-start; }}
