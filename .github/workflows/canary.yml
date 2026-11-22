@@ -71,3 +71,20 @@ jobs:
             --prerelease \
             --title "Canary ${{ needs.check.outputs.build_id }}" \
             --notes-file notes.md
+
+  # Put the canary Flatpak bundles on the `canary` branch of the Zathu Flatpak repo (see release.yml for the token).
+  publish-flatpak:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish to the Zathu Flatpak repo
+        env:
+          GH_TOKEN: ${{ secrets.FLATPAK_REPO_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::FLATPAK_REPO_TOKEN secret is not set; skipping the Flatpak repo update"
+            exit 0
+          fi
+          gh api repos/cgarst/zathu-flatpak/dispatches -f event_type=publish-flatpak \
+            -f "client_payload[source_repo]=${{ github.repository }}" \
+            -f "client_payload[tag]=canary"

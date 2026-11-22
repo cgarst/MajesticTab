@@ -715,6 +715,9 @@ if (target === 'android') {
     debugTools,
   }));
   process.on('exit', () => rmSync(manifestPath, { force: true }));
+  // Two branches of the one app id: canary builds go to `canary`, everything else (releases, local builds) to `stable`.
+  // The Zathu Flatpak repo imports the bundle onto the branch it was built with.
+  const flatpakBranch = env.MAJESTICTAB_CHANNEL === 'canary' ? 'canary' : 'stable';
   const repoDir = path.join(tauriDir, 'target', 'flatpak-repo');
   const buildDir = path.join(tauriDir, 'target', 'flatpak-build');
   const flatpakCacheDir = path.join(rootDir, '.flatpak-builder');
@@ -727,6 +730,7 @@ if (target === 'android') {
     '--disable-cache',
     '--user',
     '--install-deps-from=flathub',
+    `--default-branch=${flatpakBranch}`,
     `--repo=${repoDir}`,
     buildDir,
     manifestPath,
@@ -736,6 +740,7 @@ if (target === 'android') {
     repoDir,
     path.join(distDir, `MajesticTab-${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}.flatpak`),
     'net.zathu.majestictab',
+    flatpakBranch,
   ], { cwd: rootDir });
 } else if (target === 'windows' && channel === 'msstore') {
   // The Store signs MSIX packages itself, so this one is left unsigned. The identity values come from
