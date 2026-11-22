@@ -2,8 +2,8 @@
  * base.css: the layout, form and button rules the app's markup relies on (reset, grid, flex and spacing utilities,
  * .btn, forms, .dropdown-menu, .modal, .badge and so on).
  *
- * Adapted from Bootstrap v5.3.2 (https://getbootstrap.com/), Copyright 2011-2023 The Bootstrap Authors,
- * MIT License (https://github.com/twbs/bootstrap/blob/main/LICENSE). Taken: the compiled stylesheet, cut down to the
+ * Adapted from Bootstrap v5.3.2 (getbootstrap.com), Copyright 2011-2023 The Bootstrap Authors,
+ * MIT License (the LICENSE file in the twbs/bootstrap repository on GitHub). Taken: the compiled stylesheet, cut down to the
  * rules whose classes appear in src/ (the dark colour mode and every unused component left out). Not taken: the
  * JavaScript; menus and tooltips are in utils/floating.js. Edit it like any first-party file; look changes still go in
  * design.css, which loads later.
