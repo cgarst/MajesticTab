@@ -225,7 +225,7 @@ export function renderMissingTabsTool(container) {
             ? 'Every song in your library has a tab.'
             : `${plural(songs.length, 'song', 'songs')} without a tab · ${plural(artists.length, 'artist', 'artists')}`;
         const isSystemBrowser = !hasFeature('inAppBrowser')
-            || (typeof localStorage !== 'undefined' && localStorage.getItem('majestictab_web_search_browser') === 'system');
+            || (typeof localStorage !== 'undefined' && localStorage.getItem('majestictab_web_search_browser') !== 'in-app');
         const inApp = !isSystemBrowser;
         const companionOrigin = findCompanionOrigin();
         const descText = inApp

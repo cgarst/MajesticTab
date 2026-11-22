@@ -1982,7 +1982,7 @@ export async function openTabDownloader(options = {}) {
     }
     currentSearchQuery = query;
 
-    const preferSystemBrowser = typeof localStorage !== 'undefined' && localStorage.getItem('majestictab_web_search_browser') === 'system';
+    const preferSystemBrowser = typeof localStorage !== 'undefined' && localStorage.getItem('majestictab_web_search_browser') !== 'in-app';
     if (preferSystemBrowser) {
         const songId = options.songId || activeTargetSong?.id || null;
         if (songId && typeof localStorage !== 'undefined') {
