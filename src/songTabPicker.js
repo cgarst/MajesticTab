@@ -84,7 +84,7 @@ export function openSongTabPicker(o) {
         const byId = new Map(o.providers.map((x) => [x.id, x]));
         const primary = PRIMARY_PROVIDERS.map((id) => byId.get(id)).filter(Boolean);
         const more = SOURCE_ORDER.map((id) => byId.get(id)).filter(Boolean);
-        const dropHint = fileDropSupported() && window.matchMedia('(hover: hover) and (pointer: fine)').matches
+        const dropHint = fileDropSupported()
             ? '<p class="tabpick-note">You can also drop a file on the song.</p>' : '';
         return `
           ${tabs.length ? '<div class="tabpick-bar"><button type="button" class="tabpick-back" data-act="back">Back</button></div>' : ''}

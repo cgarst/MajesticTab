@@ -20,7 +20,7 @@ import { initPageStrip } from './utils/pageStrip.js';
 import { initTextSync } from './textSync/textSync.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage, setTextLayoutMode, setPendingTextResume } from './textProcessor/textHandler.js';
 import { getTextMaxScalePercent } from './textProcessor/textProcessor.js';
-import { isFileType, showProgress, hideProgress, fileDropSupported } from './utils/fileHandlingUtils.js';
+import { isFileType, showProgress, hideProgress, fileDropBroken } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
 import { getPagesPerView, setTextPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
@@ -295,9 +295,8 @@ window.addEventListener('dragstart', (e) => {
 // and open a dropped tab file straight away, without saving it to the library
 // Where dropped files can't be opened (the Linux app), a drag over the window is left unaccepted: the pointer shows
 // that nothing can be dropped, and the drop never reaches the webview, which would otherwise navigate to the file
-if (!fileDropSupported()) document.documentElement.classList.add('no-file-drop');
 window.addEventListener('dragover', (e) => {
-    if (fileDropSupported()) e.preventDefault();
+    if (!fileDropBroken()) e.preventDefault();
 }, false);
 
 window.addEventListener('drop', async (e) => {

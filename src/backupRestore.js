@@ -1437,7 +1437,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="backup-dropzone p-4 rounded-3 text-center mb-3" id="restoreDropzone">
             <input type="file" id="restoreFileInput" accept=".mtbackup" class="d-none">
             <div class="fw-semibold text-white small mb-1">Restore from a backup file</div>
-            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Open a .mtbackup file<span class="restore-drop-hint"> (you can also drop one here)</span>. Snapshots made by older versions in Google Drive, an S3 bucket, a WebDAV server or a backup folder can still be restored from the buttons below.</div>
+            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Open a .mtbackup file${fileDropSupported() ? ' (you can also drop one here)' : ''}. Snapshots made by older versions in Google Drive, an S3 bucket, a WebDAV server or a backup folder can still be restored from the buttons below.</div>
             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
               <button type="button" class="btn btn-sm btn-theme-outline px-3" id="restoreBrowseBtn">
                 <span>From file…</span>

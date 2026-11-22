@@ -3,6 +3,8 @@
  * Common utilities for file handling and state management
  */
 
+import { isIOSDevice } from './iosAudioUnlock.js';
+
 /**
  * Check if a file is of a given type
  * @param {File} file File to check
@@ -33,15 +35,25 @@ export async function isSupportedTabFile(file) {
 }
 
 /**
- * Whether a file dragged in from the file manager can be opened. The Linux app runs in a Flatpak sandbox and its
- * webview gives the page a link to the file rather than the file, so dropping a file does nothing there: the UI
- * neither offers it nor mentions it. The web app and the other native apps accept drops.
+ * True in the Linux app, where dropping a file can never work: it runs in a Flatpak sandbox and its webview gives the
+ * page a link to the file rather than the file. Nothing there should accept a drag or mention dropping.
+ * @returns {boolean}
+ */
+export function fileDropBroken() {
+    if (typeof window === 'undefined' || !window.__TAURI__) return false;
+    return /Linux/i.test(navigator.platform || '') && !/android/i.test(navigator.userAgent || '');
+}
+
+/**
+ * Whether to tell the user they can drop a file on the app. That needs a pointer that can drag one in: a mouse or
+ * trackpad, so not a phone or a touch-only Android tablet. An iPad always counts, since it takes drops from the Files
+ * app in split view. The web app and the Mac and Windows apps follow the pointer; the Linux app never offers it.
  * @returns {boolean}
  */
 export function fileDropSupported() {
-    if (typeof window === 'undefined' || !window.__TAURI__) return true;
-    const linux = /Linux/i.test(navigator.platform || '') && !/android/i.test(navigator.userAgent || '');
-    return !linux;
+    if (fileDropBroken()) return false;
+    if (isIOSDevice() && !/iPhone|iPod/.test(navigator.userAgent || '')) return true;
+    return typeof window.matchMedia === 'function' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 }
 
 /**
