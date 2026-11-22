@@ -1,7 +1,7 @@
 #!/bin/bash
 # Builds the Linux Flatpak (the same build as `node build/build-tauri.mjs linux`) and installs it on this machine,
-# as an upgrade when MajesticTab is already installed (in the same user or system installation), otherwise as a new
-# user install. The bundle is also left in dist/.
+# as an upgrade when MajesticTab is already installed, always as a user install (never the system installation).
+# The bundle is also left in dist/.
 #
 #   build/build-linux.sh              build, install and start the app
 #   build/build-linux.sh --no-run     build and install only
@@ -101,31 +101,17 @@ BUNDLE="$ROOT_DIR/dist/MajesticTab-$ARCH.flatpak"
 echo "Built $BUNDLE"
 [ "$INSTALL" = 1 ] || exit 0
 
-# Install where it already is (the system installation may ask for authentication), else for this user.
-WHERE="$(flatpak list --app --columns=application,installation | awk -v id="$APP_ID" '$1==id{print $2; exit}')"
-case "$WHERE" in
-    system) SCOPE=--system ;;
-    *) SCOPE=--user ;;
-esac
+# Always a user installation: it needs no administrator and takes precedence over a system copy of the same app.
+SCOPE=--user
+WHERE="$(flatpak list --app --user --columns=application | grep -x "$APP_ID" || true)"
 
 if flatpak ps --columns=application | grep -qx "$APP_ID"; then
     echo "Closing MajesticTab..."
     flatpak kill "$APP_ID" || true
 fi
 
-if [ -n "$WHERE" ]; then echo "Upgrading the installed MajesticTab ($WHERE)..."; else echo "Installing MajesticTab (user)..."; fi
-if ! flatpak install $SCOPE --bundle --noninteractive -y "$BUNDLE"; then
-    if [ "$SCOPE" = --system ]; then
-        # No permission to change the system installation (it needs an administrator). A user installation of the same
-        # app takes precedence over the system one, so install there instead.
-        echo "Cannot change the system installation as this user: installing for this user instead." >&2
-        echo "(The system copy stays; remove it with 'flatpak uninstall --system $APP_ID' as an administrator to avoid two.)" >&2
-        flatpak install --user --bundle --noninteractive -y "$BUNDLE"
-        SCOPE=--user
-    else
-        exit 1
-    fi
-fi
+if [ -n "$WHERE" ]; then echo "Upgrading the installed MajesticTab (user)..."; else echo "Installing MajesticTab (user)..."; fi
+flatpak install --user --bundle --noninteractive -y "$BUNDLE"
 echo "Installed MajesticTab $(flatpak info $SCOPE "$APP_ID" | awk -F': *' '/Version:/{print $2}')"
 
 [ "$RUN" = 1 ] && { flatpak run "$APP_ID" >/dev/null 2>&1 & disown; }
