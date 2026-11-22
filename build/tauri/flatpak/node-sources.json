@@ -251,13 +251,6 @@
     },
     {
         "type": "file",
-        "url": "https://registry.npmjs.org/@popperjs/core/-/core-2.11.8.tgz",
-        "sha512": "3f5b2dd1a92c0ab9fdb06661a7c18c63006742c6ef016b19017e38a1734dbcb1c6a8039ca15c668d98a886cb7043b4aa2a76d1e3b6a474d8beba57960fcfa0e8",
-        "dest-filename": "2dd1a92c0ab9fdb06661a7c18c63006742c6ef016b19017e38a1734dbcb1c6a8039ca15c668d98a886cb7043b4aa2a76d1e3b6a474d8beba57960fcfa0e8",
-        "dest": "flatpak-node/npm-cache/_cacache/content-v2/sha512/3f/5b"
-    },
-    {
-        "type": "file",
         "url": "https://registry.npmjs.org/@resvg/resvg-js-android-arm-eabi/-/resvg-js-android-arm-eabi-2.6.2.tgz",
         "sha512": "16b2626eb024eafdbd79a6c83e071350c3d7884cfcb2cac093b4d7c6c899cf0c3d5134356792806c526cf99d04cfe5594d882713921026a05ca1288c79bb4f1c",
         "dest-filename": "626eb024eafdbd79a6c83e071350c3d7884cfcb2cac093b4d7c6c899cf0c3d5134356792806c526cf99d04cfe5594d882713921026a05ca1288c79bb4f1c",
@@ -496,13 +489,6 @@
     },
     {
         "type": "file",
-        "url": "https://registry.npmjs.org/bootstrap/-/bootstrap-5.3.2.tgz",
-        "sha512": "0f7da798d5a2407a3de012872e63ab76394bd39ab573ca316ed06985015bf59e6da3a7864430a6d1081e699e331411f37e0dbefaba9ad8992a09cc43cb4b07d2",
-        "dest-filename": "a798d5a2407a3de012872e63ab76394bd39ab573ca316ed06985015bf59e6da3a7864430a6d1081e699e331411f37e0dbefaba9ad8992a09cc43cb4b07d2",
-        "dest": "flatpak-node/npm-cache/_cacache/content-v2/sha512/0f/7d"
-    },
-    {
-        "type": "file",
         "url": "https://registry.npmjs.org/canvg/-/canvg-3.0.11.tgz",
         "sha512": "e4e37eabb8c24e0329f5c8e9bb8268e976ef7d8c120763b0de4cc729f23225f68200e1cb6dd28f42a18a81f103fd1e41fb74c515f7bca5e81803e6f8db7491c8",
         "dest-filename": "7eabb8c24e0329f5c8e9bb8268e976ef7d8c120763b0de4cc729f23225f68200e1cb6dd28f42a18a81f103fd1e41fb74c515f7bca5e81803e6f8db7491c8",
@@ -696,12 +682,6 @@
     },
     {
         "type": "inline",
-        "contents": "06a64624fdce53437f6ef7ff9e76a12d2e638a3d\t{\"key\": \"make-fetch-happen:request-cache:https://registry.npmjs.org/bootstrap/-/bootstrap-5.3.2.tgz\", \"integrity\": \"sha512-D32nmNWiQHo94BKHLmOrdjlL05q1c8oxbtBphQFb9Z5to6eGRDCm0QgeaZ4zFBHzfg2++rqa2JkqCcxDy0sH0g==\", \"time\": 0, \"size\": 1681315, \"metadata\": {\"url\": \"https://registry.npmjs.org/bootstrap/-/bootstrap-5.3.2.tgz\", \"reqHeaders\": {}, \"resHeaders\": {}}}",
-        "dest-filename": "e3c0f238e74ac60d91f5f7f285a2e3c2efd6b304d6f93e720b685a2d6a6f",
-        "dest": "flatpak-node/npm-cache/_cacache/index-v5/03/72"
-    },
-    {
-        "type": "inline",
         "contents": "0dcce340af130482c42ebac45b543b970db4e2ad\t{\"key\": \"make-fetch-happen:request-cache:https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.28.2.tgz\", \"integrity\": \"sha512-5ebpxr3nWMzrL/rnUI755Jkuee0bHL/Gq0WTF9lvcpv73wAp5eu8MfBUgWK9bhWvZjj7yX8etf/8tI8Ney695g==\", \"time\": 0, \"size\": 4829680, \"metadata\": {\"url\": \"https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.28.2.tgz\", \"reqHeaders\": {}, \"resHeaders\": {}}}",
         "dest-filename": "51b63e6efb8d8edd98d61c11d9891fb136eb34301670768100a2b987ea02",
         "dest": "flatpak-node/npm-cache/_cacache/index-v5/17/b7"
@@ -831,12 +811,6 @@
         "contents": "3aebf4d9787b8e73bdbf4a32158bc4ec1ea1c579\t{\"key\": \"make-fetch-happen:request-cache:https://registry.npmjs.org/@esbuild/linux-mips64el/-/linux-mips64el-0.28.2.tgz\", \"integrity\": \"sha512-ZVykbDyk7519VwiNb9Lcj9m8XM6v5V9uKPvrEMkkEedVewf+0itkhahp4HDpgERXhwLRpWFypsGbG/J8s0QjJA==\", \"time\": 0, \"size\": 4096614, \"metadata\": {\"url\": \"https://registry.npmjs.org/@esbuild/linux-mips64el/-/linux-mips64el-0.28.2.tgz\", \"reqHeaders\": {}, \"resHeaders\": {}}}",
         "dest-filename": "978f9c231eb28c0308e470d60a27db290eba7f4593f9fce477f2fcefd3c3",
         "dest": "flatpak-node/npm-cache/_cacache/index-v5/eb/01"
-    },
-    {
-        "type": "inline",
-        "contents": "3d05601e8f46e1a2e073db091e1872da9551c721\t{\"key\": \"make-fetch-happen:request-cache:https://registry.npmjs.org/@popperjs/core/-/core-2.11.8.tgz\", \"integrity\": \"sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==\", \"time\": 0, \"size\": 388028, \"metadata\": {\"url\": \"https://registry.npmjs.org/@popperjs/core/-/core-2.11.8.tgz\", \"reqHeaders\": {}, \"resHeaders\": {}}}",
-        "dest-filename": "3a650623c9da9fbc5b1bf89d6029dcd7cdece05966d91464c57f5c246669",
-        "dest": "flatpak-node/npm-cache/_cacache/index-v5/6c/3f"
     },
     {
         "type": "inline",
