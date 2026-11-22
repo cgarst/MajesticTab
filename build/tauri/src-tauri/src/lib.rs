@@ -546,6 +546,16 @@ pub fn run() {
         .manage(OpenedUrlsState(Mutex::new(initial_urls)))
         .manage(tab_downloader_native::TabDownloaderState::default())
         .manage(jam::JamState::default())
+        // Launched with a file (open with, CLI argument), the window comes up without the webview holding keyboard
+        // focus on macOS and Linux, so Space and the arrows do nothing until the first click. Hand it focus once loaded.
+        .on_page_load(|webview, payload| {
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            if webview.label() == "main" && matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+                let _ = webview.set_focus();
+            }
+            #[cfg(any(target_os = "android", target_os = "ios"))]
+            let _ = (webview, payload);
+        })
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_oauth::init())
