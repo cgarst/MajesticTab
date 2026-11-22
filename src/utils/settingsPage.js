@@ -350,14 +350,21 @@ export function initSettingsPage() {
             'Always show 6 strings, or 7 or 8 for extended range guitars. "From file" keeps what the tab was saved with.',
             'Always show 4 strings, or 5 or 6 for extended range basses.'
         ]);
-        if (viewGroup) panes.reading.appendChild(viewGroup);
-        panes.reading.appendChild(group('Notation', row('A new tab shows', 'Tab only, or tab with the standard staff above it. Change it for one song in View.', makeNotationDefault())));
+        const notationRow = row('A new tab shows', 'Tab only, or tab with the standard staff above it. Change it for one song in View.', makeNotationDefault());
+        if (viewGroup) {
+            viewGroup.querySelector('.srows').appendChild(notationRow);
+            panes.reading.appendChild(viewGroup);
+        } else {
+            panes.reading.appendChild(group('Notation', notationRow));
+        }
         if (stringGroup) panes.player.appendChild(stringGroup);
         const resetBtn = $('defaultsResetBtn');
         if (resetBtn) {
             resetBtn.className = 'btn btn-sm srow-ghost';
             resetBtn.textContent = 'Reset';
-            panes.reading.appendChild(group('', row('Reset these defaults', 'Back to Vertical for score and text, Page for PDF, and default string counts from the file (in Player).', resetBtn)));
+            const resetRow = row('Reset these defaults', 'Back to Vertical for score and text, Page for PDF, and default string counts from the file (in Player).', resetBtn);
+            const host = viewGroup?.querySelector('.srows');
+            if (host) host.appendChild(resetRow); else panes.reading.appendChild(group('', resetRow));
         }
         defaultsBtn.remove();
         defaultsModal?.remove();
