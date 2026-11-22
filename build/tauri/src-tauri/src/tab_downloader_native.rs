@@ -1507,7 +1507,10 @@ pub fn regex_escape_domain(domain: &str) -> String {
     escaped
 }
 
-#[cfg(any(feature = "in-app-browser", test))]
+#[cfg(any(
+    all(feature = "in-app-browser", any(target_os = "macos", target_os = "ios")),
+    test
+))]
 pub fn generate_webkit_rules_json(hosts: &[String]) -> String {
     // WebKit content rules do not support disjunctions ("a|b") in a url-filter,
     // so each host gets its own rule. Negated character classes ([^/]) are not
