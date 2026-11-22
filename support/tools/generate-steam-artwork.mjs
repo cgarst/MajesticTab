@@ -26,39 +26,49 @@ if (!viewBox || inner === undefined) throw new Error(`Could not parse ${sourceSv
 // Match font-family and weights from src/style.css (.brand-title)
 const FONT_FAMILY = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-// Flat finish tokens (Mystic Dream): --ground and --accent-text. No gradients, glow or hairlines.
+// Matches the app's boot splash (#bootSplash in src/design.css) in the default Slate Blue theme:
+// --ground, --text-primary and --text-muted, the mark with a crisp white outline. No gradients, glow or hairlines.
+const GROUND = '#1e2636';
+const INK = '#f4f7fc';
+const INK2 = '#a9b8d2';
+// The splash outlines the dark pick in white so it shows on dark grounds; same here (dilate the alpha, flood white).
+const OUTLINE = `<defs><filter id="mark-outline" x="-15%" y="-15%" width="130%" height="130%"><feMorphology in="SourceAlpha" operator="dilate" radius="3" result="d"/><feFlood flood-color="#ffffff"/><feComposite in2="d" operator="in" result="o"/><feMerge><feMergeNode in="o"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+const mark = (x, y, w, h) => `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="${viewBox}" overflow="visible"><g filter="url(#mark-outline)">${inner}</g></svg>`;
 
 function composeGridVertical(w = 600, h = 900) {
   const scale = w / 600;
-  const iconSize = 280 * scale;
+  const iconSize = 400 * scale;
   const iconX = (w - iconSize) / 2;
-  const iconY = 190 * scale;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <rect width="100%" height="100%" fill="#ffffff"/>
-    <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
-    <text x="${w / 2}" y="${575 * scale}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${48 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#111724">Majestic<tspan fill="#2f4066">Tab</tspan></text>
+  const iconY = 150 * scale;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${OUTLINE}
+    <rect width="100%" height="100%" fill="${GROUND}"/>
+    ${mark(iconX, iconY, iconSize, iconSize)}
+    <text x="${w / 2}" y="${660 * scale}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${72 * scale}" font-weight="700" letter-spacing="-0.01em" fill="${INK}">Majestic<tspan fill="${INK2}">Tab</tspan></text>
   </svg>`;
 }
 
 function composeGridHorizontal(w = 920, h = 430) {
   const scale = w / 920;
-  const iconSize = 220 * scale;
-  const iconX = 75 * scale;
+  const iconSize = 310 * scale;
+  const iconX = 45 * scale;
   const iconY = (h - iconSize) / 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <rect width="100%" height="100%" fill="#ffffff"/>
-    <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
-    <text x="${340 * scale}" y="${230 * scale}" font-family="${FONT_FAMILY}" font-size="${64 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#111724">Majestic<tspan fill="#2f4066">Tab</tspan></text>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${OUTLINE}
+    <rect width="100%" height="100%" fill="${GROUND}"/>
+    ${mark(iconX, iconY, iconSize, iconSize)}
+    <text x="${370 * scale}" y="${243 * scale}" font-family="${FONT_FAMILY}" font-size="${80 * scale}" font-weight="700" letter-spacing="-0.01em" fill="${INK}">Majestic<tspan fill="${INK2}">Tab</tspan></text>
   </svg>`;
 }
 
+// The hero is the app's own player fretboard with no notes on it, filling the whole image: support/branding/steam-fretboard.png is a
+// 3840x1240 capture from the real app in Slate Blue: the board's SVG cropped so the 12th-fret pair sits in the right third with the 9th-fret dot, string labels,
+// note markers and the other inlays hidden, strings thinned to 60%, and strings, frets and inlays set to solid colours (the 62%-dimmed blend over the neck,
+// not transparency, and the three bass strings wound with tight flat two-tone bands, nearly square to the string, no gradient) so the strings lie over the frets with no brighter crossings and the logo Steam overlays (logo_1280x720.png,
+// lower left) reads over it.
+const fretboardPng = (await readFile(path.join(rootDir, 'support', 'branding', 'steam-fretboard.png'))).toString('base64');
 function composeHero(w = 3840, h = 1240) {
-  const scale = w / 1920;
-  const iconSize = 460 * scale;
-  const iconX = w - iconSize - 220 * scale;
-  // No logo here: Steam overlays logo_1280x720.png on the hero; the glow stays where the mark used to sit.
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <rect width="100%" height="100%" fill="#ffffff"/>
+    <rect width="100%" height="100%" fill="${GROUND}"/>
+    <image x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice" href="data:image/png;base64,${fretboardPng}"/>
   </svg>`;
 }
 
@@ -70,10 +80,10 @@ function composeLogo(w = 1280, h = 720) {
   const totalWidth = iconSize + 35 * scale + 620 * scale;
   const startX = (w - totalWidth) / 2;
   const iconY = (h - iconSize) / 2;
-  const content = `<svg x="${startX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
-    <text x="${startX + iconSize + 35 * scale}" y="${h / 2 + 20 * scale}" font-family="${FONT_FAMILY}" font-size="${84 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#111724">Majestic<tspan fill="#2f4066">Tab</tspan></text>
+  const content = `${mark(startX, iconY, iconSize, iconSize)}
+    <text x="${startX + iconSize + 35 * scale}" y="${h / 2 + 20 * scale}" font-family="${FONT_FAMILY}" font-size="${84 * scale}" font-weight="700" letter-spacing="-0.01em" fill="${INK}">Majestic<tspan fill="${INK2}">Tab</tspan></text>
     <text x="${startX + iconSize + 38 * scale}" y="${h / 2 + 75 * scale}" font-family="${FONT_FAMILY}" font-size="${22 * scale}" font-weight="600" fill="rgba(255,255,255,0.6)" >Guitar tab viewer</text>`;
-  const wrap = (transform) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  const wrap = (transform) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${OUTLINE}
     <g${transform ? ` transform="${transform}"` : ''}>${content}</g>
   </svg>`;
   // Measure the painted pixels (glyph metrics from innerBBox are slightly loose).
@@ -91,7 +101,8 @@ function composeLogo(w = 1280, h = 720) {
   }
   if (x1 < 0) throw new Error('Could not measure logo bounds');
   const box = { x: x0, y: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 };
-  const fit = Math.min(w / box.width, h / box.height);
+  // Leave a margin so the pick's outline is not cut off at the canvas edge.
+  const fit = Math.min(w / box.width, h / box.height) * 0.94;
   const tx = (w - box.width * fit) / 2 - box.x * fit;
   const ty = (h - box.height * fit) / 2 - box.y * fit;
   return wrap(`translate(${tx} ${ty}) scale(${fit})`);
