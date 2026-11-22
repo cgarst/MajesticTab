@@ -4,22 +4,18 @@
 
 # MajesticTab
 
-**The app for the guitarist's music stand.**
-
-Stacked guitar tracks and built-in practice tools synced everywhere you play.
-
 [![License: MPL 2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/cgarst/MajesticTab?label=release)](https://github.com/cgarst/MajesticTab/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/cgarst/MajesticTab/total)](https://github.com/cgarst/MajesticTab/releases)
 [![Platforms](https://img.shields.io/badge/platform-iOS%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20Linux-informational)](#download)
 
-[**Website**](https://majestictab.zathu.net/) · [**Download**](#download) · [**Features**](#features) · [**Keyboard shortcuts**](#keyboard-shortcuts) · [**Contributing**](CONTRIBUTING.md) · [**Report an issue**](https://github.com/cgarst/MajesticTab/issues)
+[**Website**](https://majestictab.zathu.net/) · [**Download**](#download) · [**Features**](#features) · [**Contributing**](CONTRIBUTING.md) · [**Report an issue**](https://github.com/cgarst/MajesticTab/issues)
 
 </div>
 
 ---
 
-MajesticTab is a guitar tab reader and practice app. It opens Guitar Pro files (`.gp`, `.gp3` to `.gp5`, `.gpx`), PDFs, and text tabs, and works offline. It organizes your tabs by song, plays them with a SoundFont synth or along with the original recording. It can rewrite them to fit a different guitar's tuning or string count, and lets your friends follow along over the local network.
+MajesticTab is a guitar tab reader and practice app. It opens Guitar Pro files (`.gp`, `.gp3` to `.gp5`, `.gpx`), PDFs, and text tabs, and works offline. It organizes your tabs by song, plays them with along with the original recording or synth. It can rewrite them to fit a different guitar's tuning or string count, and lets your friends follow along over the local network.
 
 ---
 
