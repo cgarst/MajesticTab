@@ -570,6 +570,32 @@ pub fn run() {
             youtube_ios::install(_app);
             tab_downloader_native::install(_app)?;
 
+            // The YouTube mark and title in the embedded player open a new window; WebKitGTK ignores it unless we
+            // answer. Send YouTube links to the default browser and never create a window.
+            #[cfg(target_os = "linux")]
+            if let Some(main_wv) = _app.get_webview("main") {
+                let _ = main_wv.with_webview(|wv| {
+                    use webkit2gtk::WebViewExt;
+                    wv.inner().connect_create(|_, action| {
+                        let uri = action.clone().request().and_then(|r| {
+                            use webkit2gtk::URIRequestExt;
+                            r.uri().map(|u| u.to_string())
+                        });
+                        if let Some(uri) = uri {
+                            if let Ok(url) = tauri::Url::parse(&uri) {
+                                let host = url.host_str().unwrap_or_default();
+                                if matches!(url.scheme(), "http" | "https")
+                                    && (host == "youtu.be" || host == "youtube.com" || host.ends_with(".youtube.com"))
+                                {
+                                    let _ = tauri_plugin_opener::open_url(url.as_str(), None::<&str>);
+                                }
+                            }
+                        }
+                        None
+                    });
+                });
+            }
+
             #[cfg(feature = "debug-tools")]
             if let Some(main_wv) = _app.get_webview("main") {
                 main_wv.open_devtools();

@@ -55,6 +55,10 @@ tauri-plugin-updater = { version = "2", optional = true }
 keyring = { version = "3", features = ["apple-native"] }
 objc2 = "0.6"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# Same version Tauri's webview already uses; lets the main webview send new-window links to the default browser
+webkit2gtk = "2.0.2"
+
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
 
