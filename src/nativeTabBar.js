@@ -24,6 +24,8 @@ let verticalMode = false; // the system keeps its bars in a vertical strip (iPho
 let activeKey = 'library';
 let wantVisible = false;
 let shown = null; // what the native bar was last told (true = hidden), to skip repeats
+let visibilityTimer = 0;
+let firstVisibilitySent = false;
 
 function invoke(cmd, args) {
     return tauri().core.invoke(`plugin:apple-nav|${cmd}`, args);
@@ -184,7 +186,28 @@ function applyVisibility() {
     document.body.classList.toggle('native-rail', inLibrary && isMac);
     if (shown === !wantVisible) return;
     shown = !wantVisible;
-    invoke('visibility', { hidden: !wantVisible }).catch(() => {});
+    // The native bar is a separate AppKit view: told at once, it changes before the page does, because opening a song
+    // keeps the main thread busy and the page only repaints when that ends (the glass went, then the library sat there
+    // for half a second, then the reader cut in). Wait for the page's own next paint so both change in the same frame.
+    // The first call (boot) is not a transition and goes straight through.
+    const hidden = !wantVisible;
+    const send = () => {
+        if (shown !== hidden) return; // told something else since
+        invoke('visibility', { hidden }).catch(() => {});
+    };
+    if (visibilityTimer) clearTimeout(visibilityTimer);
+    visibilityTimer = 0;
+    if (!firstVisibilitySent) {
+        firstVisibilitySent = true;
+        send();
+        return;
+    }
+    let done = false;
+    const once = () => { if (done) return; done = true; clearTimeout(visibilityTimer); visibilityTimer = 0; send(); };
+    // rAF fires after the blocked work, before the next paint; the second one is after that paint. The timer covers a
+    // hidden window, where rAF does not run.
+    requestAnimationFrame(() => requestAnimationFrame(once));
+    visibilityTimer = setTimeout(once, 400);
 }
 
 function refreshAll() {
