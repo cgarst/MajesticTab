@@ -19,7 +19,7 @@ Stacked guitar tracks and built-in practice tools synced everywhere you play.
 
 ---
 
-MajesticTab is a guitar tab reader and practice app. It opens Guitar Pro files (`.gp`, `.gp3` to `.gp5`, `.gpx`), PDFs, and text tabs, and works offline. It organizes your tabs by song, plays them with a SoundFont synth or along with the original recording. It can rewrite them to fit a different guitar's tuning or string count, and lets your friends follow along over local network.
+MajesticTab is a guitar tab reader and practice app. It opens Guitar Pro files (`.gp`, `.gp3` to `.gp5`, `.gpx`), PDFs, and text tabs, and works offline. It organizes your tabs by song, plays them with a SoundFont synth or along with the original recording. It can rewrite them to fit a different guitar's tuning or string count, and lets your friends follow along over the local network.
 
 ---
 
@@ -61,7 +61,7 @@ MajesticTab organizes your tabs by artist, album, and song.
 
 MajesticTab will automatically create a rough mapping of Guitar Pro tabs to the provided audio or YouTube video to allow auto-scrolling. You can also attach a separate backing track (e.g. no guitar) and switch between it and the original.
 
-To precicely map a YouTube video or a local audio file, select **Not mapped** and then **Tap along**, and tap each bar as you hear it. The cursor, metronome, and count-in follow the recording through tempo changes and drift. Staff-based text tabs with a linked MIDI file are aligned to it automatically, and scroll along as it plays. Other PDF and text tabs aren't mapped to a recording automatically, but you can tap along to a recording to map their pages or lines.
+To precisely map a YouTube video or a local audio file, select **Not mapped** and then **Tap along**, and tap each bar as you hear it. The cursor, metronome, and count-in follow the recording through tempo changes and drift. Staff-based text tabs with a linked MIDI file are aligned to it automatically, and scroll along as it plays. Other PDF and text tabs aren't mapped to a recording automatically, but you can tap along to a recording to map their pages or lines.
 
 Without a recording, the built-in SoundFont synth plays Guitar Pro tabs offline. It allows per-track mixing, custom `.sf2` and `.sf3` SoundFonts, speed adjustment, and looping.
 
