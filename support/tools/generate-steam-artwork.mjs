@@ -81,8 +81,7 @@ function composeLogo(w = 1280, h = 720) {
   const startX = (w - totalWidth) / 2;
   const iconY = (h - iconSize) / 2;
   const content = `${mark(startX, iconY, iconSize, iconSize)}
-    <text x="${startX + iconSize + 35 * scale}" y="${h / 2 + 20 * scale}" font-family="${FONT_FAMILY}" font-size="${84 * scale}" font-weight="700" letter-spacing="-0.01em" fill="${INK}">Majestic<tspan fill="${INK2}">Tab</tspan></text>
-    <text x="${startX + iconSize + 38 * scale}" y="${h / 2 + 75 * scale}" font-family="${FONT_FAMILY}" font-size="${22 * scale}" font-weight="600" fill="rgba(255,255,255,0.6)" >Guitar tab viewer</text>`;
+    <text x="${startX + iconSize + 35 * scale}" y="${h / 2 + 20 * scale}" font-family="${FONT_FAMILY}" font-size="${84 * scale}" font-weight="700" letter-spacing="-0.01em" fill="${INK}">Majestic<tspan fill="${INK2}">Tab</tspan></text>`;
   const wrap = (transform) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${OUTLINE}
     <g${transform ? ` transform="${transform}"` : ''}>${content}</g>
   </svg>`;
