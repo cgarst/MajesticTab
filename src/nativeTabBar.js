@@ -64,6 +64,9 @@ function onEvent(msg) {
     } else if (msg.type === 'submit') {
         // The return key on the native field: the page's own form (Open file's web search) runs as if submitted
         searchInput()?.form?.requestSubmit();
+    } else if (msg.type === 'pointer') {
+        // The pointer is on the native rail, which the page cannot see: drop hover styles until it moves in the page again
+        document.documentElement.classList.toggle('pointer-out', !!msg.inside);
     } else if (msg.type === 'selected') {
         // Same path as a tap on the HTML bar
         const selector = msg.key === 'settings' ? '#libraryNavSettingsBtn' : `[data-lib-tab="${msg.key}"]`;

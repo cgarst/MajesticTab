@@ -187,6 +187,18 @@ final class MacRailView: NSVisualEffectView {
         }
     }
 
+    // The rail sits over the web view, so the page never hears the pointer cross onto it and keeps its last hover.
+    var onPointer: ((Bool) -> Void)?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.filter { $0.owner === self }.forEach { removeTrackingArea($0) }
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil))
+    }
+
+    override func mouseEntered(with event: NSEvent) { onPointer?(true) }
+    override func mouseExited(with event: NSEvent) { onPointer?(false) }
+
     override func mouseDown(with event: NSEvent) {
         let loc = convert(event.locationInWindow, from: nil)
         // Top 52pt header area (where traffic lights sit) drags the window
@@ -587,6 +599,7 @@ final class MacNavPlugin: NSObject, WKUIDelegate {
             let initialWidth: CGFloat = win.frame.width >= 1000 ? 212 : 88
             rail.attach(to: contentView, width: initialWidth)
             rail.setFullscreen(win.styleMask.contains(.fullScreen))
+            rail.onPointer = { [weak self] inside in self?.sendEvent(["type": "pointer", "inside": inside]) }
             railView = rail
         }
 

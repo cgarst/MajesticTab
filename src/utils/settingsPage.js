@@ -21,8 +21,20 @@ const $ = (id) => document.getElementById(id);
 
 // WebKit keeps :hover on the last element under the cursor after it leaves the window, so a row stays highlighted.
 // Mark the document while the pointer is outside so hover styles can step aside.
-document.documentElement.addEventListener('mouseleave', () => document.documentElement.classList.add('pointer-out'));
-document.documentElement.addEventListener('mouseenter', () => document.documentElement.classList.remove('pointer-out'));
+// mouseleave on the root element is not reliable in every webview, so listen for the pointer leaving the document
+// (mouseout with no target it moved to), the window losing the pointer, and any later movement to clear it.
+{
+    const root = document.documentElement;
+    const out = () => root.classList.add('pointer-out');
+    const back = () => root.classList.remove('pointer-out');
+    document.addEventListener('mouseout', (e) => { if (!e.relatedTarget) out(); }, true);
+    document.addEventListener('pointerout', (e) => { if (!e.relatedTarget) out(); }, true);
+    root.addEventListener('mouseleave', out);
+    document.addEventListener('pointerleave', out);
+    window.addEventListener('blur', out);
+    document.addEventListener('mousemove', back, true);
+    document.addEventListener('pointermove', back, true);
+}
 
 const SECTIONS = [
     { id: 'cloud', label: 'Cloud sync', icon: 'bi-cloud' },

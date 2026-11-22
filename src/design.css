@@ -3426,7 +3426,7 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 /* Tools page: flat rows on a 56px pitch, the same left edge as Setlists and Library */
 .tools-view .tools-page-list { display: flex; flex-direction: column; }
 .tools-page-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 12px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--ink); text-align: left; transition: background-color var(--dur-fast) var(--ease-out); }
-@media (hover: hover) { .tools-page-row:hover:not(:disabled) { background: var(--s1); } }
+@media (hover: hover) { html:not(.pointer-out) .tools-page-row:hover:not(:disabled) { background: var(--s1); } }
 .tools-page-row:active:not(:disabled) { background: var(--s2); }
 .tools-page-row:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .tools-page-row:disabled { opacity: .55; cursor: default; }
