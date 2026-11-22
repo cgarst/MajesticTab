@@ -6800,6 +6800,13 @@ body.reader-loading #mobilePlaybackDock { visibility: hidden !important; pointer
 /* The five words (View, Practice, Sound, Guitar, Tools) belong to the opening tab too: hidden, not removed, so the title keeps its place. */
 body.reader-loading :is(#viewPill, #practicePill, #soundPill, #guitarPill, #toolsPill) { visibility: hidden !important; pointer-events: none !important; }
 
+/* The top bar is quiet while a tab loads: the title stays as the tab's name and the way back stays, but the song menu's
+   chevron, the setlist arrows and the page controls (which would read 0%) are hidden in place, so nothing moves when they
+   return. The rule under the bar goes too (transparent, so the bar keeps its height). */
+body.reader-loading #topBar { border-bottom-color: transparent; }
+body.reader-loading :is(#topBarSongTitleBtn .song-title-chevron, #setlistNav, #navButtons) { visibility: hidden !important; pointer-events: none !important; }
+body.reader-loading #topBarSongTitleBtn { pointer-events: none !important; }
+
 /* Android TV: the Google Drive device-code dialog */
 .tv-device-card { max-width: 640px; width: 90%; text-align: center; }
 .tv-device-code {

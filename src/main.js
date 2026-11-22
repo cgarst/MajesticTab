@@ -1228,7 +1228,19 @@ async function initAppInner() {
 let bootRender = null;
 
 // The boot screen in index.html stays up until the library (or the opened file) is on screen
+function removeBootSplash() {
+    const splash = document.getElementById('bootSplash');
+    if (!splash) return;
+    splash.classList.add('boot-done');
+    setTimeout(() => splash.remove(), 200);
+}
+
 async function initApp() {
+    // A file opened at launch (open with, command line) takes a while to load. Its loading card shows the same steps
+    // as a library open, so the boot screen steps aside for it as soon as the native chrome is placed.
+    window.addEventListener('majestictab:loading-card-shown', () => {
+        nativeChromeReady().catch(() => {}).then(removeBootSplash);
+    }, { once: true });
     try {
         await initAppInner();
         await bootRender;
@@ -1237,11 +1249,7 @@ async function initApp() {
     } catch (error) {
         console.error('[App Init] failed:', error);
     } finally {
-        const splash = document.getElementById('bootSplash');
-        if (splash) {
-            splash.classList.add('boot-done');
-            setTimeout(() => splash.remove(), 200);
-        }
+        removeBootSplash();
     }
 }
 

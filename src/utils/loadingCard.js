@@ -94,6 +94,7 @@ function reveal() {
     shownAt = performance.now();
     card.classList.add('is-visible');
     card.setAttribute('aria-hidden', 'false');
+    window.dispatchEvent(new Event('majestictab:loading-card-shown'));
 }
 
 /**
