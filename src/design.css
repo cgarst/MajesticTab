@@ -93,7 +93,15 @@ body {
 .breadcrumb-song-title { font-size: 1.3em; font-weight: 600; letter-spacing: 0.02em; }
 
 /* Modals and panels: opaque cards, scale-in, faster out */
-.theme-modal-card { box-shadow: none; border: 1px solid var(--border-subtle); border-radius: var(--r-card); }
+.theme-modal-card { box-shadow: none !important; border: 0 !important; border-radius: var(--r-card) !important; }
+/* Dialog chrome: tone steps instead of hairlines, ink tokens instead of white, system-font title, no glow on the header buttons */
+.theme-modal-header { border-bottom: 0; }
+.theme-modal-footer { border-top: 0; border-bottom-left-radius: var(--r-card); border-bottom-right-radius: var(--r-card); }
+.theme-modal-title,
+.theme-modal-titles :is(h1, h2, h3, h4, h5, h6) { font-family: inherit; font-weight: 600; letter-spacing: 0; color: var(--ink) !important; }
+.theme-modal-back-btn:hover:not(:disabled) { border-color: transparent; box-shadow: none; color: var(--ink); }
+.theme-modal-close-btn, .theme-modal-back-btn { transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+@media (pointer: coarse) { .theme-modal-close-btn, .theme-modal-back-btn { min-width: 44px; min-height: 44px; } }
 
 /* --- Motion (phase 2): transform and opacity only, exits faster than entries --- */
 @keyframes modalScaleUp {

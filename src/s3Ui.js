@@ -101,7 +101,6 @@ export function openS3Browser(onPick) {
         <div class="theme-modal-card backup-modal-card">
           <div class="theme-modal-header">
             <div class="theme-modal-title-group">
-              <div class="brand-btn p-2 theme-modal-icon" style="width: 38px; height: 38px;"><i class="bi-hdd-network text-warning fs-5"></i></div>
               <div class="theme-modal-titles">
                 <h5 class="mb-0 fw-bold text-white fs-6">Open from S3 bucket</h5>
                 <small class="text-muted d-block text-truncate" style="font-size: 0.75rem;">${config ? escapeHtml(config.bucket) : 'Connect a bucket'}</small>

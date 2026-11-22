@@ -5532,9 +5532,6 @@ export function openThemedInputModal({
     <div class="theme-modal-card" style="max-width: 440px; width: 90%;">
       <div class="theme-modal-header">
         <div class="theme-modal-title-group">
-          <div class="theme-modal-icon">
-            <i class="${icon} text-primary fs-5"></i>
-          </div>
           <div class="theme-modal-titles">
             <h5 class="modal-title mb-0 fs-6 fw-bold text-white">${escapeHtml(title)}</h5>
             ${subtitle ? `<div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(subtitle)}</div>` : ''}
@@ -5631,11 +5628,8 @@ export function openSetAlbumPdfPagesModal(song, albumPdfTabs = [], existingTab =
     <div class="theme-modal-card" style="max-width: 480px; width: 90%;">
       <div class="theme-modal-header">
         <div class="theme-modal-title-group">
-          <div class="theme-modal-icon">
-            <i class="bi-file-earmark-pdf text-primary fs-5"></i>
-          </div>
           <div class="theme-modal-titles">
-            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">${isEdit ? 'Edit' : 'Set'} ${pdfPagesNoun} PDF Pages</h5>
+            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">${isEdit ? 'Edit' : 'Set'} ${pdfPagesNoun} PDF pages</h5>
             <div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(song.title)}</div>
           </div>
         </div>
@@ -5803,9 +5797,8 @@ export function openBookPdfSongsModal(artistName, album, bookPdfs = []) {
     <div class="theme-modal-card" style="max-width: 560px; width: 92%;">
       <div class="theme-modal-header">
         <div class="theme-modal-title-group">
-          <div class="theme-modal-icon"><i class="bi-file-earmark-pdf text-primary fs-5"></i></div>
           <div class="theme-modal-titles">
-            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Set Book PDF Pages</h5>
+            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Set book PDF pages</h5>
             <div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(album.title || artistName)}</div>
           </div>
         </div>

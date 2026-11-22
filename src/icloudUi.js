@@ -30,7 +30,6 @@ export function openIcloudBrowser(onPick) {
         <div class="theme-modal-card backup-modal-card">
           <div class="theme-modal-header">
             <div class="theme-modal-title-group">
-              <div class="brand-btn p-2 theme-modal-icon" style="width: 38px; height: 38px;"><i class="bi-cloud text-info fs-5"></i></div>
               <div class="theme-modal-titles">
                 <h5 class="mb-0 fw-bold text-white fs-6">Open from iCloud Drive</h5>
                 <small class="text-muted d-block text-truncate" style="font-size: 0.75rem;">MajesticTab folder</small>

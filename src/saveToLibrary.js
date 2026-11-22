@@ -72,7 +72,6 @@ export async function openSaveToLibraryModal(file) {
     <div class="theme-modal-card" style="max-width: 460px; width: 90%;">
       <div class="theme-modal-header">
         <div class="theme-modal-title-group">
-          <div class="theme-modal-icon"><i class="bi-bookmark-plus text-primary fs-5"></i></div>
           <div class="theme-modal-titles">
             <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Save to Library</h5>
             <div class="small text-muted text-truncate" style="font-size: 0.78rem;">${escapeHtml(subtitleText)}</div>

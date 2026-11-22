@@ -439,7 +439,6 @@ export async function openAddToSetlistModal({ songId, tabId, title, items = null
     <div class="theme-modal-card" style="max-width: 440px; width: 90%;">
       <div class="theme-modal-header">
         <div class="theme-modal-title-group">
-          <div class="theme-modal-icon"><i class="bi-collection-play text-primary fs-5"></i></div>
           <div class="theme-modal-titles">
             <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Add to setlist</h5>
             <div class="small text-muted text-truncate" style="font-size: 0.78rem;">${escapeHtml(title || '')}</div>
