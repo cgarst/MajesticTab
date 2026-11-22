@@ -659,6 +659,10 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   cursor: pointer; flex: none; box-shadow: none;
 }
 .form-check-input:not(.theme-switch)[type="checkbox"] { border-radius: 4px; }
+/* A plain checkbox or radio with its label: a flex row with a real gap (the stock float and 1.5em padding leave the 18px box touching the text) */
+.form-check:not(.form-switch):has(> .form-check-input:not(.theme-switch)) { display: flex; align-items: center; gap: 10px; padding-left: 0; min-height: 0; }
+.form-check:not(.form-switch):has(> .form-check-input:not(.theme-switch)) > .form-check-input { float: none; margin: 0; }
+.form-check:not(.form-switch):has(> .form-check-input:not(.theme-switch)) > .form-check-label { margin: 0; cursor: pointer; }
 .form-check-input:not(.theme-switch)[type="checkbox"]:checked, .form-check-input:not(.theme-switch)[type="checkbox"]:indeterminate,
 .form-check-input:not(.theme-switch)[type="radio"]:checked { background-color: var(--action); }
 .form-check-input:not(.theme-switch)[type="checkbox"]:focus-visible, .form-check-input:not(.theme-switch)[type="radio"]:focus-visible {
