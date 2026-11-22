@@ -12,8 +12,8 @@ import { isIOSDevice } from './utils/iosAudioUnlock.js';
 const MIN_APPLE_MAJOR = 26;
 const TABS = [
     { key: 'library', title: 'Library', symbol: 'books.vertical' },
-    { key: 'setlists', title: 'Setlists', symbol: 'music.note.list' },
-    { key: 'tools', title: 'Tools', symbol: 'wrench.and.screwdriver' },
+    { key: 'setlists', title: 'Setlists', symbol: 'list.bullet' },
+    { key: 'tools', title: 'Tools', symbol: 'square.grid.2x2' },
     { key: 'settings', title: 'Settings', symbol: 'gearshape' }
 ];
 
