@@ -2391,7 +2391,11 @@ async function verifySynthAudioAfterPlay(api) {
     }
 }
 
-const WARM_UP_MS = 300;
+// On desktop Linux (the Flatpak's webview) a cold synth rendered too slowly and the first seconds of the first play
+// were distorted; 300 ms did not prevent it, so the warm-up there runs long enough for the script engine to tier up.
+// Android reports a Linux platform too, so it is excluded.
+const isDesktopLinux = typeof navigator !== 'undefined' && /Linux/i.test(navigator.platform || '') && !/android/i.test(navigator.userAgent || '');
+const WARM_UP_MS = isDesktopLinux ? 4000 : 300;
 const READY_TIMEOUT_MS = 15000;
 
 /**
