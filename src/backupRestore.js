@@ -40,6 +40,7 @@ import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported } from './icloudDrive.js';
 import { refreshAppearance } from './themeEngine.js';
 import { setGpDisplayScale } from './gpProcessor/gpProcessor.js';
+import { fileDropSupported } from './utils/fileHandlingUtils.js';
 import {
     STORAGE_KEY_SOUNDFONT_SELECTION, STORAGE_KEY_SOUNDFONT_ORDER, STORAGE_KEY_SOUNDFONT_STRICT, STORAGE_KEY_SOUNDFONT_FORCED, SOUNDFONT_BACKUP_STORE, listSoundFonts, clearAllSoundFonts,
     collectSoundFontBackupEntries, restoreSoundFontEntry
@@ -3338,9 +3339,9 @@ function attachModalHandlers(modal, options = {}) {
     window.addEventListener('googleAuthSuccess', activeGoogleAuthHandler);
     // @googleDrive:end
 
-    // Drag and drop handlers
+    // Drag and drop handlers (not where dropped files can't be opened, see fileDropSupported)
     ['dragenter', 'dragover'].forEach(eventName => {
-        restoreDropzone?.addEventListener(eventName, (e) => {
+        if (fileDropSupported()) restoreDropzone?.addEventListener(eventName, (e) => {
             e.preventDefault();
             e.stopPropagation();
             restoreDropzone.classList.add('drag-over');
@@ -3348,14 +3349,14 @@ function attachModalHandlers(modal, options = {}) {
     });
 
     ['dragleave', 'drop'].forEach(eventName => {
-        restoreDropzone?.addEventListener(eventName, (e) => {
+        if (fileDropSupported()) restoreDropzone?.addEventListener(eventName, (e) => {
             e.preventDefault();
             e.stopPropagation();
             restoreDropzone.classList.remove('drag-over');
         });
     });
 
-    restoreDropzone?.addEventListener('drop', (e) => {
+    if (fileDropSupported()) restoreDropzone?.addEventListener('drop', (e) => {
         const file = e.dataTransfer?.files?.[0];
         if (file) handleSelectedBackupFile(file, 'Local Device');
     });

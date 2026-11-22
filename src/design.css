@@ -5514,6 +5514,8 @@ body.phone-reader #screenRow { display: none !important; }
 
 /* Restore: a phone has nothing to drop a file on */
 @media (pointer: coarse) { .restore-drop-hint { display: none; } }
+/* ...and neither does the Linux app, where a dropped file can't be opened */
+.no-file-drop .restore-drop-hint { display: none; }
 
 /* ---------- iOS 26 system tab bar ----------
    On iOS 26 and later the app shows the system tab bar (Liquid Glass, drawn by the OS, see nativeTabBar.js) in place

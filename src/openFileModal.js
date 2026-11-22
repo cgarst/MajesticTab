@@ -3,6 +3,7 @@
 
 import { getFileProviders, openFromProvider, openLocalFile } from './fileProviders.js';
 import { libraryViewSwitchHtml, libraryPageTitleHtml } from './libraryModal.js';
+import { fileDropSupported } from './utils/fileHandlingUtils.js';
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -20,6 +21,7 @@ export function renderOpenFileView(container, { onBack }) {
     const providers = allProviders.filter(p => p.id !== 'local' && p.id !== 'tab-downloader');
     // The web search provider (native apps only) is a search bar rather than a card
     const hasWebSearch = allProviders.some(p => p.id === 'tab-downloader');
+    const canDrop = fileDropSupported();
 
     container.innerHTML = `
     <div class="library-page-container open-file-view">
@@ -30,8 +32,8 @@ export function renderOpenFileView(container, { onBack }) {
         subtitle: 'Play a file without adding it to your library.'
       })}
       <div class="open-file-body">
-      <div class="open-file-dropzone" id="openFileDropzone" role="button" tabindex="0" aria-label="Drop a tab file here or browse your device">
-        <div class="open-file-dropzone-title">Drop a tab file here</div>
+      <div class="open-file-dropzone" id="openFileDropzone" role="button" tabindex="0" aria-label="${canDrop ? 'Drop a tab file here or browse your device' : 'Browse your device for a tab file'}">
+        <div class="open-file-dropzone-title">${canDrop ? 'Drop a tab file here' : 'Open a tab file'}</div>
         <div class="open-file-dropzone-sub">Guitar Pro (.gp, .gp3, .gp4, .gp5, .gpx), PDF or text</div>
         <button type="button" class="btn btn-sm btn-theme-primary" id="openFileBrowseBtn" tabindex="-1">Browse files</button>
       </div>
@@ -79,14 +81,14 @@ export function renderOpenFileView(container, { onBack }) {
             browse();
         }
     });
-    dropzone.addEventListener('dragover', (e) => {
+    if (canDrop) dropzone.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropzone.classList.add('is-dragover');
     });
-    dropzone.addEventListener('dragleave', (e) => {
+    if (canDrop) dropzone.addEventListener('dragleave', (e) => {
         if (!dropzone.contains(e.relatedTarget)) dropzone.classList.remove('is-dragover');
     });
-    dropzone.addEventListener('drop', (e) => {
+    if (canDrop) dropzone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropzone.classList.remove('is-dragover');
         const file = e.dataTransfer?.files?.[0];

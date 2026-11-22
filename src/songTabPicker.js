@@ -4,6 +4,7 @@
 // tab bar on phones. The row itself never grows; the choice is made here, on demand.
 
 import { resolveSets } from './tabSets.js';
+import { fileDropSupported } from './utils/fileHandlingUtils.js';
 
 const SHEET_QUERY = '(max-width: 576px)';
 // Sources shown first, as the intent ("find it" or "I have it"); the rest sit under "More sources"
@@ -83,7 +84,7 @@ export function openSongTabPicker(o) {
         const byId = new Map(o.providers.map((x) => [x.id, x]));
         const primary = PRIMARY_PROVIDERS.map((id) => byId.get(id)).filter(Boolean);
         const more = SOURCE_ORDER.map((id) => byId.get(id)).filter(Boolean);
-        const dropHint = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+        const dropHint = fileDropSupported() && window.matchMedia('(hover: hover) and (pointer: fine)').matches
             ? '<p class="tabpick-note">You can also drop a file on the song.</p>' : '';
         return `
           ${tabs.length ? '<div class="tabpick-bar"><button type="button" class="tabpick-back" data-act="back">Back</button></div>' : ''}

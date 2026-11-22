@@ -33,6 +33,18 @@ export async function isSupportedTabFile(file) {
 }
 
 /**
+ * Whether a file dragged in from the file manager can be opened. The Linux app runs in a Flatpak sandbox and its
+ * webview gives the page a link to the file rather than the file, so dropping a file does nothing there: the UI
+ * neither offers it nor mentions it. The web app and the other native apps accept drops.
+ * @returns {boolean}
+ */
+export function fileDropSupported() {
+    if (typeof window === 'undefined' || !window.__TAURI__) return true;
+    const linux = /Linux/i.test(navigator.platform || '') && !/android/i.test(navigator.userAgent || '');
+    return !linux;
+}
+
+/**
  * Test whether drag dataTransfer items contain acceptable files during dragover/dragenter.
  * Rejects obvious non-file drags or non-tab MIME types (images, videos, audio).
  * @param {DragEvent} e
