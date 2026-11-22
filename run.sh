@@ -95,6 +95,7 @@ if [ ! -e /.flatpak-info ] && [ "$(uname -s)" = Linux ] && is_immutable; then
     --env=PATH=/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin:/usr/bin \
     --env=CARGO_HOME="$CACHE/cargo" --env=npm_config_cache="$CACHE/npm" \
     --env=WEBKIT_INSPECTOR_SERVER="$WEBKIT_INSPECTOR_SERVER" --env=GST_DEBUG="$GST_DEBUG" \
+    ${JSC_useJIT:+--env=JSC_useJIT="$JSC_useJIT"} \
     --command=bash "$RUNTIME" -c "cd '$ROOT' && ./run.sh"
 fi
 
