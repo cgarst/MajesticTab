@@ -1533,8 +1533,12 @@ export async function applyMpakExtras(data, opened, options = {}) {
         try {
             const { AUDIO_FILES_CHANGED_EVENT } = await import('./audioSync/audioBackup.js');
             window.dispatchEvent(new CustomEvent(AUDIO_FILES_CHANGED_EVENT));
-            const { awaitAudioFilesReady } = await import('./audioSync/audioFilePlayer.js');
-            await awaitAudioFilesReady();
+            // Only a pack that stored audio changes the list worth waiting for. On a large library the first listing reads every
+            // stored recording (about 15 s for 800 files), and waiting for it left the loading card on "Ready" for that long.
+            if (totalAudioFiles) {
+                const { awaitAudioFilesReady } = await import('./audioSync/audioFilePlayer.js');
+                await awaitAudioFilesReady();
+            }
         } catch { /* headless environment */ }
         try {
             if (getSlotSource('original') === 'embedded') (await import('./utils/navigationUtils.js')).setActiveAudioMode('real');
