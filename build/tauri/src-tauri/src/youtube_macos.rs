@@ -95,6 +95,11 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
                     let _ = tauri::async_runtime::spawn(async move {
                         open_youtube_auth_window(&app, url);
                     });
+                } else if matches!(url.scheme(), "http" | "https")
+                    && (host == "youtu.be" || host == "youtube.com" || host.ends_with(".youtube.com"))
+                {
+                    // The YouTube mark and title in the embed open a new window: send it to the default browser.
+                    let _ = tauri_plugin_opener::open_url(url.as_str(), None::<&str>);
                 }
                 tauri::webview::NewWindowResponse::Deny
             })
