@@ -275,12 +275,31 @@ jobs:
           git -C "$RUNNER_TEMP/fdroiddata" commit -am "net.zathu.majestictab: update to $version"
           git -C "$RUNNER_TEMP/fdroiddata" push origin net.zathu.majestictab
 
+  # Add the release's Flatpak bundles to the Zathu Flatpak repo (flatpak.zathu.net, built by cgarst/zathu-flatpak, which
+  # downloads the *.flatpak assets from this release). Needs the FLATPAK_REPO_TOKEN secret: a fine-grained token with
+  # Contents read/write on cgarst/zathu-flatpak. Skipped when it is missing.
+  publish-flatpak:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish to the Zathu Flatpak repo
+        env:
+          GH_TOKEN: ${{ secrets.FLATPAK_REPO_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::FLATPAK_REPO_TOKEN secret is not set; skipping the Flatpak repo update"
+            exit 0
+          fi
+          gh api repos/cgarst/zathu-flatpak/dispatches -f event_type=publish-flatpak \
+            -f "client_payload[source_repo]=${{ github.repository }}" \
+            -f "client_payload[tag]=${GITHUB_REF_NAME}"
+
   # Open the next version on main once every channel above has finished and at least one store or distribution channel
   # published successfully, so a single failed channel (re-run it afterwards) does not leave main on a released version and
   # break the beta workflows (testflight-beta.yml, play-beta.yml). A bump commit pushed with the workflow token does
   # not start other workflows, so it does not trigger a canary build. Skipped when main has already moved past this version.
   bump-next:
-    needs: [build, store, publish-play, publish-msstore, publish-appstore-ios, publish-appstore-mac, publish, publish-fdroid]
+    needs: [build, store, publish-play, publish-msstore, publish-appstore-ios, publish-appstore-mac, publish, publish-fdroid, publish-flatpak]
     if: >-
       ${{ !cancelled() && (needs.publish-play.result == 'success' || needs.publish-msstore.result == 'success' ||
       needs.publish-appstore-ios.result == 'success' || needs.publish-appstore-mac.result == 'success' ||
