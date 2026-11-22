@@ -267,3 +267,22 @@ html:not(.js) .pfig:not(.is-on) { display: none; }
   .btn, .tab, .nav a { transition: none; }
   .js .pfig.is-on { animation: none; }
 }
+
+/* Privacy policy */
+.policy { padding-block: 56px var(--pad); }
+.policy .wrap { max-width: calc(760px + var(--m) * 2); }
+.policy h1 { font-size: 48px; margin-bottom: 8px; }
+.policy .lead { margin-top: 24px; color: var(--ink2); }
+.policy section { margin-top: 48px; }
+.policy h2 { font-size: 30px; margin-bottom: 16px; }
+.policy p, .policy li { color: var(--ink2); }
+.policy p + p, .policy p + ul, .policy ul + p { margin-top: 16px; }
+.policy ul { list-style: disc; padding-left: 22px; }
+.policy li + li { margin-top: 10px; }
+.policy li::marker { color: var(--s3); }
+.policy strong { color: var(--ink); font-weight: 600; }
+.policy a { color: var(--action); text-decoration: underline; text-underline-offset: 3px; }
+.policy a:hover { color: var(--action-hover); }
+.policy code { font: 15px/1 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; background: var(--s2); color: var(--ink); padding: 2px 6px; border-radius: 4px; }
+.policy .callout { background: var(--s2); border-radius: var(--r); padding: 20px 24px; margin-top: 20px; color: var(--ink); }
+@media (max-width: 720px) { .policy { padding-block: 32px 64px; } .policy h1 { font-size: 40px; } .policy h2 { font-size: 26px; } }
