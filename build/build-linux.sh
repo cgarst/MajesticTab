@@ -12,7 +12,7 @@
 #   other options (--channel=<id>, ...) go to build-tauri.mjs
 #
 # Needs flatpak, plus either node and flatpak-builder on the host or, on immutable systems (SteamOS, Bazzite, other
-# ostree images), the Flatpak apps org.flatpak.Builder and org.gnome.Sdk with the node22 extension, which this script
+# ostree images), the Flatpak apps org.flatpak.Builder and org.gnome.Sdk with the node26 extension, which this script
 # then uses to run Node and flatpak-builder. There Cargo's output is kept in ~/.cache/majestictab-dev/cargo-target, so
 # only the first build compiles every dependency; delete that folder for a clean compile, or set
 # MAJESTICTAB_CARGO_TARGET= (empty) to build as Flathub does, from scratch each time.
@@ -87,12 +87,12 @@ if [ "$BUILD" = 0 ]; then
 elif command -v node >/dev/null && command -v flatpak-builder >/dev/null; then
     run_build node "$ROOT_DIR/build/build-tauri.mjs" linux ${ARGS[@]+"${ARGS[@]}"}
 else
-    # Node from the GNOME SDK's node22 extension; flatpak and flatpak-builder (the org.flatpak.Builder app) are run on
+    # Node from the GNOME SDK's node26 extension; flatpak and flatpak-builder (the org.flatpak.Builder app) are run on
     # the host through flatpak-spawn, via small shims that build-tauri.mjs finds on PATH.
     SDK="$(flatpak list --runtime --columns=application,branch | awk '$1=="org.gnome.Sdk"{print $1"//"$2; exit}')"
-    flatpak list --columns=application | grep -qx org.freedesktop.Sdk.Extension.node22 && [ -n "$SDK" ] \
+    flatpak list --columns=application | grep -qx org.freedesktop.Sdk.Extension.node26 && [ -n "$SDK" ] \
         && flatpak info org.flatpak.Builder >/dev/null 2>&1 || {
-        echo "Error: need node and flatpak-builder, or the Flatpaks org.gnome.Sdk, org.freedesktop.Sdk.Extension.node22 and org.flatpak.Builder." >&2
+        echo "Error: need node and flatpak-builder, or the Flatpaks org.gnome.Sdk, org.freedesktop.Sdk.Extension.node26 and org.flatpak.Builder." >&2
         exit 1
     }
     SHIMS="$(mktemp -d)"
@@ -135,7 +135,7 @@ SHIM
     HOST_BUILDER=1
     run_build flatpak run --talk-name=org.freedesktop.Flatpak --share=network \
         --filesystem="$ROOT_DIR" --filesystem="$SHIMS" --filesystem="$CACHE" \
-        --env=PATH="$SHIMS:/usr/lib/sdk/node22/bin:/usr/bin" --env=npm_config_cache="$CACHE/npm" \
+        --env=PATH="$SHIMS:/usr/lib/sdk/node26/bin:/usr/bin" --env=npm_config_cache="$CACHE/npm" \
         --env=MAJESTICTAB_BUILD_JOBS="${MAJESTICTAB_BUILD_JOBS:-4}" --env=HOME="$HOME" \
         --env=MAJESTICTAB_CARGO_TARGET="$CARGO_TARGET" \
         --env=TAURI_UPDATER_PUBKEY="$TAURI_UPDATER_PUBKEY" \

@@ -11,7 +11,7 @@
 // The remote inspector must be reachable: it is on every build so far, but check a release build if shots fail.
 //
 // Usage (without node on the host: flatpak run --share=network --talk-name=org.freedesktop.Flatpak
-//   --filesystem=<repo> --command=sh org.gnome.Sdk//51 -c "/usr/lib/sdk/node22/bin/node support/tools/flathub_screenshots.mjs"):
+//   --filesystem=<repo> --command=sh org.gnome.Sdk//51 -c "/usr/lib/sdk/node26/bin/node support/tools/flathub_screenshots.mjs"):
 //   node support/tools/flathub_screenshots.mjs                    # every scene
 //   node support/tools/flathub_screenshots.mjs --only gp_page     # some scenes
 //   Options: --app <id> (default net.zathu.majestictab), --size 1000x700, --out <dir>, --port 9333
