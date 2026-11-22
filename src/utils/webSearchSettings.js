@@ -88,7 +88,7 @@ function makeAdblockGroup() {
     refreshBtn.setAttribute('aria-label', 'Refresh ad blocking list');
 
     const updateStatusText = () => {
-        const isSystem = localStorage.getItem('majestictab_web_search_browser') === 'system';
+        const isSystem = localStorage.getItem('majestictab_web_search_browser') !== 'in-app';
         if (isSystem) {
             statusSpan.textContent = 'Only applies when using the in-app browser.';
             refreshBtn.disabled = true;
@@ -162,7 +162,7 @@ function makeAdblockGroup() {
     mainRow.querySelector('.st')?.appendChild(statusSpan);
 
     updateAdblockDisabledState = () => {
-        const isSystem = localStorage.getItem('majestictab_web_search_browser') === 'system';
+        const isSystem = localStorage.getItem('majestictab_web_search_browser') !== 'in-app';
         mainRow.classList.toggle('opacity-50', isSystem);
         updateStatusText();
     };
@@ -189,7 +189,7 @@ function makeProvidersGroup() {
         // @inAppBrowser:begin
         // Browser preference (in-app vs system browser)
         const browserPrefKey = 'majestictab_web_search_browser';
-        const currentBrowser = localStorage.getItem(browserPrefKey) || 'in-app';
+        const currentBrowser = localStorage.getItem(browserPrefKey) || 'system';
         const browserSeg = el('div', 'hud-pill-group');
         browserSeg.setAttribute('role', 'radiogroup');
         browserSeg.setAttribute('aria-label', 'Open search in');
@@ -531,12 +531,12 @@ function makeTestSearchGroup() {
         openTabDownloader({ query: 'Carulli Duo No 2 In G Major' });
     });
 
-    const isSystem = !hasFeature('inAppBrowser') || localStorage.getItem('majestictab_web_search_browser') === 'system';
+    const isSystem = !hasFeature('inAppBrowser') || localStorage.getItem('majestictab_web_search_browser') !== 'in-app';
     const testRow = row('Test web search', isSystem ? 'Only applies when using the in-app browser.' : 'Opens the in-app browser.', testBtn);
     testRow.classList.add('srow-task');
 
     updateTestSearchState = () => {
-        const sys = !hasFeature('inAppBrowser') || localStorage.getItem('majestictab_web_search_browser') === 'system';
+        const sys = !hasFeature('inAppBrowser') || localStorage.getItem('majestictab_web_search_browser') !== 'in-app';
         testBtn.disabled = sys;
         testRow.classList.toggle('opacity-50', sys);
         const span = testRow.querySelector('.st span');
