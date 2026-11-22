@@ -197,7 +197,8 @@ class GamepadManager {
         }
 
         this.updatePillUI(true, gamepad.id);
-        showToast(`Controller connected: ${this.cleanGamepadName(gamepad.id)} — Hold View to see controls`, 'info', 3500);
+        // Android TV reports the remote itself as a gamepad, so a toast there would announce the remote on every launch
+        if (!isTvMode()) showToast(`Controller connected: ${this.cleanGamepadName(gamepad.id)} — Hold View to see controls`, 'info', 3500);
         this.startPolling();
     }
 
@@ -211,7 +212,7 @@ class GamepadManager {
 
         if (this.connectedGamepads.size === 0) {
             this.updatePillUI(false);
-            showToast('Controller disconnected', 'warning', 2000);
+            if (!isTvMode()) showToast('Controller disconnected', 'warning', 2000);
         }
     }
 
