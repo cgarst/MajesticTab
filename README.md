@@ -13,11 +13,7 @@
 
 </div>
 
----
-
-MajesticTab is a guitar tab reader and practice app. It opens Guitar Pro files (`.gp`, `.gp3` to `.gp5`, `.gpx`), PDFs, and text tabs, and works offline. It organizes your tabs by song, plays them with along with the original recording or synth. It can rewrite them to fit a different guitar's tuning or string count, and lets your friends follow along over the local network.
-
----
+MajesticTab is a guitar tab reader and practice app. It opens Guitar Pro files (`.gp`, `.gp3` to `.gp5`, `.gpx`), PDFs, and text tabs, and works offline. It organizes your tabs by song, plays them along with the original recording or a SoundFont synth. It can rewrite them to fit a different guitar's tuning or string count, and lets your friends follow along over the local network.
 
 ## Download
 
@@ -37,8 +33,6 @@ Direct installers and packages are published on [GitHub Releases](https://github
 
 > [!NOTE]
 > MajesticTab is free on the Microsoft Store, Google Play, Linux, and direct downloads. On the Apple App Store, a one-time purchase covers iPhone, iPad, and Mac to support App Store distribution costs.
-
----
 
 ## Features
 
@@ -85,8 +79,6 @@ The reader's controls are in five menus: **View**, **Practice**, **Tracks**, **G
 
 Host a Jam session on your local network. Others join from their own phone, tablet, or laptop by scanning a QR code. Playback position and audio stay in sync across devices, and the host can assign each guitarist a track.
 
----
-
 ## Running from source
 
 The frontend in `src/` runs directly in any modern browser with no build step:
@@ -105,8 +97,6 @@ To run the desktop app in development mode, install [Node.js, Rust, and the Taur
 
 [CONTRIBUTING.md](CONTRIBUTING.md) covers packaging for `macos`, `windows`, `linux`, `android`, and `ios`, PDF optimization tips, and the project architecture.
 
----
-
 ## Acknowledgments
 
 - [AlphaTab](https://github.com/CoderLine/alphaTab) for Guitar Pro rendering and playback support
@@ -119,8 +109,6 @@ To run the desktop app in development mode, install [Node.js, Rust, and the Taur
 - [Bootstrap](https://getbootstrap.com/) for the layout, form and button styles in `src/base.css` (a cut-down adaptation of its stylesheet), and [Bootstrap Icons](https://icons.getbootstrap.com/) for the icons
 - [jsPDF](https://github.com/parallax/jsPDF) for export functionality
 - [SoundTouchJS](https://github.com/cutterbl/SoundTouchJS) (`@soundtouchjs/audio-worklet`, MPL-2.0, used unmodified) for slow-down practice that keeps the pitch of a local audio file
-
----
 
 ## License
 
