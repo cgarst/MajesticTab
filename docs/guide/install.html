@@ -155,7 +155,17 @@
 <p>F-Droid isn't available yet.</p>
 
 <h2 id="install-on-linux-and-steam-deck">Install on Linux and Steam Deck</h2>
-<p>MajesticTab is a Flatpak for x86_64 and ARM64. Download the file for your processor from the release page. Then run the following command. Replace <code>FILE</code> with the name of the file you downloaded:</p>
+<p>MajesticTab is a Flatpak for x86_64 and ARM64. The easiest way to install it, and to get updates, is the Zathu Flatpak repository. To add it, follow these steps:</p>
+<ol>
+  <li>Download <a href="https://flatpak.zathu.net/zathu.flatpakrepo">zathu.flatpakrepo</a>.</li>
+  <li>Open the file with KDE Discover or GNOME Software, and then confirm that you want to add the <strong>Zathu Software</strong> source.</li>
+  <li>Search for MajesticTab and install it.</li>
+</ol>
+<p>To use a terminal instead, run the following commands:</p>
+<pre><code>flatpak remote-add --user --if-not-exists zathu https://flatpak.zathu.net/zathu.flatpakrepo
+flatpak install --user zathu net.zathu.majestictab</code></pre>
+<p>The first install also downloads the GNOME runtime from Flathub. Your software center, or <code>flatpak update</code>, then keeps MajesticTab up to date.</p>
+<p>You can also install a single file. Download the file for your processor from the release page. Then run the following command. Replace <code>FILE</code> with the name of the file you downloaded. A file you install this way doesn't update itself:</p>
 <pre><code>flatpak install --user FILE</code></pre>
 <p>On a Steam Deck, run the command in Desktop Mode. MajesticTab supports the Deck's controls. See <a href="pedals-gamepad.html">Foot pedals and game controllers</a>.</p>
 
