@@ -440,9 +440,7 @@ body {
   html.ios-pwa #topBar {
     padding-top: max(calc(env(safe-area-inset-top) + 0.5rem + 4px), 58px);
   }
-  html.ios-pwa .downloader-nav-row {
-    padding-top: max(calc(env(safe-area-inset-top) + 8px + 4px), 58px);
-  }
+  
 }
 
 /* Themed scrollbars; scrollbar-color inherits to all scroll containers. */
@@ -646,7 +644,6 @@ body {
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s ease;
   flex-shrink: 0;
 }
-
 
 .top-bar-song-btn.active .song-title-chevron {
   color: #ffffff;
@@ -1649,7 +1646,6 @@ input[type=range]::-webkit-slider-thumb {
   background-attachment: scroll;
 }
 
-
 .settings-sublabel {
   font-size: 0.72rem;
   color: var(--text-muted);
@@ -2517,7 +2513,6 @@ body.theme-sheet-active .chord-lyric-chord {
     gap: 0.3rem;
   }
 
-  
   #centerSection {
     gap: 0.25rem;
   }
@@ -3225,14 +3220,12 @@ body.theme-sheet-active .chord-lyric-chord {
     font-size: 0.72rem !important;
   }
 
-
   .lib-open-file-btn,
   .lib-add-music-btn {
     height: 26px !important;
     padding: 0 0.45rem !important;
     font-size: 0.72rem !important;
   }
-
 
   .library-search-bar {
     height: 32px !important;
@@ -3335,9 +3328,6 @@ body.library-view-active #brandSection .brand-title {
   justify-content: center;
   margin-bottom: 0.75rem;
 }
-
-
-
 
 /* Count + secondary controls (Edit, Clear) under the shared header */
 .library-list-toolbar {
@@ -3588,7 +3578,6 @@ body.library-view-active #brandSection .brand-title {
   flex-direction: column;
   overflow: hidden;
 }
-
 
 .search-sticky-header,
 .library-sticky-breadcrumbs {
@@ -4203,7 +4192,6 @@ body.library-view-active #brandSection .brand-title {
   transition: all 0.15s ease;
 }
 
-
 .theme-dropdown-menu .dropdown-item:focus {
   background: var(--bg-card-hover) !important;
   color: var(--accent-text) !important;
@@ -4260,285 +4248,6 @@ body.library-view-active #brandSection .brand-title {
   color: var(--text-dim);
   opacity: 0.7;
   margin: 0 0.1rem;
-}
-
-.downloader-tab-btn {
-  color: var(--text-muted) !important;
-  background: transparent;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 6px 6px 0 0;
-  padding: 0.4rem 0.85rem;
-  font-size: 0.8rem;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-@media (hover: hover) { .downloader-tab-btn:hover {
-  color: #ffffff !important;
-  background: var(--bg-card-hover);
-} }
-
-.downloader-tab-btn.active {
-  color: #ffffff !important;
-  background: var(--bg-card);
-  border-color: var(--border-subtle);
-  font-weight: 600;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
-}
-
-/* --------------------------------------------------------------------------
-   Native Tab Downloader Bar (Split-Webview Top Bar)
-   -------------------------------------------------------------------------- */
-.tab-downloader-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1040;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-card-solid, #10141f);
-  border-bottom: 1px solid var(--border-subtle);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.downloader-nav-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: max(env(safe-area-inset-top), 8px) max(env(safe-area-inset-right), 16px) 8px max(env(safe-area-inset-left), 16px);
-  min-height: 48px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-@media (orientation: portrait) {
-  .tauri-ios .downloader-nav-row {
-    padding-top: max(calc(env(safe-area-inset-top) + 8px), 54px);
-  }
-}
-
-.tauri-macos .downloader-nav-row {
-  padding-left: calc(12px + var(--wc-l, 0px));
-}
-
-.tauri-windows .downloader-nav-row {
-  padding-right: calc(12px + var(--wc-r, 0px));
-}
-
-.downloader-nav-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.downloader-nav-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 0 12px;
-}
-
-.downloader-nav-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.downloader-song-pill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-card-hover, rgba(255, 255, 255, 0.06));
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  max-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.downloader-url-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  max-width: 440px;
-  background: var(--bg-card, rgba(0, 0, 0, 0.25));
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 4px 12px;
-  height: 32px;
-  color: var(--text-dim);
-  font-size: 0.78rem;
-  transition: border-color 0.15s ease;
-}
-
-.downloader-url-text {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  letter-spacing: -0.2px;
-}
-
-.downloader-url-text {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.downloader-url-btn,
-.downloader-url-copy-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-
-@media (hover: hover) { .downloader-url-btn:hover,
-.downloader-url-copy-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-card-hover, rgba(255, 255, 255, 0.08));
-} }
-
-.downloader-hint-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px max(env(safe-area-inset-right), 16px) 6px max(env(safe-area-inset-left), 16px);
-  font-size: 0.8rem;
-  color: var(--text-primary, inherit);
-  background: var(--accent-glow, rgba(255, 255, 255, 0.06));
-  border-top: 1px solid var(--border-subtle);
-}
-
-.downloader-hint-banner i {
-  flex-shrink: 0;
-}
-
-.downloader-hint-banner .btn-theme-icon {
-  flex-shrink: 0;
-}
-
-.downloader-tabs-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 16px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  min-height: 40px;
-}
-
-.downloader-tabs-row::-webkit-scrollbar {
-  display: none;
-}
-
-@media (max-width: 576px) {
-  .downloader-nav-row {
-    gap: 8px;
-    padding-left: max(env(safe-area-inset-left), 12px);
-    padding-right: max(env(safe-area-inset-right), 12px);
-  }
-
-  .downloader-song-pill {
-    display: none !important;
-  }
-
-  .downloader-nav-center {
-    padding: 0;
-  }
-
-  .downloader-url-group {
-    padding: 4px 8px;
-  }
-
-  .downloader-nav-right {
-    gap: 4px;
-  }
-
-  .downloader-tabs-row {
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-}
-
-.downloader-source-tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 0.82rem;
-  font-weight: 500;
-  background: var(--bg-card, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--border-subtle);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-@media (hover: hover) { .downloader-source-tab-btn:hover {
-  background: var(--bg-card-hover);
-  color: var(--text-primary);
-  border-color: var(--accent-primary-alpha);
-} }
-
-.downloader-source-tab-btn.active {
-  background: var(--accent-gradient);
-  border-color: var(--accent-primary);
-  color: #ffffff !important;
-  font-weight: 600;
-  box-shadow: 0 0 10px var(--accent-glow);
-}
-
-.downloader-cfg-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  background: var(--bg-card, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--border-subtle);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-@media (hover: hover) { .downloader-cfg-pill:hover {
-  background: var(--bg-card-hover);
-  color: var(--text-primary);
-} }
-
-.downloader-cfg-pill.active {
-  background: var(--accent-gradient);
-  border-color: var(--accent-primary);
-  color: #ffffff !important;
-  font-weight: 600;
-  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .library-page-view .form-control,
@@ -5051,8 +4760,6 @@ body.library-view-active #brandSection .brand-title {
   z-index: 2;
 }
 
-
-
 /* --------------------------------------------------------------------------
    Reference Library View Styles
    -------------------------------------------------------------------------- */
@@ -5215,7 +4922,6 @@ body.library-view-active #brandSection .brand-title {
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-
 
 .ref-chord-link:focus-visible {
   border-color: var(--accent-primary);
@@ -5421,14 +5127,6 @@ body.library-view-active #brandSection .brand-title {
 .ref-interval-dot {
   background: var(--accent-secondary);
 }
-
-
-
-
-
-
-
-
 
 /* Responsive Overrides */
 @media (max-width: 991px) {
@@ -5801,7 +5499,6 @@ body.jam-starting #mobilePlayPauseBtn {
   to { opacity: 0.55; }
 }
 
-
 /* ==========================================================================
    Top bar reorganization: flexible zone, Tools menu, playback dock
    Narrowing order (viewport): 1300 Jam role label | 1100 brand, Tools label, Bookmarks | 980 First page,
@@ -5966,7 +5663,6 @@ body.jam-starting #mobilePlayPauseBtn {
   cursor: pointer;
 }
 
-
 .tools-pin[aria-pressed="true"] { opacity: 1; }
 @media (hover: hover) { .tools-row:hover .tools-pin { opacity: 1; } }
 
@@ -6088,8 +5784,7 @@ body.library-view-active #toolsFullscreenRow { display: none !important; }
    buttons. Add extra clearance so controls sit below it. */
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) and (orientation: portrait) {
-    #topBar,
-    .downloader-nav-row {
+    #topBar {
       padding-top: calc(env(safe-area-inset-top) + 14px);
     }
   }
@@ -6278,7 +5973,6 @@ body.library-view-active #toolsFullscreenRow { display: none !important; }
   cursor: default;
   pointer-events: none;
 }
-
 
 /* --------------------------------------------------------------------------
    Library bottom nav (phones, library view only) and Add Music sheet

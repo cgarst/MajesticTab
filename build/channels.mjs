@@ -7,18 +7,14 @@
 export const DEFAULT_CHANNEL = 'direct';
 
 const FULL = {
-  tabDownloader: 'in-app', // 'in-app' | 'system-browser'
-  inAppBrowser: true, // true: ships full webview & adblock; false: system browser only
   extensions: 'full', // 'full' | 'off'
   selfUpdate: true,
   googleDrive: true,
   youtube: 'full', // 'full' | 'official-origin' (official IFrame origin, no Referer override)
 };
 
-const STORE_DOWNLOADER = {
+const STORE_BUILD = {
   selfUpdate: false,
-  tabDownloader: 'system-browser',
-  inAppBrowser: false,
 };
 
 export const channels = {
@@ -28,7 +24,7 @@ export const channels = {
   },
   play: {
     platforms: ['android'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER, youtube: 'official-origin' },
+    capabilities: { ...FULL, ...STORE_BUILD, youtube: 'official-origin' },
   },
   // No Google Play services, no self-update. F-Droid builds it unsigned; the release workflow also signs it with the
   // release key for the GitHub release (and F-Droid's reproducible-build check).
@@ -44,11 +40,11 @@ export const channels = {
   },
   'appstore-ios': {
     platforms: ['ios'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER },
+    capabilities: { ...FULL, ...STORE_BUILD },
   },
   'appstore-mac': {
     platforms: ['macos'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER },
+    capabilities: { ...FULL, ...STORE_BUILD },
   },
   flathub: {
     platforms: ['linux'],
@@ -61,7 +57,7 @@ export const channels = {
   },
   msstore: {
     platforms: ['windows'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER },
+    capabilities: { ...FULL, ...STORE_BUILD },
   },
 };
 
@@ -80,10 +76,9 @@ export function resolveChannel(id) {
 
 /** Cargo features the channel builds with (build/tauri/src-tauri/Cargo.toml replaces its `default` with these). */
 export function cargoFeatures(id) {
-  const { selfUpdate, googleDrive, inAppBrowser } = channels[id].capabilities;
+  const { selfUpdate, googleDrive } = channels[id].capabilities;
   return [
     ...(selfUpdate ? ['self-update'] : []),
     ...(googleDrive ? ['google-auth'] : []),
-    ...(inAppBrowser ? ['in-app-browser'] : []),
   ];
 }

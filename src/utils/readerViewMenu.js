@@ -375,7 +375,8 @@ function arrangeSongPanel() {
 
     const providerNames = {
         'local': 'This Device',
-        'tab-downloader': 'Web Search',
+        'web-search': 'Web Search',
+        'tab-downloader': 'Web Search', // the id files were saved with before it was renamed
         'google-drive': 'Google Drive',
         'icloud-drive': 'iCloud Drive',
         's3': 'Amazon S3',

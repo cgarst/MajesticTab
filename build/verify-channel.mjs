@@ -124,69 +124,6 @@ export async function verifyChannel(id, options = {}) {
     }
   }
 
-  // System-browser channels never ship the in-app webview downloader, adblock, or /a/wsa/ sync point pieces
-  if (expected.tabDownloader === 'system-browser') {
-    if (cargoFeatures(id).includes('in-app-browser')) {
-      errors.push(`channel "${id}" cargoFeatures includes in-app-browser`);
-    }
-    if (shippedFiles.includes('utils/downloaderIntercept.js')) {
-      errors.push('utils/downloaderIntercept.js ships in a system-browser channel');
-    }
-    if (shippedFiles.includes('audioSync/importers/builtinSource.js')) {
-      errors.push('audioSync/importers/builtinSource.js ships in a system-browser channel');
-    }
-
-    const stubContent = contents.get('tabDownloader.js') || '';
-    if (!stubContent.includes('opener') || !stubContent.includes('openUrl')) {
-      errors.push('tabDownloader.js does not contain system browser handoff signature (opener and openUrl)');
-    }
-
-    const settingsContent = contents.get('utils/webSearchSettings.js') || '';
-    if (settingsContent.includes('isAdblockEnabled') || settingsContent.includes('makeAdblockGroup')) {
-      errors.push('utils/webSearchSettings.js contains isAdblockEnabled or makeAdblockGroup in a system-browser channel');
-    }
-
-    for (const [name, text] of contents) {
-      if (/@inAppBrowser:(?:begin|end)/.test(text)) {
-        errors.push(`${name} still has a @inAppBrowser marker (unbalanced or not stripped)`);
-      }
-      if (/@wsaSync:(?:begin|end)/.test(text)) {
-        errors.push(`${name} still has a @wsaSync marker (unbalanced or not stripped)`);
-      }
-      if (text.includes('id="tabDownloaderBar"') || text.includes("id='tabDownloaderBar'")) {
-        errors.push(`${name} still contains #tabDownloaderBar in a system-browser channel`);
-      }
-      if (text.includes('/a/wsa/') || text.includes('MAJESTIC_SYNC_POINTS:')) {
-        errors.push(`${name} contains forbidden sync point references in a system-browser channel`);
-      }
-    }
-  }
-
-  // Android: the downloader webview (third-party pages) gets only close and onTabDownloaded
-  if (channels[id].platforms.includes('android')) {
-    const activity = await readFile(path.join(tauriDir, 'android-MainActivity.kt'), 'utf8');
-    const start = activity.indexOf('private fun addDownloaderBridges');
-    let body = '';
-    if (start >= 0) {
-      let depth = 0;
-      for (let i = activity.indexOf('{', start); i < activity.length; i++) {
-        if (activity[i] === '{') depth++;
-        if (activity[i] === '}' && --depth === 0) { body = activity.slice(start, i + 1); break; }
-      }
-    }
-    if (!body) {
-      errors.push('android-MainActivity.kt has no addDownloaderBridges (downloader bridge split)');
-    } else {
-      const names = [...body.matchAll(/addJavascriptInterface\([\s\S]*?\}, "(\w+)"\)/g)].map((m) => m[1]);
-      if (names.join() !== 'MajesticDownloaderNative') errors.push(`downloader webview registers bridges [${names}], expected only MajesticDownloaderNative`);
-      const methods = [...body.matchAll(/@JavascriptInterface\s+fun (\w+)/g)].map((m) => m[1]).sort();
-      if (methods.join() !== 'close,onTabDownloaded') errors.push(`downloader bridge exposes [${methods}], expected only close and onTabDownloaded`);
-    }
-    if (!/if \(!isAppWebView\) \{[\s\S]*?addDownloaderBridges\(webView\)\s*return/.test(activity)) {
-      errors.push('onWebViewCreate no longer routes non-app webviews to addDownloaderBridges before registering other bridges');
-    }
-  }
-
   // Android: no updater pieces when selfUpdate is off
   if (options.androidProject && !expected.selfUpdate) {
     const manifest = await readFile(path.join(options.androidProject, 'app', 'src', 'main', 'AndroidManifest.xml'), 'utf8');

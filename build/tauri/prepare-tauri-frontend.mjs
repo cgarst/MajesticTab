@@ -97,7 +97,6 @@ const allowedRemoteHosts = new Set([
   'www.google.com',
   'duckduckgo.com',
   'www.duckduckgo.com',
-  'pgl.yoyo.org', // default host list source for tab downloader adblocker
   'stemdeck.app', // Backing tracks tool: link to the StemDeck home page
   'www.stemdeck.app',
 ]);
@@ -293,18 +292,6 @@ async function stubOutGoogleDrive() {
   console.log(`Google Drive stubbed out and stripped from ${stripped} files: channel has no googleDrive capability.`);
 }
 
-async function stubOutInAppBrowser() {
-  await cp(
-    path.join(scriptDir, 'stubs', 'system-browser', 'tabDownloader.js'),
-    path.join(frontendDir, 'tabDownloader.js')
-  );
-  await rm(path.join(frontendDir, 'utils', 'downloaderIntercept.js'), { force: true });
-  await rm(path.join(frontendDir, 'audioSync', 'importers', 'builtinSource.js'), { force: true });
-  const strippedBrowser = await stripTaggedBlocks(frontendDir, 'inAppBrowser');
-  const strippedWsa = await stripTaggedBlocks(frontendDir, 'wsaSync');
-  console.log(`In-app browser stubbed out and stripped from ${strippedBrowser} files; /a/wsa/ sync points stripped from ${strippedWsa} files: channel uses system-browser.`);
-}
-
 async function minifyAppScripts(directory) {
   let count = 0;
   const entries = await readdir(directory, { withFileTypes: true });
@@ -334,11 +321,6 @@ try {
   const driveEnabled = channelConfig.googleDrive;
   if (!driveEnabled) {
     await stubOutGoogleDrive();
-  }
-  const isSystemBrowser = channelConfig.tabDownloader === 'system-browser';
-  if (isSystemBrowser) {
-    allowedRemoteHosts.delete('pgl.yoyo.org');
-    await stubOutInAppBrowser();
   }
   if (androidBuild || iosBuild) {
     // Phones sign in through the platform's own flow and never load the desktop client.

@@ -5,19 +5,13 @@ import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.util.Base64
 import android.view.View
-import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
-import android.webkit.URLUtil
-import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import java.io.ByteArrayInputStream
 
 class MainActivity : TauriActivity() {
   companion object {
@@ -28,27 +22,11 @@ class MainActivity : TauriActivity() {
 
   private var container: FrameLayout? = null
   private var mainWebView: WebView? = null
-  private var downloaderWebView: WebView? = null
-  // Height of the main webview's tab downloader bar in device pixels; the downloader webview sits below it.
-  private var downloaderTopInsetPx = 0
   private var webViewsConfigured = 0
   private var multicastLock: WifiManager.MulticastLock? = null
-  private val blockedHosts = java.util.Collections.synchronizedSet(HashSet<String>())
   private var pendingOpenUrl: String? = null
   private var pendingOpenMpakFile: java.io.File? = null
   private var pendingOpenMpakName: String? = null
-
-  private fun isHostBlocked(host: String): Boolean {
-    if (blockedHosts.isEmpty()) return false
-    var cur = host
-    while (cur.isNotEmpty()) {
-      if (blockedHosts.contains(cur)) return true
-      val idx = cur.indexOf('.')
-      if (idx == -1) break
-      cur = cur.substring(idx + 1)
-    }
-    return false
-  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     instance = this
@@ -59,10 +37,6 @@ class MainActivity : TauriActivity() {
     super.onCreate(savedInstanceState)
     onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
       override fun handleOnBackPressed() {
-        if (downloaderWebView?.visibility == View.VISIBLE) {
-          if (downloaderWebView?.canGoBack() == true) downloaderWebView?.goBack() else hideDownloader()
-          return
-        }
         val wv = mainWebView
         if (wv == null) {
           isEnabled = false
@@ -203,14 +177,6 @@ class MainActivity : TauriActivity() {
         FrameLayout.LayoutParams.MATCH_PARENT,
         FrameLayout.LayoutParams.MATCH_PARENT
       ))
-    } else {
-      downloaderWebView?.let { container?.removeView(it) }
-      downloaderWebView = view as? WebView
-      container?.addView(view, FrameLayout.LayoutParams(
-        FrameLayout.LayoutParams.MATCH_PARENT,
-        FrameLayout.LayoutParams.MATCH_PARENT
-      ).apply { topMargin = downloaderTopInsetPx })
-      downloaderWebView?.visibility = View.VISIBLE
     }
   }
 
@@ -224,67 +190,16 @@ class MainActivity : TauriActivity() {
     }
   }
 
-  fun hideDownloader() {
-    runOnUiThread {
-      downloaderWebView?.visibility = View.GONE
-      // Unload the site so it stops using resources while a tab plays
-      downloaderWebView?.loadUrl("about:blank")
-      mainWebView?.visibility = View.VISIBLE
-      mainWebView?.requestFocus()
-    }
-  }
-
-  fun setDownloaderTopInset(px: Int) {
-    runOnUiThread {
-      downloaderTopInsetPx = px.coerceAtLeast(0)
-      downloaderWebView?.let { view ->
-        (view.layoutParams as? FrameLayout.LayoutParams)?.let { params ->
-          params.topMargin = downloaderTopInsetPx
-          view.layoutParams = params
-        }
-      }
-    }
-  }
-
-  fun showDownloader() {
-    runOnUiThread {
-      downloaderWebView?.visibility = View.VISIBLE
-      downloaderWebView?.requestFocus()
-    }
-  }
-
   // The WebView's requestFullscreen only covers video; the app's immersive mode is toggled natively.
   override fun onWebViewCreate(webView: WebView) {
-    // The first webview is the app itself, which must not pinch zoom: that would scale the downloader bar.
-    // Only the downloader webview (created later) zooms, and only inside its own bounds.
-    // The same order decides the bridges: the app webview gets all of them, any later webview only the downloader's.
-    val isAppWebView = webViewsConfigured++ == 0
+    // Only the app's own webview is configured; it must not pinch zoom.
+    if (webViewsConfigured++ != 0) return
     webView.settings.apply {
       useWideViewPort = true
       loadWithOverviewMode = true
-      setSupportZoom(!isAppWebView)
-      builtInZoomControls = !isAppWebView
+      setSupportZoom(false)
+      builtInZoomControls = false
       displayZoomControls = false
-    }
-    if (!isAppWebView) {
-      webView.webViewClient = object : WebViewClient() {
-        override fun shouldInterceptRequest(
-          view: WebView?,
-          request: WebResourceRequest?
-        ): WebResourceResponse? {
-          val host = request?.url?.host?.lowercase() ?: return null
-          if (isHostBlocked(host)) {
-            return WebResourceResponse(
-              "text/plain",
-              "UTF-8",
-              ByteArrayInputStream(ByteArray(0))
-            )
-          }
-          return super.shouldInterceptRequest(view, request)
-        }
-      }
-      addDownloaderBridges(webView)
-      return
     }
     webView.addJavascriptInterface(object {
       @JavascriptInterface
@@ -516,143 +431,6 @@ class MainActivity : TauriActivity() {
         return uiMode?.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
       }
     }, "AndroidTv")
-
-    webView.addJavascriptInterface(object {
-      @JavascriptInterface
-      fun close() {
-        hideDownloader()
-      }
-
-      @JavascriptInterface
-      fun show() {
-        showDownloader()
-      }
-
-      @JavascriptInterface
-      fun setTopInsetPx(px: Int) {
-        setDownloaderTopInset(px)
-      }
-
-      // Native views draw above HTML, so the app hides the downloader while its settings modal is open.
-      @JavascriptInterface
-      fun setVisible(on: Boolean) {
-        if (on) showDownloader() else runOnUiThread { downloaderWebView?.visibility = View.GONE }
-      }
-
-      // The shell's page-load events never reach the app on Android, so the URL bar asks for the address instead.
-      @JavascriptInterface
-      fun currentUrl(): String {
-        var url = ""
-        val done = java.util.concurrent.CountDownLatch(1)
-        runOnUiThread {
-          url = downloaderWebView?.url ?: ""
-          done.countDown()
-        }
-        done.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
-        return url
-      }
-
-      // Runs a script in the downloader view itself; the shell's eval does not reliably reach it.
-      @JavascriptInterface
-      fun evalInDownloader(script: String) {
-        runOnUiThread { downloaderWebView?.evaluateJavascript(script, null) }
-      }
-
-      // Plugin command replies never reach the app webview once the downloader exists, so a plain GET made from the
-      // app (the sync points of a downloaded tab) is done here and answered through window.__onNativeFetch(id, status, body).
-      @JavascriptInterface
-      fun fetchText(id: String, url: String) {
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-          answerNativeFetch(id, 0, "")
-          return
-        }
-        Thread {
-          var status = 0
-          var body = ""
-          try {
-            val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-            conn.connectTimeout = 15000
-            conn.readTimeout = 20000
-            conn.setRequestProperty("Accept", "application/json, text/html, text/plain, */*")
-            status = conn.responseCode
-            val stream = if (status in 200..299) conn.inputStream else conn.errorStream
-            body = stream?.use { String(it.readBytes(), Charsets.UTF_8) } ?: ""
-          } catch (e: Exception) {
-            android.util.Log.w("MajesticTab", "fetchText failed: " + url, e)
-          }
-          answerNativeFetch(id, status, body)
-        }.start()
-      }
-
-            @JavascriptInterface
-      fun setBlockedHosts(jsonArrayStr: String) {
-        try {
-          val arr = org.json.JSONArray(jsonArrayStr)
-          val set = HashSet<String>(arr.length())
-          for (i in 0 until arr.length()) {
-            val host = arr.getString(i).trim().lowercase()
-            if (host.isNotEmpty()) {
-              set.add(host)
-            }
-          }
-          blockedHosts.clear()
-          blockedHosts.addAll(set)
-        } catch (e: Exception) {
-          android.util.Log.e("MajesticTab", "Failed to parse blocked hosts", e)
-        }
-      }
-    }, "MajesticDownloaderNative")
-  }
-
-  // The downloader webview loads third-party pages, so it gets only the two calls its shim makes:
-  // handing back a captured file and closing itself. Everything else stays on the app webview.
-  private fun addDownloaderBridges(webView: WebView) {
-    webView.addJavascriptInterface(object {
-      @JavascriptInterface
-      fun close() {
-        hideDownloader()
-      }
-
-      @JavascriptInterface
-      fun onTabDownloaded(name: String, base64Data: String) {
-        android.util.Log.i("MajesticTab", "onTabDownloaded received: " + name + " (" + base64Data.length + " chars)")
-        deliverDownloadedTab(name, base64Data)
-      }
-    }, "MajesticDownloaderNative")
-
-    // wry has no Android download hook, so real file downloads (the mobile site's buttons that the
-    // shim can't recognise) are fetched here with the webview's cookies and handed back like a captured blob.
-    webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
-      if (!url.startsWith("http://") && !url.startsWith("https://")) return@setDownloadListener
-      val headerName = filenameFromDisposition(contentDisposition)
-      // WebView methods are main-thread only, so the page address is read before the download thread starts.
-      val referer = webView.url
-      Thread {
-        try {
-          val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-          conn.setRequestProperty("User-Agent", userAgent)
-          CookieManager.getInstance().getCookie(url)?.let { conn.setRequestProperty("Cookie", it) }
-          referer?.let { conn.setRequestProperty("Referer", it) }
-          val bytes = conn.inputStream.use { it.readBytes() }
-          if (bytes.size < 20) return@Thread
-          val name = headerName ?: URLUtil.guessFileName(url, contentDisposition, mimeType)
-          deliverDownloadedTab(withTabExtension(name, bytes), Base64.encodeToString(bytes, Base64.NO_WRAP))
-        } catch (e: Exception) {
-          android.util.Log.w("MajesticTab", "Download failed: " + url, e)
-        }
-      }.start()
-    }
-  }
-
-  // URLUtil.guessFileName misses the RFC 5987 filename*= form, so the name falls back to download.bin.
-  private fun filenameFromDisposition(disposition: String?): String? {
-    if (disposition == null) return null
-    Regex("filename\\*\\s*=\\s*[^']*'[^']*'([^;]+)", RegexOption.IGNORE_CASE).find(disposition)?.let {
-      try {
-        return java.net.URLDecoder.decode(it.groupValues[1].trim().trim('"').replace("+", "%2B"), "UTF-8")
-      } catch (_: Exception) {}
-    }
-    return Regex("filename\\s*=\\s*\"?([^\";]+)\"?", RegexOption.IGNORE_CASE).find(disposition)?.groupValues?.get(1)?.trim()
   }
 
   // A .mpak has no magic number and no rule on entry order, so this only guesses a name from a leading manifest; the app
@@ -660,22 +438,6 @@ class MainActivity : TauriActivity() {
   private fun looksLikeMpak(head: String): Boolean =
     head.startsWith("PK\u0003\u0004") && head.length >= 43 &&
       head.startsWith("manifest.json", 30)
-
-  // Gives a file without a tab extension the one its header bytes imply (Guitar Pro 3-5, zip-based .gp, or .mpak).
-  private fun withTabExtension(name: String, bytes: ByteArray): String {
-    if (Regex("\\.(gp\\d?|gpx|gp7|mpak)$", RegexOption.IGNORE_CASE).containsMatchIn(name)) return name
-    val base = name.substringBeforeLast('.', name)
-    val head = String(bytes, 0, minOf(bytes.size, 64), Charsets.ISO_8859_1)
-    return when {
-      looksLikeMpak(head) -> "$base.mpak"
-      head.startsWith("PK") -> "$base.gp"
-      head.startsWith("BCFZ") || head.startsWith("BCFS") -> "$base.gpx"
-      head.contains("FICHIER GUITAR PRO v3") -> "$base.gp3"
-      head.contains("FICHIER GUITAR PRO v4") -> "$base.gp4"
-      head.contains("FICHIER GUITAR PRO v5") -> "$base.gp5"
-      else -> name
-    }
-  }
 
   override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
     if (event.action == android.view.KeyEvent.ACTION_DOWN) {
@@ -694,25 +456,5 @@ class MainActivity : TauriActivity() {
       }
     }
     return super.dispatchKeyEvent(event)
-  }
-
-  private fun answerNativeFetch(id: String, status: Int, body: String) {
-    runOnUiThread {
-      mainWebView?.evaluateJavascript(
-        "window.__onNativeFetch && window.__onNativeFetch(" + org.json.JSONObject.quote(id) + ", " + status + ", " +
-          org.json.JSONObject.quote(body) + ");",
-        null
-      )
-    }
-  }
-
-  private fun deliverDownloadedTab(name: String, base64Data: String) {
-    runOnUiThread {
-      hideDownloader()
-      val script = "window.__onTabDownloaded && window.__onTabDownloaded(" +
-        org.json.JSONObject.quote(name) + ", " +
-        org.json.JSONObject.quote(base64Data) + ");"
-      mainWebView?.evaluateJavascript(script, null)
-    }
   }
 }

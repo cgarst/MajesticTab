@@ -18,9 +18,9 @@ function escapeHtml(str) {
 export function renderOpenFileView(container, { onBack }) {
     // The local device is covered by the drop zone above
     const allProviders = getFileProviders();
-    const providers = allProviders.filter(p => p.id !== 'local' && p.id !== 'tab-downloader');
+    const providers = allProviders.filter(p => p.id !== 'local' && p.id !== 'web-search');
     // The web search provider (native apps only) is a search bar rather than a card
-    const hasWebSearch = allProviders.some(p => p.id === 'tab-downloader');
+    const hasWebSearch = allProviders.some(p => p.id === 'web-search');
     const canDrop = fileDropSupported();
 
     container.innerHTML = `
@@ -95,11 +95,11 @@ export function renderOpenFileView(container, { onBack }) {
         if (file) openLocalFile(file);
     });
 
-    // Web search: opens the tab downloader on the typed query (blank opens its start page)
+    // Web search: opens the system browser on the typed query
     container.querySelector('#openFileWebSearchForm')?.addEventListener('submit', (e) => {
         e.preventDefault();
         const query = container.querySelector('#openFileWebSearchInput').value.trim();
-        openFromProvider('tab-downloader', query ? { query } : {});
+        openFromProvider('web-search', query ? { query } : {});
     });
 
     // Providers

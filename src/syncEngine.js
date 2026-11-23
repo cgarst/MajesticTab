@@ -131,7 +131,7 @@ function remoteItems(manifest) {
  *   unchanged: number, bytesUp: number, bytesDown: number, needsPush: boolean
  * }>}
  */
-// The downloader's source list is written on first use, so "fill gaps" would never bring in sources
+// The search provider list is written on first use, so "fill gaps" would never bring in sources
 // added on another device. It merges by id instead: the copy with the newer updatedAt wins, and a
 // deletion (a tombstone with its time) wins over any copy that was last edited before it. (See recordSync.js.)
 

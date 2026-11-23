@@ -1,28 +1,17 @@
 // utils/webSearchSettings.js
-// Web search and adblocking settings for native clients (desktop and mobile).
-// Manages dynamic adblock toggling/cache upkeep and search provider configuration.
+// Web search settings for native clients (desktop and mobile): the search provider list.
 
 import {
-    isDesktopNative,
     getSources,
     saveSources,
     resetToDefaultSources,
     stampSourceChanges,
-    renderDownloaderTabs,
     DEFAULT_SOURCES,
-    openTabDownloader
-} from '../tabDownloader.js';
-// @inAppBrowser:begin
-import {
-    isAdblockEnabled,
-    setAdblockEnabled,
-    getAdblockStatus
-} from '../tabDownloader.js';
-// @inAppBrowser:end
-import { hasFeature } from '../channel.js';
+    openWebSearch
+} from '../webSearch.js';
 import { showToast } from './toast.js';
 
-// The downloader opens over the library, not over Settings: step back out of the Settings view first
+// The search opens over the library, not over Settings: step back out of the Settings view first
 async function hideSettings() {
     const { handleBack, getActiveLibraryView } = await import('../libraryModal.js');
     if (getActiveLibraryView() === 'settings') await handleBack();
@@ -60,119 +49,6 @@ function note(text) {
     return el('p', 'snote', text);
 }
 
-function formatRelativeTime(timestamp) {
-    if (!timestamp) return 'never';
-    const diff = Math.max(0, Date.now() - timestamp);
-    const mins = Math.floor(diff / 60000);
-    if (mins < 2) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days === 1) return 'yesterday';
-    return `${days} days ago`;
-}
-
-// @inAppBrowser:begin
-let updateAdblockDisabledState = null;
-
-function makeAdblockGroup() {
-    const sw = el('input', 'form-check-input theme-switch');
-    sw.type = 'checkbox';
-    sw.checked = isAdblockEnabled();
-    sw.setAttribute('aria-label', 'Block ads and trackers');
-
-    const statusSpan = el('span', 'small mt-1 d-block');
-    const refreshBtn = el('button', 'btn btn-sm srow-ghost', 'Refresh list');
-    refreshBtn.type = 'button';
-    refreshBtn.setAttribute('aria-label', 'Refresh ad blocking list');
-
-    const updateStatusText = () => {
-        const isSystem = localStorage.getItem('majestictab_web_search_browser') !== 'in-app';
-        if (isSystem) {
-            statusSpan.textContent = 'Only applies when using the in-app browser.';
-            refreshBtn.disabled = true;
-            sw.disabled = true;
-            return;
-        }
-        sw.disabled = false;
-        const status = getAdblockStatus();
-        if (!status.enabled) {
-            statusSpan.textContent = 'Disabled. When turned on, community rules are downloaded dynamically.';
-            refreshBtn.disabled = true;
-        } else {
-            const countStr = status.count > 0 ? `${status.count.toLocaleString()} domains blocked` : 'Downloading list...';
-            const ageStr = status.lastUpdated > 0 ? formatRelativeTime(status.lastUpdated) : 'just now';
-            statusSpan.textContent = `${countStr} • Updated ${ageStr}`;
-            refreshBtn.disabled = false;
-        }
-    };
-
-    refreshBtn.addEventListener('click', async () => {
-        if (refreshBtn.disabled) return;
-        refreshBtn.disabled = true;
-        refreshBtn.textContent = 'Refreshing...';
-        try {
-            const res = await setAdblockEnabled(true, true);
-            showToast(`List updated (${res.count.toLocaleString()} domains)`, 2500);
-        } catch {
-            showToast('Failed to refresh list', 3000);
-        } finally {
-            refreshBtn.textContent = 'Refresh list';
-            refreshBtn.disabled = false;
-            updateStatusText();
-        }
-    });
-
-    sw.addEventListener('change', async () => {
-        if (sw.disabled) return;
-        const enabling = sw.checked;
-        const status = getAdblockStatus();
-        if (enabling && status.count === 0) {
-            showToast('Turning on ad blocking (downloading community list)...', 3000);
-        }
-        refreshBtn.disabled = !enabling;
-        try {
-            const res = await setAdblockEnabled(enabling);
-            if (res.enabled) {
-                showToast(`Ad blocking on (${res.count.toLocaleString()} domains)`, 2500);
-            } else {
-                showToast('Ad blocking off', 2500);
-            }
-        } catch {
-            showToast('Failed to update ad blocking rules', 3000);
-        }
-        updateStatusText();
-    });
-
-    updateStatusText();
-
-    const switchWrap = el('div', 'form-check form-switch mb-0');
-    switchWrap.appendChild(sw);
-
-    const controlsWrap = el('div', 'd-flex align-items-center gap-2');
-    controlsWrap.appendChild(refreshBtn);
-    controlsWrap.appendChild(switchWrap);
-
-    const mainRow = row(
-        'Block ads and trackers',
-        'Blocks popups, video ads, and fake download buttons using Peter Lowe’s community list.',
-        controlsWrap
-    );
-    mainRow.querySelector('.st')?.appendChild(statusSpan);
-
-    updateAdblockDisabledState = () => {
-        const isSystem = localStorage.getItem('majestictab_web_search_browser') !== 'in-app';
-        mainRow.classList.toggle('opacity-50', isSystem);
-        updateStatusText();
-    };
-
-    updateAdblockDisabledState();
-
-    return group('Ad and tracker blocking', mainRow);
-}
-// @inAppBrowser:end
-
 function makeProvidersGroup() {
     const container = el('div', 'sgroup');
     const heading = el('h3', '', 'Search providers');
@@ -185,45 +61,6 @@ function makeProvidersGroup() {
     function renderList(openEditorForId = null) {
         listWrap.innerHTML = '';
         const sources = getSources();
-
-        // @inAppBrowser:begin
-        // Browser preference (in-app vs system browser)
-        const browserPrefKey = 'majestictab_web_search_browser';
-        const currentBrowser = localStorage.getItem(browserPrefKey) || 'system';
-        const browserSeg = el('div', 'hud-pill-group');
-        browserSeg.setAttribute('role', 'radiogroup');
-        browserSeg.setAttribute('aria-label', 'Open search in');
-
-        const inAppBtn = el('button', 'btn btn-sm' + (currentBrowser !== 'system' ? ' active' : ''));
-        inAppBtn.type = 'button';
-        inAppBtn.textContent = 'In-app browser';
-        inAppBtn.addEventListener('click', () => {
-            localStorage.setItem(browserPrefKey, 'in-app');
-            try { window.dispatchEvent(new CustomEvent('majestictab-web-search-browser-changed', { detail: 'in-app' })); } catch {}
-            inAppBtn.classList.add('active');
-            sysBtn.classList.remove('active');
-            updateAdblockDisabledState?.();
-            updateTestSearchState?.();
-        });
-
-        const sysBtn = el('button', 'btn btn-sm' + (currentBrowser === 'system' ? ' active' : ''));
-        sysBtn.type = 'button';
-        sysBtn.textContent = 'System default browser';
-        sysBtn.addEventListener('click', () => {
-            localStorage.setItem(browserPrefKey, 'system');
-            try { window.dispatchEvent(new CustomEvent('majestictab-web-search-browser-changed', { detail: 'system' })); } catch {}
-            sysBtn.classList.add('active');
-            inAppBtn.classList.remove('active');
-            updateAdblockDisabledState?.();
-            updateTestSearchState?.();
-        });
-
-        browserSeg.appendChild(inAppBtn);
-        browserSeg.appendChild(sysBtn);
-
-        const browserRow = row('Open search in', 'Choose whether web search opens inside MajesticTab or in your default web browser.', browserSeg);
-        listWrap.appendChild(browserRow);
-        // @inAppBrowser:end
 
         // Default provider row (dropdown)
         const defaultSelect = el('select', 'form-select form-select-sm');
@@ -250,7 +87,6 @@ function makeProvidersGroup() {
                 sources.unshift(item);
                 stampSourceChanges(sources);
                 saveSources(sources);
-                renderDownloaderTabs();
                 renderList();
             }
         });
@@ -324,25 +160,6 @@ function makeProvidersGroup() {
                 queryWrap.appendChild(querySelect);
                 editorSlot.appendChild(queryWrap);
 
-                // Force desktop (mobile only)
-                let desktopCheck = null;
-                if (!isDesktopNative()) {
-                    const desktopWrap = el('div', 'p-2 rounded-2 mt-1');
-                    desktopWrap.style.background = 'var(--s1)';
-                    const switchDiv = el('div', 'form-check form-switch mb-1');
-                    desktopCheck = el('input', 'form-check-input theme-switch');
-                    desktopCheck.type = 'checkbox';
-                    desktopCheck.id = `desktopSwitch_${src.id}`;
-                    desktopCheck.checked = Boolean(src.forceDesktop);
-                    const desktopLabel = el('label', 'form-check-label small text-white fw-semibold', 'Force desktop site');
-                    desktopLabel.htmlFor = desktopCheck.id;
-                    switchDiv.appendChild(desktopCheck);
-                    switchDiv.appendChild(desktopLabel);
-                    desktopWrap.appendChild(switchDiv);
-                    desktopWrap.appendChild(el('div', 'small text-white-50', 'Mobile only. Turn on if this tab site misbehaves on a phone.'));
-                    editorSlot.appendChild(desktopWrap);
-                }
-
                 // Action buttons footer
                 const footer = el('div', 'd-flex align-items-center justify-content-between pt-2 mt-1');
                 if (!src.isSeed) {
@@ -352,8 +169,7 @@ function makeProvidersGroup() {
                         const all = getSources().filter((s) => s.id !== src.id);
                         stampSourceChanges(all);
                         saveSources(all);
-                        renderDownloaderTabs();
-                        showToast(`Deleted ${src.name}`, 2500);
+                            showToast(`Deleted ${src.name}`, 2500);
                         renderList();
                     });
                     footer.appendChild(delBtn);
@@ -364,7 +180,7 @@ function makeProvidersGroup() {
                 const btnGroup = el('div', 'd-flex align-items-center gap-2');
                 const testProviderBtn = el('button', 'btn btn-theme-outline btn-sm', 'Test');
                 testProviderBtn.type = 'button';
-                testProviderBtn.title = 'Test this provider in the in-app browser';
+                testProviderBtn.title = 'Test this provider in your web browser';
                 testProviderBtn.addEventListener('click', async () => {
                     let uVal = urlInput.value.trim() || src.urlTemplate;
                     if (uVal && !/^https?:\/\//i.test(uVal)) uVal = 'https://' + uVal;
@@ -372,17 +188,15 @@ function makeProvidersGroup() {
                         ...src,
                         name: nameInput.value.trim() || src.name,
                         urlTemplate: uVal,
-                        queryFormat: querySelect.value,
-                        forceDesktop: desktopCheck ? desktopCheck.checked : src.forceDesktop
+                        queryFormat: querySelect.value
                     };
                     const all = getSources();
                     const idx = all.findIndex((s) => s.id === src.id);
                     if (idx !== -1) all[idx] = draft;
                     else all.push(draft);
                     saveSources(all);
-                    renderDownloaderTabs();
                     await hideSettings();
-                    openTabDownloader({
+                    openWebSearch({
                         targetSourceId: draft.id,
                         query: draft.queryFormat === 'song_only' ? 'Duo No 2 In G Major' : 'Carulli Duo No 2 In G Major'
                     });
@@ -414,12 +228,10 @@ function makeProvidersGroup() {
                             }
                         }
                         target.queryFormat = querySelect.value;
-                        if (desktopCheck) target.forceDesktop = desktopCheck.checked;
 
                         stampSourceChanges(all);
                         saveSources(all);
-                        renderDownloaderTabs();
-                        showToast('Search provider updated', 2500);
+                            showToast('Search provider updated', 2500);
                         renderList();
                     }
                 });
@@ -478,7 +290,6 @@ function makeProvidersGroup() {
             all.push(newSrc);
             stampSourceChanges(all);
             saveSources(all);
-            renderDownloaderTabs();
             renderList(newId);
         });
         const addRow = row('Add custom search provider', 'Add another tab website or search engine using $s for keywords.', addBtn);
@@ -496,7 +307,6 @@ function makeProvidersGroup() {
                 resetBtn.dataset.confirming = 'false';
                 resetBtn.textContent = 'Reset';
                 resetToDefaultSources();
-                renderDownloaderTabs();
                 showToast('Search providers restored to defaults', 2500);
                 renderList();
                 return;
@@ -518,45 +328,8 @@ function makeProvidersGroup() {
     return container;
 }
 
-// @inAppBrowser:begin
-let updateTestSearchState = null;
-
-function makeTestSearchGroup() {
-    const testBtn = el('button', 'btn btn-sm srow-ghost srow-hit', 'Test');
-    testBtn.type = 'button';
-    testBtn.setAttribute('aria-label', 'Test web search');
-    testBtn.addEventListener('click', async () => {
-        if (testBtn.disabled) return;
-        await hideSettings();
-        openTabDownloader({ query: 'Carulli Duo No 2 In G Major' });
-    });
-
-    const isSystem = !hasFeature('inAppBrowser') || localStorage.getItem('majestictab_web_search_browser') !== 'in-app';
-    const testRow = row('Test web search', isSystem ? 'Only applies when using the in-app browser.' : 'Opens the in-app browser.', testBtn);
-    testRow.classList.add('srow-task');
-
-    updateTestSearchState = () => {
-        const sys = !hasFeature('inAppBrowser') || localStorage.getItem('majestictab_web_search_browser') !== 'in-app';
-        testBtn.disabled = sys;
-        testRow.classList.toggle('opacity-50', sys);
-        const span = testRow.querySelector('.st span');
-        if (span) span.textContent = sys ? 'Only applies when using the in-app browser.' : 'Opens the in-app browser.';
-    };
-
-    updateTestSearchState();
-
-    return group('Test', testRow);
-}
-// @inAppBrowser:end
-
 export function initWebSearchSettings(container) {
     if (!container) return;
     container.innerHTML = '';
     container.appendChild(makeProvidersGroup());
-    // @inAppBrowser:begin
-    if (hasFeature('inAppBrowser')) {
-        container.appendChild(makeAdblockGroup());
-        container.appendChild(makeTestSearchGroup());
-    }
-    // @inAppBrowser:end
 }

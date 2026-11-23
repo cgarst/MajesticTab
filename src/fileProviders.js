@@ -9,11 +9,8 @@ import { openDrivePicker, redirectToGoogleAuth, isTokenValid, ensureFreshToken }
 import { isIcloudDriveSupported } from './icloudDrive.js';
 import { hasFeature } from './channel.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
-import { openTabDownloader, offerWsaUrlBanner, isNative as isNativeDownloader } from './tabDownloader.js';
+import { openWebSearch, isNative as isNativeApp } from './webSearch.js';
 import { unwrapRedirectUrl } from './urlImport/openFromUrl.js';
-// @inAppBrowser:begin
-import { isWsaTabUrl } from './utils/downloaderIntercept.js';
-// @inAppBrowser:end
 import { addTabOptionToSong, addTabOptionToAlbum, getSongById } from './libraryStore.js';
 import { detectFileMetadata } from './utils/tuningUtils.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
@@ -79,11 +76,11 @@ export async function openFromProvider(id, options = {}) {
 }
 
 /**
- * Get all registered file providers that support saving (excludes tab downloader)
+ * Get all registered file providers that support saving (excludes web search)
  * @returns {Array<FileProvider>}
  */
 export function getSaveProviders() {
-    return getFileProviders().filter(p => !p.id.startsWith('tab-downloader') && typeof p.save === 'function');
+    return getFileProviders().filter(p => !p.id.startsWith('web-search') && typeof p.save === 'function');
 }
 
 const SYNC_TARGET_KEY = 'majestictab_sync_target';
@@ -112,7 +109,7 @@ export async function saveToProvider(id, fileBlob, filename, options = {}) {
     if (!provider) {
         throw new Error(`File provider "${id}" not found.`);
     }
-    if (provider.id.startsWith('tab-downloader')) {
+    if (provider.id.startsWith('web-search')) {
         throw new Error('Web Search does not support saving files.');
     }
     if (typeof provider.save !== 'function') {
@@ -489,60 +486,43 @@ function looksLikeTabFileUrl(url) {
 
 export async function openTabFromUrl(text, options = {}) {
     try {
-        // A link to a score page opens the downloader with a banner; the user sends the address on.
         const pageUrl = unwrapRedirectUrl((text || '').trim());
-        // An address that is not itself a tab file is a page: browse it in the downloader, which offers to send tab-site
-        // pages on (the banner below, and again whenever the page changes). An address with no file extension may still
-        // serve a tab file (a download endpoint), so ask it first and only browse when it is not one.
+        // An address that is not itself a tab file is a page: open it in the system browser. An address with no file
+        // extension may still serve a tab file (a download endpoint), so ask it first and only browse when it is not one.
         let probed = null;
-        if (isNativeDownloader() && /^https?:\/\//i.test(pageUrl) && !looksLikeTabFileUrl(pageUrl)) {
+        if (isNativeApp() && /^https?:\/\//i.test(pageUrl) && !looksLikeTabFileUrl(pageUrl)) {
             showToast('Checking the address...', 'info', 1500);
             const { probeTabFile } = await import('./urlImport/openFromUrl.js');
             probed = await probeTabFile(pageUrl);
             if (!probed) {
-                await openTabDownloader({ ...options, startUrl: pageUrl });
-                // @inAppBrowser:begin
-                if (isWsaTabUrl(pageUrl)) offerWsaUrlBanner(pageUrl);
-                // @inAppBrowser:end
+                await openWebSearch({ ...options, startUrl: pageUrl });
                 return;
             }
         }
         showToast('Fetching...', 'info', 1500);
-        let file, sync = [];
+        let file;
         if (probed) {
             file = probed;
         } else {
             const { openFromUrl } = await import('./urlImport/openFromUrl.js');
-            ({ file, sync } = await openFromUrl(text));
+            ({ file } = await openFromUrl(text));
         }
         file.sourceUrl = (text || '').trim();
-        const { extractSourceWebsite } = await import('./tabDownloader.js');
+        const { extractSourceWebsite } = await import('./webSearch.js');
         file.sourceWebsite = extractSourceWebsite(file.sourceUrl);
         if (!(await isSupportedTabFile(file))) {
             showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mpak)`, 'warning');
             return;
         }
         await handlePickedFile(file, options);
-        if (!sync.length) return;
-        const { attachSyncSets } = await import('./urlImport/attachSync.js');
-        const { saved, skipped } = await attachSyncSets(sync);
-        if (saved.length) {
-            showToast(`Added map points for ${saved.length === 1 ? saved[0] : `${saved.length} videos`}`, 'success');
-            const { switchToOriginalSound } = await import('./audioSync/realAudioController.js');
-            await switchToOriginalSound();
-        }
-        if (skipped.length) {
-            const more = skipped.length > 1 ? ` (and ${skipped.length - 1} more)` : '';
-            showToast(`Map points not added: ${skipped[0]}${more}`, 'warning', 6000);
-        }
     } catch (error) {
         if (error?.message !== 'Cancelled.') showToast(error?.message || 'Could not open that address.', 'error');
     }
 }
 
-// --- Built-in Provider: Tab Downloader (Native Only) ---
-export const TabDownloaderNativeProvider = {
-    id: 'tab-downloader',
+// --- Built-in Provider: Web Search (Native Only) ---
+export const WebSearchProvider = {
+    id: 'web-search',
     name: 'Web Search',
     icon: 'bi-search',
     iconColorClass: 'text-info',
@@ -550,7 +530,7 @@ export const TabDownloaderNativeProvider = {
     badge: 'Online',
     actionLabel: 'Search the Web',
     async open(options = {}) {
-        return openTabDownloader(options);
+        return openWebSearch(options);
     }
 };
 
@@ -568,7 +548,7 @@ if (isIcloudDriveSupported()) {
 }
 
 if (typeof window !== 'undefined' && Boolean(window.__TAURI__)) {
-    registerFileProvider(TabDownloaderNativeProvider);
+    registerFileProvider(WebSearchProvider);
 }
 
 

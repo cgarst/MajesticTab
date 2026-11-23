@@ -146,9 +146,8 @@ test('toggleWebCtaCollapse toggles DOM classes, aria attributes, and storage', (
 });
 
 test('libraryEmptyWelcomeHtml says "Search the catalog" in web app and "Search the catalog and web" in native app', () => {
-    // Web app environment (no Tauri or native downloader bridge)
+    // Web app environment (no Tauri)
     delete globalThis.window.__TAURI__;
-    delete globalThis.window.MajesticDownloaderNative;
 
     const webHtml = libraryEmptyWelcomeHtml({ title: 'Welcome', subtitle: 'Start playing' });
     assert.match(webHtml, /Search the catalog/);

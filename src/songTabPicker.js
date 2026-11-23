@@ -9,8 +9,8 @@ import { fileDropSupported } from './utils/fileHandlingUtils.js';
 const SHEET_QUERY = '(max-width: 576px)';
 // Sources shown first, as the intent ("find it" or "I have it"); the rest sit under "More sources"
 const PRIMARY_PROVIDERS = ['local'];
-const SOURCE_ORDER = ['google-drive', 'icloud-drive', 's3', 'webdav', 'url', 'tab-downloader'];
-const PROVIDER_LABELS = { 'tab-downloader': 'Search the web', local: 'Choose a file' };
+const SOURCE_ORDER = ['google-drive', 'icloud-drive', 's3', 'webdav', 'url', 'web-search'];
+const PROVIDER_LABELS = { 'web-search': 'Search the web', local: 'Choose a file' };
 
 let openPicker = null;
 

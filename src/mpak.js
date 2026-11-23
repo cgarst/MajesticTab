@@ -990,7 +990,7 @@ export async function openMpak(file, options = {}) {
             let targetSongId = pending?.songId || null;
             const collectionId = pending?.collectionId || undefined;
 
-            // Only a download the user started from the in-app browser into a chosen song is saved here. Opening a file (from
+            // Only a download the user started from a web search for a chosen song is saved here. Opening a file (from
             // the OS, a picker or a drop) never adds to the library: the user saves it with Save to library.
             if (targetSongId) {
                 const saved = await saveMpakToLibrary(unpacked, {

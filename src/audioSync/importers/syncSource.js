@@ -1,5 +1,5 @@
 // importers/syncSource.js
-// Runs a multi-step sync source (such as `builtinSource.js`). Given the address and the response texts so far,
+// Runs a multi-step sync source. Given the address and the response texts so far,
 // the step function returns either `{ fetch: [addresses] }`, which are fetched here and appended to the responses
 // before the next call, or `{ text }`.
 

@@ -1,15 +1,11 @@
 // importers/index.js
 // Imports sync points from a web address. The address is only fetched; how its text is read is decided by what the
 // text looks like (see detect.js), so no site is known by name. A site that needs more than one request can be handled
-// by a multi-step sync source (see builtinSource.js and syncSource.js). A bare list of bar start times has to be placed on the
+// by a multi-step sync source (see syncSource.js). A bare list of bar start times has to be placed on the
 // score, which `placeBarTimes` does against the score's played bars (repeats included).
 
 import { detectSets } from './detect.js';
 import { runSyncSteps } from './syncSource.js';
-// @wsaSync:begin
-import { builtinSource } from './builtinSource.js';
-// @wsaSync:end
-
 /**
  * Fetches `urlText` and returns the candidate sets in it (`{ label, points }` or `{ label, barTimesMs }`).
  * `findSource(url)` may return a custom `{ step }` for the address, which then does the fetching instead of the
@@ -20,11 +16,7 @@ export async function loadFromUrl(urlText, fetchText, { findSource = null } = {}
     let url;
     try { url = new URL(String(urlText).trim()); } catch { throw new Error('That is not a web address.'); }
     if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Only http and https addresses are supported.');
-    const source = (findSource ? await findSource(url.href) : null)
-        // @wsaSync:begin
-        || (builtinSource.matches(url.href) ? builtinSource : null)
-        // @wsaSync:end
-    ;
+    const source = findSource ? await findSource(url.href) : null;
     const text = source ? await runSyncSteps({ url: url.href, step: source.step, fetchText }) : await fetchText(url.href);
     return detectSets(text);
 }

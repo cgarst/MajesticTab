@@ -43,7 +43,7 @@ import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
 import { songHasSyncPoints } from './audioSync/syncStore.js';
 import { songHasLocalSlot } from './audioSync/libraryAudio.js';
-import { isNative, openTabDownloader } from './tabDownloader.js';
+import { isNative, openWebSearch } from './webSearch.js';
 import { openSongTabPicker, closeSongTabPicker, isSongTabPickerOpen } from './songTabPicker.js';
 import { visibleTabs, setOf } from './tabSets.js';
 
@@ -619,7 +619,7 @@ export async function navigateToAlbumInLibrary(artistName, albumTitle) {
 }
 
 /**
- * Handle 1-click single song fulfillment: creates library song shell and opens downloader pre-targeted
+ * Handle 1-click single song fulfillment: creates library song shell and opens a web search pre-targeted
  */
 export async function handleGetTabSingleSong(songItem, { addOnly = false, navigate = false } = {}) {
     if (!songItem) return;
@@ -677,12 +677,11 @@ export async function handleGetTabSingleSong(songItem, { addOnly = false, naviga
 
     if (isNative()) {
         const query = `${artist} ${title}`;
-        await openTabDownloader({
+        await openWebSearch({
             targetSong,
             artist,
             songName: title,
-            query,
-            autoOpenOnDownload: true
+            query
         });
     } else {
         const query = `${artist} ${title} guitar tab`;
@@ -692,8 +691,8 @@ export async function handleGetTabSingleSong(songItem, { addOnly = false, naviga
 }
 
 /**
- * Handle Guided Batch Tab Assistant for albums:
- * Pre-flights library for existing tabs, builds smart queue, launches downloader in batch mode
+ * Adds an album to the library, links tabs the library already has to its tracks, and opens a web search for the first
+ * track still without a tab
  */
 export async function handleAddAlbumBatch(albumItem, btnEl, { addOnly = false, navigate = false } = {}) {
     if (!albumItem) return;
@@ -799,19 +798,18 @@ export async function handleAddAlbumBatch(albumItem, btnEl, { addOnly = false, n
         }
 
         if (!isNative()) {
-            showToast('Batch tab downloading requires the MajesticTab desktop or mobile app. On the web, you can add songs individually or drop tab files.', 'warning');
+            showToast('Searching for tabs by album needs the MajesticTab desktop or mobile app. On the web, you can add songs individually or drop tab files.', 'warning');
             await navigateToAlbumInLibrary(artistName, albumTitle);
             return;
         }
 
         const firstMissingIdx = queue.findIndex(t => !t.acquired);
-        await openTabDownloader({
-            batchMode: true,
-            albumTitle,
-            artistName,
-            albumId: albumObj?.id || null,
-            queue,
-            currentIndex: firstMissingIdx >= 0 ? firstMissingIdx : 0
+        const next = queue[firstMissingIdx >= 0 ? firstMissingIdx : 0];
+        await openWebSearch({
+            targetSong: albumTracks.find(track => track.id === next.songId) || null,
+            artist: artistName,
+            songName: next.title,
+            query: `${artistName} ${next.title}`
         });
     } catch (err) {
         console.error('[Batch Assistant] Error preparing batch download:', err);
@@ -2573,7 +2571,7 @@ export async function goLibraryTab(tab) {
 // Every dialog already closes on Escape, so each visible one is sent that key rather than reaching into its module.
 function dismissOpenDialogs() {
     const isOpen = (el) => el.getClientRects().length > 0 && el.getAttribute('aria-hidden') !== 'true';
-    const sel = '[role="dialog"][aria-modal="true"], .theme-modal-backdrop, .downloader-batch-popover';
+    const sel = '[role="dialog"][aria-modal="true"], .theme-modal-backdrop';
     for (let i = 0; i < 5; i++) {
         if (![...document.querySelectorAll(sel)].some(isOpen)) break;
         (document.activeElement || document).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
@@ -3559,7 +3557,7 @@ function formatPageRange(start, end) {
     return start && end && String(start) !== String(end) ? `pp. ${start}\u2013${end}` : `p. ${start || end}`;
 }
 
-// Opens a source for a song's tab: the file picker or URL box, Drive, or the tab downloader prefilled with the song
+// Opens a source for a song's tab: the file picker or URL box, Drive, or a web search prefilled with the song
 function importTabFromProvider(songId, providerId) {
     if (providerId === 'local' || providerId === 'url') {
         openFromProvider(providerId, { songId });
@@ -4300,7 +4298,7 @@ function setupSongRowActions(container) {
         });
     });
 
-    // Import Tab with Provider (Local, Drive, Tab Downloader)
+    // Import Tab with Provider (Local, Drive, Web Search)
     container.querySelectorAll('.import-tab-provider-btn').forEach(btn => {
         btn.addEventListener('click', () => importTabFromProvider(btn.dataset.songId, btn.dataset.providerId));
     });
@@ -5218,7 +5216,7 @@ export async function openRecentItem(r) {
 // The "Add tab" sources for this client, straight from the provider registry: Web Search on the desktop app, iCloud Drive
 // where it is supported, Google Drive only in builds that include it. `attrs` ties each row to its song or album.
 function addTabProviderItemsHtml(buttonClass, attrs = '') {
-    const order = ['local', 'google-drive', 'icloud-drive', 's3', 'webdav', 'url', 'tab-downloader'];
+    const order = ['local', 'google-drive', 'icloud-drive', 's3', 'webdav', 'url', 'web-search'];
     const rank = (p) => { const i = order.indexOf(p.id); return i < 0 ? order.length : i; };
     return [...getFileProviders()].sort((a, b) => rank(a) - rank(b)).map((p) => {
         const tint = String(p.icon).startsWith('icon-') ? '' : ` ${p.iconColorClass || ''}`;

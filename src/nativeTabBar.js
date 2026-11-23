@@ -180,8 +180,7 @@ function applyVisibility() {
     if (state !== 'on') return;
     const isMac = document.documentElement.classList.contains('tauri-macos') ||
                   (typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform) && !isIOSDevice());
-    const inLibrary = document.body.classList.contains('library-view-active') &&
-                      !document.body.classList.contains('downloader-active');
+    const inLibrary = document.body.classList.contains('library-view-active');
     document.body.classList.toggle('native-tabbar', inLibrary);
     document.body.classList.toggle('native-rail', inLibrary && isMac);
     if (shown === !wantVisible) return;
@@ -241,7 +240,6 @@ function dialogOpen() {
 // already laid out in its final place under the splash and nothing moves when the splash goes.
 function layoutWanted() {
     return document.body.classList.contains('library-view-active') &&
-           !document.body.classList.contains('downloader-active') &&
            !dialogOpen();
 }
 
@@ -306,7 +304,7 @@ export function initNativeTabBar() {
                           Boolean(tauri()?.core?.Channel);
     if (!isNativeApple || initNativeTabBar.done) return;
     initNativeTabBar.done = true;
-    // The bar belongs to the library: the reader, the downloader and wide layouts hide it
+    // The bar belongs to the library: the reader and wide layouts hide it
     new MutationObserver(refresh).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     // Dialogs are added to and removed from the body itself
     new MutationObserver(refresh).observe(document.body, { childList: true });

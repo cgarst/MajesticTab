@@ -622,16 +622,17 @@ test('saveMpakToLibrary queries MusicBrainz by IDs to add a new song in proper a
     }
 });
 
-test('handleDownloadedTabFile unpacks .mpak download and attaches inner tab and both audio slots to target song', async () => {
+test('an .mpak saved for a web-search target song attaches the inner tab and both audio slots to it', async () => {
     lsMap.clear();
     await clearAllLibraryData();
     globalThis.window.__TAURI__ = {
         core: { invoke: async () => false },
-        event: { listen: async () => () => {} }
+        event: { listen: async () => () => {} },
+        opener: { openUrl: async () => {} }
     };
 
     const { saveSongToLibrary } = await import('../../src/libraryStore.js');
-    const { openTabDownloader, handleDownloadedTabFile } = await import('../../src/tabDownloader.js');
+    const { openWebSearch } = await import('../../src/webSearch.js');
 
     const targetSong = await saveSongToLibrary({
         id: 'song_metallica_master',
@@ -641,7 +642,7 @@ test('handleDownloadedTabFile unpacks .mpak download and attaches inner tab and 
         year: 1986
     });
 
-    await openTabDownloader({ artist: 'Metallica', songName: 'Master of Puppets', targetSong });
+    await openWebSearch({ artist: 'Metallica', songName: 'Master of Puppets', targetSong });
 
     const tabBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 9, 8, 7]);
     const origBytes = new Uint8Array(64).fill(0x55);
@@ -655,9 +656,12 @@ test('handleDownloadedTabFile unpacks .mpak download and attaches inner tab and 
         origPoints: [{ id: 'p0', barIndex: 0, occurrence: 0, pos: 0, timeMs: 800, source: 'auto' }],
         backPoints: [{ id: 'p0', barIndex: 0, occurrence: 0, pos: 0, timeMs: 1500, source: 'auto' }]
     });
-    const mpakUint8 = new Uint8Array(await mpakBlob.arrayBuffer());
 
-    await handleDownloadedTabFile('Metallica - Master of Puppets.mpak', mpakUint8);
+    const unpacked = await unpackMpak(mpakBlob);
+    const pending = JSON.parse(localStorage.getItem('majestictab_pending_browser_target') || 'null');
+    assert.equal(pending?.songId, targetSong.id);
+    await saveMpakToLibrary(unpacked, { targetSongId: pending.songId, queryMusicBrainz: false });
+    await applyMpakExtras(unpacked.header, unpacked.opened);
 
     const updatedSong = await getSongById(targetSong.id);
     assert.equal(updatedSong.tabOptions.length, 1);
@@ -673,7 +677,7 @@ test('handleDownloadedTabFile unpacks .mpak download and attaches inner tab and 
     assert.equal(loadRecord(songKey, { kind: 'local', audioId: backId })?.points?.[0]?.timeMs, 1500);
 });
 
-test('system-browser openTabDownloader records pending target and missingTabsTool serializes batch payloads', async () => {
+test('openWebSearch records the pending target and missingTabsTool serializes batch payloads', async () => {
     lsMap.clear();
     let openedUrl = null;
     globalThis.window.__TAURI__ = {
@@ -681,10 +685,8 @@ test('system-browser openTabDownloader records pending target and missingTabsToo
         event: { listen: async () => () => {} },
         opener: { openUrl: async (url) => { openedUrl = url; } }
     };
-    localStorage.setItem('majestictab_web_search_browser', 'system');
-
-    const { openTabDownloader } = await import('../../src/tabDownloader.js');
-    await openTabDownloader({
+    const { openWebSearch } = await import('../../src/webSearch.js');
+    await openWebSearch({
         artist: 'Metallica',
         songName: 'Orion',
         songId: 'song_orion_1',

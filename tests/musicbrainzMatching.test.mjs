@@ -23,27 +23,3 @@ test('searchMusicBrainz respects AbortController signal', async () => {
         (err) => err.name === 'AbortError'
     );
 });
-
-test('batch queue advances to next unacquired track', () => {
-    const queue = [
-        { trackNumber: 1, title: 'Battery', acquired: true },
-        { trackNumber: 2, title: 'Master of Puppets', acquired: true },
-        { trackNumber: 3, title: 'The Thing That Should Not Be', acquired: false },
-        { trackNumber: 4, title: 'Welcome Home (Sanitarium)', acquired: false }
-    ];
-
-    let currentIndex = 0;
-    // Pre-flight smart positioning: find first unacquired track
-    currentIndex = queue.findIndex(t => !t.acquired);
-    assert.equal(currentIndex, 2);
-    assert.equal(queue[currentIndex].title, 'The Thing That Should Not Be');
-
-    // Simulate downloading track 3
-    queue[currentIndex].acquired = true;
-
-    // Advance to next unacquired track
-    let nextIdx = queue.findIndex((t, i) => i > currentIndex && !t.acquired);
-    if (nextIdx === -1) nextIdx = queue.findIndex(t => !t.acquired);
-    assert.equal(nextIdx, 3);
-    assert.equal(queue[nextIdx].title, 'Welcome Home (Sanitarium)');
-});

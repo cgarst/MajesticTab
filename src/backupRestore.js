@@ -1045,7 +1045,7 @@ async function deleteAllAppDataHeld() {
 
 /**
  * Clear cached data including persistent album artwork, MusicBrainz queries,
- * YouTube caches, and tab downloader search caches.
+ * YouTube caches, and older web search caches.
  * @returns {Promise<number>} Number of cache items removed
  */
 export async function clearAppCache() {
@@ -1064,7 +1064,7 @@ export async function clearAppCache() {
         ytKeys.forEach(k => localStorage.removeItem(k));
     } catch (_) {}
 
-    // Clear tab downloader caches from localStorage
+    // Clear older web search caches from localStorage
     try {
         const tdKeys = [];
         for (let i = 0; i < localStorage.length; i++) {

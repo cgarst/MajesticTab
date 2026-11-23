@@ -161,7 +161,7 @@ def new_tauri_page(b, bridge_fn):
     pg = ctx.new_page()
     errs = []
     pg.on('pageerror', lambda e: errs.append(f'pageerror: {e}'))
-    pg.on('console', lambda m: errs.append(f'{m.type}: {m.text}') if m.type == 'error' and 'Failed to load resource' not in m.text and 'pgl.yoyo.org' not in m.text else None)
+    pg.on('console', lambda m: errs.append(f'{m.type}: {m.text}') if m.type == 'error' and 'Failed to load resource' not in m.text else None)
     pg.expose_function('__tauriBridge', bridge_fn)
     pg.add_init_script(TAURI_INIT)
     pg.goto('http://localhost:8000/src/', wait_until='load')

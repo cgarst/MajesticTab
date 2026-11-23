@@ -44,7 +44,6 @@ import { initSecureStore } from './secureStore.js';
 import { initSyncRecordStore } from './audioSync/syncRecordStore.js';
 import { migrateS3Secret } from './s3Client.js';
 import { openLibraryModal, closeLibraryModal, isLibraryOpen } from './libraryModal.js';
-import { initTauriDownloadListener } from './tabDownloader.js';
 import { addRecentOpened, updateRecentPosition, migrateCorruptedCustomContainers } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setInstrumentMode, getDefaultGpStringCount, setDefaultGpStringCount } from './utils/tuningUtils.js';
 import { initBackupRestore } from './backupRestore.js';
@@ -1056,7 +1055,6 @@ async function initAppInner() {
     initMetronome();
     initUrlRouter();
     setupGlobalRewindButton();
-    initTauriDownloadListener();
     initGamepadManager();
     initJamMode({ loadFile, getCurrentFile, recordFileToRecents });
     initToolsMenu();

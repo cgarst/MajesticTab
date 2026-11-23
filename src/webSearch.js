@@ -1,18 +1,14 @@
-// build/tauri/stubs/system-browser/tabDownloader.js
-// System-browser search stub for store builds (Google Play, Apple App Store, Microsoft Store).
-// Replaces the in-app browser with direct handoff to the system's default web browser.
+// webSearch.js
+// Web search for tabs: the search provider list and the handoff of a search to the system's default web browser.
 
 export const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 export const SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
 export const DUCKDUCKGO_FIRST_KEY = 'majestictab_tab_sources_duckduckgo_first';
 export const PENDING_BROWSER_TARGET_KEY = 'majestictab_pending_browser_target';
 
+/** True in the native apps, which hand a search to the system browser. */
 export function isNative() {
-    return typeof window !== 'undefined' && (Boolean(window.__TAURI__) || Boolean(window.MajesticDownloaderNative));
-}
-
-export function isDesktopNative() {
-    return typeof window !== 'undefined' && Boolean(window.__TAURI__) && !/android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
+    return typeof window !== 'undefined' && Boolean(window.__TAURI__);
 }
 
 const GOOGLE_HOME_URL = 'https://www.google.com/';
@@ -210,7 +206,8 @@ export function stampSourceChanges(edited) {
     try { localStorage.setItem(SOURCES_DELETED_KEY, JSON.stringify(tombs)); } catch {}
 }
 
-export async function openTabDownloader(options = {}) {
+/** Opens a search for the song in the system browser, and remembers the song so a tab opened next lands on it. */
+export async function openWebSearch(options = {}) {
     const songId = options.songId || options.targetSong?.id || null;
     if (songId && typeof localStorage !== 'undefined') {
         try {
@@ -248,29 +245,3 @@ export async function openTabDownloader(options = {}) {
         window.open(targetUrl, '_blank', 'noopener');
     }
 }
-
-// Inert shims for store builds
-export function renderDownloaderTabs() {}
-export function initTauriDownloadListener() {}
-export function closeTabDownloaderModal() {}
-export async function handleWsaUrlIntercept() { return false; }
-export function offerWsaUrlBanner() {}
-export function navigateToDownloaderUrl() {}
-export function showTransientFeedback() {}
-export function hideTransientFeedback() {}
-export function showAdvisoryBadge() {}
-export function hideAdvisoryBadge() {}
-export function updateBatchHUD() {}
-export function jumpToBatchTrack() {}
-export function skipCurrentBatchTrack() {}
-export function finishBatchSession() {}
-export function undoLastBatchDownload() {}
-export async function handleDownloadedTabFile() {}
-export function initTabDownloaderDomEvents() {}
-export function reloadDownloaderWebview() {}
-export async function dispatchNativeAdblock() {}
-export function syncDownloaderAdblockButton() {}
-export function switchActiveSource() {}
-export function highlightSourceTabForUrl() {}
-export function showTabDownloaderBar() {}
-export function hideTabDownloaderBar() {}

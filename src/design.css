@@ -194,7 +194,6 @@ body.phone-reader #referenceModal:not(.tool-embedded) .reference-modal-card { he
 /* View is a reader menu */
 body.library-view-active #viewPill { display: none; }
 
-
 /* --- Toast: flat tone step, status dot, rises from below, or drops from the top on phones (slower in than out), optional action such as Undo --- */
 :root { --ok: #34d399; --warn: #fbbf24; --danger: #f87171; }
 [data-theme="Snow White"] { --ok: #047857; --warn: #92400e; --danger: #b91c1c; }
@@ -261,7 +260,6 @@ body.library-view-active #viewPill { display: none; }
   #libraryPage, #barRuler { animation: none !important; }
   .ruler-tip { transition: none; }
 }
-
 
 /* ==========================================================================
    Phase 9: rebuild toward the mockup. Tokens first (the mockup's names, mapped onto the finish tokens),
@@ -449,7 +447,6 @@ body.sheet-mode-dark:not(.theme-sheet-active) .pageWrapper, body.sheet-mode-dark
 body.sheet-mode-dark:not(.theme-sheet-active) .alphaTabContainer, body.sheet-mode-dark:not(.theme-sheet-active) .text-content {
   box-shadow: none; border: 0;
 }
-
 
 /* ==========================================================================
    Bottom transport (the mockup's dock): pick play button, bar ruler, bar and time, tempo, sound, loop, metronome
@@ -1083,7 +1080,6 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   .library-page-container { padding: max(env(safe-area-inset-top, 0px), 12px) max(env(safe-area-inset-right, 0px), 16px) 0 max(env(safe-area-inset-left, 0px), 16px) !important; }
   .library-page-container > #libBrowseContent { margin-inline: -16px; }
 }
-
 
 /* ==========================================================================
    Settings: a page. Big title, section list, grouped rows (title, help, control).
@@ -2086,10 +2082,6 @@ body.fretboard-open {
   }
 }
 
-
-
-
-
 /* ---------- Phone: the library has no reader controls ----------
    Over the library the bar keeps the brand and Tools. View, More, fullscreen and the hamburger belong to an open
    score (Settings is in the tab bar), and the Settings page needs the whole screen. */
@@ -2762,7 +2754,6 @@ body.fretboard-open {
 .setsec .defaults-pills { flex: 0 1 auto; max-width: none; }
 .setsec .defaults-pills .btn { flex: 0 0 auto; padding-inline: 14px; }
 
-
 /* ---------- Per-track mix, under each track in Song: Mix opens mute, solo, level and pan ---------- */
 .gp-track-item { display: block; }
 .gp-track-row { grid-template-columns: 10px minmax(0, 1fr) auto auto auto !important; grid-template-areas: "dot label only mix sw" "dot sub only mix sw" !important; }
@@ -2899,7 +2890,6 @@ body.fretboard-open {
 .data-task-slot .text-center { text-align: left !important; }
 .data-task-slot .justify-content-center { justify-content: flex-start !important; }
 .data-task-slot #restoreChangeLocationBtn, .data-task-slot #restoreDrivePickBtn, .data-task-slot .select-drive-backup-btn { min-height: 32px; }
-
 
 /* ---------- Reader vocabulary: View, Song, Guitar, Tools. Four labelled buttons, then Full screen and the page buttons ---------- */
 /* Page / Scroll lives in View; the centre switch is gone. The radios stay in the DOM for the code that drives them. */
@@ -3454,7 +3444,6 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 .album-book-link:focus-visible { outline: 2px solid var(--ink2); outline-offset: 2px; }
 @media (pointer: coarse) { .album-book-link { min-height: 44px; } }
 
-
 /* ==========================================================================
    Tools and Setlists share the Settings page's title and subtitle type.
    Tools render in place beside their list; their own screens lose the dialog chrome.
@@ -3666,7 +3655,6 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 }
 @media (hover: hover) { .gp-track-row .gp-track-only-btn:hover { background: var(--s3) !important; color: var(--ink) !important; } }
 @media (pointer: coarse) { .gp-track-row .gp-track-only-btn { min-height: 44px; } }
-
 
 /* Synth panel mixer: each track is a two-line strip, always visible.
    Line 1: color bar, name, Mute and Solo. Line 2: level and pan. */
@@ -4012,354 +4000,6 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   .open-file-web-search .btn { flex: 1 1 100%; }
 }
 
-/* The in-app downloader's top bar sits above the library rail and tab bar */
-.tab-downloader-bar {
-  z-index: 1060;
-  background: var(--s1) !important;
-  box-shadow: none !important;
-  border-bottom: 1px solid var(--s2) !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-
-.tab-downloader-bar.has-popover-reach::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  height: 100vh;
-  background: var(--s1);
-  z-index: -1;
-  pointer-events: none;
-}
-
-.downloader-nav-row {
-  background: var(--s1);
-  border-bottom: 1px solid var(--s2) !important;
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
-  align-items: center !important;
-}
-
-.downloader-nav-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  justify-self: start;
-}
-
-.downloader-nav-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-}
-
-.downloader-nav-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  justify-self: end;
-}
-
-.downloader-nav-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  background: var(--s2);
-  border-radius: var(--r-control);
-  padding: 2px;
-}
-
-.downloader-nav-group .btn-theme-icon {
-  background: transparent !important;
-  border: 0 !important;
-  color: var(--ink2) !important;
-  border-radius: calc(var(--r-control) - 2px) !important;
-  min-width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-@media (hover: hover) { .downloader-nav-group .btn-theme-icon:hover:not(:disabled) {
-  color: var(--ink) !important;
-  background: var(--s3) !important;
-} }
-
-.downloader-url-group {
-  background: var(--s2) !important;
-  border: 0 !important;
-  border-radius: var(--r-control) !important;
-  color: var(--ink) !important;
-  height: 34px !important;
-  padding: 4px 10px !important;
-}
-
-.downloader-url-globe {
-  color: var(--ink2);
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-.downloader-url-text {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: var(--ink2) !important;
-  font-size: 12px;
-  letter-spacing: -0.2px;
-}
-
-.downloader-url-copy-btn {
-  color: var(--ink2);
-  border-radius: var(--r-control);
-  transition: color var(--dur-fast), background-color var(--dur-fast);
-}
-@media (hover: hover) { .downloader-url-copy-btn:hover {
-  color: var(--ink);
-  background: var(--s3);
-} }
-.downloader-url-copy-btn:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 1px;
-}
-
-.downloader-nav-group .btn-theme-icon:focus:not(:focus-visible),
-.downloader-adblock-btn:focus:not(:focus-visible),
-.downloader-sources-btn:focus:not(:focus-visible),
-.downloader-close-btn:focus:not(:focus-visible),
-.downloader-url-copy-btn:focus:not(:focus-visible) {
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-.downloader-nav-group .btn-theme-icon:active:not(:disabled),
-.downloader-adblock-btn:active:not(:disabled),
-.downloader-sources-btn:active:not(:disabled),
-.downloader-close-btn:active:not(:disabled),
-.downloader-url-copy-btn:active:not(:disabled) {
-  background: var(--s3) !important;
-  color: var(--ink) !important;
-}
-
-@media (hover: none) {
-  .downloader-nav-group .btn-theme-icon:hover:not(:active),
-  .downloader-adblock-btn:hover:not(:active):not(.active),
-  .downloader-sources-btn:hover:not(:active),
-  .downloader-close-btn:hover:not(:active),
-  .downloader-url-copy-btn:hover:not(:active) {
-    background: transparent !important;
-    color: var(--ink2) !important;
-  }
-}
-
-.downloader-adblock-btn {
-  color: var(--ink2) !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: var(--r-control) !important;
-  min-width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10px;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: color var(--dur-fast), background-color var(--dur-fast), opacity var(--dur-fast);
-}
-@media (hover: hover) { .downloader-adblock-btn:hover {
-  color: var(--ink) !important;
-  background: var(--s2) !important;
-} }
-.downloader-adblock-btn.active,
-#downloaderAdblockBtn.active,
-#downloaderAdblockBtn[aria-pressed="true"] {
-  color: var(--ink) !important;
-  background: var(--s2) !important;
-}
-@media (hover: hover) { .downloader-adblock-btn.active:hover,
-#downloaderAdblockBtn.active:hover,
-#downloaderAdblockBtn[aria-pressed="true"]:hover {
-  background: var(--s3) !important;
-} }
-.downloader-adblock-btn:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 1px;
-}
-
-.downloader-sources-btn {
-  background: transparent !important;
-  border: 0 !important;
-  color: var(--ink2) !important;
-  font-size: 13px;
-  font-weight: 500;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 10px;
-  border-radius: var(--r-control);
-  transition: color var(--dur-fast), background-color var(--dur-fast);
-  cursor: pointer;
-  white-space: nowrap;
-}
-@media (hover: hover) { .downloader-sources-btn:hover {
-  color: var(--ink) !important;
-  background: var(--s2) !important;
-} }
-.downloader-sources-btn:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 1px;
-}
-
-.downloader-source-menu-item.active {
-  font-weight: 600;
-  color: var(--ink) !important;
-  background: var(--s3) !important;
-}
-
-#downloaderSourcesMenu {
-  background: var(--s2) !important;
-  border: 0 !important;
-  border-radius: var(--r-card) !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
-  padding: 6px !important;
-  min-width: 170px;
-  z-index: 1070 !important;
-}
-
-#downloaderSourcesMenu .downloader-source-menu-item {
-  color: var(--ink2) !important;
-  background: transparent !important;
-  border-radius: calc(var(--r-control) - 2px) !important;
-  padding: 6px 12px !important;
-  font-size: 13px !important;
-  font-weight: 500;
-  transition: color var(--dur-fast), background-color var(--dur-fast);
-}
-
-
-#downloaderSourcesMenu .downloader-source-menu-item:focus {
-  color: var(--ink) !important;
-  background: var(--s3) !important;
-}
-@media (hover: hover) { #downloaderSourcesMenu .downloader-source-menu-item:hover {
-  color: var(--ink) !important;
-  background: var(--s3) !important;
-} }
-
-#downloaderSourcesMenu .downloader-source-menu-item.active {
-  font-weight: 600;
-  color: var(--ink) !important;
-  background: var(--s3) !important;
-}
-
-.downloader-close-btn,
-#downloaderCloseBtn {
-  background: transparent !important;
-  border: 0 !important;
-  color: var(--ink2) !important;
-  font-size: 13px;
-  font-weight: 500;
-  padding: 6px 12px;
-  border-radius: var(--r-control);
-  transition: color var(--dur-fast), background-color var(--dur-fast);
-  cursor: pointer;
-  white-space: nowrap;
-}
-@media (hover: hover) { .downloader-close-btn:hover,
-#downloaderCloseBtn:hover {
-  color: var(--ink) !important;
-  background: var(--s2) !important;
-} }
-.downloader-close-btn:focus-visible,
-#downloaderCloseBtn:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 1px;
-}
-
-/* Row 2: Dedicated Target & Workflow Row */
-.downloader-target-row {
-  background: var(--s1);
-  border-top: 1px solid var(--s2);
-  min-height: 40px;
-  padding: 4px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.downloader-single-target {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.downloader-target-artist,
-.downloader-target-album,
-.downloader-target-dot,
-.downloader-target-dot2 {
-  font-size: 13px;
-  color: var(--ink2);
-  flex-shrink: 0;
-}
-
-.downloader-target-title {
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--ink);
-  flex-shrink: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.downloader-target-row .downloader-batch-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  padding: 0;
-  border-top: 0;
-  background: transparent;
-  min-height: 36px;
-}
-
-.downloader-batch-track-name {
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.downloader-batch-row i.bi-disc {
-  color: var(--ink2);
-}
-
-.downloader-batch-skip-btn {
-  background: transparent !important;
-  border: 0 !important;
-  color: var(--ink2) !important;
-  border-radius: var(--r-control) !important;
-}
-
-@media (hover: hover) { .downloader-batch-skip-btn:hover {
-  color: var(--ink) !important;
-  background: var(--s2) !important;
-} }
-
 .srow-editor-slot {
   background: var(--s2);
   padding: 14px 16px;
@@ -4392,7 +4032,6 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 }
 
 /* The hint is a dismissible notice: one tone step above the bar, no divider */
-.downloader-hint-banner { background: var(--s3); border-top: 0; color: var(--ink); }
 
 /* Keyboard hints are noise at phone width */
 @media (max-width: 576px) {
@@ -4412,10 +4051,8 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .tv-mode kbd { display: none !important; }
 .tv-mode .ref-root-row { flex-wrap: wrap; overflow-x: visible; }
 
-
 /* The key and gamepad reference is parked on <body> until Settings moves it into its page; do not paint it there (it covered the first frames) */
 body > #controllerHelpModal { display: none; }
-
 
 /* Fretboard markers and picks: flat, no glow, no highlight, no outline. A part's colour is the only colour on
    the neck (it identifies the track), and the label on it is dark ink because every part colour is a light tone
@@ -4682,332 +4319,6 @@ body > #controllerHelpModal { display: none; }
     }
 }
 
-/* ==========================================================================
-   Downloader: Batch Assistant Stepper HUD & Overlays
-   ========================================================================== */
-
-.downloader-batch-row {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 6px 16px;
-    background: var(--s1);
-    min-height: 48px;
-    border-top: 1px solid var(--s2);
-}
-
-.downloader-batch-stepper-container {
-    position: relative;
-    min-width: 0;
-    flex: 1 1 auto;
-}
-
-.downloader-batch-stepper-btn {
-    display: inline-flex;
-    align-items: center;
-    max-width: 100%;
-    min-height: 36px;
-    padding: 4px 12px;
-    background: var(--s2);
-    border: 0;
-    border-radius: var(--r-control);
-    color: var(--ink);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    text-align: left;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: background var(--dur-fast, 150ms) ease;
-}
-
-@media (hover: hover) { .downloader-batch-stepper-btn:hover {
-    background: var(--s3);
-    color: var(--ink);
-} }
-
-/* The step label shrinks and truncates; Skip and Done stay on one line */
-.downloader-batch-stepper-btn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.downloader-batch-stepper-btn > i,
-.downloader-batch-stepper-btn > .mx-1 { flex: 0 0 auto; }
-.downloader-batch-actions { flex: 0 0 auto; }
-.downloader-batch-actions .btn { white-space: nowrap; flex-shrink: 0; }
-
-.downloader-batch-popover {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    z-index: 1050;
-    width: 380px;
-    max-width: calc(100vw - 32px);
-    max-height: 360px;
-    overflow-y: auto;
-    background: var(--s2);
-    border-radius: var(--r-card);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-    padding: 8px;
-}
-
-.downloader-batch-popover-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 8px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ink);
-    border-bottom: 1px solid var(--s3);
-    margin-bottom: 4px;
-}
-
-.downloader-batch-popover-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.downloader-batch-popover-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 38px;
-    padding: 4px 8px;
-    border-radius: var(--r-control);
-    font-size: 13px;
-    color: var(--ink);
-}
-
-.downloader-batch-popover-row.is-active {
-    background: var(--s3);
-}
-
-.batch-popover-status {
-    width: 16px;
-    text-align: center;
-    font-weight: bold;
-    flex-shrink: 0;
-}
-
-.batch-popover-num {
-    color: var(--ink2);
-    flex-shrink: 0;
-}
-
-.batch-popover-title {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.batch-popover-meta {
-    font-size: 11px;
-    max-width: 110px;
-    flex-shrink: 0;
-}
-
-.downloader-transient-banner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 6px 16px;
-    background: var(--s2);
-    color: var(--ink);
-    font-size: 13px;
-    border-top: 1px solid var(--s3);
-}
-
-.downloader-transient-undo-btn {
-    min-height: 30px;
-    padding: 2px 10px;
-    font-size: 12px;
-    flex-shrink: 0;
-}
-
-.downloader-advisory-badge {
-    display: flex;
-    align-items: center;
-    padding: 4px 16px;
-    background: var(--s2);
-    color: var(--ink2);
-    font-size: 12px;
-}
-
-.downloader-advisory-switch-btn {
-    color: var(--hue) !important;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.downloader-zip-picker {
-    position: fixed;
-    inset: 0;
-    z-index: 10070;
-    background: rgba(0, 0, 0, 0.65);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.downloader-zip-picker-card {
-    background: var(--s1);
-    border-radius: var(--r-card);
-    padding: 20px;
-    width: 380px;
-    max-width: 90vw;
-}
-
-.downloader-zip-picker-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--ink);
-    margin-bottom: 12px;
-}
-
-.downloader-zip-picker-files {
-    max-height: 240px;
-    overflow-y: auto;
-}
-
-@media (max-width: 576px) {
-    .tab-downloader-bar .downloader-nav-row {
-        height: auto;
-        min-height: 44px;
-        padding-left: max(env(safe-area-inset-left, 0px), 8px);
-        padding-right: max(env(safe-area-inset-right, 0px), 8px);
-        padding-top: max(calc(env(safe-area-inset-top, 0px) + 6px), 8px);
-        padding-bottom: 6px;
-        gap: 6px;
-        display: flex !important;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .downloader-nav-left {
-        flex: 0 0 auto;
-        order: 1;
-    }
-    .downloader-nav-right {
-        flex: 0 0 auto;
-        gap: 4px;
-        order: 2;
-    }
-    /* The address gets its own full-width second row. */
-    .downloader-nav-center {
-        flex: 0 0 100%;
-        order: 3;
-        min-width: 0;
-        margin-inline: 0;
-        padding: 0;
-    }
-    .downloader-url-group {
-        padding: 2px 8px !important;
-        width: 100%;
-        min-width: 0;
-    }
-    .downloader-adblock-btn {
-        padding: 0 6px;
-        font-size: 12px;
-    }
-    .downloader-sources-btn {
-        padding: 4px 6px;
-        font-size: 12px;
-        max-width: 140px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .downloader-close-btn,
-    #downloaderCloseBtn {
-        padding: 6px 8px;
-        font-size: 13px;
-    }
-    .downloader-target-row {
-        min-height: 36px;
-        padding-left: max(env(safe-area-inset-left, 0px), 10px);
-        padding-right: max(env(safe-area-inset-right, 0px), 10px);
-        padding-top: 2px;
-        padding-bottom: 2px;
-    }
-    .downloader-target-artist,
-    .downloader-target-album,
-    .downloader-target-dot,
-    .downloader-target-dot2 {
-        display: none !important;
-    }
-    .downloader-target-title {
-        font-size: 13px;
-    }
-    .tab-downloader-bar .downloader-batch-row {
-        height: 40px;
-        min-height: 40px;
-        padding: 0 4px;
-    }
-    .downloader-batch-stepper-btn {
-        min-height: 36px;
-        padding: 0 6px;
-        font-size: 12px;
-    }
-    .downloader-batch-actions .btn {
-        min-height: 36px;
-        padding: 0 8px;
-    }
-    .downloader-transient-banner,
-    .downloader-advisory-badge {
-        font-size: 12px;
-        padding: 6px 12px;
-    }
-}
-
-/* Desktop: the address is not pinned to the centre. It fills whatever room is left between the navigation
-   buttons and the right-hand controls, so it shrinks (and truncates) instead of running into them. */
-@media (min-width: 701px) {
-    .tab-downloader-bar .downloader-nav-row {
-        display: flex !important;
-        flex-wrap: nowrap;
-        align-items: center;
-        gap: 12px;
-    }
-    .downloader-nav-left,
-    .downloader-nav-right { flex: 0 0 auto; }
-    .downloader-nav-center {
-        flex: 1 1 0;
-        min-width: 0;
-        padding: 0;
-    }
-    .downloader-url-group { flex: 1 1 auto; width: 100%; max-width: none; min-width: 0; }
-}
-
-/* A narrow window (577 to 700px) leaves the address under about 200px, so it takes its own full-width second
-   row, as on a phone. */
-@media (min-width: 577px) and (max-width: 700px) {
-    .tab-downloader-bar .downloader-nav-row {
-        display: flex !important;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: center;
-        row-gap: 6px;
-        padding-bottom: 8px;
-    }
-    .downloader-nav-left { flex: 0 0 auto; order: 1; }
-    .downloader-nav-right { flex: 0 0 auto; order: 2; }
-    .downloader-nav-center {
-        flex: 0 0 100%;
-        order: 3;
-        min-width: 0;
-        padding: 0;
-    }
-    .downloader-url-group { width: 100%; max-width: none; min-width: 0; }
-}
-
-@media (orientation: portrait) {
-    .tauri-ios .tab-downloader-bar .downloader-nav-row {
-        padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 54px) !important;
-    }
-}
-
 @media (prefers-reduced-motion: reduce) { body:not(.library-view-active) #topBar, body:not(.library-view-active) .mobile-playback-dock, body:not(.library-view-active) .page-strip { transition: none !important; } }
 
 /* Settings and Tools pages: breathing room above the first row (nav list and page body) */
@@ -5021,7 +4332,6 @@ body > #controllerHelpModal { display: none; }
   .setshell[data-pane="page"] .setpage,
   .setshell:has(.setwrap[data-pane="page"]) .setpage { padding-top: 16px; }
 }
-
 
 /* ---------- Song row tab actions and the tab picker ----------
    One row height for 0, 1 and several tabs. "Add tab" and "n tabs" are text actions in a fixed slot; the choice itself
@@ -5523,7 +4833,6 @@ body.phone-reader #screenRow { display: none !important; }
 /* Text pages: a line wider than the page at the smallest legible size scrolls sideways instead of being cut off */
 .pageContainer > .pageWrapper:has(.text-line) { overflow-x: hidden; overflow-y: hidden; }
 
-
 /* ---------- iOS 26 system tab bar ----------
    On iOS 26 and later the app shows the system tab bar (Liquid Glass, drawn by the OS, see nativeTabBar.js) in place
    of the HTML one. It overlays the page, so pages reserve its height, reported by the native side. Only this system
@@ -5742,7 +5051,6 @@ html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active)
 #pinchScaleReadout[data-cap="max"] .pinch-scale-fill, #pinchScaleReadout[data-cap="min"] .pinch-scale-fill { background: var(--ink); }
 #pinchScaleReadout .pinch-scale-value { font-weight: 600; min-width: 5.5em; text-align: right; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { #pinchScaleReadout, #pinchScaleReadout.is-shown { transition: none; } }
-
 
 /* ===== Video sheet (src/ytSheet.js) =====
    The YouTube player lives here, not in the Original panel: it must be on the screen while it plays. It opens when
@@ -6001,8 +5309,6 @@ body.library-view-active .yt-sheet { display: none !important; }
   .be-remove-btn { min-width: 44px; min-height: 44px; }
 }
 
-
-
 /* Movable shapes: one tile per chord type, stepped with arrows; the count sits at the bottom of the tile */
 .ref-shape-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; cursor: default; }
 .ref-shape-count { font-size: 13px; color: var(--ink2); font-variant-numeric: tabular-nums; }
@@ -6170,7 +5476,6 @@ body.library-view-active .yt-sheet { display: none !important; }
     padding-right: 16px;
   }
 }
-
 
 /* ---------- Add custom music dialog: tone steps, no outlines, no icons beside text ---------- */
 .cm-card { width: min(520px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); display: flex; flex-direction: column; }
@@ -6520,8 +5825,6 @@ input[type=range]::-webkit-slider-thumb,
 .btn-check:checked + .yt-mode-btn,
 .settings-page .form-check-input:checked,
 .lib-open-file-btn.active,
-.downloader-source-tab-btn.active,
-.downloader-cfg-pill.active,
 .controller-reading-banner,
 #jamToggleBtn.jam-active,
 .latency-flash.on,
@@ -6609,17 +5912,37 @@ input[type=range]::-moz-range-thumb,
 
 /* No coloured glows and no resting drop shadows. These repeat the style.css selectors and use !important, because some of the
    originals sit in higher-specificity chains (the dark sheet rule did). Hover and active keep their tone steps; focus keeps its ring. */
-#synthToggleBtn.active, #synthToggleBtn.active-audio-mode,
-#ytToggleBtn.active, #ytToggleBtn.active-audio-mode,
-#ytToggleBtn.btn-source-local.active, #ytToggleBtn.btn-source-local.active-audio-mode,
-.badge-btn-y, .badge-btn-a, .badge-btn-x, .badge-btn-b,
-.library-body-header, .search-sticky-header, .library-disc-header,
-.album-cover-img, .album-cover-banner,
-.theme-swatch-btn, .theme-swatch-btn:hover, .theme-card-gradient-bar, .theme-colorway-chip,
-.top-bar-song-btn.is-static, .top-bar-song-btn.disabled, .top-bar-song-btn[disabled],
-.top-bar-song-btn.is-static:hover, .top-bar-song-btn.disabled:hover, .top-bar-song-btn[disabled]:hover,
-.downloader-tab-btn.active, .pinned-play-badge.has-cover, .library-pinned-card:hover,
-#globalAudioControls, #audioSourcePill, #synthMiniPill, #ytMiniPill { box-shadow: none !important; }
+#synthToggleBtn.active,
+#synthToggleBtn.active-audio-mode,
+#ytToggleBtn.active,
+#ytToggleBtn.active-audio-mode,
+#ytToggleBtn.btn-source-local.active,
+#ytToggleBtn.btn-source-local.active-audio-mode,
+.badge-btn-y,
+.badge-btn-a,
+.badge-btn-x,
+.badge-btn-b,
+.library-body-header,
+.search-sticky-header,
+.library-disc-header,
+.album-cover-img,
+.album-cover-banner,
+.theme-swatch-btn,
+.theme-swatch-btn:hover,
+.theme-card-gradient-bar,
+.theme-colorway-chip,
+.top-bar-song-btn.is-static,
+.top-bar-song-btn.disabled,
+.top-bar-song-btn[disabled],
+.top-bar-song-btn.is-static:hover,
+.top-bar-song-btn.disabled:hover,
+.top-bar-song-btn[disabled]:hover,
+.pinned-play-badge.has-cover,
+.library-pinned-card:hover,
+#globalAudioControls,
+#audioSourcePill,
+#synthMiniPill,
+#ytMiniPill { box-shadow: none !important; }
 @media (hover: hover) { .btn-theme-danger:hover:not(:disabled) { box-shadow: none !important; } }
 .gp-reader-cursor svg, .ref-circle-slice.active, .ref-circle-svg, .controller-svg-diagram,
 .pinned-play-badge.has-cover .pinned-play-icon { filter: none !important; }
@@ -6627,10 +5950,26 @@ input[type=range]::-moz-range-thumb,
 /* One shadow for what floats over the content: menus, popovers, toasts, banners and the panels that open from the reader's five words.
    Dialogs (.theme-modal-card) and everything at rest have none; the scrim and the tone steps separate those. No glow, no colour. */
 :root { --shadow-float: 0 8px 24px rgb(0 0 0 / 0.35); }
-.dropdown-menu, .popover-pop, .theme-dropdown-menu, .tools-menu, .view-menu, .guitar-menu, .more-menu,
-.score-options-panel, .synth-panel, .yt-panel, .pdf-bookmarks-panel,
-.page-scrubber-popover, .downloader-batch-popover, #downloaderSourcesMenu, .ct-menu, .ct-moremenu,
-.theme-toast, .update-banner, .jam-request-card, .tabpick, .ruler-tip, #pinchScaleReadout { box-shadow: var(--shadow-float) !important; }
+.dropdown-menu,
+.popover-pop,
+.theme-dropdown-menu,
+.tools-menu,
+.view-menu,
+.guitar-menu,
+.more-menu,
+.score-options-panel,
+.synth-panel,
+.yt-panel,
+.pdf-bookmarks-panel,
+.page-scrubber-popover,
+.ct-menu,
+.ct-moremenu,
+.theme-toast,
+.update-banner,
+.jam-request-card,
+.tabpick,
+.ruler-tip,
+#pinchScaleReadout { box-shadow: var(--shadow-float) !important; }
 
 /* One monospace stack for tab text, so columns line up: the system's own fixed-width font, never the bare `monospace` keyword
    (a different, smaller face). The page, the measuring div that paginates it and the Edit text window must all use it. */
@@ -6773,7 +6112,6 @@ body.phone-reader .yt-add-to .btn { min-height: 44px; }
   .add-stems-file { grid-column: 1 / -1; }
   .add-stems-actions .btn { min-height: 44px; }
 }
-
 
 /* ==========================================================================
    Boot screen (index.html, removed by main.js once the app is ready). It paints before the CDN files arrive, so it uses

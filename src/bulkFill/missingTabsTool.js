@@ -1,13 +1,11 @@
 // missingTabsTool.js
-// Fill in missing tabs, a page in Tools: walks the web search (the tab downloader's batch mode) through every library
-// song that has no tab, one search per song, in artist, album and track order. Saving a tab in the browser moves to the
-// next song; Skip leaves one for later. Native apps only: the web build has no downloader browser.
+// Fill in missing tabs, a page in Tools: lists every library song that has no tab, in artist, album and track order,
+// with a Search button that opens a web search for that song in the system browser. Native apps only.
 
 import { getAllSongs } from '../libraryStore.js';
-import { getSources, isNative, openTabDownloader } from '../tabDownloader.js';
+import { getSources, isNative, openWebSearch } from '../webSearch.js';
 import { saveMpakToLibrary } from '../mpak.js';
 import { showToast } from '../utils/toast.js';
-import { hasFeature } from '../channel.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const hasTab = (s) => Array.isArray(s.tabOptions) && s.tabOptions.length > 0;
@@ -224,19 +222,14 @@ export function renderMissingTabsTool(container) {
         const stats = songs.length === 0
             ? 'Every song in your library has a tab.'
             : `${plural(songs.length, 'song', 'songs')} without a tab · ${plural(artists.length, 'artist', 'artists')}`;
-        const isSystemBrowser = !hasFeature('inAppBrowser')
-            || (typeof localStorage !== 'undefined' && localStorage.getItem('majestictab_web_search_browser') !== 'in-app');
-        const inApp = !isSystemBrowser;
+        const descText = 'Search the web for a tab of each song that has none. Open a search in your web browser, download the tab file, and open it in MajesticTab.';
         const companionOrigin = findCompanionOrigin();
-        const descText = inApp
-            ? 'Search the web for a tab of each song that has none, one song at a time. When a tab is saved the next song’s search opens. Skip a song to come back to it later.'
-            : 'Search the web for a tab of each song that has none. Open a search in your web browser, download the tab file, and open it in MajesticTab.';
         const bulkButtons = scoped.length > 0 ? `
             ${companionOrigin ? `
               <button type="button" class="btn btn-sm btn-theme-primary" data-act="companion-batch" ${batchState.running ? 'disabled' : ''}>
                 ${batchState.running ? 'Syncing batch…' : `Sync ${plural(scoped.length, 'song', 'songs')}`}
               </button>` : ''}
-            ${companionOrigin && isSystemBrowser && scoped.length <= MAX_URL_BATCH_SONGS ? `
+            ${companionOrigin && scoped.length <= MAX_URL_BATCH_SONGS ? `
               <button type="button" class="btn btn-sm btn-theme-outline" data-act="open-batch-browser">Open batch in browser</button>` : ''}
             ${batchState.uiUrl ? `
               <button type="button" class="btn btn-sm btn-theme-outline" data-act="open-batch-ui">Open batch queue</button>` : ''}
@@ -256,13 +249,7 @@ export function renderMissingTabsTool(container) {
             if (stage === 'resolving' || stage === 'queued') return 'Waiting…';
             return stage || '';
         };
-        const actionContent = inApp ? `
-          <div class="be-actions">
-            <button type="button" class="btn btn-sm btn-theme-primary" data-act="start" ${native && scoped.length ? '' : 'disabled'}>
-              ${scoped.length ? `Start with ${plural(scoped.length, 'song', 'songs')}` : 'Start'}
-            </button>
-            ${bulkButtons}
-          </div>` : (scoped.length > 0 ? `
+        const actionContent = scoped.length > 0 ? `
           <div class="be-actions">${bulkButtons}</div>
           <div class="missingtabs-list" role="list" aria-label="Songs without tabs">
             ${scoped.map((song) => {
@@ -280,7 +267,7 @@ export function renderMissingTabsTool(container) {
                 </div>
               </div>`;
             }).join('')}
-          </div>` : (songs.length > 0 ? '<p class="ct-sub">No songs without tabs for this artist.</p>' : ''));
+          </div>` : (songs.length > 0 ? '<p class="ct-sub">No songs without tabs for this artist.</p>' : '');
         root.innerHTML = `
           <p class="ct-sub">${descText}</p>
           <div class="be-stats-row" role="status">${esc(stats)}</div>
@@ -304,21 +291,6 @@ export function renderMissingTabsTool(container) {
         render();
     }
 
-    async function start() {
-        const scoped = inScope();
-        if (!scoped.length) return;
-        const queue = scoped.map((s, i) => ({
-            trackNumber: s.trackNumber || (i + 1),
-            title: s.title,
-            artist: s.artist,
-            songId: s.id,
-            acquired: false,
-            alreadyInLibrary: false,
-            fileName: null
-        }));
-        await openTabDownloader({ batchMode: true, batchLabel: view.artist || 'Missing tabs', queue, currentIndex: 0 });
-    }
-
     async function openExternalUrl(url) {
         const opener = window.__TAURI__?.opener;
         if (opener?.openUrl) {
@@ -329,7 +301,6 @@ export function renderMissingTabsTool(container) {
     }
 
     root.addEventListener('click', async (e) => {
-        if (e.target.closest('[data-act="start"]')) start();
         if (e.target.closest('[data-act="companion-batch"]') && songs) {
             const origin = findCompanionOrigin();
             const scoped = inScope();
@@ -370,7 +341,7 @@ export function renderMissingTabsTool(container) {
         if (searchBtn && songs) {
             const song = songs.find((s) => s.id === searchBtn.dataset.songId);
             if (song) {
-                openTabDownloader({
+                openWebSearch({
                     artist: song.artist,
                     songName: song.title,
                     query: `${song.artist} ${song.title}`.trim(),
@@ -386,9 +357,6 @@ export function renderMissingTabsTool(container) {
     // A tab saved in the browser (or added anywhere else) changes the list
     const onData = () => { load(); };
     window.addEventListener('libraryDataChanged', onData);
-    const onBrowserPrefChange = () => { render(); };
-    window.addEventListener('storage', onBrowserPrefChange);
-    window.addEventListener('majestictab-web-search-browser-changed', onBrowserPrefChange);
     const onBatchUpdate = () => { render(); };
     batchListeners.add(onBatchUpdate);
 
@@ -399,7 +367,5 @@ export function renderMissingTabsTool(container) {
         alive = false;
         batchListeners.delete(onBatchUpdate);
         window.removeEventListener('libraryDataChanged', onData);
-        window.removeEventListener('storage', onBrowserPrefChange);
-        window.removeEventListener('majestictab-web-search-browser-changed', onBrowserPrefChange);
     };
 }

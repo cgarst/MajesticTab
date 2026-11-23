@@ -3,8 +3,6 @@
 
 const DEFAULTS = {
     channel: 'web',
-    tabDownloader: 'in-app',
-    inAppBrowser: true,
     extensions: 'full',
     selfUpdate: true,
     googleDrive: true,

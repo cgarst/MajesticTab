@@ -106,7 +106,7 @@ export function base64ToArrayBuffer(base64) {
 /**
  * Save a File or Blob into the persistent store.
  * @param {File|Blob} file
- * @param {string} providerId (e.g. 'local', 'google-drive', 'tab-downloader')
+ * @param {string} providerId (e.g. 'local', 'google-drive', 'web-search')
  * @param {object} [metadata]
  * @returns {Promise<object>} Stored record
  */

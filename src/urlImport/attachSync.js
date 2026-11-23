@@ -1,29 +1,5 @@
 // urlImport/attachSync.js
-// After a score opened from a web address is on screen, places the importer's sync sets (one list of bar start times
-// per linked video) on the score's played bars and stores them as that song's points for each video. Waits for the
-// score's MIDI tick lookup, since the played bars (repeats included) come from it.
-
-import { getScoreContext } from '../audioSync/audioSyncController.js';
-import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
-import { buildBeatMap } from '../audioSync/beatMap.js';
-import { placeBarTimes } from '../audioSync/importers/index.js';
-import { saveRecord, SYNC_CHANGED_EVENT } from '../audioSync/syncStore.js';
-import { getSongKey } from '../soundPlayer.js';
-import { placeSyncSets } from './urlImport.js';
-
-const WAIT_MS = 20000;
-const POLL_MS = 250;
-
-async function playedBarsWhenReady() {
-    const deadline = Date.now() + WAIT_MS;
-    while (Date.now() < deadline) {
-        const ctx = getScoreContext();
-        const bars = ctx ? buildBeatMap(getMidiTickLookup(ctx.api)).bars : [];
-        if (bars.length) return bars;
-        await new Promise(resolve => setTimeout(resolve, POLL_MS));
-    }
-    return [];
-}
+// The played bars of a score read straight from its file, without opening it.
 
 /**
  * Extract played bars directly from a file buffer in memory without mounting to DOM.
@@ -59,44 +35,4 @@ export async function extractPlayedBarsFromFile(file) {
     } catch {
         return [];
     }
-}
-
-/**
- * @param {Array<{label?: string, videoId: string, barTimesMs: number[]}>} sets
- * @param {object} [options]
- * @param {string} [options.songKey]
- * @param {string[]} [options.aliasKeys]
- * @param {Array<{barIndex:number, occurrence:number}>} [options.bars]
- * @returns {Promise<{ saved: string[], skipped: string[] }>} labels saved, and a reason for each set left out
- */
-export async function attachSyncSets(sets, { songKey = null, aliasKeys = [], bars = null } = {}) {
-    if (!sets?.length) return { saved: [], skipped: [] };
-    const playedBars = (bars && bars.length) ? bars : await playedBarsWhenReady();
-    if (!playedBars.length) return { saved: [], skipped: ['The score was not ready, so no map points were added'] };
-    let covered = 0;
-    let firstPassOnly = false;
-    let extra = 0;
-    const { placed, skipped } = placeSyncSets(sets, times => {
-        const info = {};
-        const points = placeBarTimes(times, playedBars, info);
-        covered = info.covered || 0;
-        firstPassOnly = !!info.firstPassOnly;
-        extra = info.extra || 0;
-        return points;
-    });
-    // Only the start of the score had times: say so, so the missing last bars are not a surprise
-    if (covered) for (const p of placed) p.label = `${p.label} (bars 1-${covered} of ${playedBars.length})`;
-    // A longer list: read from the first bar, so say how many times were left over (the end may not line up)
-    if (extra) for (const p of placed) p.label = `${p.label} (list has ${extra} more bars than the score; read from bar 1)`;
-    if (firstPassOnly) for (const p of placed) p.label = `${p.label} (repeats not mapped)`;
-    const targetKey = songKey || getSongKey();
-    const allKeys = [targetKey, ...(Array.isArray(aliasKeys) ? aliasKeys : [])].filter(Boolean);
-    const uniqueKeys = [...new Set(allKeys.map(k => String(k).trim()))].filter(Boolean);
-    for (const key of uniqueKeys) {
-        for (const { videoId, points, label } of placed) {
-            saveRecord(key, { kind: 'youtube', videoId, label }, points, undefined, undefined, undefined, { restoreTo: points });
-        }
-    }
-    if (placed.length) window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
-    return { saved: placed.map(p => p.label), skipped };
 }

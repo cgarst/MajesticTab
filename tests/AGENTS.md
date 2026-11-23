@@ -36,7 +36,7 @@ python3 tests/cdp.py eval "(() => { window.__r='pending'; (async()=>{ try {
 python3 tests/cdp.py eval "window.__r"                # eval does not await: poll the global
 ```
 
-`openMpak` loads the tab and attaches the bundle's recordings but never adds to the library (only a download into a chosen song from the in-app browser does), so the song has no `librarySongId`. To test audio that the bulk import attached, seed it as the import does: `saveAudioFile(...)` then `attachLibraryAudio({ id, artist, title }, meta.id, 'original')` (`src/audioSync/libraryAudio.js`), reload and open the bundle again. A bundle is a copyrighted tab: keep the extracted `.gp` and the bundle out of the repo.
+`openMpak` loads the tab and attaches the bundle's recordings but never adds to the library (only a file opened after a web search started for a chosen song does), so the song has no `librarySongId`. To test audio that the bulk import attached, seed it as the import does: `saveAudioFile(...)` then `attachLibraryAudio({ id, artist, title }, meta.id, 'original')` (`src/audioSync/libraryAudio.js`), reload and open the bundle again. A bundle is a copyrighted tab: keep the extracted `.gp` and the bundle out of the repo.
 
 ## Debugging workflow
 

@@ -1,9 +1,7 @@
 use std::sync::Mutex;
 use tauri::Manager;
-#[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use tauri::Emitter;
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-use tauri::{LogicalPosition, LogicalSize};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use tauri::RunEvent;
 
@@ -20,7 +18,8 @@ mod google_picker_desktop;
 mod icloud;
 mod secrets;
 mod self_update;
-mod tab_downloader_native;
+#[cfg(target_os = "ios")]
+mod ios_webview;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod youtube_page;
@@ -117,277 +116,17 @@ fn read_opened_file_range(path: String, start: u64, len: u64) -> Result<tauri::i
     Ok(tauri::ipc::Response::new(buf))
 }
 
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub struct DownloadedTabPayload {
-    pub name: String,
-    pub path: Option<String>,
-    pub data: Option<Vec<u8>>,
-}
-
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+/// Whether this is a desktop debug build (the `debug-tools` feature); the page shows the debug switches only then.
 #[tauri::command]
-async fn open_tab_downloader(
-    app: tauri::AppHandle,
-    url: String,
-    config: Option<tab_downloader_native::TabDownloaderConfig>,
-    top_offset: Option<f64>,
-) -> Result<(), String> {
-    let parsed_url = url.parse::<tauri::Url>().map_err(|e| e.to_string())?;
-
-    let downloader = app
-        .get_webview(tab_downloader_native::DOWNLOADER_LABEL)
-        .or_else(|| app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL).map(|w| w.as_ref().clone()))
-        .ok_or_else(|| {
-            eprintln!("[Tab Downloader] Webview '{}' not found", tab_downloader_native::DOWNLOADER_LABEL);
-            "Tab downloader is unavailable".to_string()
-        })?;
-
-    let offset = top_offset.unwrap_or(84.0);
-
-    if let Some(state) = app.try_state::<tab_downloader_native::TabDownloaderState>() {
-        if let Ok(mut g) = state.current_config.lock() {
-            *g = config.clone();
-        }
-        if let Ok(mut g) = state.top_offset.lock() {
-            *g = offset;
-        }
-        if let Ok(mut g) = state.is_open.lock() {
-            *g = true;
-        }
-        if let Ok(mut g) = state.is_visible.lock() {
-            *g = true;
-        }
-    }
-
-    let main_window = app
-        .get_webview_window("main")
-        .map(|w| w.as_ref().window().clone())
-        .or_else(|| app.get_window("main"));
-
-    if let Some(ref main_win) = main_window {
-        let scale = main_win.scale_factor().unwrap_or(1.0);
-        if let Ok(size) = main_win.inner_size() {
-            let logical = size.to_logical::<f64>(scale);
-            let _ = downloader.set_position(LogicalPosition::new(0.0, offset));
-            let _ = downloader.set_size(LogicalSize::new(logical.width, (logical.height - offset).max(1.0)));
-        }
-    }
-
-    let _ = downloader.navigate(parsed_url);
-    let _ = downloader.show();
-
-    #[cfg(target_os = "macos")]
-    {
-        use objc2_web_kit::WKWebView;
-        let app_handle_wv = app.clone();
-        let _ = downloader.with_webview(move |platform| unsafe {
-            let webview = &*platform.inner().cast::<WKWebView>();
-            webview.setHidden(false);
-            if let Some(superview) = webview.superview() {
-                superview.addSubview(webview);
-            } else if let Some(main_win) = app_handle_wv.get_webview_window("main").map(|w| w.as_ref().window().clone()).or_else(|| app_handle_wv.get_window("main")) {
-                if let Ok(ns_win_ptr) = main_win.ns_window() {
-                    let ns_window = &*(ns_win_ptr as *const objc2_app_kit::NSWindow);
-                    if let Some(content_view) = ns_window.contentView() {
-                        content_view.addSubview(webview);
-                    }
-                }
-            }
-        });
-    }
-
-    let _ = downloader.set_focus();
-    Ok(())
-}
-
-#[cfg(any(target_os = "android", target_os = "ios"))]
-#[tauri::command]
-async fn open_tab_downloader(
-    app: tauri::AppHandle,
-    url: String,
-    config: Option<tab_downloader_native::TabDownloaderConfig>,
-    top_offset: Option<f64>,
-) -> Result<(), String> {
-    if let Some(state) = app.try_state::<tab_downloader_native::TabDownloaderState>() {
-        if let Some(offset) = top_offset {
-            if let Ok(mut g) = state.top_offset.lock() {
-                *g = offset;
-            }
-        }
-        if let Ok(mut g) = state.is_visible.lock() {
-            *g = true;
-        }
-        if let Ok(mut g) = state.current_config.lock() {
-            *g = config.clone();
-        }
-        if let Ok(mut g) = state.is_open.lock() {
-            *g = true;
-        }
-    }
-
-    // The user agent is fixed when the webview is created, so a change in the
-    // per-source "force desktop" setting requires rebuilding the window.
-    static FORCED_DESKTOP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-    let force_desktop = config.as_ref().map(|c| c.force_desktop).unwrap_or(false);
-    if let Some(existing) = app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
-        if FORCED_DESKTOP.load(std::sync::atomic::Ordering::SeqCst) != force_desktop {
-            let _ = existing.destroy();
-            for _ in 0..20 {
-                if app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL).is_none() {
-                    break;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-            }
-        }
-    }
-    FORCED_DESKTOP.store(force_desktop, std::sync::atomic::Ordering::SeqCst);
-
-    if let Some(existing) = app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
-        if let Ok(parsed_url) = url.parse::<tauri::Url>() {
-            if let Some(main_win) = app.get_webview_window("main") {
-                let _ = main_win.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
-            }
-            let _ = existing.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
-            // On iOS the webview was configured when created and now lives inside the main window.
-            #[cfg(target_os = "ios")]
-            tab_downloader_native::ios_place_downloader(&app, top_offset, true);
-            #[cfg(target_os = "android")]
-            {
-                let _ = existing.show();
-                let _ = existing.set_focus();
-            }
-            let _ = existing.navigate(parsed_url);
-            return Ok(());
-        }
-    }
-
-    static CREATING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-    if CREATING.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst).is_err() {
-        return Ok(());
-    }
-    struct CreatingGuard;
-    impl Drop for CreatingGuard {
-        fn drop(&mut self) {
-            CREATING.store(false, std::sync::atomic::Ordering::SeqCst);
-        }
-    }
-    let _guard = CreatingGuard;
-
-    let parsed_url = url.parse::<tauri::Url>().map_err(|e| e.to_string())?;
-    let mut builder = tauri::WebviewWindowBuilder::new(
-        &app,
-        tab_downloader_native::DOWNLOADER_LABEL,
-        tauri::WebviewUrl::External(parsed_url),
-    )
-    .title("Tab Downloader - MajesticTab")
-    .initialization_script(tab_downloader_native::CORE_DOWNLOADER_SHIM);
-    // iOS moves this webview into the main window, so its own window stays hidden.
-    #[cfg(target_os = "ios")]
-    {
-        builder = builder.visible(false);
-    }
-    #[cfg(any(target_os = "android", target_os = "ios"))]
-    if force_desktop {
-        builder = builder.user_agent(tab_downloader_native::DESKTOP_USER_AGENT);
-    }
-
-    let app_handle_for_nav = app.clone();
-    builder = builder.on_navigation(move |nav_url| {
-        tab_downloader_native::handle_navigation(&app_handle_for_nav, &nav_url)
-    });
-
-    let app_handle_for_load = app.clone();
-    builder = builder.on_page_load(move |_webview, payload| {
-        let s = payload.url().as_str();
-        if s.starts_with("http://") || s.starts_with("https://") {
-            let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
-        }
-    });
-
-    let app_handle = app.clone();
-    builder = builder.on_download(move |_webview, event| {
-        match event {
-            tauri::webview::DownloadEvent::Requested { destination, .. } => {
-                let dest_dir = std::env::temp_dir().join("majestictab_downloads");
-                let _ = std::fs::create_dir_all(&dest_dir);
-                let filename = destination
-                    .file_name()
-                    .map(|f| f.to_string_lossy().to_string())
-                    .unwrap_or_else(|| "downloaded.gp".to_string());
-                *destination = dest_dir.join(&filename);
-                true
-            }
-            tauri::webview::DownloadEvent::Finished { path, success, .. } => {
-                if success {
-                    if let Some(p) = path {
-                        let mut filename = p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "downloaded.gp".to_string());
-                        let data = std::fs::read(&p).ok();
-                        if let Some(ref bytes) = data {
-                            if let Some(ext) = tab_downloader_native::identify_tab_extension(bytes, &filename) {
-                                if !filename.to_lowercase().ends_with(&format!(".{}", ext)) {
-                                    if !filename.contains('.') || filename.starts_with("download") {
-                                        filename = format!("{}.{}", filename, ext);
-                                    }
-                                }
-                                if let Some(main_win) = app_handle.get_webview_window("main") {
-                                    let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);
-                                    let escaped_name = serde_json::to_string(&filename).unwrap_or_default();
-                                    let escaped_b64 = serde_json::to_string(&b64).unwrap_or_default();
-                                    let escaped_path = serde_json::to_string(&p.to_string_lossy()).unwrap_or_default();
-                                    let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {}, {});", escaped_name, escaped_b64, escaped_path);
-                                    let _ = main_win.eval(&eval_script);
-                                }
-                                if let Some(state) = app_handle.try_state::<tab_downloader_native::TabDownloaderState>() {
-                                    if let Ok(mut g) = state.is_open.lock() {
-                                        *g = false;
-                                    }
-                                }
-                                tab_downloader_native::hide_downloader(&app_handle);
-                                let payload = DownloadedTabPayload {
-                                    name: filename,
-                                    path: Some(p.to_string_lossy().to_string()),
-                                    data: Some(bytes.clone()),
-                                };
-                                let _ = app_handle.emit("tab-downloaded", payload);
-                            }
-                        }
-                    }
-                }
-                true
-            }
-            _ => true,
-        }
-    });
-
-    let window = builder.build().map_err(|e| e.to_string())?;
-    // The first load can start before on_page_load is attached, so the bar never hears about it
-    let _ = app.emit("tab-downloader-url-changed", url.clone());
-    #[cfg(target_os = "ios")]
-    {
-        tab_downloader_native::configure_ios_webview(&window, 13.0, 15.0, 21.0);
-        let _ = window.hide();
-        tab_downloader_native::ios_place_downloader(&app, top_offset, true);
-        tab_downloader_native::attach_cached_adblock_if_enabled(&app);
-        if let Some(main_win) = app.get_webview_window("main") {
-            let _ = main_win.set_focus();
-        }
-    }
-    #[cfg(target_os = "android")]
-    {
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
-    if let Some(main_win) = app.get_webview_window("main") {
-        let _ = main_win.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
-    }
-    Ok(())
+fn is_debug_tools_enabled() -> bool {
+    cfg!(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios"))))
 }
 
 #[tauri::command]
 fn configure_ios_main_window(_app: tauri::AppHandle) {
     #[cfg(target_os = "ios")]
     if let Some(main_win) = _app.get_webview_window("main") {
-        tab_downloader_native::configure_ios_webview(&main_win, 6.0, 5.0, 10.0);
+        ios_webview::configure_ios_webview(&main_win, 6.0, 5.0, 10.0);
     }
 }
 
@@ -472,28 +211,12 @@ fn setup_macos_mouse_navigation(app_handle: tauri::AppHandle) {
 
         if button == 3 || button == 4 {
             if event_type == NSEventType::OtherMouseDown {
-                let is_downloader_visible = app_handle
-                    .try_state::<tab_downloader_native::TabDownloaderState>()
-                    .and_then(|st| st.is_visible.lock().ok().map(|g| *g))
-                    .unwrap_or(false);
-
-                if is_downloader_visible {
-                    let script = if button == 3 {
-                        "window.history.back()"
-                    } else {
-                        "window.history.forward()"
-                    };
-                    if let Some(w) = app_handle.get_webview(tab_downloader_native::DOWNLOADER_LABEL) {
-                        let _ = w.eval(script);
-                    }
+                let event_name = if button == 3 {
+                    "mouse-nav-back"
                 } else {
-                    let event_name = if button == 3 {
-                        "mouse-nav-back"
-                    } else {
-                        "mouse-nav-forward"
-                    };
-                    let _ = app_handle.emit(event_name, ());
-                }
+                    "mouse-nav-forward"
+                };
+                let _ = app_handle.emit(event_name, ());
             }
             std::ptr::null_mut()
         } else {
@@ -544,7 +267,6 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .manage(OpenedFilesState(Mutex::new(initial_files)))
         .manage(OpenedUrlsState(Mutex::new(initial_urls)))
-        .manage(tab_downloader_native::TabDownloaderState::default())
         .manage(jam::JamState::default())
         // Launched with a file (open with, CLI argument), the window comes up without the webview holding keyboard
         // focus on macOS and Linux, so Space and the arrows do nothing until the first click. Hand it focus once loaded.
@@ -568,7 +290,6 @@ pub fn run() {
             }
             #[cfg(target_os = "ios")]
             youtube_ios::install(_app);
-            tab_downloader_native::install(_app)?;
 
             // The YouTube mark and title in the embedded player open a new window; WebKitGTK ignores it unless we
             // answer. Send YouTube links to the default browser and never create a window.
@@ -616,7 +337,7 @@ pub fn run() {
 
             #[cfg(target_os = "ios")]
             if let Some(main_win) = _app.get_webview_window("main") {
-                tab_downloader_native::configure_ios_webview(&main_win, 6.0, 5.0, 10.0);
+                ios_webview::configure_ios_webview(&main_win, 6.0, 5.0, 10.0);
             }
 
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -624,33 +345,6 @@ pub fn run() {
                 if let Some(icon) = _app.default_window_icon() {
                     let _ = window.set_icon(icon.clone());
                 }
-                let app_handle_for_resize = _app.handle().clone();
-                window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::Resized(size) = event {
-                        let is_open = app_handle_for_resize
-                            .try_state::<tab_downloader_native::TabDownloaderState>()
-                            .and_then(|st| st.is_open.lock().ok().map(|g| *g))
-                            .unwrap_or(false);
-                        let is_visible = app_handle_for_resize
-                            .try_state::<tab_downloader_native::TabDownloaderState>()
-                            .and_then(|st| st.is_visible.lock().ok().map(|g| *g))
-                            .unwrap_or(true);
-                        if is_open && is_visible {
-                            if let Some(downloader) = app_handle_for_resize.get_webview(tab_downloader_native::DOWNLOADER_LABEL) {
-                                if let Some(main_win) = app_handle_for_resize.get_window("main") {
-                                    let scale = main_win.scale_factor().unwrap_or(1.0);
-                                    let logical = size.to_logical::<f64>(scale);
-                                    let top_offset = app_handle_for_resize
-                                        .try_state::<tab_downloader_native::TabDownloaderState>()
-                                        .and_then(|st| st.top_offset.lock().ok().map(|g| *g))
-                                        .unwrap_or(84.0);
-                                    let _ = downloader.set_position(LogicalPosition::new(0.0, top_offset));
-                                    let _ = downloader.set_size(LogicalSize::new(logical.width, (logical.height - top_offset).max(1.0)));
-                                }
-                            }
-                        }
-                    }
-                });
                 #[cfg(target_os = "linux")]
                 if is_gamescope_or_steam_deck() {
                     let _ = window.set_decorations(false);
@@ -742,20 +436,8 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         secrets::secret_delete,
         self_update::update_auth_token,
         self_update::install_update,
-        open_tab_downloader,
         configure_ios_main_window,
-        tab_downloader_native::tab_downloader_update,
-        tab_downloader_native::tab_downloader_navigate,
-        tab_downloader_native::tab_downloader_eval,
-        tab_downloader_native::tab_downloader_prefill,
-        tab_downloader_native::tab_downloader_prefill_script,
-        tab_downloader_native::tab_downloader_nav,
-        tab_downloader_native::tab_downloader_hide,
-        tab_downloader_native::tab_downloader_set_batch,
-        tab_downloader_native::tab_downloader_set_visible,
-        tab_downloader_native::tab_downloader_open_devtools,
-        tab_downloader_native::tab_downloader_is_debug_tools_enabled,
-        tab_downloader_native::tab_downloader_set_adblock_rules,
+        is_debug_tools_enabled,
         #[cfg(feature = "debug-tools")]
         debug_bridge::debug_bridge_result,
         #[cfg(feature = "debug-tools")]
@@ -801,20 +483,8 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         secrets::secret_delete,
         self_update::update_auth_token,
         self_update::install_update,
-        open_tab_downloader,
         configure_ios_main_window,
-        tab_downloader_native::tab_downloader_update,
-        tab_downloader_native::tab_downloader_navigate,
-        tab_downloader_native::tab_downloader_eval,
-        tab_downloader_native::tab_downloader_prefill,
-        tab_downloader_native::tab_downloader_prefill_script,
-        tab_downloader_native::tab_downloader_nav,
-        tab_downloader_native::tab_downloader_hide,
-        tab_downloader_native::tab_downloader_set_batch,
-        tab_downloader_native::tab_downloader_set_visible,
-        tab_downloader_native::tab_downloader_open_devtools,
-        tab_downloader_native::tab_downloader_is_debug_tools_enabled,
-        tab_downloader_native::tab_downloader_set_adblock_rules,
+        is_debug_tools_enabled,
         #[cfg(feature = "debug-tools")]
         debug_bridge::debug_bridge_result,
         #[cfg(feature = "debug-tools")]

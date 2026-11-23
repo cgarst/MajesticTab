@@ -39,7 +39,7 @@ The mpak format is specified in the [MusicPackSpec repository](https://github.co
 - **Per-song settings persist on the device**, keyed by the song or tab, so they are still there the next time it opens. Sound off is the exception by design: it is a session toggle and ends when another file opens.
 - **The one exception is what the mpak spec already carries**: media selection such as which YouTube video or which stem or file is chosen over another, recordings and sync points. These travel in the pack, and only because the spec has a place for them. Do not add a field to the pack for anything else; a format change needs the user's approval (see the mpak standard above).
 - **Pins are library data, not settings, and all of them persist and sync:** pinned songs (on the song record), pinned artists and pinned Classical tab composers and pieces. They stay in the backup and the sync store.
-- **Search providers sync:** the list in Settings → Search providers (`majestictab_tab_sources`, with its deleted markers) serves both the system browser and the in-app browser, and stays synced with its own merge. Which browser to open search in (`majestictab_web_search_browser`) is a preference and stays on the device.
+- **Search providers sync:** the list in Settings → Search providers (`majestictab_tab_sources`, with its deleted markers) is where web search opens, in the system browser (there is no in-app browser), and stays synced with its own merge.
 - A new preference is therefore local by default: do not add its key to `BACKUP_SETTINGS_KEYS` or to the song record in `library.json`.
 
 ### Attribution

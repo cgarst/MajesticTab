@@ -10,7 +10,7 @@ export function isDebugBuild() {
     cached ||= (async () => {
         const invoke = window.__TAURI__?.core?.invoke;
         if (!invoke) return false;
-        try { return (await invoke('tab_downloader_is_debug_tools_enabled')) === true; } catch { return false; }
+        try { return (await invoke('is_debug_tools_enabled')) === true; } catch { return false; }
     })();
     return cached;
 }

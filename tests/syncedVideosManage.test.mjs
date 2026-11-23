@@ -65,7 +65,7 @@ global.localStorage = {
     get length() { return Object.keys(store).length; }
 };
 
-const { extractSourceWebsite } = await import('../src/tabDownloader.js');
+const { extractSourceWebsite } = await import('../src/webSearch.js');
 const {
     saveRecord,
     loadRecord,

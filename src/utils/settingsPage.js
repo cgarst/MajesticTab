@@ -8,7 +8,7 @@
 import { getDefaultGpNotationMode, setGpNotationMode } from '../gpProcessor/gpProcessor.js';
 import { brandMarkSvg } from '../brandMark.js';
 import { canQuitApp } from './quitApp.js';
-import { isNative } from '../tabDownloader.js';
+import { isNative } from '../webSearch.js';
 import { initWebSearchSettings } from './webSearchSettings.js';
 import { isHideNoTabSongsEnabled, setHideNoTabSongsEnabled } from '../libraryModal.js';
 import { isAutoSyncEnabled, setAutoSyncEnabled, triggerAutoSync, STATE_CHANGED_EVENT } from '../autoSync.js';
@@ -423,7 +423,7 @@ export function initSettingsPage() {
         panes.controls.appendChild(g);
     }
 
-    // Web search: adblocking and tab search providers (native clients only)
+    // Web search: the tab search providers (native clients only)
     if (panes.websearch) {
         initWebSearchSettings(panes.websearch);
     }
