@@ -53,3 +53,7 @@ F-Droid's recipe deletes `build/tauri/plugins` before building (its source scan 
 ## Flatpak sources
 
 The Linux build (`node build/build-tauri.mjs linux`, and CI) compiles the app inside the GNOME SDK from `build/tauri/flatpak/manifest.yml`, offline, the same way Flathub does. The offline dependency lists `build/tauri/flatpak/cargo-sources.json` and `node-sources.json` are generated from `src-tauri/Cargo.lock` and `package-lock.json`. Whenever either lockfile changes, run `build/tauri/flatpak/update-sources.sh` (needs `flatpak-node-generator` on PATH and `FLATPAK_CARGO_GENERATOR` pointing at `flatpak-cargo-generator.py`, both from github.com/flatpak/flatpak-builder-tools) and commit the result; CI's Linux build fails when they are stale. The Flathub submission manifest and its copies of these two files are kept outside this repo, so refresh them from here before updating Flathub.
+
+## AppImage
+
+`node build/build-tauri.mjs linux --channel=appimage` builds the self-updating x86_64 AppImage with Tauri's own bundler (not the Flatpak path), on the host: it needs the webkit2gtk 4.1 and GTK 3 dev packages (see build.yml's `appimage` job, which runs on ubuntu-22.04 for an older glibc). With `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_UPDATER_PUBKEY` set it also writes the `.AppImage.sig`; `name-release-assets.mjs` renames both to `MajesticTab-<version>-linux-x86_64.AppImage`, and `make-update-manifest.mjs` puts it in `latest.json` as `linux-x86_64`. `self_update.rs` reports "native" only when `APPIMAGE` is set, so the Flatpak (flathub channel) never self-updates.

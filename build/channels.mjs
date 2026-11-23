@@ -54,6 +54,11 @@ export const channels = {
     platforms: ['linux'],
     capabilities: { ...FULL, selfUpdate: false },
   },
+  // The AppImage download from the GitHub release: updates itself (tauri-plugin-updater replaces the file).
+  appimage: {
+    platforms: ['linux'],
+    capabilities: { ...FULL },
+  },
   msstore: {
     platforms: ['windows'],
     capabilities: { ...FULL, ...STORE_DOWNLOADER },

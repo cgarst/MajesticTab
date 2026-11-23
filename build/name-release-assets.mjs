@@ -19,6 +19,7 @@ const rules = [
   [/^MajesticTab_[\d.]+_x64(\.dmg)$/, 'macos-intel'],
   [/^MajesticTab_aarch64(\.app\.tar\.gz(?:\.sig)?)$/, 'macos-apple-silicon'],
   [/^MajesticTab_x86_64(\.app\.tar\.gz(?:\.sig)?)$/, 'macos-intel'],
+  [/^MajesticTab_[\d.]+_amd64(\.AppImage(?:\.sig)?)$/, 'linux-x86_64'],
   [/^MajesticTab-x86_64(\.flatpak)$/, 'linux-x86_64'],
   [/^MajesticTab-aarch64(\.flatpak)$/, 'linux-aarch64'],
   [/^MajesticTab-android(\.apk)$/, 'android'],

@@ -700,7 +700,7 @@ if (target === 'android') {
       fail('Tauri completed without producing an iOS IPA or .app bundle.');
     }
   }
-} else if (target === 'linux') {
+} else if (target === 'linux' && channel !== 'appimage') {
   for (const command of ['flatpak-builder', 'flatpak']) {
     const result = spawnSync(command, ['--version'], { env, stdio: 'ignore' });
     if (result.error) fail(`The Linux target requires ${command}.`);
@@ -800,7 +800,7 @@ if (target === 'android') {
   if (!macosAppStore && channelCapabilities.selfUpdate && (process.env.TAURI_SIGNING_PRIVATE_KEY || process.env.TAURI_SIGNING_PRIVATE_KEY_PATH) && !updaterPubkey) {
     console.warn('[build-tauri] Skipping update bundles: TAURI_UPDATER_PUBKEY is not set.');
   }
-  const bundles = macosAppStore ? ['app'] : target === 'macos' ? ['dmg', 'app'] : ['nsis'];
+  const bundles = macosAppStore ? ['app'] : target === 'macos' ? ['dmg', 'app'] : target === 'linux' ? ['appimage'] : ['nsis'];
   const buildEnv = target === 'macos' ? { ...env, CI: 'true' } : env;
   const buildArgs = ['run', 'tauri', '--', 'build', '--bundles', ...bundles];
   if (updaterPubkey) {
@@ -889,7 +889,7 @@ if (target === 'android') {
       run('productbuild', ['--component', builtApp, '/Applications', '--sign', installerIdentity, pkg]);
     }
   } else {
-    await copyBundleArtifacts(path.join(bundleRoot, target === 'macos' ? 'dmg' : 'nsis'), target === 'macos' ? '.dmg' : '.exe');
+    await copyBundleArtifacts(path.join(bundleRoot, target === 'macos' ? 'dmg' : target === 'linux' ? 'appimage' : 'nsis'), target === 'macos' ? '.dmg' : target === 'linux' ? '.AppImage' : '.exe');
   }
   if (signUpdates) {
     if (target === 'macos') {
@@ -900,6 +900,8 @@ if (target === 'android') {
         if (!(await stat(source).catch(() => null))) fail(`Missing update artifact: ${source}`);
         await cp(source, path.join(distDir, `MajesticTab_${arch}${suffix}`));
       }
+    } else if (target === 'linux') {
+      await copyBundleArtifacts(path.join(bundleRoot, 'appimage'), '.AppImage.sig');
     } else {
       await copyBundleArtifacts(path.join(bundleRoot, 'nsis'), '.exe.sig');
     }
