@@ -8,8 +8,11 @@
 //   - the standard parts of the description: paths, parameters, security schemes, info.title, and the `links` of a
 //     job's response, which say where its status and its file are (the link's parameters are runtime expressions such as
 //     $response.body#/id, and only that form and plain values are understood);
-//   - one vendor extension, x-async-job on the start operation: it names those two links and says what the job's
+//   - x-choices on a response that asks the user to pick (a 409 that lists matches): where the list is in the body, which
+//     fields are the label, the detail and the value, and which query parameter takes the chosen value;
+//   - x-async-job on the start operation: it names those two links and says what the job's
 //     fields mean (the state values, the progress fields and the error), as JSON Pointers into the job.
+//   x-choices and x-async-job are the two vendor extensions; everything else is standard OpenAPI.
 // The description is data from the network: only GET, only local $refs, a size cap, JSON only.
 // Unit tested in tests/openApiDiscovery.test.mjs.
 
@@ -153,6 +156,42 @@ export function authOf(spec, operation) {
         }
     }
     return { required, queryName, strip };
+}
+
+/**
+ * What an operation says about a response that asks the user to choose, in x-choices on that response, or null.
+ * Required: items (a JSON Pointer to the list), label and value (pointers into each item) and parameter (the query
+ * parameter the chosen value goes in). Optional: detail (a pointer into each item) and replaces (a query parameter the
+ * choice makes unnecessary, such as the search text).
+ */
+export function choicesOf(spec, operation, status) {
+    const raw = resolveRef(spec, operation?.responses?.[String(status)])?.['x-choices'];
+    if (!raw || typeof raw !== 'object') return null;
+    const choices = { items: pointerOrNull(raw.items), label: pointerOrNull(raw.label), value: pointerOrNull(raw.value), detail: pointerOrNull(raw.detail), parameter: nameOrNull(raw.parameter), replaces: nameOrNull(raw.replaces) };
+    return choices.items && choices.label && choices.value && choices.parameter ? choices : null;
+}
+
+const MAX_CHOICES = 50;
+
+/** The options a body lists, as {label, detail, value} text; entries without a label or a value are left out. */
+export function readChoices(body, choices) {
+    const list = readPointer(body, choices.items);
+    if (!Array.isArray(list)) return [];
+    const text = (item, pointer) => {
+        const v = pointer ? readPointer(item, pointer) : undefined;
+        return typeof v === 'string' || typeof v === 'number' ? String(v) : '';
+    };
+    return list.slice(0, MAX_CHOICES)
+        .map((item) => ({ label: text(item, choices.label), detail: text(item, choices.detail), value: text(item, choices.value) }))
+        .filter((c) => c.label && c.value);
+}
+
+/** The address again with the chosen value in the choice's parameter (and the parameter it replaces removed). */
+export function choiceAddress(address, choices, value) {
+    const url = new URL(address);
+    if (choices.replaces) url.searchParams.delete(choices.replaces);
+    url.searchParams.set(choices.parameter, value);
+    return url.href;
 }
 
 const encode = (value) => encodeURIComponent(String(value));

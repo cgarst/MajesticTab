@@ -9,7 +9,7 @@ import { classifyAddress, cachedKind, rememberKind, sourceFetchesCached, sourceF
 const specText = readFileSync(new URL('./jobService.openapi.json', import.meta.url), 'utf8');
 const HOST = 'http://svc.test:8080';
 const BOTH = '</openapi.json>; rel="service-desc", </opensearch.xml>; rel="search"; type="application/opensearchdescription+xml"';
-const SEARCH_XML = `<OpenSearchDescription><Url type="text/html" template="${HOST}/get?q={searchTerms}"/><Url type="application/json" template="${HOST}/api/fetch?q={searchTerms}&amp;first=1"/></OpenSearchDescription>`;
+const SEARCH_XML = `<OpenSearchDescription><Url type="text/html" template="${HOST}/get?q={searchTerms}"/><Url type="application/json" template="${HOST}/api/get?q={searchTerms}&amp;first=1"/></OpenSearchDescription>`;
 
 const store = new Map();
 globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
@@ -26,7 +26,7 @@ const service = (url) => {
 const classify = (address, fetchImpl = async (url) => service(String(url))) => { clearSpecCache(); return classifyAddress(address, fetchImpl); };
 
 test('the API address starts a job, the web UI address is a page', async () => {
-    const job = await classify(`${HOST}/api/fetch?q=$s&first=1&token=$token`);
+    const job = await classify(`${HOST}/api/get?q=$s&first=1&token=$token`);
     assert.deepEqual([job.kind, job.title, job.needsToken], ['job', 'Guitar Pro sync service', true]);
     assert.equal((await classify(`${HOST}/get?q=$s`)).kind, 'page');
     assert.equal((await classify(`${HOST}/get?q=23063&format=gp`)).kind, 'page');
@@ -35,7 +35,7 @@ test('the API address starts a job, the web UI address is a page', async () => {
 test('the search-only address starts nothing and suggests the one that fetches', async () => {
     const found = await classify(`${HOST}/api/search?q=$s`);
     assert.equal(found.kind, 'search');
-    assert.equal(found.suggestion, `${HOST}/api/fetch?q=$s&first=1&token=$token`);
+    assert.equal(found.suggestion, `${HOST}/api/get?q=$s&first=1&token=$token`);
 });
 
 test('an ordinary site costs one request and is a page', async () => {
@@ -46,33 +46,33 @@ test('an ordinary site costs one request and is a page', async () => {
 });
 
 test('a service that cannot be reached is unknown, not a page', async () => {
-    assert.equal((await classify(`${HOST}/api/fetch?q=$s`, async () => { throw new Error('net'); })).kind, 'unknown');
-    assert.equal((await classify(`${HOST}/api/fetch?q=$s`, async (url) => (String(url).endsWith('/openapi.json') ? reply('', { status: 502 }) : service(String(url))))).kind, 'unknown');
+    assert.equal((await classify(`${HOST}/api/get?q=$s`, async () => { throw new Error('net'); })).kind, 'unknown');
+    assert.equal((await classify(`${HOST}/api/get?q=$s`, async (url) => (String(url).endsWith('/openapi.json') ? reply('', { status: 502 }) : service(String(url))))).kind, 'unknown');
     assert.equal((await classify('not an address')).kind, 'page');
 });
 
 test('a description whose link points at another host is not followed', async () => {
-    const found = await classify(`${HOST}/api/fetch?q=$s`, async () => reply('<html>', { link: '<http://evil.test/openapi.json>; rel="service-desc"' }));
+    const found = await classify(`${HOST}/api/get?q=$s`, async () => reply('<html>', { link: '<http://evil.test/openapi.json>; rel="service-desc"' }));
     assert.equal(found.kind, 'page');
 });
 
 test('the answer is kept on this device and goes stale', () => {
     store.clear();
-    assert.equal(cachedKind(`${HOST}/api/fetch?q=$s`), '');
-    rememberKind(`${HOST}/api/fetch?q=$s&first=1`, 'job');
-    assert.equal(cachedKind(`${HOST}/api/fetch?q=other`), 'job', 'keyed by host and path');
+    assert.equal(cachedKind(`${HOST}/api/get?q=$s`), '');
+    rememberKind(`${HOST}/api/get?q=$s&first=1`, 'job');
+    assert.equal(cachedKind(`${HOST}/api/get?q=other`), 'job', 'keyed by host and path');
     assert.equal(cachedKind(`${HOST}/get?q=$s`), '');
     rememberKind(`${HOST}/x`, 'unknown');
     assert.equal(cachedKind(`${HOST}/x`), '', 'unknown is never kept');
     const cache = JSON.parse(store.get(SOURCE_KINDS_KEY));
-    cache[`${HOST}/api/fetch`].at -= 2 * 24 * 60 * 60 * 1000;
+    cache[`${HOST}/api/get`].at -= 2 * 24 * 60 * 60 * 1000;
     store.set(SOURCE_KINDS_KEY, JSON.stringify(cache));
-    assert.equal(cachedKind(`${HOST}/api/fetch?q=$s`), '');
+    assert.equal(cachedKind(`${HOST}/api/get?q=$s`), '');
 });
 
 test('a source says it fetches by its own choice, else by what was found', async () => {
     store.clear();
-    const source = (extra) => ({ id: 's', urlTemplate: `${HOST}/api/fetch?q=$s`, isSeed: false, ...extra });
+    const source = (extra) => ({ id: 's', urlTemplate: `${HOST}/api/get?q=$s`, isSeed: false, ...extra });
     assert.equal(sourceFetchesCached(source()), false, 'unseen is a page');
     assert.equal(sourceFetchesCached(source({ kind: 'api' })), true);
     assert.equal(sourceFetchesCached(source({ isSeed: true, kind: 'api' })), false);

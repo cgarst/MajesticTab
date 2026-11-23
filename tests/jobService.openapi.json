@@ -11,7 +11,7 @@
     }
   ],
   "paths": {
-    "/api/fetch": {
+    "/api/get": {
       "get": {
         "operationId": "fetchJob",
         "summary": "Start a job with a GET",
@@ -110,6 +110,14 @@
                   "$ref": "#/components/schemas/Ambiguous"
                 }
               }
+            },
+            "x-choices": {
+              "items": "/matches",
+              "label": "/title",
+              "detail": "/artist",
+              "value": "/song",
+              "parameter": "song",
+              "replaces": "q"
             }
           }
         }
@@ -206,6 +214,14 @@
                   "$ref": "#/components/schemas/Ambiguous"
                 }
               }
+            },
+            "x-choices": {
+              "items": "/matches",
+              "label": "/title",
+              "detail": "/artist",
+              "value": "/song",
+              "parameter": "song",
+              "replaces": "q"
             }
           }
         }

@@ -495,6 +495,13 @@ export async function openTabFromUrl(text, options = {}) {
         if (/^https?:\/\//i.test(pageUrl) && !looksLikeTabFileUrl(pageUrl)) {
             const { probeAddress } = await import('./urlImport/openFromUrl.js');
             probed = await probeAddress(pageUrl);
+            if (probed?.choose) {
+                // The service found several matches and starts nothing until one is picked: ask again with the choice.
+                const { chooseMatch } = await import('./urlImport/chooseMatch.js');
+                const value = await chooseMatch(probed.choose);
+                if (value !== null) await openTabFromUrl(probed.choose.addressFor(value), options);
+                return;
+            }
             if (!probed && options.fetchOnly) {
                 throw new Error(isNativeApp()
                     ? 'That service did not answer with a file.'

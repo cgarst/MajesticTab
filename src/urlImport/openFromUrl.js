@@ -4,7 +4,7 @@
 import { hasNativeHttp } from '../s3Client.js';
 import { parseWebAddress, fileNameFor } from './urlImport.js';
 import { decodeText, charsetOf } from '../utils/decodeText.js';
-import { serviceDescLink, loadSpec, findOperation, asyncMapping, authOf, linkAddress } from './openApiDiscovery.js';
+import { serviceDescLink, loadSpec, findOperation, asyncMapping, authOf, linkAddress, choicesOf, readChoices, choiceAddress } from './openApiDiscovery.js';
 import { withToken } from './asyncJob.js';
 
 /**
@@ -136,12 +136,37 @@ async function jobFrom(res, address) {
 }
 
 /**
+ * What a service that describes itself says when it refuses an address it lists as a job: a list to choose from (a 409
+ * with matches, when the description says how to read it), or an error that says why. Null for anything else.
+ */
+async function refusalFrom(res, address) {
+    const link = serviceDescLink(res.headers?.get?.('link'), address);
+    if (!link || new URL(link).origin !== new URL(address).origin) return null;
+    let body = null;
+    try {
+        const text = await res.text();
+        if (text.length <= JOB_BODY_MAX) body = JSON.parse(text);
+    } catch { /* not JSON: the status alone is the message */ }
+    let spec;
+    try { spec = await loadSpec(link, httpFetch()); } catch { return null; }
+    const found = findOperation(spec, address);
+    if (!found || !asyncMapping(found.operation).mapping) return null;
+    const choices = body && choicesOf(spec, found.operation, res.status);
+    const options = choices ? readChoices(body, choices) : [];
+    if (options.length) {
+        return { choose: { title: String(spec.info?.title || ''), query: typeof body.query === 'string' ? body.query : '', options, addressFor: (value) => choiceAddress(address, choices, value) } };
+    }
+    throw new Error(typeof body?.error === 'string' && body.error ? body.error : `The service answered ${res.status}.`);
+}
+
+/**
  * Asks an address what it serves. Returns a file ({ file }) when it is a supported tab file, a job to follow
  * ({ job }) when the service's own description says the address starts one, else null so the caller can browse the
- * address as a page. A page is not read past its headers. Throws only for a service that needs an access token or
- * describes its job incompletely.
+ * address as a page. A page is not read past its headers. Throws for a service that needs an access token, describes
+ * its job incompletely, or refuses an address it lists as a job (the service's own message).
  * @param {string} urlText
- * @returns {Promise<{file: File}|{job: object}|null>}
+ * @returns {Promise<{file: File}|{job: object}|{choose: object}|null>} `choose` is a list the user picks from (the
+ *   service found several matches); picking gives the address to ask again
  */
 export async function probeAddress(urlText) {
     let url;
@@ -154,8 +179,12 @@ export async function probeAddress(urlText) {
     }
     const link = serviceDescLink(res.headers?.get?.('link'), url.href);
     if (!res.ok) {
+        if ((res.status === 401 || res.status === 403) && link) {
+            try { await res.body?.cancel?.(); } catch { /* nothing to cancel */ }
+            throw new Error('This service needs an access token. Add it to the address.');
+        }
+        if (link) return await refusalFrom(res, url.href);
         try { await res.body?.cancel?.(); } catch { /* nothing to cancel */ }
-        if ((res.status === 401 || res.status === 403) && link) throw new Error('This service needs an access token. Add it to the address.');
         return null;
     }
     const type = res.headers?.get?.('content-type') || '';

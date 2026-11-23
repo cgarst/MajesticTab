@@ -6,7 +6,7 @@ import { readPointer, fractionOf, interpretJob, withToken, stripParams, runJob }
 import { parseSpec, findOperation, asyncMapping, linkAddress } from '../src/urlImport/openApiDiscovery.js';
 
 const spec = parseSpec(readFileSync(new URL('./jobService.openapi.json', import.meta.url), 'utf8'));
-const found = findOperation(spec, 'http://svc.test:8080/api/fetch');
+const found = findOperation(spec, 'http://svc.test:8080/api/get');
 const { mapping } = asyncMapping(found.operation);
 const ORIGIN = 'http://svc.test:8080';
 const addresses = {

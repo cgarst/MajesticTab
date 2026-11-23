@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-    serviceDescLink, searchDescLink, linkAddress, parseOpenSearch, parseSpec, resolveRef, loadSpec, clearSpecCache, asyncMapping, findOperation, authOf,
+    serviceDescLink, searchDescLink, choicesOf, readChoices, choiceAddress, linkAddress, parseOpenSearch, parseSpec, resolveRef, loadSpec, clearSpecCache, asyncMapping, findOperation, authOf,
     buildTemplate, suggestSource, discoverFromAddress
 } from '../src/urlImport/openApiDiscovery.js';
 
@@ -16,13 +16,13 @@ const reply = (body, { ok = true, status = 200, link = '' } = {}) => ({
 });
 
 test('the Link header names the description', () => {
-    assert.equal(serviceDescLink('</openapi.json>; rel="service-desc"; type="application/json"', `${HOST}/api/fetch?q=x`), `${HOST}/openapi.json`);
+    assert.equal(serviceDescLink('</openapi.json>; rel="service-desc"; type="application/json"', `${HOST}/api/get?q=x`), `${HOST}/openapi.json`);
     assert.equal(serviceDescLink('<https://x.test/a>; rel="next", </spec>; rel="service-desc"', `${HOST}/`), `${HOST}/spec`);
     assert.equal(serviceDescLink('</a>; rel="next"', `${HOST}/`), '');
     assert.equal(serviceDescLink(null, `${HOST}/`), '');
     const both = '</openapi.json>; rel="service-desc", </opensearch.xml>; rel="search"; type="application/opensearchdescription+xml"';
-    assert.equal(searchDescLink(both, `${HOST}/api/fetch`), `${HOST}/opensearch.xml`);
-    assert.equal(serviceDescLink(both, `${HOST}/api/fetch`), `${HOST}/openapi.json`);
+    assert.equal(searchDescLink(both, `${HOST}/api/get`), `${HOST}/opensearch.xml`);
+    assert.equal(serviceDescLink(both, `${HOST}/api/get`), `${HOST}/openapi.json`);
 });
 
 test('a description must be OpenAPI 3 JSON of sane size', () => {
@@ -40,8 +40,8 @@ test('only local references are followed', () => {
 });
 
 test('the start operation maps the job and its progress', () => {
-    const found = findOperation(spec, `${HOST}/api/fetch?q=x&first=1`);
-    assert.equal(found.path, '/api/fetch');
+    const found = findOperation(spec, `${HOST}/api/get?q=x&first=1`);
+    assert.equal(found.path, '/api/get');
     const { mapping, error } = asyncMapping(found.operation);
     assert.equal(error, undefined);
     assert.equal(mapping.statusLink, 'status');
@@ -51,17 +51,31 @@ test('the start operation maps the job and its progress', () => {
 });
 
 test('the standard links of the job response give the status and file addresses', () => {
-    const found = findOperation(spec, `${HOST}/api/fetch?q=x`);
+    const found = findOperation(spec, `${HOST}/api/get?q=x`);
     const body = { id: 'j 1', status: 'queued' };
     assert.equal(linkAddress(spec, found, 'status', body, HOST), `${HOST}/api/job?id=j%201`);
     assert.equal(linkAddress(spec, found, 'file', body, HOST), `${HOST}/api/job/file?id=j%201`);
     assert.equal(linkAddress(spec, found, 'status', {}, HOST), '', 'the body lacks the id');
     assert.equal(linkAddress(spec, found, 'nope', body, HOST), '');
-    const behind = findOperation(spec, `${HOST}/proxy/gp/api/fetch?q=x`);
+    const behind = findOperation(spec, `${HOST}/proxy/gp/api/get?q=x`);
     assert.equal(linkAddress(spec, behind, 'status', body, HOST), `${HOST}/proxy/gp/api/job?id=j%201`);
     const other = JSON.parse(text);
     other.components.links.JobStatus.parameters.id = '$request.query.q';
-    assert.equal(linkAddress(other, findOperation(other, `${HOST}/api/fetch`), 'status', body, HOST), '', 'only a response body expression is understood');
+    assert.equal(linkAddress(other, findOperation(other, `${HOST}/api/get`), 'status', body, HOST), '', 'only a response body expression is understood');
+});
+
+test('a 409 that lists matches says how to read and answer them', () => {
+    const found = findOperation(spec, `${HOST}/api/get?q=bourree+bach`);
+    const choices = choicesOf(spec, found.operation, 409);
+    assert.deepEqual([choices.items, choices.label, choices.detail, choices.value, choices.parameter, choices.replaces], ['/matches', '/title', '/artist', '/song', 'song', 'q']);
+    assert.equal(choicesOf(spec, found.operation, 400), null);
+    const body = { query: 'bourree bach', matches: [{ song: '320', artist: 'Bach', title: 'Bourree' }, { song: 321, artist: '', title: 'Bourree (live)' }, { artist: 'x' }] };
+    assert.deepEqual(readChoices(body, choices), [{ label: 'Bourree', detail: 'Bach', value: '320' }, { label: 'Bourree (live)', detail: '', value: '321' }]);
+    assert.deepEqual(readChoices({}, choices), []);
+    assert.equal(choiceAddress(`${HOST}/api/get?q=bourree+bach&format=all&token=t`, choices, '320'), `${HOST}/api/get?format=all&token=t&song=320`);
+    const broken = JSON.parse(text);
+    delete broken.paths['/api/get'].get.responses['409']['x-choices'].value;
+    assert.equal(choicesOf(broken, findOperation(broken, `${HOST}/api/get`).operation, 409), null);
 });
 
 test('an incomplete mapping says what is missing', () => {
@@ -73,12 +87,12 @@ test('an incomplete mapping says what is missing', () => {
 });
 
 test('an address behind a path prefix still matches', () => {
-    assert.equal(findOperation(spec, `${HOST}/proxy/gp/api/fetch?q=x`).prefix, '/proxy/gp');
+    assert.equal(findOperation(spec, `${HOST}/proxy/gp/api/get?q=x`).prefix, '/proxy/gp');
     assert.equal(findOperation(spec, `${HOST}/nothing/here`), null);
 });
 
 test('access: a token only in the query, and what to strip', () => {
-    const fetchOp = findOperation(spec, `${HOST}/api/fetch`).operation;
+    const fetchOp = findOperation(spec, `${HOST}/api/get`).operation;
     const access = authOf(spec, fetchOp);
     assert.equal(access.required, true);
     assert.equal(access.queryName, 'token');
@@ -91,13 +105,13 @@ const SEARCH_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
   <ShortName>Guitar Pro sync</ShortName>
   <Url type="text/html" method="get" template="${HOST}/get?q={searchTerms}"/>
-  <Url type="application/json" method="get" template="${HOST}/api/fetch?q={searchTerms}&amp;first=1"/>
+  <Url type="application/json" method="get" template="${HOST}/api/get?q={searchTerms}&amp;first=1"/>
 </OpenSearchDescription>`;
 
 test('the OpenSearch description lists a page address and an API address', () => {
     assert.deepEqual(parseOpenSearch(SEARCH_XML), [
         { type: 'text/html', template: `${HOST}/get?q={searchTerms}` },
-        { type: 'application/json', template: `${HOST}/api/fetch?q={searchTerms}&first=1` }
+        { type: 'application/json', template: `${HOST}/api/get?q={searchTerms}&first=1` }
     ]);
     assert.deepEqual(parseOpenSearch('<Url type="x" method="post" template="a"/>'), []);
     assert.throws(() => parseOpenSearch(' '.repeat(600 * 1024)), /too large/);
@@ -105,14 +119,14 @@ test('the OpenSearch description lists a page address and an API address', () =>
 
 test('the search address comes from the service, with the token slot added', () => {
     const [, api] = parseOpenSearch(SEARCH_XML);
-    const built = buildTemplate(spec, findOperation(spec, `${HOST}/api/fetch`), api.template);
+    const built = buildTemplate(spec, findOperation(spec, `${HOST}/api/get`), api.template);
     const url = new URL(built.template.replace('$s', 'S').replace('$token', 'T'));
     assert.equal(url.origin, HOST);
-    assert.equal(url.pathname, '/api/fetch');
-    assert.equal(built.template, `${HOST}/api/fetch?q=$s&first=1&token=$token`);
+    assert.equal(url.pathname, '/api/get');
+    assert.equal(built.template, `${HOST}/api/get?q=$s&first=1&token=$token`);
     assert.deepEqual(built.optional.map((o) => o.name).sort(), ['force', 'format', 'song']);
     assert.deepEqual(built.optional.find((o) => o.name === 'format').values, ['gp', 'mpak', 'band', 'all']);
-    assert.equal(buildTemplate(spec, findOperation(spec, `${HOST}/api/fetch`), `${HOST}/api/fetch?q=x`), null);
+    assert.equal(buildTemplate(spec, findOperation(spec, `${HOST}/api/get`), `${HOST}/api/get?q=x`), null);
 });
 
 test('a source is suggested with the service name and token need', () => {
@@ -120,9 +134,9 @@ test('a source is suggested with the service name and token need', () => {
     const found = suggestSource(spec, `${HOST}/openapi.json`, searchUrls);
     assert.equal(found.name, 'Guitar Pro sync service');
     assert.equal(found.needsToken, true);
-    assert.equal(found.template, `${HOST}/api/fetch?q=$s&first=1&token=$token`);
-    const moved = suggestSource(spec, `${HOST}/openapi.json`, [{ type: 'application/json', template: 'http://internal:9/api/fetch?q={searchTerms}&first=1' }]);
-    assert.equal(moved.template, `${HOST}/api/fetch?q=$s&first=1&token=$token`, 'an address on another host stays on the entered origin');
+    assert.equal(found.template, `${HOST}/api/get?q=$s&first=1&token=$token`);
+    const moved = suggestSource(spec, `${HOST}/openapi.json`, [{ type: 'application/json', template: 'http://internal:9/api/get?q={searchTerms}&first=1' }]);
+    assert.equal(moved.template, `${HOST}/api/get?q=$s&first=1&token=$token`, 'an address on another host stays on the entered origin');
     assert.match(suggestSource(spec, `${HOST}/openapi.json`, []).error, /OpenSearch/);
     assert.match(suggestSource(spec, `${HOST}/openapi.json`, [{ type: 'text/html', template: `${HOST}/get?q={searchTerms}` }]).error, /OpenSearch/);
     assert.match(suggestSource(spec, `${HOST}/o`, [{ type: 'application/json', template: `${HOST}/nothing?q={searchTerms}` }]).error, /does not describe a way/);
