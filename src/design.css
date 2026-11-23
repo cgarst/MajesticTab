@@ -6085,6 +6085,9 @@ body.phone-reader .yt-add-to .btn { min-height: 44px; }
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 #bootSplash.boot-done { opacity: 0; pointer-events: none; }
+/* Top strip so the desktop window can still be dragged while the splash covers the title bar */
+#bootSplash .boot-drag { display: none; }
+html:is(.tauri-macos, .tauri-windows):not(.window-fullscreen) #bootSplash .boot-drag { display: block; position: absolute; top: 0; left: 0; right: 0; height: 40px; }
 #bootSplash .boot-brand { display: flex; flex-direction: column; align-items: center; gap: 20px; }
 /* A crisp white outline (no blur) keeps the dark pick visible on the darkest grounds */
 #bootSplash .boot-mark { width: 128px; height: 128px; filter: drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff); }
