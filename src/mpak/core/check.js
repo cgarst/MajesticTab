@@ -46,6 +46,13 @@ function checkSource(s, at, ck) {
   }
 }
 
+function checkStemInfo(st, at, ck) {
+  if (!ck(at, isObj(st), 'must be an object')) return;
+  if ('instrument' in st) ck(`${at}/instrument`, isStr(st.instrument), 'must be a string');
+  if ('track' in st) ck(`${at}/track`, isInt(st.track) && st.track >= 0, 'must be an integer >= 0');
+  if ('trackName' in st) ck(`${at}/trackName`, isStr(st.trackName), 'must be a string');
+}
+
 function checkRecording(r, at, ck) {
   if (!ck(at, isObj(r), 'must be an object')) return;
   ck(`${at}/id`, isStr(r.id) && ID.test(r.id), 'is required and must be an id');
@@ -61,14 +68,22 @@ function checkRecording(r, at, ck) {
   if ('syncOffsetMs' in r) ck(`${at}/syncOffsetMs`, isInt(r.syncOffsetMs), 'must be an integer');
   if ('beats' in r) ck(`${at}/beats`, isStr(r.beats) && PATH.test(r.beats), 'must be an archive path');
   if ('without' in r) ck(`${at}/without`, Array.isArray(r.without) && r.without.every((x) => isStr(x) && ID.test(x)) && new Set(r.without).size === r.without.length, 'must be an array of distinct ids');
+  // `stemOf` is the form of packs written before the stem layer (SPEC section 8); it is still read
   if ('stemOf' in r) ck(`${at}/stemOf`, isStr(r.stemOf) && ID.test(r.stemOf), 'must be an id');
   if ('stemsComplete' in r) ck(`${at}/stemsComplete`, typeof r.stemsComplete === 'boolean', 'must be a boolean');
-  if ('stem' in r && ck(`${at}/stem`, isObj(r.stem), 'must be an object')) {
-    const st = r.stem;
-    if ('instrument' in st) ck(`${at}/stem/instrument`, isStr(st.instrument), 'must be a string');
-    if ('track' in st) ck(`${at}/stem/track`, isInt(st.track) && st.track >= 0, 'must be an integer >= 0');
-    if ('trackName' in st) ck(`${at}/stem/trackName`, isStr(st.trackName), 'must be a string');
+  if ('stem' in r) checkStemInfo(r.stem, `${at}/stem`, ck);
+  if ('stems' in r && ck(`${at}/stems`, Array.isArray(r.stems) && r.stems.length > 0, 'must be a non-empty array')) {
+    r.stems.forEach((st, i) => {
+      const sat = `${at}/stems/${i}`;
+      if (!ck(sat, isObj(st), 'must be an object')) return;
+      ck(`${sat}/id`, isStr(st.id) && ID.test(st.id), 'is required and must be an id');
+      if ('label' in st) ck(`${sat}/label`, isStr(st.label), 'must be a string');
+      if (ck(`${sat}/sources`, Array.isArray(st.sources), 'is required and must be an array')) st.sources.forEach((s, j) => checkSource(s, `${sat}/sources/${j}`, ck));
+      if ('stem' in st) checkStemInfo(st.stem, `${sat}/stem`, ck);
+    });
+    ck(`${at}/role`, r.role !== 'stem', 'must not be "stem" when stems is present');
   }
+  // Not an error without `stems`: packs written before the stem layer put `stemsComplete` on a mix whose stems named it (`stemOf`)
   if ('scoreTracks' in r && ck(`${at}/scoreTracks`, isObj(r.scoreTracks), 'must be an object mapping score ids to track lists'))
     for (const [k, v] of Object.entries(r.scoreTracks)) {
       const p = `${at}/scoreTracks/${k}`;
@@ -79,7 +94,6 @@ function checkRecording(r, at, ck) {
         if (f in v) ck(`${p}/${f}`, Array.isArray(v[f]) && v[f].every((n) => isInt(n) && n >= 0) && new Set(v[f]).size === v[f].length, 'must be an array of distinct integers >= 0');
       if ('names' in v) ck(`${p}/names`, Array.isArray(v.names) && v.names.every(isStr), 'must be an array of strings');
     }
-  if ('stemOf' in r) ck(`${at}/role`, r.role === 'stem', 'must be "stem" when stemOf is present');
   if ('syncOffsetMs' in r) ck(`${at}`, 'syncFrom' in r, 'syncOffsetMs requires syncFrom');
 }
 
@@ -173,8 +187,9 @@ export function manifestRuleErrors(m) {
     }
   }
   if (new Set(allIds).size !== allIds.length) errs.push('duplicate score or alternate ids');
+  const stemIds = recs.flatMap((r) => (Array.isArray(r.stems) ? r.stems : []).map((s) => s && s.id));
   const ids = recs.map((r) => r.id);
-  if (new Set(ids).size !== ids.length) errs.push('duplicate recording ids');
+  if (new Set([...ids, ...stemIds]).size !== ids.length + stemIds.length) errs.push('duplicate recording or stem ids');
   for (const r of recs) {
     for (const k of ['syncFrom', 'stemOf']) if (k in r && !ids.includes(r[k])) errs.push(`${r.id}.${k} names unknown recording ${r[k]}`);
     for (const k of Object.keys(r.sync || {})) if (!sids.includes(k)) errs.push(`${r.id}.sync names unknown score ${k}`);
@@ -185,17 +200,20 @@ export function manifestRuleErrors(m) {
     }
     for (const w of Array.isArray(r.without) ? r.without : []) {
       const t = recs.find((x) => x.id === w);
-      if (!t) errs.push(`${r.id}.without names unknown recording ${w}`);
-      else if (t.role !== 'stem') errs.push(`${r.id}.without names ${w}, which is not a stem`);
+      if (!t && !stemIds.includes(w)) errs.push(`${r.id}.without names unknown recording ${w}`);
+      else if (!t && (r.stems || []).some((s) => s.id === w)) errs.push(`${r.id}.without names ${w}, a stem of itself`);
+      else if (t && t.role !== 'stem') errs.push(`${r.id}.without names ${w}, which is not a stem`);
       else if (w === r.id) errs.push(`${r.id}.without names itself`);
     }
-    const srcIds = (r.sources || []).filter((s) => 'id' in s).map((s) => s.id);
-    if (new Set(srcIds).size !== srcIds.length) errs.push(`${r.id}: duplicate source ids`);
-    for (const s of r.sources || []) {
-      if ('derivedFrom' in s && !srcIds.includes(s.derivedFrom)) errs.push(`${r.id}: derivedFrom names unknown source ${s.derivedFrom}`);
-      if (s.type === 'embedded' && 'score' in s && !sids.includes(s.score)) errs.push(`${r.id}: source names unknown score ${s.score}`);
+    for (const [owner, sources] of [[r.id, r.sources || []], ...(r.stems || []).map((st) => [st.id, st.sources || []])]) {
+      const srcIds = sources.filter((s) => 'id' in s).map((s) => s.id);
+      if (new Set(srcIds).size !== srcIds.length) errs.push(`${owner}: duplicate source ids`);
+      for (const s of sources) {
+        if ('derivedFrom' in s && !srcIds.includes(s.derivedFrom)) errs.push(`${owner}: derivedFrom names unknown source ${s.derivedFrom}`);
+        if (s.type === 'embedded' && 'score' in s && !sids.includes(s.score)) errs.push(`${owner}: source names unknown score ${s.score}`);
+      }
+      if (sources.filter((s) => s.type === 'embedded').length > 1) errs.push(`${owner}: more than one embedded source`);
     }
-    if ((r.sources || []).filter((s) => s.type === 'embedded').length > 1) errs.push(`${r.id}: more than one embedded source`);
   }
   for (const sid of sids) for (const r of recs) {
     const seen = new Set([r.id]);

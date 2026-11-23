@@ -36,7 +36,11 @@ test('a pack of only stems is a stem set, led by the stem with sync points', () 
     assert.equal(set.lead.id, 'guitar');
     assert.equal(set.members.length, 3);
     assert.equal(stemSetOf({ recordings: [rec('guitar', { sync: { s: 'x' } })] }), null);
-    assert.equal(stemSetOf({ recordings: [{ id: 'mix', role: 'original', sources: [] }, rec('a', { stemOf: 'mix' }), rec('b', { stemOf: 'mix' })] }), null);
+    // stems of a mix that has no audio of its own (a video, or the score's sound) are the song's audio: they are the set
+    const noFile = stemSetOf({ recordings: [{ id: 'mix', role: 'original', sources: [{ type: 'youtube', videoId: 'lUBCXGeK694' }] }, rec('a', { stemOf: 'mix' }), rec('b', { stemOf: 'mix' })] });
+    assert.deepEqual(noFile.members.map((m) => m.id), ['a', 'b']);
+    // with a mix file of its own, the mix is the Original and the stems are not the only sound
+    assert.equal(stemSetOf({ recordings: [{ id: 'mix', role: 'original', sources: [{ type: 'file', path: 'audio/mix.mp3' }] }, rec('a', { stemOf: 'mix' }), rec('b', { stemOf: 'mix' })] }), null);
 });
 
 test('a stem set with a backing track of its own is still a stem set, and the backing stays the backing', () => {
@@ -116,6 +120,9 @@ test('stems beside a full mix of their own are not the song\'s only sound, but t
     assert.deepEqual(group.members.map((m) => m.id), ['a', 'b']);
     assert.equal(group.lead.id, 'a');
     assert.equal(stemGroupOf({ recordings: [rec('a'), mix] }), null, 'one stem is not a group');
-    assert.equal(stemGroupOf({ recordings: [rec('a', { stemOf: 'x' }), rec('b', { stemOf: 'x' }), mix] }), null, 'stems of the mix belong to the mix');
+    // stems that name the mix they were split from are the same group (the link to the mix is kept on the lead, see applyMpakExtras)
+    const split = stemGroupOf({ recordings: [mix, rec('a', { stemOf: 'x' }), rec('b', { stemOf: 'x' })] });
+    assert.deepEqual(split.members.map((m) => m.id), ['a', 'b']);
+    assert.equal(stemSetOf({ recordings: [mix, rec('a', { stemOf: 'x' }), rec('b', { stemOf: 'x' })] }), null, 'and the mix keeps the Original');
     assert.deepEqual(stemGroupOf({ recordings: [rec('a'), rec('b')] }).members.map((m) => m.id), ['a', 'b'], 'with no mix it is the set');
 });

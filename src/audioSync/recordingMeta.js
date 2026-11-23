@@ -7,7 +7,7 @@
 // recording's media key (syncStore.mediaKey: `yt_<videoId>` or `local_<audioId>`) to its meta. Backed up with the video
 // choices (the key starts with `rec_meta_`).
 //
-// Entry: { role, label?, packIndex?, stemOf?, instrument?, stems?, tracks?: { mode: 'omits' | 'only', names: string[] } }
+// Entry: { role, label?, packIndex?, stemOf?, instrument?, stems?, splitFrom?, stemsComplete?, tracks?: { mode: 'omits' | 'only', names: string[] } }
 // `instrument` is a stem's `stem.instrument`. `stems` is on the lead of a set of stems with no full mix (stemSet.js):
 // `[{ audioId, label, instrument }]`, the lead included.
 // `stemOf` is the media key of the recording the stem belongs to. `tracks` holds the track names the pack wrote in
@@ -36,6 +36,12 @@ function cleanMeta(raw) {
     if (stemOf) out.stemOf = stemOf;
     const instrument = str(raw.instrument, 40);
     if (instrument) out.instrument = instrument;
+    // On the lead of a set of stems: the media key of the mix they were split from, and whether they add up to it
+    const splitFrom = str(raw.splitFrom, 200);
+    if (splitFrom) {
+        out.splitFrom = splitFrom;
+        if (raw.stemsComplete === true) out.stemsComplete = true;
+    }
     if (Array.isArray(raw.stems)) {
         const stems = raw.stems.map((m) => {
             const audioId = str(m?.audioId, 200);

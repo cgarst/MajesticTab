@@ -15,6 +15,7 @@
 import {
     openMpak, buildMpak, zipParts, concatParts, bytesSource, readDirectory, readEntry, sha256, validateManifest, MpakError, checkEntryName,
 } from '../mpak/core/index.js';
+import { recordingSources } from '../mpak/stemLayer.js';
 import { writePackDir, deletePackDir, readIfExists, NotFoundError, StorageError, byteLengthOf } from './contract.js';
 
 const PACK_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -38,7 +39,7 @@ export function expectedFiles(manifest) {
     const out = new Map();
     const add = (path, info) => { if (path) out.set(path, { ...out.get(path), ...Object.fromEntries(Object.entries(info).filter(([, v]) => v !== undefined)) }); };
     for (const t of manifest.scores || []) for (const x of [t, ...(t.alternates || [])]) add(x.path, { size: x.size, sha256: x.sha256 });
-    for (const r of manifest.recordings || []) for (const s of r.sources || []) if (s.type === 'file') add(s.path, { size: s.size, sha256: s.sha256 });
+    for (const r of manifest.recordings || []) for (const s of recordingSources(r)) if (s.type === 'file') add(s.path, { size: s.size, sha256: s.sha256 });
     for (const [path, info] of Object.entries(manifest.entries || {})) add(path, info);
     return out;
 }
@@ -118,7 +119,7 @@ export function createPackStore(store, { root = 'packs' } = {}) {
         wanted.forEach(([name], k) => light.push({ name, data: datas[k] }));
         const opened = await openMpak(bytesSource(await concatParts((await zipParts(light)).parts)));
         // Audio is not in the light archive on purpose; what is missing from the store is reported by audioInfo
-        const audio = (manifest.recordings || []).flatMap((r) => (r.sources || []).filter((s) => s.type === 'file'));
+        const audio = (manifest.recordings || []).flatMap((r) => recordingSources(r).filter((s) => s.type === 'file'));
         const warnings = opened.warnings.filter((w) => !audio.some((s) => w.includes(s.path)));
         for (const s of audio) {
             const e = present.get(s.path);
@@ -151,7 +152,7 @@ export function createPackStore(store, { root = 'packs' } = {}) {
             audioRange: async (path, { start, end }) => { audioEntry(path); return store.read(`${dir}/${path}`, { range: { start, end } }); },
             audioSource: (path) => { const e = audioEntry(path); return storeSource(store, `${dir}/${path}`, e.size); },
             /** Per file source: { path, present, size, expectedSize }. */
-            audioInfo: () => (manifest.recordings || []).flatMap((rec) => (rec.sources || []).filter((s) => s.type === 'file').map((s) => ({
+            audioInfo: () => (manifest.recordings || []).flatMap((rec) => recordingSources(rec).filter((s) => s.type === 'file').map((s) => ({
                 recording: rec.id, path: s.path, present: present.has(s.path), size: present.get(s.path)?.size ?? null, expectedSize: s.size ?? null,
             }))),
         };

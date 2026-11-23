@@ -119,7 +119,7 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
         } catch (e) { warnings.push(`${r.beats}: ${e.message}`); }
       }
     }
-    for (const src of r.sources || []) {
+    for (const src of [...(r.sources || []), ...(r.stems || []).flatMap((st) => st.sources || [])]) {
       if (src.type === 'embedded') {
         const holder = scoreOf(src.score ?? primary.id);
         if (holder.format !== 'gp') warnings.push(`${r.id}: embedded source on a ${holder.format} score, skipped`);
@@ -128,11 +128,11 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
       else if (src.type === 'file' && src.size !== undefined && src.size !== byName.get(src.path).usize) warnings.push(`${r.id}: audio size differs from the manifest: ${src.path}`);
     }
   }
-  // Sync of a recording for a score: its own file, else syncFrom (plus syncOffsetMs), else stemOf. Offsets add along the chain.
+  // Sync of a recording for a score: its own file, else syncFrom (plus syncOffsetMs), else nothing. A stem (SPEC 8) uses the recording that holds it. Offsets add along the chain.
   // The score defaults to the primary score.
   const resolveSync = (id, scoreId = primary.id) => {
     const recs = manifest.recordings || [];
-    let cur = recs.find((r) => r.id === id), offset = 0;
+    let cur = recOrStemHolder(recs, id), offset = 0;
     for (let n = 0; cur && n <= recs.length; n++) {
       const own = syncs.get(`${scoreId}\n${cur.id}`);
       // A list of bar times (bare numbers) names no bars yet: the offset is kept beside it and applied by placeBarTimes, because
@@ -140,14 +140,15 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
       if (isBarTimes(own)) return { ...own, recording: id, offsetMs: offset };
       if (own) return { ...own, recording: id, points: own.points.map((p) => ({ ...p, timeMs: p.timeMs + offset })).filter((p) => p.timeMs >= 0) };
       if (cur.syncFrom) offset += cur.syncOffsetMs || 0;
-      cur = recs.find((r) => r.id === (cur.syncFrom || cur.stemOf));
+      cur = recs.find((r) => r.id === (cur.syncFrom || cur.stemOf)); // stemOf: packs from before the stem layer
     }
     return null;
   };
-  // Beat file of a recording: its own, else syncFrom (plus syncOffsetMs), else stemOf (section 7, "Beat file").
+  // Beat file of a recording: its own, else syncFrom (plus syncOffsetMs) (section 7, "Beat file"). A stem uses its recording's.
+  const recOrStemHolder = (recs, id) => recs.find((r) => r.id === id) || recs.find((r) => (r.stems || []).some((s) => s.id === id));
   const resolveBeats = (id) => {
     const recs = manifest.recordings || [];
-    let cur = recs.find((r) => r.id === id), offset = 0;
+    let cur = recOrStemHolder(recs, id), offset = 0;
     for (let n = 0; cur && n <= recs.length; n++) {
       const own = beatFiles.get(cur.id);
       if (own) {
@@ -156,7 +157,7 @@ export async function openMpak(source, { limits = LIMITS, hash = sha256, externa
         return { ...own, recording: id, beats: own.beats.map(move).filter(keep), ...(own.sections ? { sections: own.sections.map(move).filter(keep) } : {}) };
       }
       if (cur.syncFrom) offset += cur.syncOffsetMs || 0;
-      cur = recs.find((r) => r.id === (cur.syncFrom || cur.stemOf));
+      cur = recs.find((r) => r.id === (cur.syncFrom || cur.stemOf)); // stemOf: packs from before the stem layer
     }
     return null;
   };

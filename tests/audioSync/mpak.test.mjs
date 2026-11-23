@@ -1417,3 +1417,88 @@ test('stems beside an alternate full-mix file are still a set of stems; beside a
     assert.deepEqual(withAlt?.members.map((r) => r.id), ['s1', 's2']);
     assert.equal(stemSetOf({ recordings: [...stems, file('mix', 'original')] }), null);
 });
+
+for (const nested of [false, true]) test(`stems split from the pack's mix (${nested ? 'its stem layer' : 'recordings naming it with stemOf, the form before the stem layer'}) come in as one set beside it, and an export keeps the stem layer`, async () => {
+    lsMap.clear();
+    await clearAllLibraryData();
+    const { buildMpak: coreBuildMpak, sha256 } = await import('../../src/mpak/core/index.js');
+    const { listRecordingMeta } = await import('../../src/audioSync/recordingMeta.js');
+    const { stemsOfMeta } = await import('../../src/audioSync/stemSet.js');
+    const pdfBytes = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n');
+    const mix = new Uint8Array([1, 2, 3, 4, 5]);
+    const parts = { guitar: new Uint8Array([6, 7]), bass: new Uint8Array([8, 9]), drums: new Uint8Array([10, 11]) };
+    const syncBytes = new TextEncoder().encode(JSON.stringify({
+        format: 'mpak-sync', version: 1, recording: 'mix', score: 'tab', anchorType: 'pdf',
+        points: [{ page: 1, x: 0.1, y: 0.2, timeMs: 1000, source: 'tap' }],
+    }));
+    const file = async (path, bytes) => ({ type: 'file', path, mime: 'audio/mpeg', sha256: await sha256(bytes), size: bytes.length });
+    const manifest = {
+        format: 'mpak', version: 1, id: '4772d0e5-a572-54ef-b25e-96c13915b456',
+        song: { title: 'Hells Kitchen', artist: 'Dream Theater' },
+        scores: [{ id: 'tab', path: 'score/tab.pdf', format: 'pdf', sha256: await sha256(pdfBytes), size: pdfBytes.length, name: 'tab.pdf', pages: 1 }],
+        recordings: await (async () => {
+            const stems = await Promise.all(Object.entries(parts).map(async ([name, bytes]) => ({
+                id: name, label: name, stem: { instrument: name }, sources: [await file(`audio/${name}.mp3`, bytes)],
+            })));
+            const mixRecording = { id: 'mix', role: 'original', stemsComplete: true, sync: { tab: 'sync/mix.json' },
+                sources: [await file('audio/mix.mp3', mix), { type: 'youtube', videoId: 'lUBCXGeK694' }] };
+            return nested ? [{ ...mixRecording, stems }] : [mixRecording, ...stems.map((st) => ({ ...st, role: 'stem', stemOf: 'mix' }))];
+        })(),
+        entries: { 'sync/mix.json': { size: syncBytes.length, sha256: await sha256(syncBytes) } },
+    };
+    const build = async (withAudio) => new Blob((await coreBuildMpak(manifest, new Map([
+        ['score/tab.pdf', pdfBytes], ['sync/mix.json', syncBytes],
+        ...(withAudio ? [['audio/mix.mp3', mix], ...Object.entries(parts).map(([n, b]) => [`audio/${n}.mp3`, b])] : []),
+    ]))).parts);
+    const first = await saveMpakToLibrary(await build(false), { queryMusicBrainz: false, allowTextFallback: true });
+    await saveMpakToLibrary(await build(true), { queryMusicBrainz: false, allowTextFallback: true, targetSongId: first.song.id });
+
+    const songKey = 'Dream Theater - Hells Kitchen';
+    const metas = listRecordingMeta(songKey);
+    const lead = Object.entries(metas).find(([, m]) => stemsOfMeta(m));
+    assert.ok(lead, `the stems are one set; metas=${JSON.stringify(metas)}`);
+    assert.equal(lead[1].stems.length, 3);
+    assert.match(lead[1].splitFrom, /^local_/, 'the lead remembers the mix it was split from');
+    assert.equal(lead[1].stemsComplete, true);
+
+    const mixId = lead[1].splitFrom.slice('local_'.length);
+    assert.ok(!stemsOfMeta(metas[lead[1].splitFrom]), 'the mix is not the set');
+    const enc = encodeURIComponent(songKey.toLowerCase());
+    localStorage.setItem(`audio_file_${enc}_original`, mixId);
+    localStorage.setItem(`real_audio_source_${enc}_original`, 'local');
+
+    const pdf = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], 'tab.pdf', { type: 'application/pdf' });
+    const { blob } = await buildMpak(pdf, { songKey, song: { artist: 'Dream Theater', title: 'Hells Kitchen' }, startPage: 1, endPage: 1, pages: 1 });
+    const { header } = await unpackMpak(blob);
+    const mixRec = header.recordings.find((r) => r.role === 'original');
+    const stemRecs = header.recordings.filter((r) => r.role === 'stem');
+    assert.equal(stemRecs.length, 3);
+    assert.ok(mixRec, 'the mix is exported');
+    assert.equal(mixRec.stemsComplete, true);
+    for (const r of stemRecs) assert.equal(r.stemOf, mixRec.id, `${r.id} names the mix again (inside the app)`);
+
+    // On disk the stems are the mix's stem layer, not recordings of their own, and nothing names `stemOf`
+    const { openMpak: coreOpen, bytesSource } = await import('../../src/mpak/core/index.js');
+    const written = await coreOpen(bytesSource(new Uint8Array(await blob.arrayBuffer())));
+    const mixOnDisk = written.manifest.recordings.find((r) => r.role === 'original');
+    assert.equal(written.manifest.recordings[0], mixOnDisk, 'the mix is first');
+    assert.ok(written.manifest.recordings.every((r) => r.role !== 'stem' && !('stemOf' in r)), 'no stem is a recording of its own');
+    assert.equal(mixOnDisk.stems.length, 3);
+    assert.equal(mixOnDisk.stemsComplete, true);
+    assert.ok(mixOnDisk.stems.every((st) => !('stemOf' in st) && !('role' in st) && st.sources[0].path), 'a stem has its own audio and no link field');
+    assert.deepEqual(mixOnDisk.stems.map((st) => st.stem.instrument).sort(), ['bass', 'drums', 'guitar']);
+
+    // The points made on a stem go with the mix, since the stems of a mix have no sync of their own
+    saveRecord(songKey, { kind: 'local', audioId: lead[0].slice('local_'.length) }, [
+        { id: 'p0', barIndex: 0, occurrence: 0, pos: 0, timeMs: 1500, source: 'tap' },
+        { id: 'p1', barIndex: 1, occurrence: 0, pos: 0, timeMs: 3500, source: 'manual' },
+    ]);
+    const gp = new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04, 7, 8, 9])], 'tab.gp5', { type: 'application/octet-stream' });
+    const synced = await coreOpen(bytesSource(new Uint8Array(await (await buildMpak(gp, { songKey, song: { artist: 'Dream Theater', title: 'Hells Kitchen' } })).blob.arrayBuffer())));
+    const syncedMix = synced.manifest.recordings.find((r) => r.role === 'original');
+    assert.equal(syncedMix.stems.length, 3);
+    assert.ok(syncedMix.sync && Object.keys(syncedMix.sync).length, 'the points are the mix\'s');
+    assert.equal(synced.sync(syncedMix.id)?.points?.length, 2);
+    assert.ok(syncedMix.stems.every((st) => !st.sync && synced.sync(st.id)?.points?.length === 2), 'each stem uses the mix\'s points');
+    assert.ok(synced.manifest.recordings.every((r) => r.role !== 'stem'), 'and no stem file of its own is left behind');
+});

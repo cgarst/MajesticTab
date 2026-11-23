@@ -7,6 +7,7 @@
 //   - leftover pre-upgrade snapshot files (blobs/ and manifests/) when the location has already been upgraded
 import { readJsonIfExists, writeJson, deletePackDir, pool } from './contract.js';
 import { expectedFiles } from './packStore.js';
+import { stemsOf } from '../mpak/stemLayer.js';
 import { fromLibraryDoc, fromProfileDoc, LIBRARY_PATH, PROFILE_PATH } from './libraryDocs.js';
 import { probeLocation, LOCATION } from './upgrade.js';
 
@@ -202,8 +203,16 @@ function pruneManifestRefs(manifest, missing) {
         manifest.recordings = manifest.recordings
             .map((rec) => {
                 const sources = (rec.sources || []).filter((s) => !(s.type === 'file' && s.path && missing.has(s.path)));
-                if (!sources.length) return null;
+                // the stems of a recording (SPEC section 8) whose audio is gone leave the stem layer
+                const stems = stemsOf(rec)
+                    .map((st) => ({ ...st, sources: (st.sources || []).filter((s) => !(s.type === 'file' && s.path && missing.has(s.path))) }))
+                    .filter((st) => st.sources.length);
+                if (!sources.length && !stems.length) return null;
                 const next = { ...rec, sources };
+                if (Array.isArray(rec.stems)) {
+                    if (stems.length) next.stems = stems; else { delete next.stems; delete next.stemsComplete; }
+                    if (stems.length !== rec.stems.length) delete next.stemsComplete; // the parts that are left no longer add up to the mix
+                }
                 if (next.beats && missing.has(next.beats)) delete next.beats;
                 if (next.sync) {
                     const kept = Object.fromEntries(Object.entries(next.sync).filter(([sid, p]) => scoreIds.has(sid) && !missing.has(p)));
@@ -216,7 +225,7 @@ function pruneManifestRefs(manifest, missing) {
                 return next;
             })
             .filter(Boolean);
-        const recIds = new Set(manifest.recordings.map((r) => r.id));
+        const recIds = new Set(manifest.recordings.flatMap((r) => [r.id, ...stemsOf(r).map((st) => st.id)]));
         for (const r of manifest.recordings) {
             if ('syncFrom' in r && !recIds.has(r.syncFrom)) delete r.syncFrom;
             if ('stemOf' in r && !recIds.has(r.stemOf)) delete r.stemOf;

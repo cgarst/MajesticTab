@@ -12,6 +12,7 @@
 // does not strip what a newer one wrote. Device-local ids (file store ids, Drive file ids) never leave the device.
 
 import { updateJson, readJsonIfExists } from './contract.js';
+import { flattenStemLayer } from '../mpak/stemLayer.js';
 import { linkSets, deriveLegacySets } from '../tabSets.js';
 
 export const LIBRARY_FORMAT = 'majestictab_library';
@@ -117,7 +118,7 @@ const tabFromScore = (s, createdAt) => ({
 
 /** The library row's media tags (src/songLibraryTags.js) as the manifest shows them, for a song whose audio is not on this device. */
 function manifestTagFlags(manifest) {
-    const recs = manifest.recordings || [];
+    const recs = flattenStemLayer(manifest.recordings || []);
     const sources = (r) => r.sources || [];
     const flags = {
         hasStems: recs.some((r) => r.role === 'stem'),

@@ -16,6 +16,7 @@ import {
     placeBarTimes,
     isBarTimes,
 } from './mpak/core/index.js';
+import { flattenStemLayer, nestStemLayer, recordingSources } from './mpak/stemLayer.js';
 import { decodeText } from './utils/decodeText.js';
 import { linkSets } from './tabSets.js';
 import { newPackId } from './mpakSession.js';
@@ -554,6 +555,7 @@ export async function buildMpak(file, options = {}) {
 
     // A stem-only song (SPEC section 8): both slots share the lead stem, and recordingMeta holds the stem list.
     let packedStemSet = false;
+    let stemSplit = null; // { from: media key of the mix the stems were split from, complete, recIds }
     try {
         {
             const { listRecordingMeta } = await import('./audioSync/recordingMeta.js');
@@ -577,6 +579,8 @@ export async function buildMpak(file, options = {}) {
                     }
                     if (loadedStems.length >= 2) {
                         packedStemSet = true;
+                        const leadMeta = metas[mediaKey({ kind: 'local', audioId: origId })];
+                        if (leadMeta?.splitFrom) stemSplit = { from: leadMeta.splitFrom, complete: leadMeta.stemsComplete === true, recIds: [] };
                         let leadRecId = null;
                         let leadHasSync = false;
                         const stemEntries = [];
@@ -597,6 +601,7 @@ export async function buildMpak(file, options = {}) {
                                 leadHasSync = Boolean(recording.sync);
                             }
                             stemEntries.push({ recording, isLead: rec.id === origId });
+                            stemSplit?.recIds.push(recId);
                         }
                         if (leadRecId && leadHasSync) {
                             for (const entry of stemEntries) {
@@ -738,7 +743,7 @@ export async function buildMpak(file, options = {}) {
     try {
         const { listHistory } = await import('./audioSync/videoHistory.js');
         const { getRecordingMeta } = await import('./audioSync/recordingMeta.js');
-        const packedVideos = new Set(manifest.recordings.flatMap((r) => r.sources.filter((x) => x.type === 'youtube').map((x) => x.videoId)));
+        const packedVideos = new Set(manifest.recordings.flatMap((r) => recordingSources(r).filter((x) => x.type === 'youtube').map((x) => x.videoId)));
         let v = 0;
         for (const slot of SLOTS) {
             for (const { videoId } of listHistory(songKey, slot)) {
@@ -770,11 +775,50 @@ export async function buildMpak(file, options = {}) {
         }
     }
 
+    // The stems that were split from a mix of this pack name it again (SPEC section 8), and the mix says whether they add up to it.
+    // Without that mix in the pack (it was not exported, or is gone) they stay a plain set.
+    if (stemSplit) {
+        try {
+            let mixRec = null;
+            const [kind, ...rest] = stemSplit.from.split('_');
+            const ref = rest.join('_');
+            if (kind === 'yt') mixRec = manifest.recordings.find((r) => r.role !== 'stem' && r.sources.some((x) => x.type === 'youtube' && x.videoId === ref));
+            else if (kind === 'local') {
+                const audio = await getAudioFile(ref);
+                const hash = audio?.data ? await sha256(new Uint8Array(audio.data)) : null;
+                if (hash) mixRec = manifest.recordings.find((r) => r.role !== 'stem' && r.sources.some((x) => x.type === 'file' && x.sha256 === hash));
+            }
+            if (mixRec) {
+                // The stems become the mix's stem layer (SPEC section 8), which has no sync of its own: it uses the mix's. The points
+                // the person made on the lead stem go to the mix when the mix has none for that score.
+                for (const r of manifest.recordings) {
+                    if (!stemSplit.recIds.includes(r.id)) continue;
+                    for (const [scoreId, path] of Object.entries(r.sync || {})) {
+                        const bytes = files.get(path);
+                        files.delete(path);
+                        if (!bytes || mixRec.sync?.[scoreId]) continue;
+                        const doc = JSON.parse(new TextDecoder().decode(bytes));
+                        doc.recording = mixRec.id;
+                        const moved = `sync/${mixRec.id}-${scoreId}.json`;
+                        files.set(moved, new TextEncoder().encode(JSON.stringify(doc, null, 2) + '\n'));
+                        (mixRec.sync ||= {})[scoreId] = moved;
+                    }
+                    delete r.sync;
+                    delete r.syncFrom;
+                    r.stemOf = mixRec.id;
+                }
+                if (stemSplit.complete) mixRec.stemsComplete = true;
+            }
+        } catch (e) { console.warn('[mpak] could not link the stems to their mix:', e); }
+    }
+
+    manifest.recordings = nestStemLayer(manifest.recordings);
+
     // The size of each score and audio file, and the size and hash of each sync file (SPEC section 4, "Integrity")
     const entries = {};
     for (const sc of manifest.scores) if (files.has(sc.path)) sc.size = files.get(sc.path).length;
     for (const rec of manifest.recordings) {
-        for (const src of rec.sources) if (src.type === 'file' && files.has(src.path)) src.size = files.get(src.path).length;
+        for (const src of recordingSources(rec)) if (src.type === 'file' && files.has(src.path)) src.size = files.get(src.path).length;
         for (const path of Object.values(rec.sync || {})) {
             const bytes = files.get(path);
             if (bytes) entries[path] = { size: bytes.length, sha256: await sha256(bytes) };
@@ -848,6 +892,8 @@ export async function readMpak(input, options = {}) {
     const opened = await coreOpenMpak(asByteSource(input), options);
     const header = {
         ...opened.manifest,
+        // inside the app a stem layer is read as stems of their own naming the mix (src/mpak/stemLayer.js)
+        recordings: flattenStemLayer(opened.manifest.recordings),
         song: normalizeMpakSong(opened.manifest.song, opened.manifest),
     };
     return { header, opened, part: opened };
@@ -1119,14 +1165,16 @@ export function stemSetOf(manifest) {
 }
 
 /**
- * The stems that belong together, whatever else the pack holds: two or more stems that name no recording they were split from.
+ * The stems that belong together, whatever else the pack holds: two or more stems, whether or not they name the mix they were split from.
  * Beside a full mix of its own they are not the song's only sound (`stemSetOf` is then null, and the mix keeps the Original), but
  * they are still one group of parts with their own labels and instruments, kept as one recording, "All stems", and not read back
  * as loose files. The lead is the stem with sync points of its own, else the first.
  */
 export function stemGroupOf(manifest) {
     const recs = manifest?.recordings || [];
-    const members = recs.filter((r) => r.role === 'stem' && !r.stemOf && hasFile(r));
+    // A stem that names the mix it was split from (`stemOf`) is one of that mix's parts, and the pack's mix stays the song's original
+    // sound: the parts are still the set, so the player can mix them and mute one. The link to the mix is kept (`splitFrom`).
+    const members = recs.filter((r) => r.role === 'stem' && hasFile(r));
     if (members.length < 2) return null;
     const lead = members.find((r) => r.sync && Object.keys(r.sync).length) || members[0];
     return { lead, members };
@@ -1497,6 +1545,13 @@ export async function applyMpakExtras(data, opened, options = {}) {
             const leadKey = keyOfId(stemSet.lead.id);
             if (rec === stemSet.lead) {
                 // The lead stands for the whole set: it sorts first, and the player builds the mix from `stems`
+                // The mix the parts were split from, when the pack names it: kept so an export can name it again (`stemOf`)
+                const parentRec = rec.stemOf ? (data?.recordings || []).find((r) => r.id === rec.stemOf) : null;
+                const splitFrom = parentRec ? keyOfId(parentRec.id) : null;
+                if (splitFrom && splitFrom !== mediaKey(media)) {
+                    meta.splitFrom = splitFrom;
+                    if (parentRec.stemsComplete === true) meta.stemsComplete = true;
+                }
                 const stems = stemSet.members.filter((m) => resolvedMedia.get(m.id)?.kind === 'local').map((m) => ({
                     audioId: resolvedMedia.get(m.id).audioId, label: m.label, instrument: m.stem?.instrument,
                 }));

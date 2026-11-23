@@ -17,6 +17,7 @@
 //
 // `local` is the adapter for this device's data (see LocalAdapter below); `baselines` is { get(location), set(location, value), clear(location) }.
 import { createPackStore } from './packStore.js';
+import { recordingSources, stemsOf } from '../mpak/stemLayer.js';
 import { readStoreInfo } from './storeInfo.js';
 import { readJsonIfExists, readJson, writeJson, updateJson, UNCHANGED, pool, ConflictError, NotFoundError } from './contract.js';
 import { toLibraryDoc, fromLibraryDoc, toProfileDoc, fromProfileDoc, portableSong, mergeSong, applyIndexToSong, LIBRARY_PATH, PROFILE_PATH } from './libraryDocs.js';
@@ -639,7 +640,7 @@ async function preserveRemoteAudio(packs, packId, data) {
     for (const a of missing) {
         data.files.set(a.path, await remote.audio(a.path));
         if (remote.manifest.entries?.[a.path]) manifest.entries[a.path] = remote.manifest.entries[a.path];
-        const rec = (remote.manifest.recordings || []).find((r) => (r.sources || []).some((s) => s.path === a.path));
+        const rec = (remote.manifest.recordings || []).find((r) => recordingSources(r).some((s) => s.path === a.path));
         if (rec && !manifest.recordings.some((r) => r.id === rec.id)) {
             const copy = structuredClone(rec);
             if (copy.sync) {
@@ -656,7 +657,7 @@ async function preserveRemoteAudio(packs, packId, data) {
             manifest.recordings.push(copy);
         }
     }
-    const recIds = new Set(manifest.recordings.map((r) => r.id));
+    const recIds = new Set(manifest.recordings.flatMap((r) => [r.id, ...stemsOf(r).map((st) => st.id)]));
     for (const r of manifest.recordings) {
         if ('syncFrom' in r && !recIds.has(r.syncFrom)) delete r.syncFrom;
         if ('stemOf' in r && !recIds.has(r.stemOf)) delete r.stemOf;
@@ -677,7 +678,7 @@ async function differsFromStore(local, packs, item, { hybrid = false } = {}) {
     const theirs = (await packs.open(item.id)).manifest;
     const hashes = (m) => new Set([
         ...(m.scores || []).flatMap((s) => [s, ...(s.alternates || [])]).map((s) => s.sha256),
-        ...(m.recordings || []).flatMap((r) => (r.sources || [])
+        ...(m.recordings || []).flatMap((r) => recordingSources(r)
             .filter((x) => !(hybrid && x.type === 'file'))
             .map((x) => x.sha256 || x.videoId || x.type)),
     ]);

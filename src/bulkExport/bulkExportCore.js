@@ -5,6 +5,7 @@
 // 2. Original tab files (organized into folders as a ZIP archive)
 // 3. PDF bulk export (runs all tabs in library through the score PDF export code, bundled into a ZIP archive)
 
+import { flattenStemLayer } from '../mpak/stemLayer.js';
 import { listRecords } from '../audioSync/syncStore.js';
 import { songKeyFor, ownSongKey } from '../songKey.js';
 import { listHistory } from '../audioSync/videoHistory.js';
@@ -152,7 +153,7 @@ const ANCHOR_OF_FORMAT = { gp: 'bar', gp3: 'bar', gp4: 'bar', gp5: 'bar', gpx: '
  * score it syncs to, and what it is mapped to from its sources (`youtube`, or a file as `local`).
  */
 export function summarizeManifest(manifest) {
-    const recs = Array.isArray(manifest?.recordings) ? manifest.recordings : [];
+    const recs = flattenStemLayer(Array.isArray(manifest?.recordings) ? manifest.recordings : []);
     const scoreFormat = new Map();
     for (const sc of manifest?.scores || []) for (const x of [sc, ...(sc.alternates || [])]) scoreFormat.set(x.id, x.format);
     const out = { stems: 0, mixAudio: 0, backing: 0, syncRecordings: 0 };
