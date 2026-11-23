@@ -330,7 +330,9 @@ setSlotMediaResolver(() => ({ original: getMediaForSlot('original'), backing: ge
 // key is the song key, or `score:<sha256>:<song key>` / `text:<song key>`; the recording meta is kept under the song key.
 setStemParentResolver((syncKey, media) => {
     const songKey = String(syncKey).replace(/^score:[^:]*:/, '').replace(/^text:/, '');
-    const parent = getRecordingMeta(songKey, media)?.stemOf;
+    // A stem names its parent (`stemOf`); the lead of a split set, which has the stems' points kept under the mix, names it as `splitFrom`
+    const meta = getRecordingMeta(songKey, media);
+    const parent = meta?.stemOf || (meta?.stemsComplete === true ? meta?.splitFrom : null);
     if (!parent) return null;
     if (parent.startsWith('yt_')) return { kind: 'youtube', videoId: parent.slice(3) };
     if (parent.startsWith('local_')) return { kind: 'local', audioId: parent.slice(6) };

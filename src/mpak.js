@@ -1180,7 +1180,7 @@ export function stemGroupOf(manifest) {
     return { lead, members };
 }
 
-function mapRecordingsToSlots(manifest) {
+export function mapRecordingsToSlots(manifest) {
     const recs = manifest?.recordings || [];
     const bySlot = { original: null, backing: null };
     // The first recording is the default (SPEC section 7): if it is an original, it takes the original slot.
@@ -1207,6 +1207,17 @@ function mapRecordingsToSlots(manifest) {
     if (set && (!bySlot.original || !hasFile(bySlot.original) || bySlot.original.role === 'alternate')) {
         bySlot.original = set.lead;
         if (!bySlot.backing) bySlot.backing = set.lead;
+    }
+    // A mix whose stems add up to the whole of it (`stemsComplete`, SPEC section 8) is played as its stems together by a reader that
+    // supports stems, when it is the default recording. The stems take the Original, and the mix stays in the pack as one more recording
+    // to pick ("Full mix"). Only the first recording counts: the default is the one a writer put first (SPEC section 7).
+    const first = recs[0];
+    if (first && first === bySlot.original && first.role === 'original' && first.stemsComplete === true && hasFile(first)) {
+        const group = stemGroupOf(manifest);
+        if (group && group.members.some((m) => m.stemOf === first.id)) {
+            bySlot.original = group.lead;
+            if (!bySlot.backing) bySlot.backing = group.lead;
+        }
     }
     return bySlot;
 }

@@ -126,3 +126,15 @@ test('stems beside a full mix of their own are not the song\'s only sound, but t
     assert.equal(stemSetOf({ recordings: [mix, rec('a', { stemOf: 'x' }), rec('b', { stemOf: 'x' })] }), null, 'and the mix keeps the Original');
     assert.deepEqual(stemGroupOf({ recordings: [rec('a'), rec('b')] }).members.map((m) => m.id), ['a', 'b'], 'with no mix it is the set');
 });
+
+test('a mix whose stems are complete, put first, hands the Original to its stems; otherwise the mix keeps it', async () => {
+    const { mapRecordingsToSlots } = await import('../../src/mpak.js');
+    const mix = (extra = {}) => ({ id: 'mix', role: 'original', sources: [{ type: 'file', path: 'audio/mix.mp3' }], ...extra });
+    const stems = [rec('a', { stemOf: 'mix' }), rec('b', { stemOf: 'mix' })];
+    const done = mapRecordingsToSlots({ recordings: [mix({ stemsComplete: true }), ...stems] });
+    assert.equal(done.original.id, 'a', 'the stems are the default');
+    assert.equal(mapRecordingsToSlots({ recordings: [mix(), ...stems] }).original.id, 'mix', 'no stemsComplete: the mix plays, the stems are additions');
+    assert.equal(mapRecordingsToSlots({ recordings: [mix({ stemsComplete: false }), ...stems] }).original.id, 'mix');
+    const live = { id: 'live', role: 'original', sources: [{ type: 'file', path: 'audio/live.mp3' }] };
+    assert.equal(mapRecordingsToSlots({ recordings: [live, mix({ stemsComplete: true }), ...stems] }).original.id, 'live', 'only the first recording is the default');
+});
