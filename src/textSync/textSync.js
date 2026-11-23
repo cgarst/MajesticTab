@@ -1022,6 +1022,8 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             drawn(true);
         }
         const showStrip = Boolean(rec) && rec.source !== autoSource;
+        // Under auto-scroll the left-edge marker waits for Play: it is not drawn until the clock has started (it stays through a pause)
+        document.body.classList.toggle('auto-follow', Boolean(rec) && rec.source === autoSource && !rec.source.isPlaying() && !(rec.source.getTimeMs() > 0));
         strip.hidden = !showStrip;
         document.body.classList.toggle('rec-strip-on', showStrip);
         if (!rec) { hideLine(); return; }

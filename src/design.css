@@ -5410,6 +5410,8 @@ body.reader-loading .reading-line { visibility: hidden; }
 .pdf-cursor path { fill: none; stroke: var(--hue); stroke-width: 2px; stroke-linejoin: round; stroke-linecap: round; }
 body:not(.sheet-mode-dark) .pdf-cursor svg { mix-blend-mode: multiply; }
 @media (prefers-reduced-motion: reduce) { .pdf-cursor { transition: none; } }
+/* Auto-scroll before Play: no marker is drawn beside the page until the clock starts */
+body.auto-follow .reading-line { display: none; }
 .reading-line.is-off { opacity: 0; transition-duration: var(--dur-fast); }
 @media (prefers-reduced-motion: reduce) { .reading-line { transition: none; } }
 @media (prefers-reduced-motion: no-preference) { .rec-fill { transition: transform 120ms linear; } }
