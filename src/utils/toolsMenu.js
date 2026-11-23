@@ -147,6 +147,8 @@ export function initToolsMenu() {
     // Pressing the key again closes the tool; any other open modal blocks it
     window.addEventListener('keydown', async (e) => {
         if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || isTypingTarget(document.activeElement)) return;
+        // The tool keys belong to the player; in the library they must not open anything
+        if (document.body.classList.contains('library-view-active')) return;
         const key = e.key.toLowerCase();
 
         if (key === 't') {
