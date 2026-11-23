@@ -95,3 +95,19 @@ test('cancelling stops the wait', async () => {
     const sleep = async () => { controller.abort(); throw new Error('Cancelled.'); };
     await assert.rejects(runJob({ first: body('queued'), mapping, addresses, fetchJson: async () => answer({}), sleep, signal: controller.signal }), /Cancelled/);
 });
+
+test('the bar never goes back when a later stage restarts or drops the percentage', async () => {
+    const replies = [
+        body('running', { progress: { step: 5, steps: 6, name: 'Separating', percent: 100 } }),
+        body('running', { progress: { step: 5, steps: 6, name: 'Mixing', percent: 1 } }),
+        body('running', { progress: { step: 5, steps: 6, name: 'Compressing', percent: null } }),
+        body('running', { progress: { step: 6, steps: 6, name: 'Packing', percent: 50 } }),
+        body('done', { file_url: '/f' })
+    ];
+    const seen = [];
+    await runJob({
+        first: replies.shift(), mapping, addresses, sleep: noSleep,
+        fetchJson: async () => answer(replies.shift()), onProgress: (u) => seen.push(u.fraction)
+    });
+    assert.deepEqual(seen, [5 / 6, 5 / 6, 5 / 6, 5.5 / 6]);
+});

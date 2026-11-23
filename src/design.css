@@ -6189,7 +6189,9 @@ html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active)
 
 /* --- Job progress dialog (a service making a file): a flat bar on a tone step, ink fill, no colour --- */
 .job-progress-card { max-width: 440px; width: 90%; }
-.job-progress-label { color: var(--ink2); min-height: 1.25em; }
+.job-progress-head { display: flex; justify-content: space-between; gap: 12px; color: var(--ink2); min-height: 1.25em; }
+.job-progress-label { overflow-wrap: anywhere; }
+.job-progress-percent { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .job-progress-bar { height: 6px; border-radius: var(--r-control); background: var(--s3); overflow: hidden; }
 .job-progress-fill { height: 100%; width: 100%; background: var(--ink); transform-origin: left center; transform: scaleX(0); transition: transform var(--dur-base) var(--ease-out); }
 .job-progress-bar[data-indeterminate] .job-progress-fill { width: 35%; transform: none; transition: none; animation: jobProgressSlide 1.4s var(--ease-out) infinite; }

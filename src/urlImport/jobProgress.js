@@ -1,6 +1,7 @@
 // urlImport/jobProgress.js
 // The dialog shown while a service makes a file: a title, what it is doing, a bar, and Cancel.
-// The bar is determinate when the service reports a fraction and indeterminate when it does not (styles: design.css).
+// The bar is determinate, with the percentage beside the label, when the service reports a fraction and indeterminate
+// (no number) when it does not (styles: design.css).
 
 const ID = 'jobProgressModal';
 const CLOSE_MS = 150;
@@ -22,7 +23,10 @@ export function showJobProgress({ title, onCancel }) {
     <div class="theme-modal-card job-progress-card" role="dialog" aria-modal="true" aria-labelledby="jobProgressTitle">
       <div class="theme-modal-body p-3">
         <h5 class="modal-title fs-6 fw-bold mb-3" id="jobProgressTitle"></h5>
-        <div class="job-progress-label small mb-2" id="jobProgressLabel" aria-live="polite"></div>
+        <div class="job-progress-head small mb-2">
+          <span class="job-progress-label" id="jobProgressLabel" aria-live="polite"></span>
+          <span class="job-progress-percent" id="jobProgressPercent"></span>
+        </div>
         <div class="job-progress-bar" id="jobProgressBar" role="progressbar" aria-labelledby="jobProgressLabel" aria-valuemin="0" aria-valuemax="100" data-indeterminate="true">
           <div class="job-progress-fill" id="jobProgressFill"></div>
         </div>
@@ -35,6 +39,7 @@ export function showJobProgress({ title, onCancel }) {
     const label = modal.querySelector('#jobProgressLabel');
     const bar = modal.querySelector('#jobProgressBar');
     const fill = modal.querySelector('#jobProgressFill');
+    const percent = modal.querySelector('#jobProgressPercent');
     const cancel = modal.querySelector('#jobProgressCancel');
 
     const onKey = (e) => { if (e.key === 'Escape') onCancel(); };
@@ -49,10 +54,12 @@ export function showJobProgress({ title, onCancel }) {
             label.textContent = text || (state === 'pending' ? 'Waiting in the queue' : 'Working');
             if (typeof fraction === 'number') {
                 const pct = Math.round(fraction * 100);
+                percent.textContent = `${pct}%`;
                 bar.removeAttribute('data-indeterminate');
                 bar.setAttribute('aria-valuenow', String(pct));
                 fill.style.transform = `scaleX(${fraction})`;
             } else {
+                percent.textContent = '';
                 bar.setAttribute('data-indeterminate', 'true');
                 bar.removeAttribute('aria-valuenow');
                 fill.style.transform = '';

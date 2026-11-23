@@ -97,6 +97,7 @@ export async function runJob({ first, mapping, addresses, auth = null, fetchJson
     let delay = FIRST_DELAY_MS;
     let failures = 0;
     let statusUrl = '';
+    let peak = null;
     for (;;) {
         if (signal?.aborted) throw new Error('Cancelled.');
         const job = interpretJob(body, mapping);
@@ -108,7 +109,10 @@ export async function runJob({ first, mapping, addresses, auth = null, fetchJson
         }
         if (job.state === 'failed') throw new Error(job.error || 'The service could not make that file.');
         if (job.state === 'unknown') throw new Error('The service reported a state this app does not know.');
-        onProgress({ state: job.state, fraction: job.fraction, label: job.label });
+        // The bar never goes back: a service can restart a step's percentage (a later stage that counts from 0) or report
+        // none for a stage, and a bar that shrinks reads as a failure. It holds at its furthest point instead.
+        if (job.fraction !== null) peak = peak === null ? job.fraction : Math.max(peak, job.fraction);
+        onProgress({ state: job.state, fraction: job.state === 'running' ? peak : null, label: job.label });
         if (!statusUrl) throw new Error('The service gave no address to check the job.');
         await sleep(delay, signal);
         delay = Math.min(Math.round(delay * 1.15), MAX_DELAY_MS);
