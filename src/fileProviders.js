@@ -123,6 +123,7 @@ export async function saveToProvider(id, fileBlob, filename, options = {}) {
  * @param {File} file
  */
 export async function openLocalFile(file) {
+    if (await (await import('./bulkFill/guideTarget.js')).claimForGuide(file)) return;
     if (isMpakFile(file)) return openMpakSafely(file);
     if (!(await isSupportedTabFile(file))) {
         showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mpak)`, 'warning');
@@ -137,6 +138,15 @@ async function openMpakSafely(file) {
     } catch (err) {
         showToast(err?.message || 'Could not open that song file', 'error');
     }
+}
+
+/**
+ * Adds a tab file to a library song, whatever its format (a song bundle brings its recordings too).
+ * With `quiet` it shows no success toast and does not announce the change: the caller (a run over many songs) does that once.
+ * @returns {Promise<boolean>} true when the file was added
+ */
+export async function attachTabToSong(file, song, { quiet = false } = {}) {
+    return (await handlePickedFile(file, { songId: song.id, targetSong: song, quiet })) === true;
 }
 
 /** Attach or open a file the user picked, depending on what the caller asked for (song, album, callback or plain open). */
@@ -225,13 +235,16 @@ async function handlePickedFile(file, options = {}) {
                     applyToActiveReader: false
                 });
             }
-            showToast(`Added "${file.name}" to song`, 'success');
-            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+            if (!options.quiet) {
+                showToast(`Added "${file.name}" to song`, 'success');
+                window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+            }
+            return true;
         } catch (err) {
             console.warn('Could not persist file to store:', err);
             showToast('Error attaching tab file', 'error');
+            return false;
         }
-        return; // Do not auto-open when adding a tab to a song
     }
 
     if (isAlbumTab) {

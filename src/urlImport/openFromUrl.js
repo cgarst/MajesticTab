@@ -156,7 +156,7 @@ async function refusalFrom(res, address) {
     if (options.length) {
         return { choose: { title: String(spec.info?.title || ''), query: typeof body.query === 'string' ? body.query : '', options, addressFor: (value) => choiceAddress(address, choices, value) } };
     }
-    throw new Error(typeof body?.error === 'string' && body.error ? body.error : `The service answered ${res.status}.`);
+    throw Object.assign(new Error(typeof body?.error === 'string' && body.error ? body.error : `The service answered ${res.status}.`), { status: res.status });
 }
 
 /**
@@ -165,23 +165,31 @@ async function refusalFrom(res, address) {
  * address as a page. A page is not read past its headers. Throws for a service that needs an access token, describes
  * its job incompletely, or refuses an address it lists as a job (the service's own message).
  * @param {string} urlText
+ * @param {{strict?: boolean}} [options] strict: an address that cannot be reached throws (an error marked `fatal`)
+ *   instead of answering null, for a run that must tell "no such tab" from "no connection"
  * @returns {Promise<{file: File}|{job: object}|{choose: object}|null>} `choose` is a list the user picks from (the
  *   service found several matches); picking gives the address to ask again
  */
-export async function probeAddress(urlText) {
+export async function probeAddress(urlText, { strict = false } = {}) {
     let url;
     let res;
     try {
         url = parseWebAddress(urlText);
+    } catch (error) {
+        if (strict) throw error;
+        return null;
+    }
+    try {
         res = await httpFetch()(url.href, { headers: { Accept: '*/*' } });
     } catch {
+        if (strict) throw Object.assign(new Error('Lost contact with the service.'), { fatal: true });
         return null;
     }
     const link = serviceDescLink(res.headers?.get?.('link'), url.href);
     if (!res.ok) {
         if ((res.status === 401 || res.status === 403) && link) {
             try { await res.body?.cancel?.(); } catch { /* nothing to cancel */ }
-            throw new Error('This service needs an access token. Add it to the address.');
+            throw Object.assign(new Error('This service needs an access token. Add it to the address.'), { fatal: true });
         }
         if (link) return await refusalFrom(res, url.href);
         try { await res.body?.cancel?.(); } catch { /* nothing to cancel */ }

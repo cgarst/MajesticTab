@@ -699,7 +699,7 @@ test('openWebSearch records the pending target and missingTabsTool serializes ba
     assert.equal(pending?.artist, 'Metallica');
     assert.equal(pending?.title, 'Orion');
 
-    const { serializeMissingSongs, encodeBatchPayload, findCompanionOrigin } = await import('../../src/bulkFill/missingTabsTool.js');
+    const { serializeMissingSongs } = await import('../../src/bulkFill/missingTabsTool.js');
     const serialized = serializeMissingSongs([{
         id: 'song_orion_1',
         title: 'Orion',
@@ -713,18 +713,6 @@ test('openWebSearch records the pending target and missingTabsTool serializes ba
     }]);
     assert.equal(serialized[0].songId, 'song_orion_1');
     assert.equal(serialized[0].recordingMbid, 'rec-1');
-
-    const encoded = encodeBatchPayload([{ id: 'song_orion_1', title: 'Orion', artist: 'Metallica' }]);
-    const decodedJson = Buffer.from(encoded.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
-    const decoded = JSON.parse(decodedJson);
-    assert.equal(decoded[0].songId, 'song_orion_1');
-    assert.equal(decoded[0].title, 'Orion');
-
-    const origin = findCompanionOrigin([
-        { id: 'duckduckgo', isSeed: true, urlTemplate: 'https://duckduckgo.com/?q=$s' },
-        { id: 'companion', isSeed: false, urlTemplate: 'http://127.0.0.1:8765/search?q=$s' }
-    ]);
-    assert.equal(origin, 'http://127.0.0.1:8765');
 });
 
 test('buildMpak roundtrips local audio, youtube fallback, tuning, and sync points in v1 format, and unpackMpak handles externalPath + page range', async () => {

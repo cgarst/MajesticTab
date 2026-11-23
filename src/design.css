@@ -5215,6 +5215,30 @@ body.library-view-active .yt-sheet { display: none !important; }
 .missingtabs-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--ink); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .missingtabs-sub { font-size: 12.5px; color: var(--ink2); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .missingtabs-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* Fill in missing tabs: the run's progress and the browser walkthrough. Flat, tone steps, ink only. */
+.fill-progress { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.fill-progress-head { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.fill-progress-head span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fill-error { color: var(--ink); }
+.fill-guide { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: var(--r-card); background: var(--s1); }
+.fill-guide-title { font-size: 28px; line-height: 1.1; white-space: normal; overflow: visible; }
+.fill-guide-wait { margin: 0; }
+.fill-guide-nav { margin-top: 4px; }
+.fill-guide-link { display: flex; gap: 8px; }
+.fill-guide-link .form-control { flex: 1; min-width: 0; }
+/* A button with a menu of the search providers beside it: two halves, one tone, the menu floats with the plain shadow */
+.fill-split { position: relative; display: inline-flex; gap: 1px; }
+.fill-split-main { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.fill-split-caret { border-top-left-radius: 0; border-bottom-left-radius: 0; padding-left: 8px; padding-right: 8px; }
+.fill-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 220px; display: flex; flex-direction: column; padding: 4px; border-radius: var(--r-card); background: var(--s2); box-shadow: var(--shadow-float); }
+.fill-menu-item { display: flex; justify-content: space-between; align-items: center; gap: 16px; width: 100%; min-height: 36px; padding: 6px 12px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--ink); font: inherit; text-align: left; }
+.fill-menu-note { color: var(--ink2); font-size: 12.5px; }
+@media (hover: hover) { .fill-menu-item:hover { background: var(--s3); } }
+.fill-menu-item:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+@media (pointer: coarse) { .fill-menu-item { min-height: 44px; } }
+.missingtabs-row:has(.fill-menu) { content-visibility: visible; }
+.missingtabs-row .fill-menu { left: auto; right: 0; }
+@media (pointer: coarse) { .missingtabs-row .fill-split-caret { min-width: 44px; } }
 @media (pointer: coarse) {
   .missingtabs-row { min-height: 52px; padding: 8px 12px; }
   .missingtabs-row .btn { min-height: 44px; min-width: 72px; }

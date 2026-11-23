@@ -1052,6 +1052,7 @@ export async function clearAppCache() {
     const { clearArtCache, clearMusicBrainzAnswers } = await import('./musicbrainz.js');
     let totalCleared = await clearArtCache();
     await clearMusicBrainzAnswers();
+    await (await import('./bulkFill/fillStore.js')).clearFillState();
 
     // Clear YouTube caches from localStorage
     try {

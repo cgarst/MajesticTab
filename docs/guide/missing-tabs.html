@@ -114,19 +114,33 @@
     <main class="gmain" id="main">
       <article class="gdoc">
         <h1>Fill in missing tabs</h1>
-        <p class="lead">Fill in missing tabs lists the songs in your library that have no tab. For each song, you can search the web for one.</p>
+        <p class="lead">Fill in missing tabs lists the songs in your library that have no tab, and fills them in: automatically from a search provider that can fetch files, and with a guided search in your web browser for the rest.</p>
 
 <h2 id="check-what-you-need">Check what you need</h2>
 <p>This tool is in the MajesticTab apps for Windows, macOS, Linux, Android and iOS. On the web, you add tabs to a song one at a time. See <a href="getting-tabs.html">Getting tabs in</a>.</p>
+<p>The tool uses the search providers in <strong>Settings</strong>. A provider is either a web page, which opens in your browser, or a service that gives MajesticTab the file itself. MajesticTab tells them apart on its own. Providers are tried in the order you list them.</p>
 
-<h2 id="fill-in-missing-tabs">Fill in missing tabs</h2>
+<h2 id="search-all">Search all</h2>
+<p>If a search provider is a service that fetches files, <strong>Search all</strong> goes through the list on its own, one song after another. You can leave the page while it runs. It shows how many songs are done and what it is fetching now, and <strong>Stop</strong> ends it.</p>
 <ol>
   <li>In the library, select <strong>Tools</strong> and then <strong>Fill in missing tabs</strong>.</li>
   <li>To work on one artist, choose the artist in <strong>Artist</strong>. The default is <strong>All artists</strong>.</li>
-  <li>Select <strong>Search</strong> on a song to search the web for it.</li>
-  <li>Download the tab file. If it does not open in MajesticTab on its own, select <strong>Add tab</strong> on the song and choose the file.</li>
+  <li>Select <strong>Search</strong> and the number of songs.</li>
 </ol>
-<p>The page shows how many songs have no tab. If every song has one, you see <strong>Every song in your library has a tab.</strong></p>
+<p>The arrow beside <strong>Search</strong>, on the page and on each song, lists every search provider. Pick one to use only that provider this time: a service that fetches files is asked for every song, and a web provider starts the browser walkthrough. The button itself uses your default.</p>
+<p>When it finishes, each song is <strong>Added</strong>, <strong>Not found</strong>, <strong>Needs a pick</strong> or failed. A song a provider has no tab for goes on to the next provider. When a service finds several matches and none is plainly the song, the song waits, and <strong>Choose matches</strong> lets you pick from the list afterwards. If the service cannot be reached, or refuses your access token, the run stops and says why. Songs it did not find are remembered, so the next run skips them until you select <strong>Search not found again</strong>.</p>
+
+<h2 id="search-in-your-browser">Search in your browser</h2>
+<p>For songs no provider could fetch, select <strong>Continue in your browser</strong>. MajesticTab shows one song at a time.</p>
+<ol>
+  <li>Select <strong>Open search</strong>. The search opens in your web browser. With more than one web provider, choose which in <strong>Search with</strong>.</li>
+  <li>Download the tab file.</li>
+  <li>Open the file with MajesticTab, drop it on the page, or select <strong>Choose file</strong>. You can also select <strong>Paste link</strong> and give the address of the file.</li>
+</ol>
+<p>MajesticTab adds the file to the song, whatever its format, and moves on to the next one. <strong>Skip</strong> leaves a song for later and <strong>Previous</strong> goes back. Files you open are only added to the song while the page is waiting for a tab.</p>
+
+<h2 id="one-song">One song</h2>
+<p>Select <strong>Search</strong> on a song to search for just that one, or use its arrow to choose another provider. The page shows how many songs have no tab. If every song has one, you see <strong>Every song in your library has a tab.</strong></p>
 <p>To copy or save the list of songs, select <strong>Copy list</strong> or <strong>Export list</strong>.</p>
 
       </article>
@@ -136,7 +150,7 @@
       </nav>
       <p class="gedit small muted">If something on this page is wrong or out of date, <a href="https://github.com/cgarst/MajesticTab/edit/main/support/guide/pages/missing-tabs.html">edit this page on GitHub</a> or <a href="https://github.com/cgarst/MajesticTab/issues">report an issue</a>.</p>
     </main>
-    <nav class="gtoc" aria-label="On this page"><h2 class="gtoc-title">On this page</h2><ul><li><a href="#check-what-you-need">Check what you need</a></li><li><a href="#fill-in-missing-tabs">Fill in missing tabs</a></li></ul></nav>
+    <nav class="gtoc" aria-label="On this page"><h2 class="gtoc-title">On this page</h2><ul><li><a href="#check-what-you-need">Check what you need</a></li><li><a href="#search-all">Search all</a></li><li><a href="#search-in-your-browser">Search in your browser</a></li><li><a href="#one-song">One song</a></li></ul></nav>
 </div>
 <footer class="foot">
   <div class="wrap gwrap">

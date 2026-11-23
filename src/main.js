@@ -307,6 +307,7 @@ window.addEventListener('drop', async (e) => {
 
     const file = e.dataTransfer?.files?.[0];
     if (!file) return;
+    if (await (await import('./bulkFill/guideTarget.js')).claimForGuide(file)) return;
 
     const ext = file.name.split('.').pop()?.toLowerCase();
     if (ext === 'mpak') {
@@ -983,9 +984,11 @@ async function checkNativeOpenedFiles() {
 // Rust hands over a tab's bytes, but only the path and size of a song bundle (see read_opened_file_range)
 async function openNativePayload(opened) {
     if (!opened?.name) return false;
+    const { claimForGuide } = await import('./bulkFill/guideTarget.js');
     if (opened.path && /\.mpak$/i.test(opened.name)) {
         try {
             const { openMpak, nativeMpakSource } = await import('./mpak.js');
+            if (await claimForGuide(nativeMpakSource(opened))) return true;
             await openMpak(nativeMpakSource(opened));
         } catch (err) {
             const { showToast } = await import('./utils/toast.js');
@@ -995,7 +998,9 @@ async function openNativePayload(opened) {
     }
     if (!opened.data) return false;
     const blob = new Blob([new Uint8Array(opened.data)]);
-    await loadFile(new File([blob], opened.name, { type: blob.type || 'application/octet-stream' }));
+    const handed = new File([blob], opened.name, { type: blob.type || 'application/octet-stream' });
+    if (await claimForGuide(handed)) return true;
+    await loadFile(handed);
     return true;
 }
 
