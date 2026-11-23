@@ -5428,6 +5428,13 @@ body.score-cursor-hidden .gp-page-cursor-beat {
   display: none !important;
 }
 
+/* Sound off: a text or PDF tab has no recording to place, so the pin cursors over it are never drawn (Guitar Pro keeps its cursor: it plays at tempo) */
+body.sound-off .pdf-cursor,
+body.sound-off .ts-bar-cursor,
+body.sound-off .txt-ribbon-playhead {
+  display: none !important;
+}
+
 /* Cursor over notes set to Hide (View, Settings > Defaults): every cursor and reading marker, in every layout */
 body.cursor-off .gp-reader-cursor,
 body.cursor-off .gp-page-cursor-beat,
