@@ -103,10 +103,10 @@ test('lyric before the first chord and past the last chord is kept', () => {
         { chord: '', lyric: 'hell' },
         { chord: 'Am', lyric: 'o there' }
     ]);
-    // chord line wider than its lyric: no throw, no reversed slice
+    // chord line wider than its lyric: no throw, no reversed slice; the lyric is padded to the chord's column
     assert.deepEqual(createChordLyricSegments('C      G', 'hi'), [
-        { chord: 'C', lyric: 'hi' },
-        { chord: 'G', lyric: '' }
+        { chord: 'C', lyric: 'hi     ' },
+        { chord: 'G', lyric: ' ' }
     ]);
 });
 
