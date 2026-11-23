@@ -42,13 +42,13 @@ export function setIsSteamDeck(val) {
 
 /**
  * Get the platform default view mode for a given file type ('page' vs 'continuous')
- * On Steam Deck: all file types default to 'page' mode.
+ * On Steam Deck: GP and TXT default to 'horizontal', PDF to 'page'.
  * On Desktop: GP and TXT default to 'continuous', PDF defaults to 'page'.
  * @param {string} fileType - 'gp', 'txt', 'pdf', etc.
  * @returns {string} 'page' or 'continuous'
  */
 export function getDefaultView(fileType) {
-    if (isTvMode() && fileType !== 'pdf') return 'horizontal';
+    if ((isTvMode() || isSteamDeck()) && fileType !== 'pdf') return 'horizontal';
     if (fileType === 'txt') return 'continuous';
     if (isSteamDeck()) return 'page';
     return fileType === 'pdf' ? 'page' : 'continuous';
@@ -81,10 +81,10 @@ export function applyPlatformDefaults() {
     if (isSteamDeck()) {
         try {
             if (localStorage.getItem('gpDefaultView') === null) {
-                localStorage.setItem('gpDefaultView', 'page');
+                localStorage.setItem('gpDefaultView', 'horizontal');
             }
             if (localStorage.getItem('txtDefaultView') === null) {
-                localStorage.setItem('txtDefaultView', 'page');
+                localStorage.setItem('txtDefaultView', 'horizontal');
             }
             if (localStorage.getItem('pdfDefaultView') === null) {
                 localStorage.setItem('pdfDefaultView', 'page');

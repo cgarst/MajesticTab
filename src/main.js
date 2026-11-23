@@ -543,7 +543,7 @@ function setupPinchToZoom() {
 
 // --- SETTINGS MANAGEMENT ---
 function setupSettings() {
-    // Apply platform defaults on initial launch/install (e.g. Steam Deck defaults to Page view and 1-page landscape)
+    // Apply platform defaults on initial launch/install (e.g. Steam Deck defaults to Horizontal view and 1-page landscape)
     applyPlatformDefaults();
 
     // Load settings from localStorage
