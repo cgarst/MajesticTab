@@ -53,9 +53,9 @@ test('a description that does not list the address makes no job', async () => {
 
 test('a description with an incomplete job mapping is an error that says so', async () => {
     const broken = JSON.parse(specText);
-    delete broken.paths['/api/fetch'].get['x-async-job'].result;
+    delete broken.paths['/api/fetch'].get['x-async-job'].resultLink;
     serve((url) => (url.endsWith('/openapi.json') ? respond(JSON.stringify(broken), { link: '' }) : respond(job)));
-    await assert.rejects(probeAddress(`${HOST}/api/fetch?q=x`), /missing "result"/);
+    await assert.rejects(probeAddress(`${HOST}/api/fetch?q=x`), /missing "resultLink"/);
 });
 
 test('a refused token on a service that describes itself asks for the token', async () => {

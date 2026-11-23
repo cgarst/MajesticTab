@@ -12,6 +12,7 @@ import {
     setSourceToken
 } from '../webSearch.js';
 import { showToast } from './toast.js';
+import { sourceFetchesCached } from '../urlImport/sourceKind.js';
 
 // The search opens over the library, not over Settings: step back out of the Settings view first
 async function hideSettings() {
@@ -99,7 +100,7 @@ function makeProvidersGroup() {
         // Individual provider rows
         sources.forEach((src) => {
             const queryLabel = src.queryFormat === 'song_only' ? 'Song name only' : 'Artist and song';
-            const helpText = `${src.urlTemplate || 'No URL template'} • ${queryLabel}${src.kind === 'api' ? ' • Fetches a file' : ''}${src.isSeed ? ' • Built-in' : ''}`;
+            const helpText = `${src.urlTemplate || 'No URL template'} • ${queryLabel}${sourceFetchesCached(src) ? ' • Fetches a file' : ''}${src.isSeed ? ' • Built-in' : ''}`;
 
             const editBtn = el('button', 'btn btn-sm srow-ghost', 'Edit');
             editBtn.type = 'button';
@@ -198,7 +199,18 @@ function makeProvidersGroup() {
                 testProviderBtn.type = 'button';
                 testProviderBtn.title = 'Test this provider in your web browser, or check the service for one that fetches a file';
                 testProviderBtn.addEventListener('click', async () => {
-                    if (src.kind === 'api') {
+                    let fetches = src.kind === 'api';
+                    if (!src.kind) {
+                        testProviderBtn.disabled = true;
+                        try {
+                            const { classifyAddress } = await import('../urlImport/sourceKind.js');
+                            const { httpFetch } = await import('../urlImport/openFromUrl.js');
+                            fetches = (await classifyAddress(urlInput.value.trim() || src.urlTemplate, httpFetch())).kind === 'job';
+                        } finally {
+                            testProviderBtn.disabled = false;
+                        }
+                    }
+                    if (fetches) {
                         // Reads the service's description only; it starts no job.
                         testProviderBtn.disabled = true;
                         try {

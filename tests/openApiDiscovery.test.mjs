@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-    serviceDescLink, parseSpec, resolveRef, loadSpec, clearSpecCache, asyncMapping, findOperation, authOf,
+    serviceDescLink, searchDescLink, linkAddress, parseOpenSearch, parseSpec, resolveRef, loadSpec, clearSpecCache, asyncMapping, findOperation, authOf,
     buildTemplate, suggestSource, discoverFromAddress
 } from '../src/urlImport/openApiDiscovery.js';
 
@@ -20,6 +20,9 @@ test('the Link header names the description', () => {
     assert.equal(serviceDescLink('<https://x.test/a>; rel="next", </spec>; rel="service-desc"', `${HOST}/`), `${HOST}/spec`);
     assert.equal(serviceDescLink('</a>; rel="next"', `${HOST}/`), '');
     assert.equal(serviceDescLink(null, `${HOST}/`), '');
+    const both = '</openapi.json>; rel="service-desc", </opensearch.xml>; rel="search"; type="application/opensearchdescription+xml"';
+    assert.equal(searchDescLink(both, `${HOST}/api/fetch`), `${HOST}/opensearch.xml`);
+    assert.equal(serviceDescLink(both, `${HOST}/api/fetch`), `${HOST}/openapi.json`);
 });
 
 test('a description must be OpenAPI 3 JSON of sane size', () => {
@@ -41,16 +44,31 @@ test('the start operation maps the job and its progress', () => {
     assert.equal(found.path, '/api/fetch');
     const { mapping, error } = asyncMapping(found.operation);
     assert.equal(error, undefined);
-    assert.equal(mapping.statusUrl, '/status_url');
+    assert.equal(mapping.statusLink, 'status');
+    assert.equal(mapping.resultLink, 'file');
     assert.deepEqual(mapping.states.done, ['done']);
     assert.equal(mapping.progress.percent, '/progress/percent');
-    assert.equal(mapping.result, '/file_url');
+});
+
+test('the standard links of the job response give the status and file addresses', () => {
+    const found = findOperation(spec, `${HOST}/api/fetch?q=x`);
+    const body = { id: 'j 1', status: 'queued' };
+    assert.equal(linkAddress(spec, found, 'status', body, HOST), `${HOST}/api/job?id=j%201`);
+    assert.equal(linkAddress(spec, found, 'file', body, HOST), `${HOST}/api/job/file?id=j%201`);
+    assert.equal(linkAddress(spec, found, 'status', {}, HOST), '', 'the body lacks the id');
+    assert.equal(linkAddress(spec, found, 'nope', body, HOST), '');
+    const behind = findOperation(spec, `${HOST}/proxy/gp/api/fetch?q=x`);
+    assert.equal(linkAddress(spec, behind, 'status', body, HOST), `${HOST}/proxy/gp/api/job?id=j%201`);
+    const other = JSON.parse(text);
+    other.components.links.JobStatus.parameters.id = '$request.query.q';
+    assert.equal(linkAddress(other, findOperation(other, `${HOST}/api/fetch`), 'status', body, HOST), '', 'only a response body expression is understood');
 });
 
 test('an incomplete mapping says what is missing', () => {
-    assert.match(asyncMapping({ 'x-async-job': { state: '/s', states: {}, result: '/r' } }).error, /statusUrl/);
-    assert.match(asyncMapping({ 'x-async-job': { statusUrl: '/u', state: '/s', states: { pending: [], running: [], done: ['d'] }, result: '/r' } }).error, /failed/);
-    assert.match(asyncMapping({ 'x-async-job': { statusUrl: 'u', state: '/s', states: {}, result: '/r' } }).error, /statusUrl/);
+    assert.match(asyncMapping({ 'x-async-job': { state: '/s', states: {}, resultLink: 'file' } }).error, /statusLink/);
+    assert.match(asyncMapping({ 'x-async-job': { statusLink: 'status', state: '/s', states: {} } }).error, /resultLink/);
+    assert.match(asyncMapping({ 'x-async-job': { statusLink: 's', resultLink: 'f', state: 's', states: {} } }).error, /"state"/);
+    assert.match(asyncMapping({ 'x-async-job': { statusLink: 's', resultLink: 'f', state: '/s', states: { pending: [], running: [], done: ['d'] } } }).error, /failed/);
     assert.match(asyncMapping({}).error, /does not describe a job/);
 });
 
@@ -69,25 +87,45 @@ test('access: a token only in the query, and what to strip', () => {
     assert.equal(authOf(spec, findOperation(spec, `${HOST}/healthz`).operation).required, false);
 });
 
-test('the search address comes from the parameters, not from the app', () => {
-    const built = buildTemplate(spec, findOperation(spec, `${HOST}/api/fetch`), HOST);
-    const url = new URL(built.template);
+const SEARCH_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+  <ShortName>Guitar Pro sync</ShortName>
+  <Url type="text/html" method="get" template="${HOST}/get?q={searchTerms}"/>
+  <Url type="application/json" method="get" template="${HOST}/api/fetch?q={searchTerms}&amp;first=1"/>
+</OpenSearchDescription>`;
+
+test('the OpenSearch description lists a page address and an API address', () => {
+    assert.deepEqual(parseOpenSearch(SEARCH_XML), [
+        { type: 'text/html', template: `${HOST}/get?q={searchTerms}` },
+        { type: 'application/json', template: `${HOST}/api/fetch?q={searchTerms}&first=1` }
+    ]);
+    assert.deepEqual(parseOpenSearch('<Url type="x" method="post" template="a"/>'), []);
+    assert.throws(() => parseOpenSearch(' '.repeat(600 * 1024)), /too large/);
+});
+
+test('the search address comes from the service, with the token slot added', () => {
+    const [, api] = parseOpenSearch(SEARCH_XML);
+    const built = buildTemplate(spec, findOperation(spec, `${HOST}/api/fetch`), api.template);
+    const url = new URL(built.template.replace('$s', 'S').replace('$token', 'T'));
     assert.equal(url.origin, HOST);
     assert.equal(url.pathname, '/api/fetch');
-    assert.equal(url.searchParams.get('q'), '$s');
-    assert.equal(url.searchParams.get('first'), '1');
-    assert.equal(url.searchParams.get('token'), '$token');
-    assert.equal(url.searchParams.has('force'), false);
+    assert.equal(built.template, `${HOST}/api/fetch?q=$s&first=1&token=$token`);
     assert.deepEqual(built.optional.map((o) => o.name).sort(), ['force', 'format', 'song']);
-    assert.deepEqual(built.optional.find((o) => o.name === 'format').values, ['gp', 'mpak']);
+    assert.deepEqual(built.optional.find((o) => o.name === 'format').values, ['gp', 'mpak', 'band', 'all']);
+    assert.equal(buildTemplate(spec, findOperation(spec, `${HOST}/api/fetch`), `${HOST}/api/fetch?q=x`), null);
 });
 
 test('a source is suggested with the service name and token need', () => {
-    const found = suggestSource(spec, `${HOST}/openapi.json`);
+    const searchUrls = parseOpenSearch(SEARCH_XML);
+    const found = suggestSource(spec, `${HOST}/openapi.json`, searchUrls);
     assert.equal(found.name, 'Guitar Pro sync service');
     assert.equal(found.needsToken, true);
-    assert.match(found.template, /^http:\/\/svc\.test:8080\/api\/fetch\?/);
-    assert.match(suggestSource({ openapi: '3.1.0', paths: { '/a': { get: {} } } }, `${HOST}/o`).error, /does not describe/);
+    assert.equal(found.template, `${HOST}/api/fetch?q=$s&first=1&token=$token`);
+    const moved = suggestSource(spec, `${HOST}/openapi.json`, [{ type: 'application/json', template: 'http://internal:9/api/fetch?q={searchTerms}&first=1' }]);
+    assert.equal(moved.template, `${HOST}/api/fetch?q=$s&first=1&token=$token`, 'an address on another host stays on the entered origin');
+    assert.match(suggestSource(spec, `${HOST}/openapi.json`, []).error, /OpenSearch/);
+    assert.match(suggestSource(spec, `${HOST}/openapi.json`, [{ type: 'text/html', template: `${HOST}/get?q={searchTerms}` }]).error, /OpenSearch/);
+    assert.match(suggestSource(spec, `${HOST}/o`, [{ type: 'application/json', template: `${HOST}/nothing?q={searchTerms}` }]).error, /does not describe a way/);
 });
 
 test('discovery follows the Link header from a host, or reads a pasted description', async () => {
@@ -96,11 +134,13 @@ test('discovery follows the Link header from a host, or reads a pasted descripti
     const fetchImpl = async (url) => {
         calls.push(url);
         if (url.endsWith('/openapi.json')) return reply(text);
-        return reply('<html></html>', { link: '</openapi.json>; rel="service-desc"' });
+        if (url.endsWith('/opensearch.xml')) return reply(SEARCH_XML.replaceAll(HOST, 'https://svc.test:8080'));
+        return reply('<html></html>', { link: '</openapi.json>; rel="service-desc", </opensearch.xml>; rel="search"' });
     };
     let found = await discoverFromAddress('svc.test:8080', fetchImpl);
     assert.equal(found.specUrl, 'https://svc.test:8080/openapi.json');
-    assert.deepEqual(calls, ['https://svc.test:8080/', 'https://svc.test:8080/openapi.json']);
+    assert.deepEqual(calls, ['https://svc.test:8080/', 'https://svc.test:8080/openapi.json', 'https://svc.test:8080/opensearch.xml']);
+    assert.equal(found.searchUrls.length, 2);
     clearSpecCache();
     found = await discoverFromAddress(`${HOST}/openapi.json`, async () => reply(text));
     assert.equal(found.spec.info.title, 'Guitar Pro sync service');

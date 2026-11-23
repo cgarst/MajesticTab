@@ -3,14 +3,11 @@
   "info": {
     "title": "Guitar Pro sync service",
     "version": "1.0.0",
-    "description": "Search a tab source, start a download job (a synced Guitar Pro file, or a Music Pack with stems), poll it, and fetch the files. The access token is needed only when the service was started with AUTH_TOKEN. Send it as `token=<token>` in the query or as `Authorization: Bearer <token>`. `/healthz`, `/openapi.json` and file links that carry a `sig` need no token."
+    "description": "Search a tab source, start a download job (a synced Guitar Pro file, or a Music Pack with stems), poll it, and fetch the files. The access token is needed only when the service was started with AUTH_TOKEN. Send it as `token=<token>` in the query. A token in a header is not accepted. `/healthz`, `/openapi.json` and file links that carry a `sig` need no token. The pages under `/get` and `/job` are the web UI for people; they are not part of this API and are not listed here. The search address for both is in `/opensearch.xml`. An address that is not listed in this description is a page to open in a browser."
   },
   "security": [
     {
       "tokenQuery": []
-    },
-    {
-      "tokenBearer": []
     }
   ],
   "paths": {
@@ -20,7 +17,8 @@
         "summary": "Start a job with a GET",
         "description": "The same as `POST /api/jobs`, for clients that can only issue a GET. Starting the same song and format again returns the existing job, so repeating the request is safe.",
         "x-async-job": {
-          "statusUrl": "/status_url",
+          "statusLink": "status",
+          "resultLink": "file",
           "state": "/status",
           "states": {
             "pending": [
@@ -42,7 +40,6 @@
             "steps": "/progress/steps",
             "label": "/progress/name"
           },
-          "result": "/file_url",
           "error": "/error"
         },
         "parameters": [
@@ -71,6 +68,14 @@
                   "$ref": "#/components/schemas/Job"
                 }
               }
+            },
+            "links": {
+              "status": {
+                "$ref": "#/components/links/JobStatus"
+              },
+              "file": {
+                "$ref": "#/components/links/JobFile"
+              }
             }
           },
           "200": {
@@ -80,6 +85,14 @@
                 "schema": {
                   "$ref": "#/components/schemas/Job"
                 }
+              }
+            },
+            "links": {
+              "status": {
+                "$ref": "#/components/links/JobStatus"
+              },
+              "file": {
+                "$ref": "#/components/links/JobFile"
               }
             }
           },
@@ -108,7 +121,8 @@
         "summary": "Start a job",
         "description": "Parameters can be sent as a form body or in the query string. Search text never starts a job unless `first=1` is sent: it returns 409 with the matches.",
         "x-async-job": {
-          "statusUrl": "/status_url",
+          "statusLink": "status",
+          "resultLink": "file",
           "state": "/status",
           "states": {
             "pending": [
@@ -130,7 +144,6 @@
             "steps": "/progress/steps",
             "label": "/progress/name"
           },
-          "result": "/file_url",
           "error": "/error"
         },
         "requestBody": {
@@ -151,6 +164,14 @@
                   "$ref": "#/components/schemas/Job"
                 }
               }
+            },
+            "links": {
+              "status": {
+                "$ref": "#/components/links/JobStatus"
+              },
+              "file": {
+                "$ref": "#/components/links/JobFile"
+              }
             }
           },
           "200": {
@@ -160,6 +181,14 @@
                 "schema": {
                   "$ref": "#/components/schemas/Job"
                 }
+              }
+            },
+            "links": {
+              "status": {
+                "$ref": "#/components/links/JobStatus"
+              },
+              "file": {
+                "$ref": "#/components/links/JobFile"
               }
             }
           },
@@ -234,6 +263,14 @@
                   "$ref": "#/components/schemas/Job"
                 }
               }
+            },
+            "links": {
+              "status": {
+                "$ref": "#/components/links/JobStatus"
+              },
+              "file": {
+                "$ref": "#/components/links/JobFile"
+              }
             }
           },
           "401": {
@@ -241,6 +278,54 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteJob",
+        "summary": "Delete a job and delete its files",
+        "description": "Removes a finished or failed job with its log and files. Returns `409` while the job is queued or running.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/JobId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The job is still running.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -253,9 +338,6 @@
         "security": [
           {
             "tokenQuery": []
-          },
-          {
-            "tokenBearer": []
           },
           {
             "fileSig": []
@@ -335,8 +417,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Search text, such as an artist and title.",
-            "x-search-text": true
+            "description": "Search text, such as an artist and title."
           },
           {
             "name": "size",
@@ -441,6 +522,26 @@
           }
         }
       }
+    },
+    "/opensearch.xml": {
+      "get": {
+        "operationId": "opensearch",
+        "summary": "OpenSearch description",
+        "description": "The standard OpenSearch description (`rel=\"search\"` in the `Link` header). It has two `Url` templates for the same `{searchTerms}`: `text/html` is the web page for a person, `application/json` is the API address that starts a job. Needs no token and holds no secret.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The OpenSearch description.",
+            "content": {
+              "application/opensearchdescription+xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -449,10 +550,6 @@
         "type": "apiKey",
         "in": "query",
         "name": "token"
-      },
-      "tokenBearer": {
-        "type": "http",
-        "scheme": "bearer"
       },
       "fileSig": {
         "type": "apiKey",
@@ -467,8 +564,7 @@
         "schema": {
           "type": "string"
         },
-        "x-search-text": true,
-        "description": "The artist and song text, a song ID, or a song page URL. Send either `q` or `song`."
+        "description": "The artist and song text, a song ID, or a song page URL. Send either `q` or `song`. The search address in `/opensearch.xml` puts the search text here."
       },
       "Song": {
         "name": "song",
@@ -485,10 +581,13 @@
           "type": "string",
           "enum": [
             "gp",
-            "mpak"
-          ]
+            "mpak",
+            "band",
+            "all"
+          ],
+          "default": "all"
         },
-        "description": "`gp` (the default) makes a synced Guitar Pro file. `mpak` makes a Music Pack with stems and needs StemDeck, which `/healthz` reports as `mpak`."
+        "description": "`all` (the default) makes every output that applies in one job. `gp` makes a synced Guitar Pro file. `mpak` makes a Music Pack with stems and needs StemDeck, which `/healthz` reports as `mpak`. `band` makes a Music Pack of the source's own full-band and backing videos, each with its own sync points; it needs no StemDeck and fails when the song has no backing video. `all` makes a Music Pack with stems (when StemDeck is available), a Full Band/Backing pack (when the song has a backing video) and the synced Guitar Pro file; the first of `files` is the best one."
       },
       "First": {
         "name": "first",
@@ -632,8 +731,11 @@
             "type": "string",
             "enum": [
               "gp",
-              "mpak"
-            ]
+              "mpak",
+              "band",
+              "all"
+            ],
+            "default": "all"
           },
           "force": {
             "type": "string",
@@ -700,7 +802,9 @@
             "type": "string",
             "enum": [
               "gp",
-              "mpak"
+              "mpak",
+              "band",
+              "all"
             ]
           },
           "status": {
@@ -820,10 +924,61 @@
               }
             }
           },
+          "outputs": {
+            "type": "array",
+            "description": "Only for `format=all`, when done: the three outputs in good, better, best order. An output that could not be made has `available: false` and a `reason`.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "good",
+                    "better",
+                    "best"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "available": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "file_url": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "log": {
             "type": "string",
             "description": "Only with log=1."
           }
+        }
+      }
+    },
+    "links": {
+      "JobStatus": {
+        "operationId": "getJob",
+        "description": "The job's status. Poll it until the state is done or failed.",
+        "parameters": {
+          "id": "$response.body#/id"
+        }
+      },
+      "JobFile": {
+        "operationId": "downloadJobFile",
+        "description": "The job's main file. Exists once the state is done.",
+        "parameters": {
+          "id": "$response.body#/id"
         }
       }
     }

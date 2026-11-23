@@ -6,7 +6,7 @@ import { fetchStatus, fetchJobFile } from './openFromUrl.js';
 import { showJobProgress } from './jobProgress.js';
 
 /**
- * @param {{first: object, mapping: object, origin: string, auth: object|null, title: string}} job from probeAddress
+ * @param {{first: object, mapping: object, addresses: object, auth: object|null, title: string}} job from probeAddress
  * @returns {Promise<File>}
  * @throws {Error} 'Cancelled.' when the user cancels, or why the job failed
  */
@@ -17,7 +17,7 @@ export async function downloadFromJob(job) {
         const { resultUrl } = await runJob({
             first: job.first,
             mapping: job.mapping,
-            origin: job.origin,
+            addresses: job.addresses,
             auth: job.auth,
             fetchJson: fetchStatus,
             onProgress: ui.update,

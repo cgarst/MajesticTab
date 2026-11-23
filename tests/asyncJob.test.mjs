@@ -2,12 +2,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { readPointer, fractionOf, interpretJob, rebaseUrl, withToken, stripParams, runJob } from '../src/urlImport/asyncJob.js';
-import { parseSpec, findOperation, asyncMapping } from '../src/urlImport/openApiDiscovery.js';
+import { readPointer, fractionOf, interpretJob, withToken, stripParams, runJob } from '../src/urlImport/asyncJob.js';
+import { parseSpec, findOperation, asyncMapping, linkAddress } from '../src/urlImport/openApiDiscovery.js';
 
 const spec = parseSpec(readFileSync(new URL('./jobService.openapi.json', import.meta.url), 'utf8'));
-const { mapping } = asyncMapping(findOperation(spec, 'http://svc.test:8080/api/fetch').operation);
+const found = findOperation(spec, 'http://svc.test:8080/api/fetch');
+const { mapping } = asyncMapping(found.operation);
 const ORIGIN = 'http://svc.test:8080';
+const addresses = {
+    status: (b) => linkAddress(spec, found, mapping.statusLink, b, ORIGIN),
+    result: (b) => linkAddress(spec, found, mapping.resultLink, b, ORIGIN)
+};
 
 test('JSON pointers', () => {
     const doc = { a: { 'b/c': [10, 20], 'd~e': 1 }, '': 7 };
@@ -32,17 +37,9 @@ test('a job body is read through the service mapping', () => {
     assert.equal(read.fraction, 0.25);
     assert.equal(read.label, 'Audio');
     assert.equal(interpretJob({ status: 'queued' }, mapping).state, 'pending');
-    assert.equal(interpretJob({ status: 'done', file_url: '/f' }, mapping).resultUrl, '/f');
     assert.equal(interpretJob({ status: 'weird' }, mapping).state, 'unknown');
-    const other = { ...mapping, state: '/phase', statusUrl: '/links/poll', states: { ...mapping.states, running: ['busy'] } };
-    assert.equal(interpretJob({ phase: 'busy', links: { poll: '/p' } }, other).state, 'running');
-    assert.equal(interpretJob({ phase: 'busy', links: { poll: '/p' } }, other).statusUrl, '/p');
-});
-
-test('addresses stay on the entered origin', () => {
-    assert.equal(rebaseUrl('/api/job?id=1', ORIGIN), `${ORIGIN}/api/job?id=1`);
-    assert.equal(rebaseUrl('http://internal:9/api/job?id=1&sig=x', ORIGIN), `${ORIGIN}/api/job?id=1&sig=x`);
-    assert.equal(rebaseUrl(`${ORIGIN}/a`, ORIGIN), `${ORIGIN}/a`);
+    const other = { ...mapping, state: '/phase', states: { ...mapping.states, running: ['busy'] } };
+    assert.equal(interpretJob({ phase: 'busy' }, other).state, 'running');
 });
 
 test('the token goes in the query only, and never into a stored address', () => {
@@ -67,11 +64,11 @@ test('a job is followed from queued to done, with progress reported', async () =
     const urls = [];
     const updates = [];
     const result = await runJob({
-        first: replies.shift(), mapping, origin: ORIGIN, auth: { token: 'tok', queryName: 'token' }, sleep: noSleep,
+        first: replies.shift(), mapping, addresses, auth: { token: 'tok', queryName: 'token' }, sleep: noSleep,
         fetchJson: async (url) => { urls.push(url); return answer(replies.shift()); },
         onProgress: (u) => updates.push(u)
     });
-    assert.equal(result.resultUrl, `${ORIGIN}/api/job/file?id=j1&sig=abc`);
+    assert.equal(result.resultUrl, `${ORIGIN}/api/job/file?id=j1`);
     assert.deepEqual(urls, Array(3).fill(`${ORIGIN}/api/job?id=j1&token=tok`));
     assert.deepEqual(updates.map((u) => u.state), ['pending', 'running', 'running']);
     assert.deepEqual(updates.map((u) => u.fraction), [null, 0.25, 0.5]);
@@ -79,22 +76,22 @@ test('a job is followed from queued to done, with progress reported', async () =
 });
 
 test('a failed job throws the service error', async () => {
-    await assert.rejects(runJob({ first: body('failed', { error: 'No audio found' }), mapping, origin: ORIGIN, fetchJson: async () => answer({}), sleep: noSleep }), /No audio found/);
-    await assert.rejects(runJob({ first: body('failed'), mapping, origin: ORIGIN, fetchJson: async () => answer({}), sleep: noSleep }), /could not make that file/);
-    await assert.rejects(runJob({ first: body('mystery'), mapping, origin: ORIGIN, fetchJson: async () => answer({}), sleep: noSleep }), /does not know/);
+    await assert.rejects(runJob({ first: body('failed', { error: 'No audio found' }), mapping, addresses, fetchJson: async () => answer({}), sleep: noSleep }), /No audio found/);
+    await assert.rejects(runJob({ first: body('failed'), mapping, addresses, fetchJson: async () => answer({}), sleep: noSleep }), /could not make that file/);
+    await assert.rejects(runJob({ first: body('mystery'), mapping, addresses, fetchJson: async () => answer({}), sleep: noSleep }), /does not know/);
 });
 
 test('polling survives a hiccup but not repeated failures, a refused token or a lost job', async () => {
     let n = 0;
     const flaky = async () => { n++; if (n === 1) throw new Error('net'); return answer(body('done', { file_url: '/f' })); };
-    assert.equal((await runJob({ first: body('queued'), mapping, origin: ORIGIN, fetchJson: flaky, sleep: noSleep })).resultUrl, `${ORIGIN}/f`);
-    await assert.rejects(runJob({ first: body('queued'), mapping, origin: ORIGIN, fetchJson: async () => answer({}, 500), sleep: noSleep }), /Lost contact/);
-    await assert.rejects(runJob({ first: body('queued'), mapping, origin: ORIGIN, fetchJson: async () => answer({}, 401), sleep: noSleep }), /refused the access token/);
-    await assert.rejects(runJob({ first: body('queued'), mapping, origin: ORIGIN, fetchJson: async () => answer({}, 404), sleep: noSleep }), /no longer has that job/);
+    assert.equal((await runJob({ first: body('queued'), mapping, addresses, fetchJson: flaky, sleep: noSleep })).resultUrl, `${ORIGIN}/api/job/file?id=j1`);
+    await assert.rejects(runJob({ first: body('queued'), mapping, addresses, fetchJson: async () => answer({}, 500), sleep: noSleep }), /Lost contact/);
+    await assert.rejects(runJob({ first: body('queued'), mapping, addresses, fetchJson: async () => answer({}, 401), sleep: noSleep }), /refused the access token/);
+    await assert.rejects(runJob({ first: body('queued'), mapping, addresses, fetchJson: async () => answer({}, 404), sleep: noSleep }), /no longer has that job/);
 });
 
 test('cancelling stops the wait', async () => {
     const controller = new AbortController();
     const sleep = async () => { controller.abort(); throw new Error('Cancelled.'); };
-    await assert.rejects(runJob({ first: body('queued'), mapping, origin: ORIGIN, fetchJson: async () => answer({}), sleep, signal: controller.signal }), /Cancelled/);
+    await assert.rejects(runJob({ first: body('queued'), mapping, addresses, fetchJson: async () => answer({}), sleep, signal: controller.signal }), /Cancelled/);
 });

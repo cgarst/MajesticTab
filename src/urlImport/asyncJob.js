@@ -30,7 +30,7 @@ export function fractionOf({ percent = null, step = null, steps = null } = {}) {
 
 /**
  * Reads one status body with the service's mapping.
- * @returns {{state: 'pending'|'running'|'done'|'failed'|'unknown', fraction: number|null, label: string, statusUrl: string, resultUrl: string, error: string}}
+ * @returns {{state: 'pending'|'running'|'done'|'failed'|'unknown', fraction: number|null, label: string, error: string}}
  */
 export function interpretJob(body, mapping) {
     const text = (pointer) => {
@@ -50,19 +50,8 @@ export function interpretJob(body, mapping) {
         state,
         fraction: state === 'running' ? fractionOf(progress) : null,
         label: text(p.label),
-        statusUrl: text(mapping.statusUrl),
-        resultUrl: text(mapping.result),
         error: text(mapping.error)
     };
-}
-
-/**
- * An address the service returned, kept on the origin the user entered: a relative address is resolved against it, and
- * an address on another origin (a service behind a proxy that reports its own host, say) keeps only its path and query.
- */
-export function rebaseUrl(address, origin) {
-    const url = new URL(address, origin);
-    return url.origin === new URL(origin).origin ? url.href : new URL(url.pathname + url.search, origin).href;
 }
 
 /** An address with the access token added to its query (the only place a token goes), unless it already has one. */
@@ -94,15 +83,16 @@ const wait = (ms, signal) => new Promise((resolve, reject) => {
  * @param {object} options
  * @param {object} options.first the body of the response that started the job
  * @param {object} options.mapping the validated x-async-job mapping
- * @param {string} options.origin the origin the user entered; every address stays on it
+ * @param {{status: (body: object) => string, result: (body: object) => string}} options.addresses where the job's status
+ *   and file are for a job body, built from the description's links; both are on the origin the user entered
  * @param {{token: string, queryName: string}|null} [options.auth]
  * @param {(url: string) => Promise<Response>} options.fetchJson GET an address
  * @param {(update: {state: string, fraction: number|null, label: string}) => void} [options.onProgress]
  * @param {AbortSignal} [options.signal]
  * @param {(ms: number, signal?: AbortSignal) => Promise<void>} [options.sleep]
- * @returns {Promise<{resultUrl: string}>} the address of the finished file, on the entered origin
+ * @returns {Promise<{resultUrl: string}>} the address of the finished file
  */
-export async function runJob({ first, mapping, origin, auth = null, fetchJson, onProgress = () => {}, signal, sleep = wait }) {
+export async function runJob({ first, mapping, addresses, auth = null, fetchJson, onProgress = () => {}, signal, sleep = wait }) {
     let body = first;
     let delay = FIRST_DELAY_MS;
     let failures = 0;
@@ -110,10 +100,11 @@ export async function runJob({ first, mapping, origin, auth = null, fetchJson, o
     for (;;) {
         if (signal?.aborted) throw new Error('Cancelled.');
         const job = interpretJob(body, mapping);
-        if (job.statusUrl) statusUrl = rebaseUrl(job.statusUrl, origin);
+        statusUrl = addresses.status(body) || statusUrl;
         if (job.state === 'done') {
-            if (!job.resultUrl) throw new Error('The service finished but gave no file address.');
-            return { resultUrl: rebaseUrl(job.resultUrl, origin) };
+            const resultUrl = addresses.result(body);
+            if (!resultUrl) throw new Error('The service finished but gave no file address.');
+            return { resultUrl };
         }
         if (job.state === 'failed') throw new Error(job.error || 'The service could not make that file.');
         if (job.state === 'unknown') throw new Error('The service reported a state this app does not know.');

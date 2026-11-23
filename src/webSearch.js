@@ -1,6 +1,8 @@
 // webSearch.js
 // Web search for tabs: the search provider list and the handoff of a search to the system's default web browser.
 
+import { sourceFetchesCached, sourceFetches } from './urlImport/sourceKind.js';
+
 export const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 export const SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
 export const DUCKDUCKGO_FIRST_KEY = 'majestictab_tab_sources_duckduckgo_first';
@@ -9,9 +11,12 @@ export const PENDING_BROWSER_TARGET_KEY = 'majestictab_pending_browser_target';
 // or the sync, so a token typed here never travels with the provider list.
 export const SOURCE_TOKENS_KEY = 'majestictab_source_tokens';
 
-/** True when the default search provider fetches a file itself (a service), so a search needs no browser window. */
+/**
+ * True when the default search provider fetches a file itself (a service), so a search needs no browser window. It
+ * answers from what is already known about the address (its own choice, or what was found earlier); it makes no request.
+ */
 export function defaultSourceFetches() {
-    try { return getSources()[0]?.kind === 'api'; } catch { return false; }
+    try { return sourceFetchesCached(getSources()[0]); } catch { return false; }
 }
 
 /** True in the native apps, which hand a search to the system browser. */
@@ -270,7 +275,7 @@ export async function openWebSearch(options = {}) {
 
     // A source that fetches a file from a service runs its address as a download, with a progress bar, instead of
     // opening it in the browser. What the address does is read from the service's own description.
-    if (activeSource.kind === 'api' && !startUrl) {
+    if (!startUrl && await sourceFetches(activeSource)) {
         const { openTabFromUrl } = await import('./fileProviders.js');
         const { startUrl: _ignored, ...rest } = options;
         await openTabFromUrl(applySourceToken(buildSearchUrl(activeSource, query), activeSource), { ...rest, fetchOnly: true });

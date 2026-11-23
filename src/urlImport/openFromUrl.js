@@ -4,7 +4,7 @@
 import { hasNativeHttp } from '../s3Client.js';
 import { parseWebAddress, fileNameFor } from './urlImport.js';
 import { decodeText, charsetOf } from '../utils/decodeText.js';
-import { serviceDescLink, loadSpec, findOperation, asyncMapping, authOf } from './openApiDiscovery.js';
+import { serviceDescLink, loadSpec, findOperation, asyncMapping, authOf, linkAddress } from './openApiDiscovery.js';
 import { withToken } from './asyncJob.js';
 
 /**
@@ -124,6 +124,10 @@ async function jobFrom(res, address) {
     return {
         first,
         mapping,
+        addresses: {
+            status: (body) => linkAddress(spec, found, mapping.statusLink, body, url.origin),
+            result: (body) => linkAddress(spec, found, mapping.resultLink, body, url.origin)
+        },
         origin: url.origin,
         title: String(spec.info?.title || ''),
         strip: access.strip,
