@@ -143,3 +143,25 @@ test('fetchTabForSong: file, job, choice, missing and a failure that ends the ru
     assert.equal(notFound.kind, 'missing');
     await assert.rejects(fetchTabForSong(s, src, { probe: async () => { throw Object.assign(new Error('token'), { fatal: true }); }, follow }), { fatal: true });
 });
+
+test('the run shows as running, in one change, before it waits on anything', async () => {
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    let changes = 0;
+    const songs = Array.from({ length: 500 }, (_, i) => song(`s${i}`, `Song ${i}`));
+    const run = createFillRun({
+        songs, sources: [SRC('s1')],
+        around: async (work) => { await gate; await work(); },
+        fetchOne: async () => ({ kind: 'missing' }), attach: async () => true,
+        onChange: () => { changes++; }
+    });
+    const done = run.start();
+    assert.equal(run.run.running, true);
+    assert.equal(changes, 1, 'one announcement for the whole list, not one per song');
+    run.stop();
+    assert.equal(run.run.stopping, true);
+    release();
+    await done;
+    assert.equal(run.run.running, false);
+    assert.equal(run.run.stopping, false);
+});

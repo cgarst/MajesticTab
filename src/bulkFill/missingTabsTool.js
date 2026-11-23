@@ -222,7 +222,7 @@ export function renderMissingTabsTool(container) {
         else if (picks > 0) primary = `<button type="button" class="btn btn-sm btn-theme-primary" data-act="pick-all">Choose ${picks === 1 ? 'a match' : `matches for ${picks.toLocaleString()} songs`}</button>`;
         else if (canBrowse) primary = `<button type="button" class="btn btn-sm btn-theme-primary" data-act="guide-start">${fill && counts.added + counts.missing + counts.failed > 0 ? `Continue in your browser (${left.toLocaleString()} left)` : 'Search in your browser'}</button>`;
         const secondary = running
-            ? '<button type="button" class="btn btn-sm btn-theme-outline" data-act="stop">Stop</button>'
+            ? `<button type="button" class="btn btn-sm btn-theme-outline" data-act="stop" ${fill.run.stopping ? 'disabled' : ''}>${fill.run.stopping ? 'Stopping…' : 'Stop'}</button>`
             : [
                 (picks > 0 && apiQueued > 0) ? '<button type="button" class="btn btn-sm btn-theme-outline" data-act="pick-all">Choose matches</button>' : '',
                 (primary && !running && picks > 0 && apiQueued === 0 && canBrowse) ? '<button type="button" class="btn btn-sm btn-theme-outline" data-act="guide-start">Search in your browser</button>' : '',
@@ -330,7 +330,7 @@ export function renderMissingTabsTool(container) {
         if (!runSongs.length) return;
         const restored = { ...saved.items };
         for (const [id, item] of Object.entries(restored)) if (!byId.has(id) && item.state !== 'added') delete restored[id];
-        const run = createFillRun({ songs: runSongs, sources: lanes.api, remembered: notFound, restored, fetchOne: fetchTabForSong,
+        const run = createFillRun({ songs: runSongs, sources: lanes.api, remembered: notFound, restored, fetchOne: fetchTabForSong, around: holdSync,
             attach: (file, song) => attachTabToSong(file, song, { quiet: true }), onChange: notify });
         fill = { run, songIds: runSongs.map((s) => s.id) };
     }
@@ -349,11 +349,13 @@ export function renderMissingTabsTool(container) {
             remembered,
             fetchOne: fetchTabForSong,
             attach: (file, song) => attachTabToSong(file, song, { quiet: true }),
+            around: holdSync,
             onChange: notify
         });
         if (fill) for (const [id, item] of fill.run.items) if (run.items.has(id) && (only ? item.state === 'added' : ['added', 'pick'].includes(item.state))) Object.assign(run.items.get(id), item);
         fill = { run, songIds: scope.map((s) => s.id) };
-        await holdSync(() => run.start());
+        menuOpen = '';
+        await run.start();
         // Remember what no provider had, so the next run skips it until it is asked again
         for (const [id, item] of run.items) {
             // Only a run of every provider says no provider has it
@@ -544,7 +546,9 @@ export function renderMissingTabsTool(container) {
     // list is held, so rows do not jump away under it
     const onData = () => { if (!fill?.run.running && !guide.songs) load(); };
     window.addEventListener('libraryDataChanged', onData);
-    const onRun = () => { render(); };
+    // Changes come in bursts (a progress tick, a song settling): one redraw per frame
+    let frame = 0;
+    const onRun = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; render(); }); };
     listeners.add(onRun);
     // An open provider menu closes on a click elsewhere or Escape
     const onDocClick = (e) => { if (menuOpen && !e.target.closest?.('.fill-split')) { menuOpen = ''; render(); } };

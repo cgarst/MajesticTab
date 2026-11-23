@@ -17,9 +17,10 @@ export const DONE_STATES = ['added', 'pick', 'missing', 'failed'];
  * @param {(song: object, source: object, options: object) => Promise<object>} deps.fetchOne see fetchForSong.js
  * @param {(file: File, song: object) => Promise<boolean>} deps.attach adds the file to the song; true when it did
  * @param {Set<string>} [deps.remembered] ids of songs an earlier run found nothing for: they start as 'missing' and are skipped until requeued
+ * @param {(work: () => Promise<void>) => Promise<void>} [deps.around] runs the work of a run inside something (a hold on auto-sync); the run counts as running, and shows it, before it starts
  * @param {() => void} [deps.onChange] called whenever anything changes
  */
-export function createFillRun({ songs, sources, fetchOne, attach, remembered = new Set(), restored = {}, onChange = () => {} }) {
+export function createFillRun({ songs, sources, fetchOne, attach, remembered = new Set(), restored = {}, around = (work) => work(), onChange = () => {} }) {
     const items = new Map(songs.map((s) => [s.id, { state: remembered.has(s.id) ? 'missing' : 'queued', label: '', fraction: null, message: '', choose: null, source: null }]));
     // What an earlier session settled (see fillStore.js): a parked pick asks again from the addresses it saved
     for (const [id, saved] of Object.entries(restored)) {
@@ -28,7 +29,7 @@ export function createFillRun({ songs, sources, fetchOne, attach, remembered = n
         Object.assign(item, { state: saved.state, label: saved.label || '', message: saved.message || '' });
         if (saved.state === 'pick' && saved.choose) item.choose = { ...saved.choose, addressFor: (value) => saved.choose.addresses?.[value] || '' };
     }
-    const run = { running: false, stopped: false, error: '', current: null, controller: null };
+    const run = { running: false, stopped: false, stopping: false, error: '', current: null, controller: null };
     const notify = () => { try { onChange(); } catch { /* a listener must not break the run */ } };
     const set = (id, patch) => { Object.assign(items.get(id), patch); notify(); };
 
@@ -74,23 +75,29 @@ export function createFillRun({ songs, sources, fetchOne, attach, remembered = n
         if (run.running) return;
         run.running = true;
         run.stopped = false;
+        run.stopping = false;
         run.error = '';
         run.controller = new AbortController();
-        for (const [id, item] of items) if (!DONE_STATES.includes(item.state)) set(id, { state: 'queued' });
+        // One change for the whole list (a change per song would redraw the page once per song), and it is announced before
+        // anything is awaited, so the page shows the run at once
+        for (const item of items.values()) if (!DONE_STATES.includes(item.state)) item.state = 'queued';
         notify();
         try {
-            for (const song of songs) {
-                if (run.controller.signal.aborted) break;
-                if (DONE_STATES.includes(items.get(song.id).state)) continue;
-                run.current = song.id;
-                await settle(song);
-            }
+            await around(async () => {
+                for (const song of songs) {
+                    if (run.controller.signal.aborted) break;
+                    if (DONE_STATES.includes(items.get(song.id).state)) continue;
+                    run.current = song.id;
+                    await settle(song);
+                }
+            });
         } catch (error) {
             run.error = error?.message || 'The run stopped.';
         } finally {
             run.stopped = run.controller.signal.aborted;
-            for (const [id, item] of items) if (item.state === 'searching' || item.state === 'queued') set(id, { state: 'queued', fraction: null, label: '' });
+            for (const item of items.values()) if (item.state === 'searching' || item.state === 'queued') Object.assign(item, { state: 'queued', fraction: null, label: '' });
             run.running = false;
+            run.stopping = false;
             run.current = null;
             notify();
         }
@@ -117,7 +124,10 @@ export function createFillRun({ songs, sources, fetchOne, attach, remembered = n
     }
 
     function stop() {
+        if (!run.running) return;
+        run.stopping = true;
         run.controller?.abort();
+        notify();
     }
 
     function counts() {
