@@ -33,6 +33,15 @@ This file holds only what applies to every task. Domain guides hold the rest: **
 
 The mpak format is specified in the [MusicPackSpec repository](https://github.com/cgarst/MusicPackSpec) (`SPEC.md`, `schema/`, `CHANGELOG.md`), which we maintain. Read it before changing how `src/mpak.js` reads or writes a pack. **Never change anything in that repository, or in a local checkout of it, without the user's explicit approval**: not the spec text, the schema, the examples, the conformance files or the changelog. That includes a new optional field. When a feature needs a format change, describe the change and ask first. Until it is approved, keep the data in app-internal storage and do not write it into exported packs.
 
+### Settings: persist on the device, do not sync
+
+- **Settings never sync.** A preference (pace, view, size, Reading mode, SoundFont choice, instrument mode and the like) lives on the device only.
+- **Per-song settings persist on the device**, keyed by the song or tab, so they are still there the next time it opens. Sound off is the exception by design: it is a session toggle and ends when another file opens.
+- **The one exception is what the mpak spec already carries**: media selection such as which YouTube video or which stem or file is chosen over another, recordings and sync points. These travel in the pack, and only because the spec has a place for them. Do not add a field to the pack for anything else; a format change needs the user's approval (see the mpak standard above).
+- **Pins are library data, not settings, and all of them persist and sync:** pinned songs (on the song record), pinned artists and pinned Classical tab composers and pieces. They stay in the backup and the sync store.
+- **Search providers sync:** the list in Settings → Search providers (`majestictab_tab_sources`, with its deleted markers) serves both the system browser and the in-app browser, and stays synced with its own merge. Which browser to open search in (`majestictab_web_search_browser`) is a preference and stays on the device.
+- A new preference is therefore local by default: do not add its key to `BACKUP_SETTINGS_KEYS` or to the song record in `library.json`.
+
 ### Attribution
 
 When code, data or design is ported or adapted from another project (not merely used as a dependency you didn't modify), credit it in all three places in the same change:

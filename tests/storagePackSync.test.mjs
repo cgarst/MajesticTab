@@ -6,7 +6,7 @@ import { createPackStore } from '../src/storage/packStore.js';
 import { writeStoreInfo } from '../src/storage/storeInfo.js';
 import { decideItem, planPackSync, applyPackSync, exportLocalToStore, seedItemBaselines, replaceRemoteFromLocal, ITEM_ACTION as A } from '../src/storage/packSync.js';
 import { readLibrary, toLibraryDoc } from '../src/storage/libraryDocs.js';
-import { writeJson } from '../src/storage/contract.js';
+import { writeJson, readJson } from '../src/storage/contract.js';
 import { sha256 } from '../src/mpak/core/index.js';
 import { fakeLocal, memoryBaselines } from './storage/fakeLocal.mjs';
 
@@ -226,17 +226,22 @@ test('soundfonts move like packs', async () => {
     assert.equal(b.state.fonts.size, 0);
 });
 
-test('library records: a new song, a changed collection and a setlist travel; settings fill in; removals are carried', async () => {
+test('library records: a new song, a changed collection and a setlist travel; pins sync and other settings stay put; removals are carried', async () => {
     const store = await newStore();
     const a = fakeLocal(), baseA = memoryBaselines(), b = fakeLocal(), baseB = memoryBaselines();
     a.addSong('one', 'One');
     a.state.records.collections.push({ id: 'default', name: 'Library' });
     a.state.records.setlists.push({ id: 'sl1', name: 'Gig', items: [] });
     a.state.settings.theme = 'dark';
+    a.state.settings.instrumentMode = 'bass';
+    a.state.settings.majestictab_pinned_artists = ['Artist'];
     await sync(store, a, baseA);
     await sync(store, b, baseB);
     assert.equal(b.state.records.setlists[0].name, 'Gig');
-    assert.equal(b.state.settings.theme, 'dark');
+    assert.deepEqual(b.state.settings.majestictab_pinned_artists, ['Artist']);
+    assert.equal(b.state.settings.theme, undefined);
+    assert.equal(b.state.settings.instrumentMode, undefined);
+    assert.deepEqual(Object.keys((await readJson(store, 'profile.json')).settings), ['majestictab_pinned_artists']);
     assert.equal(b.state.records.collections[0].name, 'Library');
     assert.deepEqual((await readLibrary(store)).songs.map((s) => s.id), ['one']);
     // a rename on b, a removal on a

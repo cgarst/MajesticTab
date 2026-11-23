@@ -20,7 +20,7 @@ import {
 import {
     collectAllSettings, applyRestoredSettings, applyRestoredPreferences
 } from './backupRestore.js';
-import { RECORD_ACTION, fingerprintValue, planRecords, describeRecords, TAB_SOURCES_KEY, TAB_SOURCES_DELETED_KEY, readSourceList, readTombstones, mergeSourceLists } from './recordSync.js';
+import { RECORD_ACTION, fingerprintValue, planRecords, describeRecords, TAB_SOURCES_KEY, TAB_SOURCES_DELETED_KEY, isSyncedSetting, readSourceList, readTombstones, mergeSourceLists } from './recordSync.js';
 import {
     listIncrementalBackups, assertNotUpgraded, loadIncrementalBundle, createIncrementalBackup, fileFingerprint, soundFontFingerprint, runPool, itemKey
 } from './incrementalBackup.js';
@@ -182,7 +182,7 @@ function recordViews({ settings, library }) {
     if (settings && typeof settings === 'object') {
         present.add('setting');
         for (const [key, val] of Object.entries(settings)) {
-            if (SETTING_SPECIAL.has(key)) continue;
+            if (SETTING_SPECIAL.has(key) || !isSyncedSetting(key)) continue;
             if ((key === 'ytCache' || key === 'gpTabStrings') && val && typeof val === 'object') {
                 const prefix = key === 'ytCache' ? 'yt' : 'gts';
                 for (const [name, v] of Object.entries(val)) add(`${prefix}:${name}`, 'setting', name, '', v);

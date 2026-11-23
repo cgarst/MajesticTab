@@ -20,7 +20,7 @@ import { createPackStore } from './packStore.js';
 import { readStoreInfo } from './storeInfo.js';
 import { readJsonIfExists, readJson, writeJson, updateJson, UNCHANGED, pool, ConflictError, NotFoundError } from './contract.js';
 import { toLibraryDoc, fromLibraryDoc, toProfileDoc, fromProfileDoc, portableSong, mergeSong, applyIndexToSong, LIBRARY_PATH, PROFILE_PATH } from './libraryDocs.js';
-import { RECORD_ACTION, fingerprintValue, stableStringify, planRecords, TAB_SOURCES_KEY, TAB_SOURCES_DELETED_KEY, readSourceList, readTombstones, mergeSourceLists } from '../recordSync.js';
+import { RECORD_ACTION, fingerprintValue, stableStringify, planRecords, TAB_SOURCES_KEY, TAB_SOURCES_DELETED_KEY, isSyncedSetting, syncedSettings, readSourceList, readTombstones, mergeSourceLists } from '../recordSync.js';
 
 /**
  * @typedef {object} LocalAdapter   this device's data; the app's version wraps IndexedDB, tests use a fake
@@ -272,7 +272,7 @@ function recordMap(library, settings) {
     for (const s of library.songs || []) { const v = portableSong(s); add(`song:${s.id}`, 'song', s.id, s.title, v); }
     for (const r of library.recents || []) add(`rec:${r.id}`, 'recent', r.id, r.title || r.name, r);
     for (const s of library.setlists || []) add(`sl:${s.id}`, 'setlist', s.id, s.name, s);
-    for (const [k, v] of Object.entries(settings || {})) if (!PER_SONG_SETTINGS.has(k) && k !== TAB_SOURCES_KEY && k !== TAB_SOURCES_DELETED_KEY) add(`set:${k}`, 'setting', k, k, v);
+    for (const [k, v] of Object.entries(settings || {})) if (isSyncedSetting(k) && !PER_SONG_SETTINGS.has(k) && k !== TAB_SOURCES_KEY && k !== TAB_SOURCES_DELETED_KEY) add(`set:${k}`, 'setting', k, k, v);
     return records;
 }
 
@@ -764,7 +764,7 @@ export async function replaceRemoteFromLocal({ store, local, baselines, location
     }
 
     await writeJson(store, LIBRARY_PATH, toLibraryDoc(records));
-    await writeJson(store, PROFILE_PATH, toProfileDoc({ settings, soundFonts }));
+    await writeJson(store, PROFILE_PATH, toProfileDoc({ settings: syncedSettings(settings), soundFonts }));
     await writeJson(store, TOMBSTONES_PATH, tombstones);
 
     const remoteNow = await readRemote(store);

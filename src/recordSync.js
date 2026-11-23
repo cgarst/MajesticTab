@@ -115,6 +115,20 @@ export function describeRecords(decisions) {
 export const TAB_SOURCES_KEY = 'majestictab_tab_sources';
 export const TAB_SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
 
+/**
+ * The only settings a sync moves between devices (AGENTS.md, "Settings: persist on the device, do not sync"): pins, the search
+ * provider list, and the per-song media choices and sync points the pack format carries. Every other preference stays on the
+ * device; a local backup still holds all of them.
+ */
+export const SYNCED_SETTING_KEYS = new Set([
+    'majestictab_pinned_artists', 'majestictab_classtab_pins',
+    TAB_SOURCES_KEY, TAB_SOURCES_DELETED_KEY,
+    'ytCache', 'audioSync'
+]);
+export const isSyncedSetting = (key) => SYNCED_SETTING_KEYS.has(key);
+/** `settings` without the keys a sync must not carry. */
+export const syncedSettings = (settings) => Object.fromEntries(Object.entries(settings || {}).filter(([k]) => isSyncedSetting(k)));
+
 export function readSourceList(value) {
     if (typeof value === 'string') {
         try { value = JSON.parse(value); } catch { return []; }

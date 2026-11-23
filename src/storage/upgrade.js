@@ -9,6 +9,7 @@ import { readStoreInfo, writeStoreInfo } from './storeInfo.js';
 import { createPackStore } from './packStore.js';
 import { toLibraryDoc, toProfileDoc, LIBRARY_PATH, PROFILE_PATH } from './libraryDocs.js';
 import { writeJson, pool } from './contract.js';
+import { syncedSettings } from '../recordSync.js';
 
 export const LOCATION = Object.freeze({
     NONE: 'none',        // nothing of ours here
@@ -72,7 +73,7 @@ export async function upgradeLocation({ legacy, current, syncWithLegacy, exportT
 
     onStatus('Writing the library');
     await writeJson(current, LIBRARY_PATH, toLibraryDoc(records));
-    await writeJson(current, PROFILE_PATH, toProfileDoc({ settings, soundFonts }));
+    await writeJson(current, PROFILE_PATH, toProfileDoc({ settings: syncedSettings(settings), soundFonts }));
 
     onStatus('Checking');
     const problems = await verifyStore(current, { packIds, songs: records.songs || [] }, (info) => onStatus('Checking', info));

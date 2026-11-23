@@ -71,3 +71,10 @@ test('a restore point is kept across edits, survives clearing, and is held on th
     saveRecord('s', m2, pts(1, 2, 3), storage, 50, undefined, { holdPrevious: true });
     assert.ok(samePoints(loadRestorePoint('s', m2, storage).points, a));
 });
+
+test('only pins, search providers and the pack-carried choices sync', async () => {
+    const { isSyncedSetting, syncedSettings } = await import('../src/recordSync.js');
+    for (const k of ['majestictab_pinned_artists', 'majestictab_classtab_pins', 'majestictab_tab_sources', 'majestictab_tab_sources_deleted', 'ytCache', 'audioSync']) assert.equal(isSyncedSetting(k), true, k);
+    for (const k of ['instrumentMode', 'gpDefaultStringsGuitar', 'majestictab_web_search_browser', 'youtubeApiKey', 'debugMode', 'gpTabStrings']) assert.equal(isSyncedSetting(k), false, k);
+    assert.deepEqual(Object.keys(syncedSettings({ instrumentMode: 'bass', majestictab_classtab_pins: [1] })), ['majestictab_classtab_pins']);
+});
