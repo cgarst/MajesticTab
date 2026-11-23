@@ -3596,6 +3596,20 @@ select.form-select, select.theme-select, select.ref-select, select.tuner-calib-s
 }
 select.form-select[multiple], select.form-select[size]:not([size="1"]) { background-image: none !important; padding-right: 12px !important; }
 
+/* Settings dropdowns: a tone step on the row, no outline, the platform's control radius, no accent on hover or focus.
+   The older library-page rules in style.css are !important, so these match them in specificity and load later. */
+.library-page-view .settings-page select.form-select, .settings-page select.form-select {
+  background-color: var(--s3) !important; border: 0 !important; border-radius: var(--r-control) !important;
+  color: var(--ink) !important; box-shadow: none !important; font-size: 14px !important; font-weight: 400;
+  min-height: 36px; transition: background-color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) { .library-page-view .settings-page select.form-select:hover, .settings-page select.form-select:hover { background-color: color-mix(in srgb, var(--s3), var(--ink) 8%) !important; color: var(--ink) !important; } }
+.library-page-view .settings-page select.form-select:focus, .settings-page select.form-select:focus {
+  background-color: var(--s3) !important; color: var(--ink) !important; box-shadow: none !important; outline: 2px solid var(--hue) !important; outline-offset: -1px;
+}
+.settings-page select.form-select option { background-color: var(--s1) !important; color: var(--ink) !important; }
+@media (pointer: coarse) { .settings-page select.form-select { min-height: 44px; } }
+
 /* ==========================================================================
    Reader buttons and panels: one look and one behaviour
    View, Practice, Song, Guitar, Tools (top bar rows or side rail on phones) and the dock's Synth | Recording switch are all .rbtn.
