@@ -17,7 +17,8 @@ const target = process.argv[2];
 const channelOption = process.argv.slice(3).find((option) => option.startsWith('--channel='));
 const abiOption = process.argv.slice(3).find((option) => option.startsWith('--abi='));
 const buildOptions = process.argv.slice(3).filter((option) => option !== channelOption && option !== abiOption);
-const channel = channelOption ? channelOption.slice('--channel='.length) : target === 'ios' ? 'ios-source' : DEFAULT_CHANNEL;
+// The Linux app is a Flatpak, which updates through its repo, so it defaults to the flathub channel (no self-update).
+const channel = channelOption ? channelOption.slice('--channel='.length) : target === 'ios' ? 'ios-source' : target === 'linux' ? 'flathub' : DEFAULT_CHANNEL;
 const channelCapabilities = isValidChannel(channel) ? channels[channel].capabilities : {};
 const debugTools = buildOptions.includes('--debug-tools') || buildOptions.includes('--debug');
 const macosX64 = buildOptions.includes('--x86_64');
