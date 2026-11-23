@@ -42,7 +42,7 @@ export async function releaseEmbeddedTools(keep = false) {
     if (!embedded) return;
     const { id, el, dispose } = embedded;
     embedded = null;
-    if (id === 'openfile' || id === 'classtab' || id === 'stemdeck' || id === 'bulkexport' || id === 'missingtabs' || id === 'bulkimport') {
+    if (id === 'openfile' || id === 'classtab' || id === 'bulkexport' || id === 'missingtabs' || id === 'bulkimport') {
         dispose?.(keep);
         el.remove();
         return;
@@ -82,14 +82,6 @@ async function openTool(id, pane, onDepth) {
         el.className = 'tool-embedded classtab-tool-embedded';
         pane.appendChild(el);
         embedded = { id, el, dispose: renderClasstabTool(el, { onDepth }) };
-        return;
-    }
-    if (id === 'stemdeck') {
-        const { renderStemdeckTool } = await import('../stemdeck/stemdeckTool.js');
-        const el = document.createElement('div');
-        el.className = 'tool-embedded stemdeck-tool-embedded';
-        pane.appendChild(el);
-        embedded = { id, el, dispose: renderStemdeckTool(el) };
         return;
     }
     if (id === 'bulkexport') {

@@ -5,7 +5,7 @@ import { songHasSyncPoints } from './audioSync/syncStore.js';
 import { songHasLocalSlot, songAudioKeys, readLibraryAudio } from './audioSync/libraryAudio.js';
 import { listRecordingMeta } from './audioSync/recordingMeta.js';
 import { stemsOfMeta } from './audioSync/stemSet.js';
-import { slotFileKey } from './stemdeck/backingCandidates.js';
+import { slotFileKey } from './audioSync/slotKeys.js';
 import { ownSongKey } from './songKey.js';
 
 export const TAG_FLAGS = ['hasAudioFile', 'hasYouTube', 'hasStems', 'mapped'];

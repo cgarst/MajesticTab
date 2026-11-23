@@ -11,7 +11,7 @@ import { songKeyFor, ownSongKey } from '../songKey.js';
 import { listHistory } from '../audioSync/videoHistory.js';
 import { listRecordingMeta } from '../audioSync/recordingMeta.js';
 import { readLibraryAudio } from '../audioSync/libraryAudio.js';
-import { slotFileKey } from '../stemdeck/backingCandidates.js';
+import { slotFileKey } from '../audioSync/slotKeys.js';
 import { isIOSDevice } from '../utils/iosAudioUnlock.js';
 import { showToast } from '../utils/toast.js';
 

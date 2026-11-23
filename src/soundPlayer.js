@@ -6,7 +6,7 @@ import { getMasterVolume, onMasterVolume } from './utils/masterVolume.js';
 import { isReaderLoading } from './utils/loadingCard.js';
 import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
 import { songHasLocalAudio, songHasLocalSlot, preferredSlot } from './audioSync/libraryAudio.js';
-import { slotSourceKey } from './stemdeck/backingCandidates.js';
+import { slotSourceKey } from './audioSync/slotKeys.js';
 import { listHistory, rememberVideo, forgetVideo } from './audioSync/videoHistory.js';
 import { listRecordingMeta, forgetRecordingMeta, getRecordingMeta, setRecordingMeta, roleAfterMove, orderRecordings, roleLabel, tracksNote } from './audioSync/recordingMeta.js';
 import { showToast } from './utils/toast.js';

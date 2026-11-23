@@ -130,11 +130,6 @@
           "desc": "Keep time with tap tempo, time signatures and a visual click."
         },
         {
-          "slug": "make-backing-tracks",
-          "title": "Make backing tracks",
-          "desc": "Remove the guitar from your audio files with StemDeck and save the result as a backing track."
-        },
-        {
           "slug": "open-file",
           "title": "Open file",
           "desc": "Play a tab without adding it to your library."

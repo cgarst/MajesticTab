@@ -11,7 +11,6 @@ mod debug_bridge;
 mod debug_restore;
 mod jam;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
-mod loopback_scan;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod google_picker_desktop;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -419,8 +418,6 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         jam::jam_client_send,
         jam::jam_client_disconnect,
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
-        loopback_scan::loopback_open_ports,
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         google_picker_desktop::desktop_pick_drive_file,
         get_opened_file,
         get_opened_url,
@@ -465,8 +462,6 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         jam::jam_client_connect,
         jam::jam_client_send,
         jam::jam_client_disconnect,
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
-        loopback_scan::loopback_open_ports,
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         google_picker_desktop::desktop_pick_drive_file,
         get_opened_file,

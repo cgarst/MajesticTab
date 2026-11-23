@@ -94,8 +94,6 @@ document.addEventListener('dropdown:shown', (e) => {
 import { closeToolsMenu } from './utils/toolsMenu.js';
 import { closeAllReaderPanels } from './utils/readerPanels.js';
 import { renderToolsPage, releaseEmbeddedTools, forgetResume } from './utils/toolsPage.js';
-import { hasStemDeckSupport } from './stemdeck/stemdeckClient.js';
-import { stemdeckReadout } from './stemdeck/stemdeckTool.js';
 import { bulkExportReadout } from './bulkExport/bulkExportTool.js';
 import { missingTabsReadout } from './bulkFill/missingTabsTool.js';
 import { bulkImportReadout } from './bulkImport/bulkImportTool.js';
@@ -2277,7 +2275,7 @@ export function webCtaBannerHtml() {
     <section class="web-cta-banner${collapsed ? ' is-collapsed' : ''}" id="webCtaBanner" aria-label="Install MajesticTab">
       <div class="web-cta-content">
         <div class="web-cta-title">Browser storage is temporary</div>
-        <div class="web-cta-desc">Tabs and sync points saved in the browser can be cleared by your system when storage is low or browsing data is cleared. Install MajesticTab for permanent offline storage, local Jam hosting, backing track separation, a secure credential store, and iCloud sync for Apple devices.</div>
+        <div class="web-cta-desc">Tabs and sync points saved in the browser can be cleared by your system when storage is low or browsing data is cleared. Install MajesticTab for permanent offline storage, local Jam hosting, a secure credential store, and iCloud sync for Apple devices.</div>
       </div>
       <div class="web-cta-actions">
         <a href="https://majestictab.zathu.net/#download" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-theme-primary web-cta-btn">Get the app</a>
@@ -5293,8 +5291,6 @@ function renderToolsView(container) {
         { id: 'openfile', group: 'library', title: 'Open file' },
         { id: 'bulkimport', group: 'library', title: 'Bulk import', readout: bulkImportReadout },
         { id: 'missingtabs', group: 'library', title: 'Fill in missing tabs', readout: missingTabsReadout },
-        // Sends local audio to the StemDeck app on your computer or network; the web build cannot reach it
-        ...(hasStemDeckSupport() ? [{ id: 'stemdeck', group: 'library', title: 'Make backing tracks', readout: stemdeckReadout }] : []),
         { id: 'bulkexport', group: 'library', title: 'Bulk export', readout: bulkExportReadout }
     );
     import('./bulkFill/missingTabsTool.js').then((m) => m.refreshMissingTabsCount()).catch(() => {});

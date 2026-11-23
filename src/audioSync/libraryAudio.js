@@ -5,7 +5,7 @@
 // opened the files are linked to the key the reader is using and take the Original or Backing slot if it is still empty.
 // A plain localStorage entry per song, no DOM.
 
-import { slotFileKey, slotSourceKey } from '../stemdeck/backingCandidates.js';
+import { slotFileKey, slotSourceKey } from './slotKeys.js';
 import { ownSongKey } from '../songKey.js';
 
 const REGISTRY = (songId) => `audio_lib_${songId}`;

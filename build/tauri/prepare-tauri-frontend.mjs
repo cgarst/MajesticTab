@@ -97,8 +97,6 @@ const allowedRemoteHosts = new Set([
   'www.google.com',
   'duckduckgo.com',
   'www.duckduckgo.com',
-  'stemdeck.app', // Backing tracks tool: link to the StemDeck home page
-  'www.stemdeck.app',
 ]);
 
 async function copyAsset(source, destination) {

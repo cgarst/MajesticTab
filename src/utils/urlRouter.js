@@ -5,7 +5,7 @@
 // - #recents
 // - #settings
 // - #setlists, #tunings
-// - #tools (or #tools/scales, #tools/chords, #tools/circle, #tools/tuner, #tools/metronome, #tools/jam, #tools/classtab, #tools/openfile, #tools/bulkexport, #tools/bulkimport, #tools/missingtabs, #tools/stemdeck)
+// - #tools (or #tools/scales, #tools/chords, #tools/circle, #tools/tuner, #tools/metronome, #tools/jam, #tools/classtab, #tools/openfile, #tools/bulkexport, #tools/bulkimport, #tools/missingtabs)
 // - Legacy routes supported and redirected: #reference/scales, #classtab, #tuner, #metronome, etc.
 // (also supports corresponding slash formats e.g. #/library, #/tools/scales, and query params e.g. ?view=tools&tab=scales)
 
@@ -17,7 +17,7 @@ import { getActiveReferenceTab, setReferenceTabChangeListener, closeReferenceMod
 let isSyncingUrl = false;
 let isInitialized = false;
 
-const ALL_TOOLS = ['chords', 'scales', 'circle', 'tuner', 'metronome', 'jam', 'openfile', 'classtab', 'classical', 'stemdeck', 'bulkexport', 'bulkimport', 'missingtabs'];
+const ALL_TOOLS = ['chords', 'scales', 'circle', 'tuner', 'metronome', 'jam', 'openfile', 'classtab', 'classical', 'bulkexport', 'bulkimport', 'missingtabs'];
 
 export function getRouteFromUrl() {
     const rawHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
@@ -142,7 +142,7 @@ export async function navigateToUrlRoute(route, isInitial = false) {
             return await navigateToUrlRoute({ main: 'tools', sub: 'classtab' }, isInitial);
         }
 
-        if (route.main === 'bulkexport' || route.main === 'bulkimport' || route.main === 'missingtabs' || route.main === 'stemdeck' || route.main === 'openfile') {
+        if (route.main === 'bulkexport' || route.main === 'bulkimport' || route.main === 'missingtabs' || route.main === 'openfile') {
             return await navigateToUrlRoute({ main: 'tools', sub: route.main }, isInitial);
         }
 
