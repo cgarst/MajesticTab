@@ -127,3 +127,46 @@ export async function openFromUrl(urlText) {
     const url = parseWebAddress(urlText);
     return { file: await fetchFile(url.href), sync: [] };
 }
+
+const startsWith = (bytes, text) => [...text].every((c, i) => bytes[i] === c.charCodeAt(0));
+
+/** The extension a downloaded body's first bytes and Content-Type show, or '' when it is not a supported tab file. */
+async function sniffExtension(bytes, contentType) {
+    if (startsWith(bytes, '%PDF')) return 'pdf';
+    if (startsWith(bytes, 'BCFZ') || startsWith(bytes, 'BCFS')) return 'gpx';
+    if (startsWith(bytes, 'PK')) return (await (await import('../mpak.js')).isMpakBytes(bytes)) ? 'mpak' : 'gp';
+    const head = String.fromCharCode(...bytes.slice(1, 40));
+    const version = bytes[0] === 0 ? /FICHIER GUITAR PRO v(\d)/.exec(head) : null;
+    if (version) return version[1] === '3' ? 'gp3' : version[1] === '4' ? 'gp4' : 'gp5';
+    if (/^text\/plain/i.test(contentType)) return 'txt';
+    return '';
+}
+
+/**
+ * Asks an address that does not end in a tab file extension (a download endpoint, say) what it serves. Returns the
+ * file when it is a supported tab file (by its Content-Disposition name, or the bytes), else null so the caller
+ * can browse the address as a page. A page is not read past its headers. Never throws.
+ * @param {string} urlText
+ * @returns {Promise<File|null>}
+ */
+export async function probeTabFile(urlText) {
+    try {
+        const url = parseWebAddress(urlText);
+        const res = await request(url.href, '*/*');
+        const type = res.headers?.get?.('content-type') || '';
+        if (/^(text\/html|application\/xhtml)/i.test(type)) {
+            try { await res.body?.cancel?.(); } catch { /* nothing to cancel */ }
+            return null;
+        }
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        let name = fileNameFor(url.href, res.headers?.get?.('content-disposition') || '');
+        if (!/\.(gp[345x]?|pdf|txt|mpak)$/i.test(name)) {
+            const ext = await sniffExtension(bytes, type);
+            if (!ext) return null;
+            name = `${name.replace(/\.[^.]*$/, '') || 'tab-from-url'}.${ext}`;
+        }
+        return new File([bytes], name, { type });
+    } catch {
+        return null;
+    }
+}

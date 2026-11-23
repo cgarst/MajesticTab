@@ -492,17 +492,29 @@ export async function openTabFromUrl(text, options = {}) {
         // A link to a score page opens the downloader with a banner; the user sends the address on.
         const pageUrl = unwrapRedirectUrl((text || '').trim());
         // An address that is not itself a tab file is a page: browse it in the downloader, which offers to send tab-site
-        // pages on (the banner below, and again whenever the page changes)
+        // pages on (the banner below, and again whenever the page changes). An address with no file extension may still
+        // serve a tab file (a download endpoint), so ask it first and only browse when it is not one.
+        let probed = null;
         if (isNativeDownloader() && /^https?:\/\//i.test(pageUrl) && !looksLikeTabFileUrl(pageUrl)) {
-            await openTabDownloader({ ...options, startUrl: pageUrl });
-            // @inAppBrowser:begin
-            if (isWsaTabUrl(pageUrl)) offerWsaUrlBanner(pageUrl);
-            // @inAppBrowser:end
-            return;
+            showToast('Checking the address...', 'info', 1500);
+            const { probeTabFile } = await import('./urlImport/openFromUrl.js');
+            probed = await probeTabFile(pageUrl);
+            if (!probed) {
+                await openTabDownloader({ ...options, startUrl: pageUrl });
+                // @inAppBrowser:begin
+                if (isWsaTabUrl(pageUrl)) offerWsaUrlBanner(pageUrl);
+                // @inAppBrowser:end
+                return;
+            }
         }
         showToast('Fetching...', 'info', 1500);
-        const { openFromUrl } = await import('./urlImport/openFromUrl.js');
-        const { file, sync } = await openFromUrl(text);
+        let file, sync = [];
+        if (probed) {
+            file = probed;
+        } else {
+            const { openFromUrl } = await import('./urlImport/openFromUrl.js');
+            ({ file, sync } = await openFromUrl(text));
+        }
         file.sourceUrl = (text || '').trim();
         const { extractSourceWebsite } = await import('./tabDownloader.js');
         file.sourceWebsite = extractSourceWebsite(file.sourceUrl);
