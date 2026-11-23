@@ -923,7 +923,8 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         showTurnCount(turnCount, turnBack);
 
         // The sync points move the marker from one staff to the next in a step (it stays in a staff until the next one starts,
-        // and the lines between are skipped), so it glides over the step instead of jumping
+        // and the lines between are skipped), so it glides over the step instead of jumping. The cursor over the notes (box) does
+        // not glide: when it wraps to the next staff it has to be at the end of one and the start of the next in consecutive frames
         {
             const docY = y - outR.top + output.scrollTop;
             // Going back up: from 2 on the marker stays where it is until the page has turned and the cursor is back
@@ -932,7 +933,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
                 smoothY = frozenY;
             } else if (frozenY != null) frozenY = null;
             if (frozenY != null) { /* held */ }
-            else if (smoothY == null || !playing || reduceMotion.matches || Math.abs(docY - smoothY) > output.clientHeight) smoothY = docY;
+            else if (box || smoothY == null || !playing || reduceMotion.matches || Math.abs(docY - smoothY) > output.clientHeight) smoothY = docY;
             else smoothY = glide(smoothY, docY, dt, 0.12);
             if (smoothY !== docY && frozenY == null) settling = true;
             y += smoothY - docY;
