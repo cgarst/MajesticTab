@@ -32,7 +32,8 @@ export TAURI_UPDATER_PUBKEY
 node "$ROOT_DIR/build/build-tauri.mjs" macos "${ARGS[@]+"${ARGS[@]}"}"
 
 # Find the generated DMG in dist/
-DMG_PATH=$(find "$ROOT_DIR/dist" -maxdepth 1 -name "MajesticTab*.dmg" ! -name "rw.*" -print | sort | tail -n 1)
+# Newest by modification time: sorting the names puts 1.2.9 after 1.2.10
+DMG_PATH=$(find "$ROOT_DIR/dist" -maxdepth 1 -name "MajesticTab*.dmg" ! -name "rw.*" -print0 | xargs -0 ls -t 2>/dev/null | head -n 1)
 
 if [ -z "$DMG_PATH" ] || [ ! -f "$DMG_PATH" ]; then
     echo "Error: No DMG found in $ROOT_DIR/dist" >&2
