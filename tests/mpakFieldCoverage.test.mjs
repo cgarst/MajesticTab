@@ -146,7 +146,7 @@ test('a tab in a set writes its origin into the pack, a tab outside one writes n
         { file: file('c.txt', 'e|--2--|\n'), label: 'C' },
     ] });
     const { header: h } = await readMpak(new Uint8Array(await out.blob.arrayBuffer()));
-    assert.deepEqual(h.scores.map((s) => [s.label || s.name, s.origin ?? null]), [['a.txt', 'Pub'], ['B', 'Pub'], ['C', null]]);
+    assert.deepEqual(h.scores.map((s) => [s.label || s.name, s.origin ?? null]), [['A', 'Pub'], ['B', 'Pub'], ['C', null]]);
     // the open tab's origin comes from its library tab, and a pack opened from a file brings its own
     const viaFile = await buildMpak(Object.assign(file('x.txt', 'e|--3--|\n'), { tabId: 'none', mpakOrigin: 'FromPack' }), { song, songKey: 'Test Artist - Roundtrip Song', scores: [] });
     assert.equal((await readMpak(new Uint8Array(await viaFile.blob.arrayBuffer()))).header.scores[0].origin, 'FromPack');
