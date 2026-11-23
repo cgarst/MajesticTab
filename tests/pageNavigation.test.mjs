@@ -20,7 +20,7 @@ globalThis.document = {
     getElementById: () => null,
     querySelector: () => null,
     querySelectorAll: () => [],
-    documentElement: { style: { removeProperty: () => {}, setProperty: () => {} } },
+    documentElement: { style: { removeProperty: () => {}, setProperty: () => {} }, classList: { contains: () => false, add: () => {}, remove: () => {} }, addEventListener: () => {} },
     body: { classList: { contains: () => false, add: () => {}, remove: () => {} } }
 };
 globalThis.MutationObserver = class { observe() {} disconnect() {} };
