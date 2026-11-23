@@ -207,8 +207,8 @@ test('forwards applyPackSync progress into state and clears on idle', async () =
     const { deps } = makeDeps({
         onStateChange: (s) => snapshots.push({ status: s.status, progress: s.progress }),
         applyPackSync: async ({ onProgress }) => {
-            onProgress?.({ current: 1, total: 3 });
-            onProgress?.({ current: 2, total: 3 });
+            onProgress?.({ current: 1, total: 3, action: 'download', name: 'a' });
+            onProgress?.({ current: 2, total: 3, action: 'upload', name: 'b' });
             return { downloaded: 0, merged: 0, deletedLocal: 0 };
         },
     });
@@ -217,8 +217,8 @@ test('forwards applyPackSync progress into state and clears on idle', async () =
     assert.equal(res.status, 'ok');
     assert.deepEqual(snapshots, [
         { status: 'syncing', progress: null },
-        { status: 'syncing', progress: { current: 1, total: 3 } },
-        { status: 'syncing', progress: { current: 2, total: 3 } },
+        { status: 'syncing', progress: { current: 1, total: 3, action: 'download', name: 'a' } },
+        { status: 'syncing', progress: { current: 2, total: 3, action: 'upload', name: 'b' } },
         { status: 'idle', progress: null },
     ]);
 });
