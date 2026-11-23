@@ -571,6 +571,8 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     let holdUntil = 0; // the reader took over (scrolled, turned the page, dragged the strip): the tab stops following for a moment
     let unitCache = { key: null, ids: [] };
     let lastFollowKey = '';
+    let lastRibbonKey = ''; // paused, the ribbon follows only when the cursor moved (a seek), so the reader can pan freely
+    let followSettling = false; // a glide that a seek started is still running
     let frozenY = null; // the page coordinate the marker is held at while a repeat is about to turn the page back up
     let smoothY = null; // where the left-edge marker is drawn, in page coordinates, so it can glide over the jumps between staves
 
@@ -733,7 +735,10 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             if (isAuto) {
                 // No bars to follow: the whole ribbon passes the playhead over the tab's length
                 const sc = output.querySelector('.txt-ribbon-scroll');
-                if (sc && now > holdUntil) sc.scrollLeft = dur ? Math.min(1, t / dur) * Math.max(0, sc.scrollWidth - sc.clientWidth) : 0;
+                const rk = `a|${Math.round(t / 50)}`;
+                const rMoved = rk !== lastRibbonKey;
+                lastRibbonKey = rk;
+                if (sc && now > holdUntil && (playing || rMoved)) sc.scrollLeft = dur ? Math.min(1, t / dur) * Math.max(0, sc.scrollWidth - sc.clientWidth) : 0;
                 if (playing) ensureFrame();
                 return;
             }
@@ -756,7 +761,10 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             barEl.classList.add('is-active-bar');
 
             let settling = false;
-            if (now > holdUntil) {
+            const rk = `${prog.unitId}|${prog.barOffset}|${Math.round(prog.barFrac * 50)}`;
+            const rMoved = rk !== lastRibbonKey;
+            lastRibbonKey = rk;
+            if (now > holdUntil && (playing || rMoved || followSettling)) {
                 const scrollR = scrollEl.getBoundingClientRect();
                 const barR = barEl.getBoundingClientRect();
                 const barLeftInTrack = (barR.left - scrollR.left) + scrollEl.scrollLeft;
@@ -767,6 +775,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
                 scrollEl.scrollLeft = isJump ? targetLeft : glide(before, targetLeft, dt, 0.12);
                 settling = Math.abs(targetLeft - scrollEl.scrollLeft) > 0.5;
             }
+            followSettling = settling;
             if (playing || settling) ensureFrame();
             return;
         }
@@ -846,7 +855,11 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         const outR = output.getBoundingClientRect();
         let settling = false;
         let lastOnPage = false;
-        if (!pageMode && now > holdUntil) {
+        // Paused, the view stays where the reader left it; it follows only when the cursor moved (a seek) or a glide is finishing
+        const followKey = `${ids[k]}|${Math.round(f * 50)}`;
+        const cursorMoved = followKey !== lastFollowKey;
+        lastFollowKey = followKey;
+        if (!pageMode && now > holdUntil && (playing || cursorMoved || followSettling)) {
             const viewH = output.clientHeight;
             // Paged follow: a unit that fits a page stays still while the line travels it; entering one that runs past the
             // bottom turns the page with one quick glide that puts it at the top. Taller units keep the old gliding follow.
@@ -864,10 +877,6 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             const nextView = nextR ? { top: nextR.top - outR.top, bottom: nextR.bottom - outR.top } : null;
             const readAhead = Boolean(nextView) && (nextView.bottom - unitView.top) <= usable.usableBottom - usable.usableTop - 12;
             const reach = readAhead ? nextView.bottom : unitView.bottom;
-            // Paused, the view stays where the reader left it; it follows only when the cursor moved (a seek)
-            const followKey = `${ids[k]}|${Math.round(f * 50)}`;
-            const cursorMoved = followKey !== lastFollowKey;
-            lastFollowKey = followKey;
             if (paged) {
                 const before = output.scrollTop;
                 const maxScroll = Math.max(0, output.scrollHeight - viewH);
@@ -904,6 +913,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
                 }
             }
         }
+        followSettling = settling; // only the page's own glide, not the marker's
         // The seconds until the cursor enters the next staff, which is when the page turns; and, for a repeat that goes back to
         // a staff that is out of view, the seconds until the page turns back up
         let turnCount = 0;
