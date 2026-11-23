@@ -910,7 +910,7 @@ function clearCardInteractionState(card) {
     card.blur();
 }
 
-async function renderView() {
+async function renderView({ keepScroll = false } = {}) {
     const content = document.getElementById('libraryModalContent');
     if (!content) return;
     const restoring = restoreLibraryScroll;
@@ -920,12 +920,12 @@ async function renderView() {
         libraryScrollPositions.set(libraryScrollKey, content.scrollTop);
     }
     libraryScrollKey = nextKey;
-    const savedScroll = restoring ? libraryScrollPositions.get(nextKey) : 0;
-    content.scrollTop = 0;
+    const savedScroll = keepScroll ? content.scrollTop : (restoring ? libraryScrollPositions.get(nextKey) : 0);
+    if (!keepScroll) content.scrollTop = 0;
     blurActiveLibraryElement(content);
     syncLibraryBottomNav();
     try {
-        await renderViewContent(content);
+        await renderViewContent(content, { keepScroll });
         syncNativeSearch();
         syncWebCtaBanner();
     } finally {
@@ -933,7 +933,7 @@ async function renderView() {
     }
 }
 
-async function renderViewContent(content) {
+async function renderViewContent(content, { keepScroll = false } = {}) {
     if (activeView !== 'tools') { releaseEmbeddedTools(); forgetResume(); }
     // Settings is a view like Tools. Its page is built once and moved in here, so it is parked before anything else draws
     parkSettingsPage();
@@ -942,7 +942,7 @@ async function renderViewContent(content) {
         return;
     }
     if (activeView === 'library') {
-        await renderLibraryBrowseView(content);
+        await renderLibraryBrowseView(content, { keepScroll, keepSongsScroll: keepScroll });
     } else if (activeView === 'recents') {
         // Recents is a group in the library list now; the old route opens it there
         activeView = 'library';
@@ -3662,8 +3662,8 @@ async function toggleSongTabsPicker(anchor, songId, mode, { forceOpen = false } 
         },
         on: {
             openTab: (tab) => loadSongTab(song, tab),
-            makeDefault: async (tabId) => { await setDefaultTabOption(songId, tabId); showToast('Set default tab', 'success'); await renderView(); },
-            removeTab: async (tabId, opts) => { await removeTabOptionFromSong(songId, tabId, opts); await renderView(); },
+            makeDefault: async (tabId) => { await setDefaultTabOption(songId, tabId); showToast('Set default tab', 'success'); await renderView({ keepScroll: true }); },
+            removeTab: async (tabId, opts) => { await removeTabOptionFromSong(songId, tabId, opts); await renderView({ keepScroll: true }); },
             listSongs: async () => (await getAllSongs())
                 .filter(x => !x.isAlbumTabContainer)
                 .map(x => ({ id: x.id, title: x.title, artist: x.artist, album: x.album }))
@@ -3675,7 +3675,7 @@ async function toggleSongTabsPicker(anchor, songId, mode, { forceOpen = false } 
                 if (!moved) { showToast('Could not move the tab.', 'danger'); return; }
                 for (const id of (setIds.length ? setIds : [tabId])) await retargetSetlistTab(id, songId, toSongId);
                 showToast(`Moved to ${target?.title || 'the song'}`, 'success');
-                await renderView();
+                await renderView({ keepScroll: true });
             },
             editRange: (tab) => openAlbumPdfPagesFor(songId, tab.id),
             addFrom: (providerId) => importTabFromProvider(songId, providerId),
@@ -3897,9 +3897,11 @@ function setupSongRowActions(container) {
             if (deleteAlbumBtn.dataset.confirming === 'true') {
                 const songIds = (targetAlb.songs || []).map(s => s.id);
                 await deleteAlbumFromLibrary(selectedArtist.name, targetAlb.title, activeCollectionId, songIds);
-                if (selectedAlbum?.title === albumTitle) selectedAlbum = null;
+                // Deleting a row from the artist's album list leaves the view as it is; leaving the deleted album's own page does not
+                const leavingAlbum = selectedAlbum?.title === albumTitle;
+                if (leavingAlbum) selectedAlbum = null;
                 if (selectedAlbumFilter === albumTitle) selectedAlbumFilter = 'all';
-                await renderView();
+                await renderView({ keepScroll: !leavingAlbum });
             } else {
                 deleteAlbumBtn.dataset.confirming = 'true';
                 const origHtml = deleteAlbumBtn.innerHTML;
@@ -3951,7 +3953,7 @@ function setupSongRowActions(container) {
             const songId = btn.dataset.songId;
             const pinned = await togglePinSong(songId);
             showToast(pinned ? 'Song pinned to collection' : 'Song unpinned from collection', 'info');
-            await renderView();
+            await renderView({ keepScroll: true });
         });
     });
 
@@ -4154,7 +4156,7 @@ function setupSongRowActions(container) {
             const tabId = btn.dataset.tabId;
             await setDefaultAlbumTabOption(activeCollectionId, selectedArtist.name, selectedAlbum.title, tabId);
             showToast('Set default album tab', 'success');
-            await renderView();
+            await renderView({ keepScroll: true });
         });
     });
 
@@ -4166,7 +4168,7 @@ function setupSongRowActions(container) {
             const tabId = btn.dataset.tabId;
             await removeTabOptionFromAlbum(activeCollectionId, selectedArtist.name, folderTitle, tabId);
             showToast('Removed album tab', 'info');
-            await renderView();
+            await renderView({ keepScroll: true });
         });
     });
 
@@ -4192,8 +4194,8 @@ function setupSongRowActions(container) {
                 tabMeta: (t) => (t.startPage && t.endPage) ? formatPageRange(t.startPage, t.endPage) : '',
                 on: {
                     openTab: (tab) => loadSongTab({ id: containerId, title: albumTitle, artist: artistName, album: albumTitle, coverUrl: selectedAlbum?.coverUrl }, tab),
-                    makeDefault: async (tabId) => { await setDefaultAlbumTabOption(activeCollectionId, artistName, albumTitle, tabId); showToast('Set default album tab', 'success'); await renderView(); },
-                    removeTab: async (tabId, opts) => { await removeTabOptionFromAlbum(activeCollectionId, artistName, albumTitle, tabId, opts); showToast('Removed album tab', 'info'); await renderView(); },
+                    makeDefault: async (tabId) => { await setDefaultAlbumTabOption(activeCollectionId, artistName, albumTitle, tabId); showToast('Set default album tab', 'success'); await renderView({ keepScroll: true }); },
+                    removeTab: async (tabId, opts) => { await removeTabOptionFromAlbum(activeCollectionId, artistName, albumTitle, tabId, opts); showToast('Removed album tab', 'info'); await renderView({ keepScroll: true }); },
                     listSongs: async () => (await getAllSongs())
                         .map(x => x.isAlbumTabContainer
                             ? { id: x.id, title: `${x.album || x.title} (album books)`, artist: x.artist, album: '' }
@@ -4209,7 +4211,7 @@ function setupSongRowActions(container) {
                         if (left && left.isCustom && !(left.tabOptions || []).length) await deleteSongFromLibrary(containerId);
                         showToast(`Moved to ${target?.album || target?.title || 'the song'}`, 'success');
                         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-                        await renderView();
+                        await renderView({ keepScroll: true });
                     },
                     editRange: () => {},
                     addFrom: () => {}
@@ -4275,15 +4277,18 @@ function setupSongRowActions(container) {
                 const hierarchy = await getLibraryHierarchy(activeCollectionId);
                 const currentArtist = hierarchy.artists.find(a => a.name === selectedArtist?.name);
                 const currentAlbum = currentArtist?.albums.find(a => a.title === selectedAlbum?.title);
+                let selectionChanged = false;
                 if (selectedAlbum && (!currentAlbum || currentAlbum.songs.length === 0)) {
                     selectedAlbum = null;
+                    selectionChanged = true;
                 }
                 if (!currentArtist || (currentArtist.songs.length === 0 && currentArtist.albums.length === 0)) {
                     selectedArtist = null;
                     selectedAlbum = null;
                     selectedFolderPath = [];
+                    selectionChanged = true;
                 }
-                await renderView();
+                await renderView({ keepScroll: !selectionChanged });
             } else {
                 btn.dataset.confirming = 'true';
                 btn.textContent = 'Press again to remove';
@@ -4378,7 +4383,7 @@ function setupSongRowActions(container) {
             }
 
             if (addedCount > 0) {
-                await renderView();
+                await renderView({ keepScroll: true });
             }
         });
     });
@@ -4443,7 +4448,7 @@ function setupSongRowActions(container) {
             }
 
             if (addedCount > 0) {
-                await renderView();
+                await renderView({ keepScroll: true });
             }
         });
     }
