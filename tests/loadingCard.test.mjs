@@ -45,8 +45,10 @@ function createDom() {
 
     ['loadingCard', 'loadingCardTitle', 'loadingCardSubtitle', 'loadingCardCover', 'loadingCardTrack', 'loadingCardFill', 'loadingCardStage'].forEach(getOrCreate);
 
+    globalThis.window = globalThis.window || { dispatchEvent: () => true };
     globalThis.document = {
-        getElementById: (id) => elements.get(id) || null
+        getElementById: (id) => elements.get(id) || null,
+        body: { classList: { add() {}, remove() {}, contains: () => false } }
     };
     globalThis.performance = {
         now: () => Date.now()
