@@ -56,7 +56,7 @@ function makeProvidersGroup() {
     const container = el('div', 'sgroup');
     const heading = el('h3', '', 'Search providers');
     container.appendChild(heading);
-    container.appendChild(note('Choose where web search looks for tabs, or configure custom search templates for your web browser.'));
+    container.appendChild(note('Choose where web search looks for tabs.'));
 
     const listWrap = el('div', 'srows mt-2');
     container.appendChild(listWrap);
