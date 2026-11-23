@@ -2275,8 +2275,9 @@ body.theme-sheet-active .chord-lyric-chord {
   display: none !important;
 }
 
+/* No shading behind the staff for a loop or selected range: the bar ruler shows it */
 .at-selection {
-  background-color: color-mix(in srgb, var(--hue) 22%, transparent) !important;
+  display: none !important;
 }
 
 /* --------------------------------------------------------------------------
