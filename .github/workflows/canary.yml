@@ -3,6 +3,18 @@ name: Canary
 on:
   push:
     branches: [main]
+    # Only changes that can alter the built app: its sources and build inputs, not docs, tests, the website, store listing or release tooling.
+    paths:
+      - 'src/**'
+      - 'build/**'
+      - '.github/workflows/build.yml'
+      - '.github/workflows/canary.yml'
+      - '!**/*.md'
+      - '!build/tauri/flatpak/**'
+      - '!build/update-fdroid-recipe.py'
+      - '!build/release-notes.mjs'
+      - '!build/bump-version.mjs'
+      - '!build/play-version-code.mjs'
   workflow_dispatch:
 
 concurrency:
