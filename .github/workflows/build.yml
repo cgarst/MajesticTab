@@ -138,10 +138,17 @@ jobs:
           path: dist/*.flatpak
           if-no-files-found: error
 
-  # The self-updating AppImage (x86_64), signed for the updater like the Windows and macOS bundles. Built on the oldest
-  # runner image so it runs on older glibc.
+  # The self-updating AppImage (x86_64 and ARM64), signed for the updater like the Windows and macOS bundles. Built on the
+  # oldest runner images so it runs on older glibc.
   appimage:
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: x86_64
+          - runner: ubuntu-22.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -153,7 +160,7 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: build/tauri/src-tauri -> ../target
-          key: appimage
+          key: appimage-${{ matrix.arch }}
       - name: Install system packages
         run: |
           sudo apt-get update
@@ -161,7 +168,7 @@ jobs:
       - run: node build/build-tauri.mjs linux --channel=appimage
       - uses: actions/upload-artifact@v7
         with:
-          name: linux-appimage-x86_64
+          name: linux-appimage-${{ matrix.arch }}
           path: dist/*
           if-no-files-found: error
 

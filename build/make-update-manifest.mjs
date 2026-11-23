@@ -15,6 +15,7 @@ function platformFor(name) {
   if (/\.exe$/i.test(name)) return 'windows-x86_64';
   if (/-macos-apple-silicon\.app\.tar\.gz$/.test(name)) return 'darwin-aarch64';
   if (/-macos-intel\.app\.tar\.gz$/.test(name)) return 'darwin-x86_64';
+  if (/-linux-aarch64\.AppImage$/i.test(name)) return 'linux-aarch64';
   if (/\.AppImage$/i.test(name)) return 'linux-x86_64';
   return null;
 }
