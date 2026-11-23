@@ -4,6 +4,8 @@
 import { hasNativeHttp } from '../s3Client.js';
 import { parseWebAddress, fileNameFor } from './urlImport.js';
 import { decodeText, charsetOf } from '../utils/decodeText.js';
+import { serviceDescLink, loadSpec, findOperation, asyncMapping, authOf } from './openApiDiscovery.js';
+import { withToken } from './asyncJob.js';
 
 /**
  * Extracts target URL if wrapped in a known search engine or proxy redirect endpoint
@@ -43,7 +45,7 @@ export function unwrapRedirectUrl(rawUrl) {
 
 const CORS_HINT = 'Could not reach that address. In the browser the site must allow cross-origin requests; the desktop and mobile apps can fetch it.';
 
-const httpFetch = () => (hasNativeHttp() ? window.__TAURI__.http.fetch : fetch);
+export const httpFetch = () => (hasNativeHttp() ? window.__TAURI__.http.fetch : fetch);
 
 async function request(url, accept) {
     let res;
@@ -98,22 +100,70 @@ async function sniffExtension(bytes, contentType) {
     return '';
 }
 
+const JOB_BODY_MAX = 256 * 1024;
+
+/** What a service said about an address that answered with JSON: a job to follow, or null when it describes none. */
+async function jobFrom(res, address) {
+    const link = serviceDescLink(res.headers?.get?.('link'), address);
+    if (!link || new URL(link).origin !== new URL(address).origin) return null;
+    const text = await res.text();
+    if (text.length > JOB_BODY_MAX) return null;
+    let first;
+    try { first = JSON.parse(text); } catch { return null; }
+    const spec = await loadSpec(link, httpFetch());
+    const found = findOperation(spec, address);
+    if (!found) return null;
+    const { mapping, error } = asyncMapping(found.operation);
+    if (!mapping) {
+        if (found.operation['x-async-job']) throw new Error(error);
+        return null;
+    }
+    const access = authOf(spec, found.operation);
+    const url = new URL(address);
+    const token = access.queryName ? url.searchParams.get(access.queryName) : '';
+    return {
+        first,
+        mapping,
+        origin: url.origin,
+        title: String(spec.info?.title || ''),
+        strip: access.strip,
+        auth: token ? { token, queryName: access.queryName } : null
+    };
+}
+
 /**
- * Asks an address that does not end in a tab file extension (a download endpoint, say) what it serves. Returns the
- * file when it is a supported tab file (by its Content-Disposition name, or the bytes), else null so the caller
- * can browse the address as a page. A page is not read past its headers. Never throws.
+ * Asks an address what it serves. Returns a file ({ file }) when it is a supported tab file, a job to follow
+ * ({ job }) when the service's own description says the address starts one, else null so the caller can browse the
+ * address as a page. A page is not read past its headers. Throws only for a service that needs an access token or
+ * describes its job incompletely.
  * @param {string} urlText
- * @returns {Promise<File|null>}
+ * @returns {Promise<{file: File}|{job: object}|null>}
  */
-export async function probeTabFile(urlText) {
+export async function probeAddress(urlText) {
+    let url;
+    let res;
     try {
-        const url = parseWebAddress(urlText);
-        const res = await request(url.href, '*/*');
-        const type = res.headers?.get?.('content-type') || '';
-        if (/^(text\/html|application\/xhtml)/i.test(type)) {
-            try { await res.body?.cancel?.(); } catch { /* nothing to cancel */ }
-            return null;
-        }
+        url = parseWebAddress(urlText);
+        res = await httpFetch()(url.href, { headers: { Accept: '*/*' } });
+    } catch {
+        return null;
+    }
+    const link = serviceDescLink(res.headers?.get?.('link'), url.href);
+    if (!res.ok) {
+        try { await res.body?.cancel?.(); } catch { /* nothing to cancel */ }
+        if ((res.status === 401 || res.status === 403) && link) throw new Error('This service needs an access token. Add it to the address.');
+        return null;
+    }
+    const type = res.headers?.get?.('content-type') || '';
+    if (/^(text\/html|application\/xhtml)/i.test(type)) {
+        try { await res.body?.cancel?.(); } catch { /* nothing to cancel */ }
+        return null;
+    }
+    if (/json/i.test(type)) {
+        const job = await jobFrom(res, url.href);
+        return job ? { job } : null;
+    }
+    try {
         const bytes = new Uint8Array(await res.arrayBuffer());
         let name = fileNameFor(url.href, res.headers?.get?.('content-disposition') || '');
         if (!/\.(gp[345x]?|pdf|txt|mpak)$/i.test(name)) {
@@ -121,8 +171,16 @@ export async function probeTabFile(urlText) {
             if (!ext) return null;
             name = `${name.replace(/\.[^.]*$/, '') || 'tab-from-url'}.${ext}`;
         }
-        return new File([bytes], name, { type });
+        return { file: new File([bytes], name, { type }) };
     } catch {
         return null;
     }
 }
+
+/** The file a finished job made, fetched from its result address with the job's access token. */
+export async function fetchJobFile(resultUrl, auth) {
+    return fetchFile(withToken(resultUrl, auth));
+}
+
+/** GET for the job runner: the status address (it already carries the token) as JSON. */
+export const fetchStatus = (url) => httpFetch()(url, { headers: { Accept: 'application/json' } });

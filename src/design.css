@@ -6214,3 +6214,15 @@ body:not(.auto-scroll-on) .dock-pace, body.auto-scroll-on .dock-src:not(.dock-pa
 body.reading-mode .dock-pace-value { display: none; }
 html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) .dock-pace-value { flex: none; min-width: 6ch; font-size: 20px; }
 html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) .dock-pace .rbtn i { font-size: 1.5em; }
+
+/* --- Job progress dialog (a service making a file): a flat bar on a tone step, ink fill, no colour --- */
+.job-progress-card { max-width: 440px; width: 90%; }
+.job-progress-label { color: var(--ink2); min-height: 1.25em; }
+.job-progress-bar { height: 6px; border-radius: var(--r-control); background: var(--s3); overflow: hidden; }
+.job-progress-fill { height: 100%; width: 100%; background: var(--ink); transform-origin: left center; transform: scaleX(0); transition: transform var(--dur-base) var(--ease-out); }
+.job-progress-bar[data-indeterminate] .job-progress-fill { width: 35%; transform: none; transition: none; animation: jobProgressSlide 1.4s var(--ease-out) infinite; }
+@keyframes jobProgressSlide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+@media (prefers-reduced-motion: reduce) {
+  .job-progress-fill { transition: none; }
+  .job-progress-bar[data-indeterminate] .job-progress-fill { animation: none; width: 100%; opacity: 0.35; }
+}

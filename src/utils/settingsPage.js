@@ -43,7 +43,7 @@ const SECTIONS = [
     { id: 'appearance', label: 'Appearance', icon: 'bi-palette' },
     { id: 'reading', label: 'Reading', icon: 'bi-book' },
     { id: 'controls', label: 'Controls', icon: 'bi-controller' },
-    { id: 'websearch', label: 'Web search', icon: 'bi-globe2', nativeOnly: true },
+    { id: 'websearch', label: 'Web search', icon: 'bi-globe2' },
     { id: 'sound', label: 'Sound', icon: 'bi-soundwave' },
     { id: 'updates', label: 'Updates', icon: 'bi-arrow-repeat' },
     { id: 'about', label: 'About', icon: 'bi-info-circle' }

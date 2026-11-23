@@ -7,7 +7,9 @@ import {
     resetToDefaultSources,
     stampSourceChanges,
     DEFAULT_SOURCES,
-    openWebSearch
+    openWebSearch,
+    getSourceToken,
+    setSourceToken
 } from '../webSearch.js';
 import { showToast } from './toast.js';
 
@@ -97,7 +99,7 @@ function makeProvidersGroup() {
         // Individual provider rows
         sources.forEach((src) => {
             const queryLabel = src.queryFormat === 'song_only' ? 'Song name only' : 'Artist and song';
-            const helpText = `${src.urlTemplate || 'No URL template'} • ${queryLabel}${src.isSeed ? ' • Built-in' : ''}`;
+            const helpText = `${src.urlTemplate || 'No URL template'} • ${queryLabel}${src.kind === 'api' ? ' • Fetches a file' : ''}${src.isSeed ? ' • Built-in' : ''}`;
 
             const editBtn = el('button', 'btn btn-sm srow-ghost', 'Edit');
             editBtn.type = 'button';
@@ -160,12 +162,26 @@ function makeProvidersGroup() {
                 queryWrap.appendChild(querySelect);
                 editorSlot.appendChild(queryWrap);
 
+                let tokenInput = null;
+                if (!src.isSeed && (src.urlTemplate || '').includes('$token')) {
+                    const tokenWrap = el('div');
+                    tokenWrap.appendChild(el('label', 'small text-white-50 mb-1', 'Access token'));
+                    tokenInput = el('input', 'form-control form-control-sm font-monospace');
+                    tokenInput.type = 'password';
+                    tokenInput.autocomplete = 'off';
+                    tokenInput.value = getSourceToken(src.id);
+                    tokenWrap.appendChild(tokenInput);
+                    tokenWrap.appendChild(el('div', 'form-text small text-white-50 mt-1', 'Kept on this device only. It is not synced or backed up.'));
+                    editorSlot.appendChild(tokenWrap);
+                }
+
                 // Action buttons footer
                 const footer = el('div', 'd-flex align-items-center justify-content-between pt-2 mt-1');
                 if (!src.isSeed) {
                     const delBtn = el('button', 'btn btn-theme-danger btn-sm', '<i class="bi-trash me-1"></i>Delete');
                     delBtn.type = 'button';
                     delBtn.addEventListener('click', () => {
+                        setSourceToken(src.id, '');
                         const all = getSources().filter((s) => s.id !== src.id);
                         stampSourceChanges(all);
                         saveSources(all);
@@ -180,8 +196,22 @@ function makeProvidersGroup() {
                 const btnGroup = el('div', 'd-flex align-items-center gap-2');
                 const testProviderBtn = el('button', 'btn btn-theme-outline btn-sm', 'Test');
                 testProviderBtn.type = 'button';
-                testProviderBtn.title = 'Test this provider in your web browser';
+                testProviderBtn.title = 'Test this provider in your web browser, or check the service for one that fetches a file';
                 testProviderBtn.addEventListener('click', async () => {
+                    if (src.kind === 'api') {
+                        // Reads the service's description only; it starts no job.
+                        testProviderBtn.disabled = true;
+                        try {
+                            const { checkApiSource } = await import('../urlImport/sourceCheck.js');
+                            const found = await checkApiSource(urlInput.value.trim() || src.urlTemplate);
+                            showToast(`Found ${found.title}${found.needsToken ? '. It needs an access token' : ''}`, 'success', 4000);
+                        } catch (err) {
+                            showToast(err?.message || 'Could not read that service.', 'error');
+                        } finally {
+                            testProviderBtn.disabled = false;
+                        }
+                        return;
+                    }
                     let uVal = urlInput.value.trim() || src.urlTemplate;
                     if (uVal && !/^https?:\/\//i.test(uVal)) uVal = 'https://' + uVal;
                     const draft = {
@@ -228,6 +258,7 @@ function makeProvidersGroup() {
                             }
                         }
                         target.queryFormat = querySelect.value;
+                        if (tokenInput) setSourceToken(src.id, tokenInput.value.trim());
 
                         stampSourceChanges(all);
                         saveSources(all);

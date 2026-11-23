@@ -5,6 +5,14 @@ export const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 export const SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
 export const DUCKDUCKGO_FIRST_KEY = 'majestictab_tab_sources_duckduckgo_first';
 export const PENDING_BROWSER_TARGET_KEY = 'majestictab_pending_browser_target';
+// Access tokens for sources that fetch a file from a service. Kept on this device only: the key is not in the backup
+// or the sync, so a token typed here never travels with the provider list.
+export const SOURCE_TOKENS_KEY = 'majestictab_source_tokens';
+
+/** True when the default search provider fetches a file itself (a service), so a search needs no browser window. */
+export function defaultSourceFetches() {
+    try { return getSources()[0]?.kind === 'api'; } catch { return false; }
+}
 
 /** True in the native apps, which hand a search to the system browser. */
 export function isNative() {
@@ -44,6 +52,29 @@ export function formatSearchQueryForSource(source, artist = '', songName = '') {
         return `${art} ${song}`;
     }
     return song || art;
+}
+
+function readTokens() {
+    try { return JSON.parse(localStorage.getItem(SOURCE_TOKENS_KEY)) || {}; } catch { return {}; }
+}
+
+export function getSourceToken(sourceId) {
+    return String(readTokens()[sourceId] || '');
+}
+
+/** Stores the access token for a source on this device. An empty token removes it. */
+export function setSourceToken(sourceId, token) {
+    const tokens = readTokens();
+    if (token) tokens[sourceId] = token; else delete tokens[sourceId];
+    try { localStorage.setItem(SOURCE_TOKENS_KEY, JSON.stringify(tokens)); } catch {}
+}
+
+/** Puts the source's device-only access token where its address template has `$token`; with no token, drops that parameter. */
+export function applySourceToken(url, source) {
+    if (!url.includes('$token')) return url;
+    const token = getSourceToken(source?.id);
+    if (token) return url.replace(/\$token/g, () => encodeURIComponent(token));
+    return url.replace(/([?&])[^?&=#]+=\$token(?=&|#|$)/g, (m, sep) => (sep === '?' ? '?' : '')).replace('?&', '?').replace(/[?&]$/, '');
 }
 
 export function getSources() {
@@ -236,6 +267,15 @@ export async function openWebSearch(options = {}) {
     }
 
     const startUrl = /^https?:\/\//i.test(options.startUrl || '') ? options.startUrl : '';
+
+    // A source that fetches a file from a service runs its address as a download, with a progress bar, instead of
+    // opening it in the browser. What the address does is read from the service's own description.
+    if (activeSource.kind === 'api' && !startUrl) {
+        const { openTabFromUrl } = await import('./fileProviders.js');
+        const { startUrl: _ignored, ...rest } = options;
+        await openTabFromUrl(applySourceToken(buildSearchUrl(activeSource, query), activeSource), { ...rest, fetchOnly: true });
+        return;
+    }
     const targetUrl = startUrl || buildSearchUrl(activeSource, query);
 
     const opener = window.__TAURI__?.opener;

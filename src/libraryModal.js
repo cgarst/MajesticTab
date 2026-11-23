@@ -43,7 +43,7 @@ import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
 import { songHasSyncPoints } from './audioSync/syncStore.js';
 import { songHasLocalSlot } from './audioSync/libraryAudio.js';
-import { isNative, openWebSearch } from './webSearch.js';
+import { isNative, openWebSearch, defaultSourceFetches } from './webSearch.js';
 import { openSongTabPicker, closeSongTabPicker, isSongTabPickerOpen } from './songTabPicker.js';
 import { visibleTabs, setOf } from './tabSets.js';
 
@@ -684,9 +684,10 @@ export async function handleGetTabSingleSong(songItem, { addOnly = false, naviga
             query
         });
     } else {
-        const query = `${artist} ${title} guitar tab`;
-        window.open(`https://duckduckgo.com/?q=${encodeURIComponent(query)}`, '_blank');
-        showToast('Waiting for downloaded tab — drop it here when finished', 'info');
+        // The default search provider decides: a service fetches the file here, any other opens a browser tab.
+        const fetches = defaultSourceFetches();
+        await openWebSearch({ targetSong, artist, songName: title, query: `${artist} ${title}` });
+        if (!fetches) showToast('Waiting for downloaded tab — drop it here when finished', 'info');
     }
 }
 
@@ -797,8 +798,8 @@ export async function handleAddAlbumBatch(albumItem, btnEl, { addOnly = false, n
             return;
         }
 
-        if (!isNative()) {
-            showToast('Searching for tabs by album needs the MajesticTab desktop or mobile app. On the web, you can add songs individually or drop tab files.', 'warning');
+        if (!isNative() && !defaultSourceFetches()) {
+            showToast('Searching for tabs by album needs the MajesticTab desktop or mobile app, or a service as the default search provider (Settings, Web search). On the web, you can add songs individually or drop tab files.', 'warning');
             await navigateToAlbumInLibrary(artistName, albumTitle);
             return;
         }
@@ -5291,12 +5292,12 @@ function renderToolsView(container) {
         },
         { id: 'openfile', group: 'library', title: 'Open file' },
         { id: 'bulkimport', group: 'library', title: 'Bulk import', readout: bulkImportReadout },
-        ...(isNative() ? [{ id: 'missingtabs', group: 'library', title: 'Fill in missing tabs', readout: missingTabsReadout }] : []),
+        { id: 'missingtabs', group: 'library', title: 'Fill in missing tabs', readout: missingTabsReadout },
         // Sends local audio to the StemDeck app on your computer or network; the web build cannot reach it
         ...(hasStemDeckSupport() ? [{ id: 'stemdeck', group: 'library', title: 'Make backing tracks', readout: stemdeckReadout }] : []),
         { id: 'bulkexport', group: 'library', title: 'Bulk export', readout: bulkExportReadout }
     );
-    if (isNative()) import('./bulkFill/missingTabsTool.js').then((m) => m.refreshMissingTabsCount()).catch(() => {});
+    import('./bulkFill/missingTabsTool.js').then((m) => m.refreshMissingTabsCount()).catch(() => {});
     renderToolsPage(container, { tools, escapeHtml });
 }
 

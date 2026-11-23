@@ -488,25 +488,37 @@ export async function openTabFromUrl(text, options = {}) {
     try {
         const pageUrl = unwrapRedirectUrl((text || '').trim());
         showToast('Fetching...', 'info', 1500);
-        // An address that is not itself a tab file is a page: open it in the system browser. An address with no file
-        // extension may still serve a tab file (a download endpoint), so ask it first and only browse when it is not one.
+        // An address that is not itself a tab file may still serve one (a download endpoint) or start a job (a service
+        // that describes itself), so ask it first. An address that is neither is a page: the native apps open it in the
+        // system browser, unless the caller wants a file only (a search source that fetches).
         let probed = null;
-        if (isNativeApp() && /^https?:\/\//i.test(pageUrl) && !looksLikeTabFileUrl(pageUrl)) {
-            const { probeTabFile } = await import('./urlImport/openFromUrl.js');
-            probed = await probeTabFile(pageUrl);
-            if (!probed) {
+        if (/^https?:\/\//i.test(pageUrl) && !looksLikeTabFileUrl(pageUrl)) {
+            const { probeAddress } = await import('./urlImport/openFromUrl.js');
+            probed = await probeAddress(pageUrl);
+            if (!probed && options.fetchOnly) {
+                throw new Error(isNativeApp()
+                    ? 'That service did not answer with a file.'
+                    : 'Could not get a file from that service. In the browser it must be served over https and allow cross-origin requests.');
+            }
+            if (!probed && isNativeApp()) {
                 await openWebSearch({ ...options, startUrl: pageUrl });
                 return;
             }
         }
         let file;
-        if (probed) {
-            file = probed;
+        let sourceUrl = (text || '').trim();
+        if (probed?.job) {
+            const { downloadFromJob } = await import('./urlImport/jobImport.js');
+            file = await downloadFromJob(probed.job);
+            const { stripParams } = await import('./urlImport/asyncJob.js');
+            sourceUrl = stripParams(sourceUrl, probed.job.strip);
+        } else if (probed?.file) {
+            file = probed.file;
         } else {
             const { openFromUrl } = await import('./urlImport/openFromUrl.js');
             ({ file } = await openFromUrl(text));
         }
-        file.sourceUrl = (text || '').trim();
+        file.sourceUrl = sourceUrl;
         const { extractSourceWebsite } = await import('./webSearch.js');
         file.sourceWebsite = extractSourceWebsite(file.sourceUrl);
         if (!(await isSupportedTabFile(file))) {
@@ -546,9 +558,9 @@ if (isIcloudDriveSupported()) {
     registerFileProvider(ICloudDriveFileProvider);
 }
 
-if (typeof window !== 'undefined' && Boolean(window.__TAURI__)) {
-    registerFileProvider(WebSearchProvider);
-}
+// Native apps hand the search to the system browser; the web build opens a tab, or fetches the file when the default
+// search provider is a service.
+registerFileProvider(WebSearchProvider);
 
 
 

@@ -1,0 +1,831 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Guitar Pro sync service",
+    "version": "1.0.0",
+    "description": "Search a tab source, start a download job (a synced Guitar Pro file, or a Music Pack with stems), poll it, and fetch the files. The access token is needed only when the service was started with AUTH_TOKEN. Send it as `token=<token>` in the query or as `Authorization: Bearer <token>`. `/healthz`, `/openapi.json` and file links that carry a `sig` need no token."
+  },
+  "security": [
+    {
+      "tokenQuery": []
+    },
+    {
+      "tokenBearer": []
+    }
+  ],
+  "paths": {
+    "/api/fetch": {
+      "get": {
+        "operationId": "fetchJob",
+        "summary": "Start a job with a GET",
+        "description": "The same as `POST /api/jobs`, for clients that can only issue a GET. Starting the same song and format again returns the existing job, so repeating the request is safe.",
+        "x-async-job": {
+          "statusUrl": "/status_url",
+          "state": "/status",
+          "states": {
+            "pending": [
+              "queued"
+            ],
+            "running": [
+              "running"
+            ],
+            "done": [
+              "done"
+            ],
+            "failed": [
+              "failed"
+            ]
+          },
+          "progress": {
+            "percent": "/progress/percent",
+            "step": "/progress/step",
+            "steps": "/progress/steps",
+            "label": "/progress/name"
+          },
+          "result": "/file_url",
+          "error": "/error"
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SongText"
+          },
+          {
+            "$ref": "#/components/parameters/Song"
+          },
+          {
+            "$ref": "#/components/parameters/Format"
+          },
+          {
+            "$ref": "#/components/parameters/First"
+          },
+          {
+            "$ref": "#/components/parameters/Force"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The job started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "The same song and format is already queued, running, or done by the current code; this is that job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "description": "Search text matched songs and neither a song ID nor first=1 was sent. Nothing was started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ambiguous"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs": {
+      "post": {
+        "operationId": "createJob",
+        "summary": "Start a job",
+        "description": "Parameters can be sent as a form body or in the query string. Search text never starts a job unless `first=1` is sent: it returns 409 with the matches.",
+        "x-async-job": {
+          "statusUrl": "/status_url",
+          "state": "/status",
+          "states": {
+            "pending": [
+              "queued"
+            ],
+            "running": [
+              "running"
+            ],
+            "done": [
+              "done"
+            ],
+            "failed": [
+              "failed"
+            ]
+          },
+          "progress": {
+            "percent": "/progress/percent",
+            "step": "/progress/step",
+            "steps": "/progress/steps",
+            "label": "/progress/name"
+          },
+          "result": "/file_url",
+          "error": "/error"
+        },
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateJob"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The job started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "The same song and format is already queued, running, or done by the current code; this is that job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "description": "Search text matched songs and neither a song ID nor first=1 was sent. Nothing was started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ambiguous"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listJobs",
+        "summary": "List the 50 most recent jobs",
+        "responses": {
+          "200": {
+            "description": "Newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Job"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/job": {
+      "get": {
+        "operationId": "getJob",
+        "summary": "Get a job's status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/JobId"
+          },
+          {
+            "name": "log",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1",
+                "true"
+              ]
+            },
+            "description": "Include the full log."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/job/file": {
+      "get": {
+        "operationId": "downloadJobFile",
+        "summary": "Download a finished job's file",
+        "description": "Needs the token, or the `sig` that the job's `file_url` values already carry.",
+        "security": [
+          {
+            "tokenQuery": []
+          },
+          {
+            "tokenBearer": []
+          },
+          {
+            "fileSig": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/JobId"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Another file of the job (see `files`). The main file by default."
+          },
+          {
+            "name": "sig",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Signature from the job's `file_url`; replaces the token."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The job is not done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The files were deleted (FILE_TTL_MINUTES). Start the song again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search": {
+      "get": {
+        "operationId": "searchSongs",
+        "summary": "Search the tab source by text",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search text, such as an artist and title.",
+            "x-search-text": true
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            },
+            "description": "Number of results."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matches, best first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SongMatch"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "502": {
+            "description": "The source did not answer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "health",
+        "summary": "Liveness",
+        "description": "Needs no token. `release` and `mpak` are included only for an authorized request. `mpak` reports whether StemDeck is configured, which `format=mpak` needs.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Alive.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "release": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Installed upstream release."
+                    },
+                    "mpak": {
+                      "type": "boolean",
+                      "description": "Whether StemDeck is configured."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "openapi",
+        "summary": "This document",
+        "description": "Needs no token and holds no secret.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The OpenAPI description.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "tokenQuery": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "token"
+      },
+      "tokenBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "fileSig": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "sig"
+      }
+    },
+    "parameters": {
+      "SongText": {
+        "name": "q",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        },
+        "x-search-text": true,
+        "description": "The artist and song text, a song ID, or a song page URL. Send either `q` or `song`."
+      },
+      "Song": {
+        "name": "song",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Alias of `q`."
+      },
+      "Format": {
+        "name": "format",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "gp",
+            "mpak"
+          ]
+        },
+        "description": "`gp` (the default) makes a synced Guitar Pro file. `mpak` makes a Music Pack with stems and needs StemDeck, which `/healthz` reports as `mpak`."
+      },
+      "First": {
+        "name": "first",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "1",
+            "true"
+          ],
+          "default": "1"
+        },
+        "description": "Take the first search result without asking. Clients that send search text should send `first=1`; without it the service answers 409 with the matches."
+      },
+      "Force": {
+        "name": "force",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "1",
+            "true"
+          ]
+        },
+        "description": "Run the job again even when the same song and format is already queued, running, or done."
+      },
+      "JobId": {
+        "name": "id",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "The job's `id`."
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The request is wrong.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "A token is required.",
+        "headers": {
+          "WWW-Authenticate": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "No such job or file.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "SongMatch": {
+        "type": "object",
+        "required": [
+          "song",
+          "artist",
+          "title",
+          "url"
+        ],
+        "properties": {
+          "song": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "Ambiguous": {
+        "type": "object",
+        "required": [
+          "error",
+          "query",
+          "matches"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SongMatch"
+            }
+          }
+        }
+      },
+      "CreateJob": {
+        "type": "object",
+        "properties": {
+          "song": {
+            "type": "string",
+            "description": "A song ID, a song page URL, or search text. `q` is an alias."
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "gp",
+              "mpak"
+            ]
+          },
+          "force": {
+            "type": "string",
+            "enum": [
+              "1",
+              "true"
+            ]
+          },
+          "first": {
+            "type": "string",
+            "enum": [
+              "1",
+              "true"
+            ]
+          }
+        }
+      },
+      "Progress": {
+        "type": "object",
+        "description": "Present only while the job is running.",
+        "properties": {
+          "step": {
+            "type": "integer"
+          },
+          "steps": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "percent": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Null when the stage has no percentage."
+          }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "required": [
+          "id",
+          "song",
+          "kind",
+          "status",
+          "created",
+          "step",
+          "steps",
+          "status_url",
+          "page_url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "song": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "gp",
+              "mpak"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "step": {
+            "type": "integer"
+          },
+          "steps": {
+            "type": "integer"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "finished": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set when the job failed."
+          },
+          "duration_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Run time; elapsed so far while running."
+          },
+          "queued_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "status_url": {
+            "type": "string"
+          },
+          "page_url": {
+            "type": "string"
+          },
+          "matched": {
+            "type": "object",
+            "description": "Present when search text was resolved.",
+            "properties": {
+              "query": {
+                "type": "string"
+              },
+              "artist": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          },
+          "progress": {
+            "$ref": "#/components/schemas/Progress"
+          },
+          "purged": {
+            "type": "string",
+            "format": "date-time",
+            "description": "A done job whose files were deleted."
+          },
+          "file": {
+            "type": "string"
+          },
+          "file_url": {
+            "type": "string",
+            "description": "Present when the job is done."
+          },
+          "open_url": {
+            "type": "string",
+            "description": "Present when an open-link template is configured."
+          },
+          "audio": {
+            "type": "boolean",
+            "description": "false: the YouTube download failed and a gp file has tab timing only."
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "file_url": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "log": {
+            "type": "string",
+            "description": "Only with log=1."
+          }
+        }
+      }
+    }
+  }
+}

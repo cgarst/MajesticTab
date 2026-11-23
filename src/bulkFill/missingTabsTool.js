@@ -3,7 +3,7 @@
 // with a Search button that opens a web search for that song in the system browser. Native apps only.
 
 import { getAllSongs } from '../libraryStore.js';
-import { getSources, isNative, openWebSearch } from '../webSearch.js';
+import { getSources, openWebSearch } from '../webSearch.js';
 import { saveMpakToLibrary } from '../mpak.js';
 import { showToast } from '../utils/toast.js';
 
@@ -213,7 +213,6 @@ export function renderMissingTabsTool(container) {
     function render() {
         if (!alive || !root.isConnected) return;
         if (!songs) { root.innerHTML = '<p class="ct-sub" role="status">Reading your library…</p>'; return; }
-        const native = isNative();
         const artists = [...new Set(songs.map((s) => s.artist))].sort(byText);
         if (view.artist && !artists.includes(view.artist)) view.artist = '';
         const scoped = inScope();
@@ -279,7 +278,6 @@ export function renderMissingTabsTool(container) {
               ${artists.map((a) => `<option value="${esc(a)}" ${a === view.artist ? 'selected' : ''}>${esc(a)} (${counts.get(a)})</option>`).join('')}
             </select>
           </label>` : ''}
-          ${native ? '' : '<p class="ct-note">Searching the web for tabs works in the MajesticTab apps for Windows, macOS, Linux, Android and iOS. On the web, add tabs to a song one at a time.</p>'}
           ${actionContent}`;
     }
 
