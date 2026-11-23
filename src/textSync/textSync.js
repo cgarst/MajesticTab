@@ -994,6 +994,8 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         let next = eligible ? activeRecording(file) : null;
         // With Synth selected, a video or audio file is not what plays, so it gets no recording bar and the page strip stays
         if (next && next.source !== midiSource && synthSelected()) next = null;
+        // Sound off acts as if the tab had no sound at all: no MIDI bar, the page strip and the auto-scroll pace instead
+        if (document.body.classList.contains('sound-off')) next = null;
         // No sound and nothing to follow: Play scrolls the tab at a pace of its own
         if (eligible && !next && tab) next = autoRec;
         setAutoScrollAvailable(next === autoRec, textKey() || '');
