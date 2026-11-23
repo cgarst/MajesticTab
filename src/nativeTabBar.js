@@ -46,7 +46,11 @@ function onEvent(msg) {
         // Room the native search field takes at the top of the window (0 when it is hidden)
         const top = Math.round(msg.value);
         if (top > 0) { lastSearchTop = top; rememberSearchTop(top); }
-        document.documentElement.style.setProperty('--native-search-top', `${top}px`);
+        // A 0 while the page wants the field shown is the field still hidden (boot screen up): keep the room reserved,
+        // or the content sits under the field once it appears. syncSearch sets 0 itself when the field is really gone.
+        const wanted = document.body.classList.contains('native-search') && !document.body.classList.contains('native-search-pane');
+        const value = top === 0 && wanted && lastSearchTop > 0 ? lastSearchTop : top;
+        document.documentElement.style.setProperty('--native-search-top', `${value}px`);
     } else if (msg.type === 'side') {
         // Room the vertical rail takes at the screen's left or right edge (0 when the bar is horizontal)
         const root = document.documentElement.style;
