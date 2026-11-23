@@ -47,7 +47,7 @@ test('identical sync times on recordings 2.4 s apart are a conflict', () => {
     const r = compareSyncs(pts, pts, al);
     assert.equal(r.verdict, 'conflict');
     assert.equal(r.deltaMs, 0);
-    assert.match(conflictText(r, al, 'band.flac'), /Same sync times as band\.flac, but the two recordings are 2\.5 s apart/);
+    assert.match(conflictText(r, al, 'band.flac'), /The points match band\.flac, but the two recordings are 2\.5 s apart/);
 });
 
 test('times shifted by the audio offset are consistent', () => {
