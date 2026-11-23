@@ -487,11 +487,11 @@ function looksLikeTabFileUrl(url) {
 export async function openTabFromUrl(text, options = {}) {
     try {
         const pageUrl = unwrapRedirectUrl((text || '').trim());
+        showToast('Fetching...', 'info', 1500);
         // An address that is not itself a tab file is a page: open it in the system browser. An address with no file
         // extension may still serve a tab file (a download endpoint), so ask it first and only browse when it is not one.
         let probed = null;
         if (isNativeApp() && /^https?:\/\//i.test(pageUrl) && !looksLikeTabFileUrl(pageUrl)) {
-            showToast('Checking the address...', 'info', 1500);
             const { probeTabFile } = await import('./urlImport/openFromUrl.js');
             probed = await probeTabFile(pageUrl);
             if (!probed) {
@@ -499,7 +499,6 @@ export async function openTabFromUrl(text, options = {}) {
                 return;
             }
         }
-        showToast('Fetching...', 'info', 1500);
         let file;
         if (probed) {
             file = probed;
