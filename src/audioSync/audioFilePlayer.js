@@ -688,8 +688,36 @@ function renderStems() {
     const muted = parts.filter((p) => !p.enabled).map((p) => p.id).sort().join('|');
     const standard = defaultMutedIds(stems, slot, getInstrumentMode()).sort().join('|');
     const levelled = parts.some((p) => p.level !== 1);
+    const vocalBtn = $('afStemVocals');
+    if (vocalBtn) {
+        const ids = vocalPartIds(parts, stems);
+        vocalBtn.hidden = ids.length === 0;
+        const allMuted = ids.length > 0 && ids.every((id) => parts.find((p) => p.id === id && !p.enabled));
+        vocalBtn.textContent = allMuted ? 'Unmute vocals' : 'Mute vocals';
+        vocalBtn.setAttribute('aria-pressed', String(allMuted));
+        vocalBtn.classList.toggle('active', allMuted);
+    }
     if ($('afStemReset')) $('afStemReset').disabled = muted === standard && !levelled;
     if ($('afStemLabel')) $('afStemLabel').textContent = slot === 'backing' ? 'Stems (backing)' : 'Stems (original)';
+}
+
+/** The parts that are voices: lead and backing vocals, by the instrument saved with the stem or by its name. */
+function vocalPartIds(parts, stems) {
+    return parts.filter((p) => {
+        const meta = (stems || []).find((m) => m.audioId === p.id);
+        return String(meta?.instrument || '').toLowerCase() === 'vocals' || /\b(vocals?|vox|voice|singers?)\b|\bb[\s-]?vocals?\b/i.test(`${meta?.label || ''} ${p.name || ''}`);
+    }).map((p) => p.id);
+}
+
+function onVocalsClick() {
+    if (!hasParts()) return;
+    const parts = state.source.parts();
+    const ids = vocalPartIds(parts, stemsOfFile(state.currentId) || []);
+    if (!ids.length) return;
+    const muted = new Set(parts.filter((p) => !p.enabled).map((p) => p.id));
+    const allMuted = ids.every((id) => muted.has(id));
+    ids.forEach((id) => { if (allMuted) muted.delete(id); else muted.add(id); });
+    setStemMuted(muted);
 }
 
 async function setStemMuted(muted) {
@@ -906,6 +934,7 @@ export function initAudioFilePlayer() {
     const input = $('afFileInput');
 
     $('afChooseBtn')?.addEventListener('click', () => { state.relinkTarget = null; input.click(); });
+    $('afStemVocals')?.addEventListener('click', onVocalsClick);
     $('afStemReset')?.addEventListener('click', () => reapplyMutes({ reset: true }));
     $('afStemList')?.addEventListener('click', onStemClick);
     $('afStemList')?.addEventListener('input', onStemLevel);

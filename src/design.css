@@ -6241,3 +6241,5 @@ html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active)
   .job-progress-fill { transition: none; }
   .job-progress-bar[data-indeterminate] .job-progress-fill { animation: none; width: 100%; opacity: 0.35; }
 }
+
+#afStemVocals[hidden] { display: none !important; }
