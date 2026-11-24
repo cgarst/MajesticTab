@@ -270,7 +270,7 @@ export async function locateInSyncCopy(song, rows) {
         let found = false;
         for (const row of rows) {
             if (row.kind !== 'tab' && row.kind !== 'audio') continue;
-            const r = await locate({ store: opened.store }, packId, await syncCopyTargetsOf(song, row, { hash: false }));
+            const r = await locate({ store: opened.store }, packId, await syncCopyTargetsOf(song, row));
             found = r.found;
             if (!r.found) break;
             paths.set(`${row.kind}:${row.id}`, row.kind === 'tab' ? r.scores : r.audio);

@@ -61,7 +61,7 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
       <div class="theme-modal-header">
         <div class="theme-modal-titles">
           <h5 class="modal-title mb-0 fs-6 fw-bold text-white" id="sfTitle">Files</h5>
-          <div class="small text-muted">${esc(song.title)}${song.artist ? ` · ${esc(song.artist)}` : ''}</div>
+          <div class="small text-muted sf-subtitle" title="${esc(song.title)}">${esc(song.title)}${song.artist ? ` · ${esc(song.artist)}` : ''}</div>
         </div>
         <div class="theme-modal-actions">
           <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="sfClose" aria-label="Close"><i class="bi-x-lg" aria-hidden="true"></i></button>
@@ -102,11 +102,19 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
 
     const find = (rid) => SECTIONS.flatMap((s) => data[s.key]).find((r) => rowId(r) === rid);
 
+    const copyFolder = () => {
+        const first = [...(copy?.paths.values() || [])].flat()[0];
+        const m = first && /^packs\/[^/]+/.exec(first);
+        return m ? m[0] : '';
+    };
+    const missingFromCopy = () => SECTIONS.flatMap((x) => data[x.key]).some((r) => r.location === 'device' && copy.paths.has(rowId(r)) && !copy.paths.get(rowId(r)).length);
+
     function rowHtml(r) {
         const meta = [r.source, formatDate(r.addedAt), formatSize(r.size), r.location === 'device' ? '' : WHERE[r.location]].filter(Boolean).join(' · ');
         const canMove = r.kind !== 'sync';
         const inCopy = copy?.paths.get(rowId(r));
-        const copyPaths = (inCopy || []).length > 2 ? [`${inCopy[0]} and ${inCopy.length - 1} more`] : (inCopy || []);
+        const within = (pth) => (copyFolder() && pth.startsWith(`${copyFolder()}/`) ? pth.slice(copyFolder().length + 1) : pth);
+        const copyPaths = (inCopy || []).length > 2 ? [`${within(inCopy[0])} and ${inCopy.length - 1} more`] : (inCopy || []).map(within);
         const notInCopy = copy?.found && r.location === 'device' && copy.paths.has(rowId(r)) && !inCopy.length;
         return `<li class="sf-row" data-rid="${esc(rowId(r))}">
           <div class="sf-text">
@@ -114,7 +122,7 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
             ${r.detail && !r.name.toLowerCase().startsWith(r.detail.toLowerCase()) ? `<span class="sf-detail">${esc(r.detail)}</span>` : ''}
             <span class="sf-meta">${esc([meta, notInCopy ? 'Not in the sync copy' : ''].filter(Boolean).join(' \u00b7 '))}</span>
             ${r.libraryPath ? `<span class="sf-path" title="Path in the library">Library: ${esc(r.libraryPath)}</span>` : ''}
-            ${copyPaths.map((pth) => `<span class="sf-path" title="Path in the sync location">Sync copy: ${esc(pth)}</span>`).join('')}
+            ${copyPaths.map((pth) => `<span class="sf-path" title="Path in the sync location">In the sync copy: ${esc(pth)}</span>`).join('')}
           </div>
           ${confirmRid === rowId(r) ? `<div class="sf-confirm" role="group" aria-label="Delete ${esc(r.name)}">
             <span class="sf-confirm-note">${esc(deleteNote(r))}${syncCopyAvailable && r.kind !== 'sync' ? ' The sync copy stays unless you remove it too, so a later sync can bring the file back.' : ''}</span>
@@ -131,8 +139,13 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
     }
 
     function listHtml() {
-        const line = syncLine(syncStatus, syncedAt ? formatWhen(syncedAt) : '');
-        const syncNote = line ? `<p class="sf-sync">${esc(line)}</p>` : '';
+        const at = syncedAt ? formatWhen(syncedAt) : '';
+        const folder = copyFolder();
+        // Once the pack has been read, what it says about each file beats the song-level guess
+        const line = copy?.found && missingFromCopy()
+            ? `Some files here are not in the sync copy yet.${at ? ` Last sync ${at}.` : ''}`
+            : syncLine(syncStatus, at);
+        const syncNote = line ? `<p class="sf-sync">${esc(line)}</p>${folder ? `<p class="sf-sync sf-path" title="Folder of this song in the sync location">Sync copy folder: ${esc(folder)}</p>` : ''}` : '';
         return syncNote + SECTIONS.map((s) => {
             const rows = data[s.key];
             return `<section class="sf-section" aria-labelledby="sf_${s.key}">
