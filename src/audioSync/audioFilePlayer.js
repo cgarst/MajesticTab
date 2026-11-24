@@ -717,6 +717,14 @@ function onVocalsClick() {
     const muted = new Set(parts.filter((p) => !p.enabled).map((p) => p.id));
     const allMuted = ids.every((id) => muted.has(id));
     ids.forEach((id) => { if (allMuted) muted.delete(id); else muted.add(id); });
+    // Muting the voices is a choice about the song, not the sound: carry it to the other part (Full band / Backing) too,
+    // keeping whatever else that part has muted.
+    const songKey = getSongKey();
+    const stems = stemsOfFile(state.currentId) || [];
+    const other = (state.currentSlot || 'original') === 'backing' ? 'original' : 'backing';
+    const otherMuted = new Set(getMutedIds(songKey, other, stems, getInstrumentMode()));
+    ids.forEach((id) => { if (allMuted) otherMuted.delete(id); else otherMuted.add(id); });
+    setMutedIds(songKey, other, [...otherMuted]);
     setStemMuted(muted);
 }
 
