@@ -832,8 +832,9 @@ export async function togglePinSong(songId) {
 /**
  * Remove a tab option from a song. `withSet` removes the whole set when the tab heads one (the library's Remove on a
  * row, which stands for its set); the default removes just that tab, and the next tab of its set becomes the head.
+ * Removing the last tab also drops the song's audio, unless `keepAudio` (the song's files dialog lists the audio and has its own Delete).
  */
-export async function removeTabOptionFromSong(songId, tabOptionId, { withSet = false } = {}) {
+export async function removeTabOptionFromSong(songId, tabOptionId, { withSet = false, keepAudio = false } = {}) {
     const song = await getSongById(songId);
     if (!song || !Array.isArray(song.tabOptions)) return;
 
@@ -847,7 +848,7 @@ export async function removeTabOptionFromSong(songId, tabOptionId, { withSet = f
     await saveSongToLibrary(song, song.collectionId);
     const removedFileIds = removed.map((t) => t.fileStoreId).filter(Boolean);
     if (removedFileIds.length) await deleteOrphanedStoredFiles(removedFileIds);
-    if (!song.tabOptions.length) await purgeAudioOf(song);
+    if (!song.tabOptions.length && !keepAudio) await purgeAudioOf(song);
 }
 
 /**

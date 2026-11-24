@@ -1,6 +1,6 @@
 // songTabPicker.js
 // The one panel behind a library song row's tab actions: "Add tab" on a song with none, "2 tabs" on a song with
-// several: the same list opens, moves, removes and sets the default. A floating panel beside the control on wide windows, a sheet above the
+// several: the same list opens and sets the default (moving and removing a tab are in the song's Manage files dialog, songFilesDialog.js). A floating panel beside the control on wide windows, a sheet above the
 // tab bar on phones. The row itself never grows; the choice is made here, on demand.
 
 import { resolveSets } from './tabSets.js';
@@ -61,7 +61,7 @@ export function openSongTabPicker(o) {
     closeSongTabPicker({ restoreFocus: false });
     const tabs = Array.isArray(o.song.tabOptions) ? o.song.tabOptions : [];
     const defaultId = o.song.defaultTabId || tabs[0]?.id || null;
-    // A set of tabs (src/tabSets.js) is one row: its head. Remove and Move on the row act on the whole set.
+    // A set of tabs (src/tabSets.js) is one row: its head. The row's Remove and Move, when a caller offers them (album tabs), act on the whole set.
     const { heads, variantsOf, headIdOf } = resolveSets(tabs);
     const defaultHeadId = headIdOf.get(defaultId) || defaultId;
     const startMode = tabs.length === 0 ? 'add' : o.mode;
@@ -114,7 +114,7 @@ export function openSongTabPicker(o) {
                       ? '<span class="tabpick-state">Opens first</span>'
                       : `<button type="button" class="tabpick-act tabpick-makedef" data-act="default" data-tab-id="${esc(t.id)}" aria-label="Make ${esc(t.name)} the default tab">Make default</button>`}
                   ${o.on.listSongs && o.on.moveTab ? `<button type="button" class="tabpick-act" data-act="move" data-tab-id="${esc(t.id)}">Move</button>` : ''}
-                  <button type="button" class="tabpick-act tabpick-danger" data-act="remove" data-tab-id="${esc(t.id)}" data-name="${esc(t.name)}"${inSet ? ` data-set-size="${inSet + 1}"` : ''}>Remove</button>
+                  ${o.on.removeTab ? `<button type="button" class="tabpick-act tabpick-danger" data-act="remove" data-tab-id="${esc(t.id)}" data-name="${esc(t.name)}"${inSet ? ` data-set-size="${inSet + 1}"` : ''}>Remove</button>` : ''}
                 </li>`;
             }).join('')}
           </ul>

@@ -7,7 +7,7 @@ import { setDropdownViewportInsets } from './utils/floating.js';
 import {
     getCollections, getLibraryHierarchy, getLibraryTuningsHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
-    deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, removeTabOptionFromSong, moveTabOptionToSong, getAllSongs, setDefaultTabOption,
+    deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, moveTabOptionToSong, getAllSongs, setDefaultTabOption,
     togglePinSong, toggleArtistPinned, isArtistPinned, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption, getAlbumTabSongId,
     getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, updateRecentPosition, DEFAULT_COLLECTION_ID,
     updateAlbumMetadataInLibrary, cleanTitle
@@ -3663,20 +3663,6 @@ async function toggleSongTabsPicker(anchor, songId, mode, { forceOpen = false } 
         on: {
             openTab: (tab) => loadSongTab(song, tab),
             makeDefault: async (tabId) => { await setDefaultTabOption(songId, tabId); showToast('Set default tab', 'success'); await renderView({ keepScroll: true }); },
-            removeTab: async (tabId, opts) => { await removeTabOptionFromSong(songId, tabId, opts); await renderView({ keepScroll: true }); },
-            listSongs: async () => (await getAllSongs())
-                .filter(x => !x.isAlbumTabContainer)
-                .map(x => ({ id: x.id, title: x.title, artist: x.artist, album: x.album }))
-                .sort((x, y) => (x.artist || '').localeCompare(y.artist || '') || (x.album || '').localeCompare(y.album || '') || (x.title || '').localeCompare(y.title || '')),
-            moveTab: async (tabId, toSongId) => {
-                const target = await getSongById(toSongId);
-                const setIds = setOf(song, tabId).map(t => t.id);
-                const moved = await moveTabOptionToSong(songId, tabId, toSongId, { withSet: true });
-                if (!moved) { showToast('Could not move the tab.', 'danger'); return; }
-                for (const id of (setIds.length ? setIds : [tabId])) await retargetSetlistTab(id, songId, toSongId);
-                showToast(`Moved to ${target?.title || 'the song'}`, 'success');
-                await renderView({ keepScroll: true });
-            },
             editRange: (tab) => openAlbumPdfPagesFor(songId, tab.id),
             addFrom: (providerId) => importTabFromProvider(songId, providerId),
             addText: () => addTextTabToSong(songId)
@@ -3794,6 +3780,7 @@ function renderSongRow(song, options = {}) {
                 return `${hasTabs ? '<li><hr class="dropdown-divider"></li>' : ''}<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"${existingPdfTab ? ` data-tab-id="${existingPdfTab.id}"` : ''}>${existingPdfTab ? 'Edit' : 'Set'} ${pdfPagesNoun} PDF pages\u2026</button></li>`;
               })() : ''}
               <li><button class="dropdown-item small ${song.isCustom ? 'edit-custom-song-btn' : 'edit-song-btn'}" data-song-id="${song.id}">Edit song\u2026</button></li>
+              <li><button class="dropdown-item small manage-song-files-btn" data-song-id="${song.id}">Manage files\u2026</button></li>
               <li><hr class="dropdown-divider"></li>
               <li><button class="dropdown-item small text-danger delete-song-btn" data-song-id="${song.id}">Remove from library</button></li>
             </ul>
@@ -4217,6 +4204,15 @@ function setupSongRowActions(container) {
                     addFrom: () => {}
                 }
             });
+        });
+    });
+
+    // The song's files: every tab, audio file, video and set of sync points, to move or delete
+    container.querySelectorAll('.manage-song-files-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const { openSongFilesDialog } = await import('./songFilesDialog.js');
+            openSongFilesDialog(btn.dataset.songId, { onChanged: () => renderView({ keepScroll: true }) });
         });
     });
 

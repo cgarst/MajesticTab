@@ -509,7 +509,7 @@ export function initSettingsPage() {
     advancedRow.classList.add('srow-task');
     const upkeep = taskGroup('Upkeep',
         ...[taskRow('reload', 'Reload library metadata', 'Refresh covers, durations and album details.', 'Reload'),
-            taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Review', false, 'Review orphaned files')], advancedRow);
+            taskRow('orphans', 'Orphaned files', 'Find stored files that nothing in your library uses.', 'Review', false, 'Review orphaned files')], advancedRow);
     upkeep.querySelector('.srows').appendChild(advancedRows);
     panes.library.appendChild(upkeep);
     // Classical tab sits in Data management, above the Danger zone; renderClasstabPane fills it

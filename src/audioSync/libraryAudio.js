@@ -62,6 +62,14 @@ export function detachLibraryAudio(audioId) {
     } catch { /* optional */ }
 }
 
+/** Forgets one file in a single library song's attachments (detachLibraryAudio does it for every song). */
+export function forgetLibraryAudio(songId, audioId) {
+    const list = readLibraryAudio(songId);
+    const kept = list.filter((e) => e.audioId !== audioId);
+    if (kept.length === list.length) return;
+    try { if (kept.length) localStorage.setItem(REGISTRY(songId), JSON.stringify(kept)); else localStorage.removeItem(REGISTRY(songId)); } catch { /* optional */ }
+}
+
 /** Every song key this library song's audio may sit under: its own names and the keys its tabs have been opened under. */
 export function songAudioKeys(song) {
     const keys = new Set([libraryAudioKey(song)].filter(Boolean));

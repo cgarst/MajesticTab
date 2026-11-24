@@ -7,7 +7,7 @@
 //   - leftover pre-upgrade snapshot files (blobs/ and manifests/) when the location has already been upgraded
 import { readJsonIfExists, writeJson, deletePackDir, pool } from './contract.js';
 import { expectedFiles } from './packStore.js';
-import { stemsOf } from '../mpak/stemLayer.js';
+import { stemsOf, recordingSources } from '../mpak/stemLayer.js';
 import { fromLibraryDoc, fromProfileDoc, LIBRARY_PATH, PROFILE_PATH } from './libraryDocs.js';
 import { probeLocation, LOCATION } from './upgrade.js';
 
@@ -185,7 +185,7 @@ export async function findRemoteOrphans({ store, legacy = null } = {}) {
     return { state: probe.state, items, totalBytes };
 }
 
-function pruneManifestRefs(manifest, missing) {
+export function pruneManifestRefs(manifest, missing) {
     if (manifest.entries) {
         for (const rel of missing) delete manifest.entries[rel];
     }
@@ -263,4 +263,80 @@ export async function deleteRemoteOrphans({ store, legacy = null }, items = []) 
         if (!manifest) continue;
         await writeJson(store, manifestPath, pruneManifestRefs(manifest, missing));
     }
+}
+
+/**
+ * Removes named things from one pack in the sync location, right away: the scores (by file hash or tab id), the audio files
+ * (by name, and size when known), and the YouTube videos (by id), with their files, sync files and every manifest reference.
+ * `what` is `{ scoreHashes, scoreIds, audio: [{ name, size }], videoIds }`. The manifest is rewritten first, so a failure
+ * part way leaves unused files in the folder (the Orphaned files tool finds those), never a manifest that names a missing file.
+ * Returns `{ found, removedFiles }`; `found` is false when the location holds no such pack.
+ */
+export async function removeFromSyncCopy({ store }, packId, what = {}) {
+    if (!PACK_ID_RE.test(packId || '')) return { found: false, removedFiles: 0 };
+    const dir = `packs/${packId}`;
+    const manifestPath = `${dir}/manifest.json`;
+    const manifest = await readJsonIfExists(store, manifestPath).catch(() => null);
+    if (!manifest) return { found: false, removedFiles: 0 };
+    const hashes = new Set(what.scoreHashes || []);
+    const ids = new Set(what.scoreIds || []);
+    const videos = new Set(what.videoIds || []);
+    const audio = what.audio || [];
+    const gone = new Set();
+    const rel = (p) => (p && p.startsWith(`${dir}/`) ? p.slice(dir.length + 1) : p);
+    const nameHit = (path, size) => {
+        const base = String(path).split('/').pop();
+        return audio.some((a) => a.name === base || (a.size && a.size === size && base?.endsWith(a.name)));
+    };
+    const present = new Map((await store.list(`${dir}/`)).map((e) => [rel(e.path), e]));
+    const goneScoreIds = new Set();
+    for (const x of (manifest.scores || []).flatMap((t) => [t, ...(t.alternates || [])])) {
+        if (x.path && ((x.sha256 && hashes.has(x.sha256)) || ids.has(x.id))) { gone.add(x.path); goneScoreIds.add(x.id); }
+    }
+    const extra = new Set();   // sync and beat files of a recording that goes away with its source or its score
+    for (const rec of manifest.recordings || []) {
+        const sources = recordingSources(rec);
+        const isGone = (s) => (s.type === 'youtube' && videos.has(s.videoId)) || (s.type === 'file' && s.path && nameHit(s.path, s.size ?? present.get(s.path)?.size));
+        sources.filter((s) => s.type === 'file' && isGone(s)).forEach((s) => gone.add(s.path));
+        if (sources.length > 0 && sources.every(isGone)) {
+            Object.values(rec.sync || {}).forEach((p) => extra.add(p));
+            if (rec.beats) extra.add(rec.beats);
+        }
+        if (Array.isArray(rec.sources)) rec.sources = rec.sources.filter((s) => !(s.type === 'youtube' && videos.has(s.videoId)));
+        for (const [sid, p] of Object.entries(rec.sync || {})) if (goneScoreIds.has(sid)) extra.add(p);
+    }
+    const everything = new Set([...gone, ...extra]);
+    const pruned = pruneManifestRefs(manifest, everything);
+    await writeJson(store, manifestPath, pruned);
+    let removedFiles = 0;
+    for (const path of everything) {
+        if (!present.has(path)) continue;
+        try { await store.delete(`${dir}/${path}`); removedFiles++; } catch { /* left for the Orphaned files tool */ }
+    }
+    return { found: true, removedFiles };
+}
+
+/**
+ * Where a song's things sit in the sync location, read from the pack's manifest alone (one small read and one listing, no file
+ * is downloaded). `what` is as for removeFromSyncCopy. Returns `{ found, scores: [path], audio: [path] }` with store paths
+ * ("packs/<id>/score/..."); `found` is false when the location holds no such pack.
+ */
+export async function locateInSyncCopy({ store }, packId, what = {}) {
+    if (!PACK_ID_RE.test(packId || '')) return { found: false, scores: [], audio: [] };
+    const dir = `packs/${packId}`;
+    const manifest = await readJsonIfExists(store, `${dir}/manifest.json`).catch(() => null);
+    if (!manifest) return { found: false, scores: [], audio: [] };
+    const hashes = new Set(what.scoreHashes || []);
+    const ids = new Set(what.scoreIds || []);
+    const audio = what.audio || [];
+    const sizes = new Map((await store.list(`${dir}/`)).map((e) => [e.path.slice(dir.length + 1), e.size]));
+    const scores = (manifest.scores || []).flatMap((t) => [t, ...(t.alternates || [])])
+        .filter((x) => x.path && ((x.sha256 && hashes.has(x.sha256)) || ids.has(x.id))).map((x) => `${dir}/${x.path}`);
+    const files = (manifest.recordings || []).flatMap((r) => recordingSources(r)).filter((s) => s.type === 'file' && s.path);
+    const hit = files.filter((s) => {
+        const base = s.path.split('/').pop();
+        const size = s.size ?? sizes.get(s.path);
+        return audio.some((a) => a.name === base || (a.size && a.size === size && base?.endsWith(a.name)));
+    }).map((s) => `${dir}/${s.path}`);
+    return { found: true, scores, audio: hit };
 }
