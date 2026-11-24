@@ -1220,7 +1220,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 @media (max-width: 899px) { .setnav button { background: transparent; min-height: 56px; color: var(--ink); } .setnav button:active, .setnav button[aria-current="true"]:active { background: var(--s2); } .setnav button[aria-current="true"] { background: transparent; } }
 .setpage { overflow: auto; padding: 4px 28px 40px; min-width: 0; }
 .setsec[hidden] { display: none; }
-.setpage .sgroup:first-child h3 { margin-top: 0; }
+.setpage .sgroup:first-child > h3 { margin-top: 0; }
 .setsec > .classtab-host .sgroup h3 { margin-top: 22px; }
 .tools-shell .tool-pane-host { margin-top: 0; }
 .tool-pane-host .openfile-tool-embedded { height: 100%; }
