@@ -185,6 +185,15 @@ export async function findRemoteOrphans({ store, legacy = null } = {}) {
     return { state: probe.state, items, totalBytes };
 }
 
+/**
+ * Does a pack's audio file (`path`, `size` when known) stand for one of `audio` (`{ name, size }`)? Names alone are not enough:
+ * the stems of different sets are often named alike (guitar-1.m4a), so a size the local file has must equal the pack file's.
+ */
+function audioMatches(audio, path, size) {
+    const base = String(path).split('/').pop();
+    return audio.some((a) => (a.name === base || base?.endsWith(a.name)) && (!a.size || a.size === size));
+}
+
 export function pruneManifestRefs(manifest, missing) {
     if (manifest.entries) {
         for (const rel of missing) delete manifest.entries[rel];
@@ -284,10 +293,7 @@ export async function removeFromSyncCopy({ store }, packId, what = {}) {
     const audio = what.audio || [];
     const gone = new Set();
     const rel = (p) => (p && p.startsWith(`${dir}/`) ? p.slice(dir.length + 1) : p);
-    const nameHit = (path, size) => {
-        const base = String(path).split('/').pop();
-        return audio.some((a) => a.name === base || (a.size && a.size === size && base?.endsWith(a.name)));
-    };
+    const nameHit = (path, size) => audioMatches(audio, path, size);
     const present = new Map((await store.list(`${dir}/`)).map((e) => [rel(e.path), e]));
     const goneScoreIds = new Set();
     for (const x of (manifest.scores || []).flatMap((t) => [t, ...(t.alternates || [])])) {
@@ -333,10 +339,6 @@ export async function locateInSyncCopy({ store }, packId, what = {}) {
     const scores = (manifest.scores || []).flatMap((t) => [t, ...(t.alternates || [])])
         .filter((x) => x.path && ((x.sha256 && hashes.has(x.sha256)) || ids.has(x.id))).map((x) => `${dir}/${x.path}`);
     const files = (manifest.recordings || []).flatMap((r) => recordingSources(r)).filter((s) => s.type === 'file' && s.path);
-    const hit = files.filter((s) => {
-        const base = s.path.split('/').pop();
-        const size = s.size ?? sizes.get(s.path);
-        return audio.some((a) => a.name === base || (a.size && a.size === size && base?.endsWith(a.name)));
-    }).map((s) => `${dir}/${s.path}`);
+    const hit = files.filter((s) => audioMatches(audio, s.path, s.size ?? sizes.get(s.path))).map((s) => `${dir}/${s.path}`);
     return { found: true, scores, audio: hit };
 }

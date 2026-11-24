@@ -4,7 +4,7 @@
 // deleted, and the references to it go with it (songFiles.js). Sync points move and delete with the audio or video they map.
 
 import { getSongById, getAllSongs } from './libraryStore.js';
-import { listSongFiles, deleteSongFile, moveSongFile, hasSyncCopyTarget, syncStatusOf, locateInSyncCopy } from './songFiles.js';
+import { listSongFiles, deleteSongFile, moveSongFile, deleteSongFiles, hasSyncCopyTarget, syncStatusOf, locateInSyncCopy } from './songFiles.js';
 import { showToast } from './utils/toast.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -15,11 +15,11 @@ const SECTIONS = [
     { key: 'videos', title: 'YouTube videos', empty: 'No YouTube videos.' },
     { key: 'sync', title: 'Sync points', empty: 'No sync points.' },
 ];
-const WHERE = { device: '', cloud: 'In the sync copy, not downloaded', partial: 'Partly on this device', link: 'A link, nothing stored' };
+const WHERE = { device: '', cloud: 'In the cloud library, not downloaded', partial: 'Partly on this device', link: 'A link, nothing stored' };
 // What the last sync recorded for the song, said once at the top: it is the same for every row of the song
 const syncLine = (status, at) => ({
-    synced: `Everything this device holds is in the sync copy. Last sync ${at}.`,
-    pending: `Changes since the last sync (${at}) are not in the sync copy yet.`,
+    synced: `Everything this device holds is in the cloud library. Last sync ${at}.`,
+    pending: `Changes since the last sync (${at}) are not in the cloud library yet.`,
     never: 'This song has not been synced yet.',
 }[status] || '');
 
@@ -80,6 +80,9 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
     let moveSongs = [];
     let busy = false;
     let confirmRid = null;
+    let confirmBulk = false;
+    let working = '';   // shown in place of the confirm buttons while a delete runs
+    const workingText = (stage) => (stage === 'cloud' ? 'Removing from the cloud library\u2026' : 'Deleting on this device\u2026');
     let syncStatus = 'none';
     let syncedAt = 0;
     let copy = null;   // where rows sit in the sync copy, once read: { found, paths }
@@ -102,35 +105,29 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
 
     const find = (rid) => SECTIONS.flatMap((s) => data[s.key]).find((r) => rowId(r) === rid);
 
-    const copyFolder = () => {
-        const first = [...(copy?.paths.values() || [])].flat()[0];
-        const m = first && /^packs\/[^/]+/.exec(first);
-        return m ? m[0] : '';
-    };
     const missingFromCopy = () => SECTIONS.flatMap((x) => data[x.key]).some((r) => r.location === 'device' && copy.paths.has(rowId(r)) && !copy.paths.get(rowId(r)).length);
 
     function rowHtml(r) {
         const meta = [r.source, formatDate(r.addedAt), formatSize(r.size), r.location === 'device' ? '' : WHERE[r.location]].filter(Boolean).join(' · ');
         const canMove = r.kind !== 'sync';
         const inCopy = copy?.paths.get(rowId(r));
-        const within = (pth) => (copyFolder() && pth.startsWith(`${copyFolder()}/`) ? pth.slice(copyFolder().length + 1) : pth);
-        const copyPaths = (inCopy || []).length > 2 ? [`${within(inCopy[0])} and ${inCopy.length - 1} more`] : (inCopy || []).map(within);
+        const copyPaths = (inCopy || []).length > 2 ? [`${inCopy[0]} and ${inCopy.length - 1} more`] : (inCopy || []);
         const notInCopy = copy?.found && r.location === 'device' && copy.paths.has(rowId(r)) && !inCopy.length;
         return `<li class="sf-row" data-rid="${esc(rowId(r))}">
           <div class="sf-text">
             <span class="sf-name">${esc(r.name)}</span>
             ${r.detail && !r.name.toLowerCase().startsWith(r.detail.toLowerCase()) ? `<span class="sf-detail">${esc(r.detail)}</span>` : ''}
-            <span class="sf-meta">${esc([meta, notInCopy ? 'Not in the sync copy' : ''].filter(Boolean).join(' \u00b7 '))}</span>
-            ${r.libraryPath ? `<span class="sf-path" title="Path in the library">Library: ${esc(r.libraryPath)}</span>` : ''}
-            ${copyPaths.map((pth) => `<span class="sf-path" title="Path in the sync location">In the sync copy: ${esc(pth)}</span>`).join('')}
+            <span class="sf-meta">${r.kind !== 'tab' ? `<span class="${r.selected ? 'sf-state is-on' : 'sf-state'}">${r.selected ? `Selected for ${esc(r.selected)}` : 'Not selected'}</span>${meta ? ' \u00b7 ' : ''}` : ''}${esc(meta)}</span>
+            ${r.kind === 'tab' || r.kind === 'audio' ? `<span class="sf-path" title="Path in the library on this device">Library: ${esc(r.location === 'cloud' ? 'not on this device' : (r.libraryPath || r.name))}</span>` : ''}
+            ${(r.kind === 'tab' || r.kind === 'audio') && copy?.found ? `<span class="sf-path" title="Path in the cloud library">Cloud: ${notInCopy || !copyPaths.length ? 'not in the cloud library' : esc(copyPaths.join(', '))}</span>` : ''}
           </div>
           ${confirmRid === rowId(r) ? `<div class="sf-confirm" role="group" aria-label="Delete ${esc(r.name)}">
-            <span class="sf-confirm-note">${esc(deleteNote(r))}${syncCopyAvailable && r.kind !== 'sync' ? ' The sync copy stays unless you remove it too, so a later sync can bring the file back.' : ''}</span>
-            <div class="sf-acts">
+            <span class="sf-confirm-note">${esc(deleteNote(r))}${syncCopyAvailable && r.kind !== 'sync' ? ' The cloud library copy stays unless you remove it too, so a later sync can bring the file back.' : ''}</span>
+            ${working ? `<p class="sf-working" role="status">${esc(working)}</p>` : `<div class="sf-acts">
               <button type="button" class="tabpick-act" data-act="cancel-delete">Cancel</button>
               <button type="button" class="tabpick-act tabpick-danger" data-act="delete-here">${syncCopyAvailable && r.kind !== 'sync' ? 'Delete here' : 'Delete'}</button>
-              ${syncCopyAvailable && r.kind !== 'sync' ? '<button type="button" class="tabpick-act tabpick-danger" data-act="delete-all">Delete here and in the sync copy</button>' : ''}
-            </div>
+              ${syncCopyAvailable && r.kind !== 'sync' ? '<button type="button" class="tabpick-act tabpick-danger" data-act="delete-all">Delete here and in the cloud library</button>' : ''}
+            </div>`}
           </div>` : `<div class="sf-acts">
             ${canMove ? `<button type="button" class="tabpick-act" data-act="move" aria-label="Move ${esc(r.name)} to another song">Move</button>` : ''}
             <button type="button" class="tabpick-act tabpick-danger" data-act="delete" aria-label="Delete ${esc(r.name)}">Delete</button>
@@ -138,21 +135,42 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
         </li>`;
     }
 
+    const unusedRows = () => ['audio', 'videos', 'sync'].flatMap((k) => data[k]).filter((r) => !r.selected);
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    function bulkHtml() {
+        const rows = unusedRows();
+        if (!rows.length) return '<p class="sf-note">Nothing unused: every audio file, video and set of sync points is selected.</p>';
+        const parts = [
+            ['audio', 'audio file', 'audio files'], ['youtube', 'video', 'videos'], ['sync', 'set of sync points', 'sets of sync points'],
+        ].map(([kind, one, many]) => [rows.filter((r) => r.kind === kind).length, one, many]).filter(([n]) => n)
+            .map(([n, one, many]) => plural(n, one, many)).join(', ');
+        if (!confirmBulk) {
+            return `<div class="sf-bulk"><span class="sf-confirm-note">Unused: ${esc(parts)}. These are not selected as Original or Backing.</span>
+              <button type="button" class="tabpick-act tabpick-danger" data-act="bulk">Delete all unused</button></div>`;
+        }
+        return `<div class="sf-bulk sf-confirm" role="group" aria-label="Delete all unused">
+            <span class="sf-confirm-note">Deletes ${esc(parts)}, with the sync points of the audio and videos.${syncCopyAvailable ? ' The cloud library copy stays unless you remove it too, so a later sync can bring them back.' : ''}</span>
+            ${working ? `<p class="sf-working" role="status">${esc(working)}</p>` : `<div class="sf-acts">
+              <button type="button" class="tabpick-act" data-act="bulk-cancel">Cancel</button>
+              <button type="button" class="tabpick-act tabpick-danger" data-act="bulk-here">${syncCopyAvailable ? 'Delete here' : 'Delete'}</button>
+              ${syncCopyAvailable ? '<button type="button" class="tabpick-act tabpick-danger" data-act="bulk-all">Delete here and in the cloud library</button>' : ''}
+            </div>`}</div>`;
+    }
+
     function listHtml() {
         const at = syncedAt ? formatWhen(syncedAt) : '';
-        const folder = copyFolder();
         // Once the pack has been read, what it says about each file beats the song-level guess
         const line = copy?.found && missingFromCopy()
-            ? `Some files here are not in the sync copy yet.${at ? ` Last sync ${at}.` : ''}`
+            ? `Some files here are not in the cloud library yet.${at ? ` Last sync ${at}.` : ''}`
             : syncLine(syncStatus, at);
-        const syncNote = line ? `<p class="sf-sync">${esc(line)}</p>${folder ? `<p class="sf-sync sf-path" title="Folder of this song in the sync location">Sync copy folder: ${esc(folder)}</p>` : ''}` : '';
+        const syncNote = line ? `<p class="sf-sync">${esc(line)}</p>` : '';
         return syncNote + SECTIONS.map((s) => {
             const rows = data[s.key];
             return `<section class="sf-section" aria-labelledby="sf_${s.key}">
               <h6 class="sf-heading" id="sf_${s.key}">${s.title}${rows.length ? `<span class="sf-count"> · ${rows.length}</span>` : ''}</h6>
               ${rows.length ? `<ul class="sf-list">${rows.map(rowHtml).join('')}</ul>` : `<p class="sf-empty">${s.empty}</p>`}
             </section>`;
-        }).join('') + '<p class="sf-note">Sync points belong to the audio or video they map: they move and are deleted with it, or on their own when you delete them here.</p>';
+        }).join('') + bulkHtml() + '<p class="sf-note">Sync points belong to the audio or video they map: they move and are deleted with it, or on their own when you delete them here.</p>';
     }
 
     function moveRows(query) {
@@ -210,6 +228,29 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
             await reload();
             return;
         }
+        if (act === 'bulk') { confirmBulk = true; confirmRid = null; paint('[data-act="bulk-here"]'); return; }
+        if (act === 'bulk-cancel') { confirmBulk = false; paint('[data-act="bulk"]'); return; }
+        if (act === 'bulk-here' || act === 'bulk-all') {
+            busy = true;
+            const rows = unusedRows();
+            // Say so at once: the cloud library step can take a while
+            working = act === 'bulk-all' ? workingText('cloud') : workingText('device');
+            paint();
+            try {
+                const r = await deleteSongFiles((await getSongById(songId)) || song, rows, { syncCopy: act === 'bulk-all', onProgress: (stage) => { working = workingText(stage); paint(); } });
+                showToast(act === 'bulk-all' && r.syncCopy === 'none' ? 'Deleted. The cloud library has no copy of this song.' : `Deleted ${plural(rows.length, 'unused item', 'unused items')}`, 'success');
+                onChanged?.();
+            } catch (err) {
+                console.warn('[Song files] bulk delete failed:', err);
+                showToast(act === 'bulk-all' ? 'Could not reach the cloud library, so nothing was deleted.' : 'Could not delete those.', 'danger');
+            }
+            busy = false;
+            working = '';
+            confirmBulk = false;
+            if (syncStatus === 'synced') syncStatus = 'pending';
+            await reload();
+            return;
+        }
         const li = btn.closest('.sf-row');
         const row = li && find(li.dataset.rid);
         if (!row) return;
@@ -224,20 +265,22 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
             paint();
             return;
         }
-        if (act === 'delete') { confirmRid = rowId(row); paint(`[data-rid="${CSS.escape(rowId(row))}"] [data-act="delete-here"]`); return; }
+        if (act === 'delete') { confirmBulk = false; confirmRid = rowId(row); paint(`[data-rid="${CSS.escape(rowId(row))}"] [data-act="delete-here"]`); return; }
         if (act === 'cancel-delete') { confirmRid = null; paint(`[data-rid="${CSS.escape(rowId(row))}"] [data-act="delete"]`); return; }
         if (act === 'delete-here' || act === 'delete-all') {
             busy = true;
-            btn.disabled = true;
+            working = act === 'delete-all' ? workingText('cloud') : workingText('device');
+            paint();
             try {
-                const r = await deleteSongFile((await getSongById(songId)) || song, row, { syncCopy: act === 'delete-all' });
-                showToast(act === 'delete-all' && r.syncCopy === 'none' ? 'Deleted. The sync location has no copy of this song.' : 'Deleted', 'success');
+                const r = await deleteSongFiles((await getSongById(songId)) || song, [row], { syncCopy: act === 'delete-all', onProgress: (stage) => { working = workingText(stage); paint(); } });
+                showToast(act === 'delete-all' && r.syncCopy === 'none' ? 'Deleted. The cloud library has no copy of this song.' : 'Deleted', 'success');
                 onChanged?.();
             } catch (err) {
                 console.warn('[Song files] delete failed:', err);
-                showToast(act === 'delete-all' ? 'Could not reach the sync copy, so nothing was deleted.' : 'Could not delete that.', 'danger');
+                showToast(act === 'delete-all' ? 'Could not reach the cloud library, so nothing was deleted.' : 'Could not delete that.', 'danger');
             }
             busy = false;
+            working = '';
             confirmRid = null;
             if (syncStatus === 'synced') syncStatus = 'pending';   // the song now differs from what was synced
             await reload('.sf-row .tabpick-act');

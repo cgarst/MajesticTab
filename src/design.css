@@ -6293,3 +6293,12 @@ html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active)
 .sf-confirm .sf-acts { justify-content: flex-end; }
 .sf-section { margin-top: 4px; }
 .sf-path { color: var(--ink2); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.sf-state { color: var(--ink2); font-size: 13px; }
+.sf-state.is-on { color: var(--ink); font-weight: 600; }
+.sf-bulk { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; margin: 8px 0 0; padding: 8px 4px 8px 12px; border-radius: var(--r-control); background: var(--s2); }
+.sf-bulk.sf-confirm { flex-direction: column; align-items: stretch; }
+.sf-bulk { padding: 10px 12px; }
+.sf-bulk > .sf-confirm-note { flex: 1 1 100%; overflow-wrap: anywhere; }
+.sf-bulk > .tabpick-act { margin-left: auto; }
+.sf-state.is-on, .sf-state { font-size: inherit; }
+.sf-working { margin: 0; padding: 4px 0 0; color: var(--ink); font-size: 13px; font-weight: 600; text-align: right; }

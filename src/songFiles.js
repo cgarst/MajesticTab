@@ -21,7 +21,7 @@ import { listAudioFiles, recordRemovedAudio, getAudioMeta, unlinkAudioFile, link
 import { listRecords, deleteRecord, storageKey, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
 import { recordStorage } from './audioSync/syncRecordStore.js';
 import { listRecordingMeta, setRecordingMeta, forgetRecordingMeta } from './audioSync/recordingMeta.js';
-import { stemsOfMeta } from './audioSync/stemSet.js';
+import { stemsOfMeta, stemSetName } from './audioSync/stemSet.js';
 import { listHistory, forgetVideo, rememberVideo } from './audioSync/videoHistory.js';
 
 const SLOTS = ['original', 'backing'];
@@ -76,7 +76,7 @@ async function tabRows(song) {
         const source = t.sourceWebsite || (t.sourceUrl ? 'A web address' : '') || PROVIDER_LABEL[t.providerId] || t.providerId || 'A file on this device';
         rows.push({
             kind: 'tab', id: t.id, name: t.name || 'Tab', source, addedAt: t.addedAt || null, location, size,
-            libraryPath: t.relativePath && t.relativePath !== t.name ? t.relativePath : '',
+            libraryPath: t.relativePath || '',
             detail: t.variantOf ? 'Part of a set' : (t.origin ? `Set: ${t.origin}` : ''),
         });
     }
@@ -93,13 +93,37 @@ function stemGroups(keys) {
             if (!parts || !mk.startsWith('local_')) continue;
             const ids = [...new Set([mk.slice('local_'.length), ...parts.map((s) => s.audioId)])];
             ids.forEach((id) => inSet.add(id));
-            groups.push({ key: k, mk, ids, label: m.label, count: parts.length });
+            groups.push({ key: k, mk, ids, label: m.label, count: parts.length, setName: stemSetName(m) });
         }
     }
     return { groups, inSet };
 }
 
-async function audioRows(song, keys) {
+/**
+ * The recordings the song plays now: for each key and slot, the one the slot's source names (a file, a video, or the file's own
+ * audio, which is no recording of its own). Returns a Map from a media key (`local_<id>`, `yt_<id>`) to the slots it is selected for.
+ */
+function selectedMedia(keys) {
+    const out = new Map();
+    const pick = (mk, slot) => { if (!out.has(mk)) out.set(mk, new Set()); out.get(mk).add(slot); };
+    for (const k of keys) for (const slot of SLOTS) {
+        const src = read(slotSourceKey(k, slot));
+        const file = read(slotFileKey(k, slot));
+        const yt = read(trackKey(k, slot));
+        if (src === 'embedded') continue;
+        if (src === 'youtube' ? yt : (!file && !src && yt)) pick(`yt_${yt}`, slot);
+        else if (file) pick(`local_${file}`, slot);
+    }
+    return out;
+}
+
+const selectedByMedia = (selected, m) => {
+    const mk = m.kind === 'youtube' ? `yt_${m.videoId}` : `local_${m.audioId}`;
+    return selected.has(mk) ? slotsText(selected.get(mk)) : '';
+};
+const slotsText = (slots) => [...slots].map((s) => SLOT_LABEL[s]).join(' and ');
+
+async function audioRows(song, keys, selected) {
     const lowerKeys = new Set(keys.map(lower));
     const metas = new Map((await listAudioFiles()).map((m) => [m.id, m]));
     const slotsOf = new Map();
@@ -125,6 +149,7 @@ async function audioRows(song, keys) {
             kind: 'audio', id, ids: [id], name: m?.name || 'Audio file (not on this device)',
             source: m?.generatedFrom ? 'Made in MajesticTab' : 'An audio file', addedAt: m?.savedAt || null,
             location: m ? 'device' : 'cloud', size: m?.size ?? null, detail: role,
+            selected: selected.has(`local_${id}`) ? slotsText(selected.get(`local_${id}`)) : '',
         });
     }
     for (const g of groups) {
@@ -134,13 +159,14 @@ async function audioRows(song, keys) {
             kind: 'audio', id: g.mk, ids: g.ids, name: g.label || `${g.count} stems`,
             source: 'A set of stems', addedAt: have.length ? Math.min(...have.map((m) => m.savedAt || Infinity)) : null,
             location: have.length === g.ids.length ? 'device' : have.length ? 'partial' : 'cloud',
-            size: have.reduce((n, m) => n + (m.size || 0), 0) || null, detail: `${g.count} stems`,
+            size: have.reduce((n, m) => n + (m.size || 0), 0) || null, detail: g.setName || `${g.count} stems`,
+            selected: slotsText(new Set(g.ids.flatMap((id) => [...(selected.get(`local_${id}`) || [])]))),
         });
     }
     return rows;
 }
 
-function videoAndSyncRows(song, keys, audioRowByMedia) {
+function videoAndSyncRows(song, keys, selected) {
     const videos = new Map();
     const noteVideo = (id, patch) => {
         if (!id) return;
@@ -164,21 +190,27 @@ function videoAndSyncRows(song, keys, audioRowByMedia) {
                 kind: 'sync', id: `${k}\u0000${m.kind === 'youtube' ? `yt_${m.videoId}` : `local_${m.audioId}`}`, key: k, media: m,
                 name: `${rec.points.length} sync ${rec.points.length === 1 ? 'point' : 'points'}`, detail: `For ${forName}`,
                 source: m.kind === 'youtube' ? 'YouTube video' : 'Audio file', addedAt: rec.updatedAt || null, location: 'device', size: null,
+                selected: selectedByMedia(selected, m),
             });
         }
     }
     const videoRows = [...videos].map(([id, v]) => ({
         kind: 'youtube', id, ids: [id], name: v.label || `YouTube video ${id}`, source: 'YouTube', addedAt: v.last || null,
-        location: 'link', size: null, detail: [...v.slots].map((s) => SLOT_LABEL[s]).join(' and '),
+        location: 'link', size: null, detail: '',
+        selected: selected.has(`yt_${id}`) ? slotsText(selected.get(`yt_${id}`)) : '',
     }));
     return { videoRows, sync };
 }
 
-/** `{ tabs, audio, videos, sync }`: rows of `{ kind, id, name, source, addedAt, location, size, detail }`. */
+/**
+ * `{ tabs, audio, videos, sync }`: rows of `{ kind, id, name, source, addedAt, location, size, detail }`. An audio, video or sync
+ * row also has `selected`: the slots ("Original", "Backing") it is selected for now, or '' when the song does not play it.
+ */
 export async function listSongFiles(song) {
     const keys = ownKeysOf(song);
-    const [tabs, audio] = await Promise.all([tabRows(song), audioRows(song, keys)]);
-    const { videoRows, sync } = videoAndSyncRows(song, keys);
+    const selected = selectedMedia(keys);
+    const [tabs, audio] = await Promise.all([tabRows(song), audioRows(song, keys, selected)]);
+    const { videoRows, sync } = videoAndSyncRows(song, keys, selected);
     sync.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
     return { tabs, audio, videos: videoRows.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)), sync };
 }
@@ -314,11 +346,25 @@ async function syncCopyTargetsOf(song, row, { hash: wantHash = true } = {}) {
  * access not granted) this throws and nothing is deleted here. Returns `{ syncCopy: 'removed' | 'none' | 'skipped' }`, where
  * 'none' means the sync location holds no pack of this song and 'skipped' means a row kind that has no copy of its own.
  */
-export async function deleteSongFile(song, row, { syncCopy = false } = {}) {
+export async function deleteSongFile(song, row, opts = {}) {
+    return deleteSongFiles(song, [row], opts);
+}
+
+/**
+ * Deletes several rows in one go, with one pass over the sync copy when `syncCopy` is set (see deleteSongFile). `onProgress` is
+ * called with 'cloud' when the cloud library step starts and 'device' when the local one does. Audio and videos
+ * go before sync points, so a sync row whose recording just went is already gone and is skipped.
+ */
+export async function deleteSongFiles(song, rows, { syncCopy = false, onProgress = null } = {}) {
     let copy = 'skipped';
-    let what = null;
-    if (syncCopy && row.kind !== 'sync') {
-        what = await syncCopyTargetsOf(song, row);
+    const what = { scoreHashes: [], scoreIds: [], audio: [], videoIds: [] };
+    const copyRows = rows.filter((r) => r.kind !== 'sync');
+    if (syncCopy && copyRows.length) {
+        for (const row of copyRows) {
+            const w = await syncCopyTargetsOf(song, row);
+            for (const k of Object.keys(what)) what[k].push(...w[k]);
+        }
+        onProgress?.('cloud');
         const { getTarget, openSyncStore } = await import('./syncBackend.js');
         const { removeFromSyncCopy } = await import('./storage/orphans.js');
         const target = getTarget();
@@ -327,13 +373,22 @@ export async function deleteSongFile(song, row, { syncCopy = false } = {}) {
         const packId = song.packId || song.id;
         copy = (await removeFromSyncCopy({ store: opened.store }, packId, what)).found ? 'removed' : 'none';
     }
-    if (row.kind === 'tab') await removeTabOptionFromSong(song.id, row.id, { keepAudio: true });
-    else if (row.kind === 'audio') {
-        // Remembered, so the next sync does not carry the file over from the store's copy again
-        if (what) for (const k of ownKeysOf(song)) for (const a of what.audio) recordRemovedAudio(k, a);
-        await deleteAudio(song, row);
-    } else if (row.kind === 'youtube') deleteVideo(song, row);
-    else if (row.kind === 'sync') deleteRecord(row.key, row.media);
+    onProgress?.('device');
+    const order = { tab: 0, audio: 1, youtube: 1, sync: 2 };
+    for (const row of [...rows].sort((a, b) => order[a.kind] - order[b.kind])) {
+        if (row.kind === 'tab') await removeTabOptionFromSong(song.id, row.id, { keepAudio: true });
+        else if (row.kind === 'audio') {
+            // Remembered, so the next sync does not carry the file over from the store's copy again
+            if (syncCopy && copy !== 'skipped') {
+                for (const id of row.ids) {
+                    const m = await getAudioMeta(id).catch(() => null);
+                    if (m?.name) for (const k of ownKeysOf(song)) recordRemovedAudio(k, { name: m.name, size: m.size || 0 });
+                }
+            }
+            await deleteAudio(song, row);
+        } else if (row.kind === 'youtube') deleteVideo(song, row);
+        else if (row.kind === 'sync') deleteRecord(row.key, row.media);
+    }
     notify();
     return { syncCopy: copy };
 }
