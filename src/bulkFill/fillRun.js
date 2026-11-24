@@ -5,6 +5,7 @@
 //   - a song a provider has no tab for goes on to the next provider; with none left it is 'missing';
 //   - several matches and none plainly the song park the song as 'pick' and the run goes on;
 //   - an error that ends the run (no connection, token refused) stops it, with the message; any other error fails that song.
+// Songs are asked for one at a time unless `concurrency` says more; enqueue adds a song to the run while it goes.
 // States of a song: queued, searching, added, pick, missing, failed. A run keeps no state between sessions except what
 // the caller saves from `onChange`. Unit tested in tests/fillRun.test.mjs.
 
@@ -18,9 +19,10 @@ export const DONE_STATES = ['added', 'pick', 'missing', 'failed'];
  * @param {(file: File, song: object) => Promise<boolean>} deps.attach adds the file to the song; true when it did
  * @param {Set<string>} [deps.remembered] ids of songs an earlier run found nothing for: they start as 'missing' and are skipped until requeued
  * @param {(work: () => Promise<void>) => Promise<void>} [deps.around] runs the work of a run inside something (a hold on auto-sync); the run counts as running, and shows it, before it starts
+ * @param {number} [deps.concurrency] how many songs are asked for at once (the rest wait their turn)
  * @param {() => void} [deps.onChange] called whenever anything changes
  */
-export function createFillRun({ songs, sources, fetchOne, attach, remembered = new Set(), restored = {}, around = (work) => work(), onChange = () => {} }) {
+export function createFillRun({ songs, sources, fetchOne, attach, remembered = new Set(), restored = {}, around = (work) => work(), concurrency = 1, onChange = () => {} }) {
     const items = new Map(songs.map((s) => [s.id, { state: remembered.has(s.id) ? 'missing' : 'queued', label: '', fraction: null, message: '', choose: null, source: null }]));
     // What an earlier session settled (see fillStore.js): a parked pick asks again from the addresses it saved
     for (const [id, saved] of Object.entries(restored)) {
@@ -30,14 +32,17 @@ export function createFillRun({ songs, sources, fetchOne, attach, remembered = n
         if (saved.state === 'pick' && saved.choose) item.choose = { ...saved.choose, addressFor: (value) => saved.choose.addresses?.[value] || '' };
     }
     const run = { running: false, stopped: false, stopping: false, error: '', current: null, controller: null };
+    const queue = []; // songs waiting for a turn
+    const inflight = new Set(); // the songs being asked for now (at most `concurrency`)
+    const only = new Map(); // song id -> the providers to ask for it, when not the run's own (a row's Search)
     const notify = () => { try { onChange(); } catch { /* a listener must not break the run */ } };
     const set = (id, patch) => { Object.assign(items.get(id), patch); notify(); };
 
     /** One song against every source, in order. Returns when the song is settled. */
-    async function settle(song, startAt = 0, address = '') {
+    async function settle(song, startAt = 0, address = '', list = only.get(song.id) || sources) {
         let lastError = '';
-        for (let i = startAt; i < sources.length; i++) {
-            const source = sources[i];
+        for (let i = startAt; i < list.length; i++) {
+            const source = list[i];
             if (run.controller.signal.aborted) return;
             set(song.id, { state: 'searching', label: source.name || '', fraction: null, source: source.id });
             let found;
@@ -71,7 +76,20 @@ export function createFillRun({ songs, sources, fetchOne, attach, remembered = n
         set(song.id, lastError ? { state: 'failed', message: lastError, fraction: null } : { state: 'missing', message: '', fraction: null });
     }
 
-    async function start() {
+    /** Starts songs from the queue until `concurrency` are in flight. Each one that ends starts the next. */
+    function pump() {
+        while (run.running && !run.controller.signal.aborted && inflight.size < concurrency && queue.length) {
+            const song = queue.shift();
+            run.current = song.id;
+            const task = settle(song)
+                .catch((error) => { if (!run.error) run.error = error?.message || 'The run stopped.'; queue.length = 0; run.controller.abort(); })
+                .finally(() => { inflight.delete(task); pump(); });
+            inflight.add(task);
+        }
+    }
+
+    /** Walks the songs not settled yet, or only `ids`. Resolves when the queue is empty, including songs added with enqueue meanwhile. */
+    async function start(ids = null) {
         if (run.running) return;
         run.running = true;
         run.stopped = false;
@@ -80,21 +98,24 @@ export function createFillRun({ songs, sources, fetchOne, attach, remembered = n
         run.controller = new AbortController();
         // One change for the whole list (a change per song would redraw the page once per song), and it is announced before
         // anything is awaited, so the page shows the run at once
-        for (const item of items.values()) if (!DONE_STATES.includes(item.state)) item.state = 'queued';
+        queue.length = 0;
+        for (const song of songs) {
+            const item = items.get(song.id);
+            if (ids ? !ids.includes(song.id) : DONE_STATES.includes(item.state)) continue;
+            item.state = 'queued';
+            queue.push(song);
+        }
         notify();
         try {
             await around(async () => {
-                for (const song of songs) {
-                    if (run.controller.signal.aborted) break;
-                    if (DONE_STATES.includes(items.get(song.id).state)) continue;
-                    run.current = song.id;
-                    await settle(song);
-                }
+                pump();
+                while (inflight.size) await Promise.race(inflight);
             });
         } catch (error) {
             run.error = error?.message || 'The run stopped.';
         } finally {
             run.stopped = run.controller.signal.aborted;
+            queue.length = 0;
             for (const item of items.values()) if (item.state === 'searching' || item.state === 'queued') Object.assign(item, { state: 'queued', fraction: null, label: '' });
             run.running = false;
             run.stopping = false;
@@ -103,16 +124,37 @@ export function createFillRun({ songs, sources, fetchOne, attach, remembered = n
         }
     }
 
+    /**
+     * Puts one song in the queue to be asked of `list` (the run's own providers when omitted). While a run is going the song
+     * waits its turn; otherwise a run of just that song starts. Resolves when the song's turn is over.
+     */
+    function enqueue(song, list = null) {
+        if (!items.has(song.id)) {
+            songs.push(song);
+            items.set(song.id, { state: 'queued', label: '', fraction: null, message: '', choose: null, source: null });
+        } else if (items.get(song.id).state === 'searching' || queue.includes(song)) {
+            return Promise.resolve();
+        }
+        if (list) only.set(song.id, list); else only.delete(song.id);
+        Object.assign(items.get(song.id), { state: 'queued', message: '', choose: null, fraction: null, label: '' });
+        if (!run.running) return start([song.id]);
+        queue.push(song);
+        notify();
+        pump();
+        return Promise.resolve();
+    }
+
     /** Asks again for a parked song with the match a person chose. */
     async function resolvePick(songId, value) {
         const item = items.get(songId);
         const song = songs.find((s) => s.id === songId);
         if (!item?.choose || !song) return;
         const { addressFor, sourceId } = item.choose;
-        const sourceIndex = Math.max(0, sources.findIndex((s) => s.id === sourceId));
+        const list = only.get(songId) || sources;
+        const sourceIndex = Math.max(0, list.findIndex((s) => s.id === sourceId));
         run.controller = new AbortController();
         try {
-            await settle(song, sourceIndex, addressFor(value));
+            await settle(song, sourceIndex, addressFor(value), list);
         } catch (error) {
             set(songId, { state: 'failed', message: error?.message || 'Could not fetch a tab.', choose: null });
         }
@@ -136,5 +178,5 @@ export function createFillRun({ songs, sources, fetchOne, attach, remembered = n
         return n;
     }
 
-    return { items, run, start, stop, resolvePick, requeue, counts };
+    return { items, run, only, start, enqueue, stop, resolvePick, requeue, counts };
 }

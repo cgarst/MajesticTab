@@ -14,6 +14,9 @@ import { attachTabToSong, openTabFromUrl } from '../fileProviders.js';
 import { holdSync } from '../autoSync.js';
 import { showToast } from '../utils/toast.js';
 import { createFillRun } from './fillRun.js';
+
+// How many songs are asked for at once: the services download and convert audio, so one at a time
+const FETCH_AT_ONCE = 1;
 import { fetchTabForSong } from './fetchForSong.js';
 import { setGuideTarget } from './guideTarget.js';
 import { loadFillState, saveFillState, snapshotOf } from './fillStore.js';
@@ -251,17 +254,23 @@ export function renderMissingTabsTool(container) {
             ${scoped.map((song) => {
               const status = rowStatusText(song.id);
               const state = stateOf(song.id);
+              // A song being asked for, or waiting its turn, shows its status where the Search button is, so the row keeps its height
+              const active = state === 'searching' || (state === 'queued' && running);
+              const fraction = state === 'searching' ? fill.run.items.get(song.id)?.fraction : null;
               return `
               <div class="missingtabs-row" role="listitem">
                 <div class="missingtabs-info">
                   <span class="missingtabs-title">${esc(song.title)}</span>
-                  <span class="missingtabs-sub">${esc(song.artist)}${song.album ? ` · ${esc(song.album)}` : ''}${status ? ` · ${esc(status)}` : ''}</span>
+                  <span class="missingtabs-sub">${esc(song.artist)}${song.album ? ` · ${esc(song.album)}` : ''}${status && !active ? ` · ${esc(status)}` : ''}</span>
                 </div>
                 <div class="missingtabs-meta">
-                  ${state === 'pick' && !running
+                  ${active
+                    ? `<span class="missingtabs-state" title="${esc(status)}">${esc(status)}</span>`
+                    : state === 'pick' && !running
                     ? `<button type="button" class="btn btn-sm btn-theme-outline" data-act="pick-song" data-song-id="${esc(song.id)}" aria-label="Choose a match for ${esc(song.artist)} – ${esc(song.title)}">Choose</button>`
-                    : splitButton({ menu: song.id, songId: song.id, act: 'search-song', label: 'Search', ariaLabel: `Search for ${song.artist} – ${song.title}`, defaults: [getSources()[0]?.id], disabled: running })}
+                    : splitButton({ menu: song.id, songId: song.id, act: 'search-song', label: 'Search', ariaLabel: `Search for ${song.artist} – ${song.title}`, defaults: lanes?.api.length ? lanes.api.map((p) => p.id) : [getSources()[0]?.id] })}
                 </div>
+                ${fraction != null ? `<span class="missingtabs-bar" style="transform: scaleX(${Math.max(0, Math.min(1, fraction))})"></span>` : ''}
               </div>`;
             }).join('')}
           </div>`;
@@ -331,7 +340,7 @@ export function renderMissingTabsTool(container) {
         const restored = { ...saved.items };
         for (const [id, item] of Object.entries(restored)) if (!byId.has(id) && item.state !== 'added') delete restored[id];
         const run = createFillRun({ songs: runSongs, sources: lanes.api, remembered: notFound, restored, fetchOne: fetchTabForSong, around: holdSync,
-            attach: (file, song) => attachTabToSong(file, song, { quiet: true }), onChange: notify });
+            concurrency: FETCH_AT_ONCE, attach: (file, song) => attachTabToSong(file, song, { quiet: true }), onChange: notify });
         fill = { run, songIds: runSongs.map((s) => s.id) };
     }
 
@@ -350,20 +359,42 @@ export function renderMissingTabsTool(container) {
             fetchOne: fetchTabForSong,
             attach: (file, song) => attachTabToSong(file, song, { quiet: true }),
             around: holdSync,
+            concurrency: FETCH_AT_ONCE,
             onChange: notify
         });
         if (fill) for (const [id, item] of fill.run.items) if (run.items.has(id) && (only ? item.state === 'added' : ['added', 'pick'].includes(item.state))) Object.assign(run.items.get(id), item);
         fill = { run, songIds: scope.map((s) => s.id) };
         menuOpen = '';
         await run.start();
-        // Remember what no provider had, so the next run skips it until it is asked again
+        afterRun(run, Boolean(only));
+    }
+
+    /** Remembers what no provider had, so the next run skips it until it is asked again, and tells the library about new tabs. */
+    function afterRun(run, onlyOne) {
         for (const [id, item] of run.items) {
-            // Only a run of every provider says no provider has it
-            if (item.state === 'missing' && !only) notFound.add(id);
+            // Only a song asked of every provider says no provider has it
+            if (item.state === 'missing' && !onlyOne && !run.only.has(id)) notFound.add(id);
             else if (item.state === 'added') notFound.delete(id);
         }
         if (run.counts().added) window.dispatchEvent(new CustomEvent('libraryDataChanged'));
         notify();
+    }
+
+    /** A row's Search with a provider that fetches: the song joins the queue (two are asked for at once) and its row shows the progress. */
+    async function searchSong(song, source = null) {
+        if (!lanes?.api.length) return;
+        const list = source ? [source] : lanes.api;
+        if (!fill) {
+            const run = createFillRun({ songs: [], sources: lanes.api, remembered: notFound, fetchOne: fetchTabForSong, around: holdSync,
+                concurrency: FETCH_AT_ONCE, attach: (file, s) => attachTabToSong(file, s, { quiet: true }), onChange: notify });
+            fill = { run, songIds: [] };
+        }
+        if (!fill.songIds.includes(song.id)) fill.songIds.push(song.id);
+        menuOpen = '';
+        const run = fill.run;
+        const wasRunning = run.run.running;
+        await run.enqueue(song, source ? list : null);
+        if (!wasRunning) afterRun(run, false);
     }
 
     async function retryNotFound() {
@@ -484,7 +515,8 @@ export function renderMissingTabsTool(container) {
                 else startGuide(source.id);
             } else {
                 const song = songs.find((x) => x.id === songId);
-                if (song) openWebSearch({ artist: song.artist, songName: song.title, query: `${song.artist} ${song.title}`.trim(), songId: song.id, targetSong: song, targetSourceId: source.id });
+                if (song && lanes?.api.some((x) => x.id === source.id)) searchSong(song, source);
+                else if (song) openWebSearch({ artist: song.artist, songName: song.title, query: `${song.artist} ${song.title}`.trim(), songId: song.id, targetSong: song, targetSourceId: source.id });
                 render();
             }
             return;
@@ -522,7 +554,8 @@ export function renderMissingTabsTool(container) {
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         } else if (act === 'search-song' && songs) {
             const song = songs.find((s) => s.id === e.target.closest('[data-act]').dataset.songId);
-            if (song) {
+            if (song && lanes?.api.length) searchSong(song);
+            else if (song) {
                 openWebSearch({
                     artist: song.artist,
                     songName: song.title,

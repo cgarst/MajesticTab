@@ -177,3 +177,38 @@ test('a link the walkthrough is waiting for is taken, and nothing is claimed whe
     setGuideTarget(null);
     assert.equal(await claimUrlForGuide('https://svc.test/tab.gp5'), false);
 });
+
+test('a song joins the queue while a run goes, and `concurrency` many are asked for at once', async () => {
+    let live = 0; let peak = 0;
+    const gates = [];
+    const run = createFillRun({
+        songs: [song('a', 'One'), song('b', 'Two'), song('c', 'Three')],
+        sources: [SRC('s1')],
+        concurrency: 2,
+        fetchOne: async (s) => { live++; peak = Math.max(peak, live); await new Promise((r) => gates.push(r)); live--; return { kind: 'file', file: file(`${s.title}.gp5`) }; },
+        attach: async () => true
+    });
+    const done = run.start();
+    await 0; await 0;
+    assert.equal(live, 2);
+    run.enqueue(song('d', 'Four'));
+    assert.equal(run.items.get('d').state, 'queued');
+    while (run.run.running) { gates.splice(0).forEach((r) => r()); await new Promise((r) => setTimeout(r, 0)); }
+    await done;
+    assert.equal(peak, 2);
+    assert.equal(run.counts().added, 4);
+});
+
+test('enqueue with no run going runs just that song, with its own providers', async () => {
+    const asked = [];
+    const run = createFillRun({
+        songs: [song('a', 'One'), song('b', 'Two')],
+        sources: [SRC('s1')],
+        fetchOne: async (s, source) => { asked.push(`${s.id}:${source.id}`); return { kind: 'file', file: file('x.gp5') }; },
+        attach: async () => true
+    });
+    await run.enqueue(song('b', 'Two'), [SRC('s2')]);
+    assert.deepEqual(asked, ['b:s2']);
+    assert.equal(run.items.get('a').state, 'queued');
+    assert.equal(run.items.get('b').state, 'added');
+});
