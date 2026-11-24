@@ -1248,7 +1248,7 @@ function leaveEmbeddedBackup() {
  * in a part, its library attachment and its entry. `song` is the lowercased key the recording meta is stored under, so the
  * file's own song keys are matched without regard to case.
  */
-async function removeStemCopy(song, audioId) {
+export async function removeStemCopy(song, audioId) {
     const rec = await getAudioFile(audioId);
     const keys = (rec?.songKeys || []).filter((k) => String(k).toLowerCase() === song);
     if (!keys.length) keys.push(song);

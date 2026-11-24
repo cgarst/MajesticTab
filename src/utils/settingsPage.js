@@ -479,17 +479,39 @@ export function initSettingsPage() {
     panes.library.appendChild(taskGroup('Back up and restore',
         ...[taskRow('backup', 'Create a backup', 'Save your library to one file you keep.', 'Create'),
             taskRow('restore', 'Restore from a backup', 'Bring a backup file back.', 'Restore')]));
-    panes.library.appendChild(taskGroup('Upkeep',
+    // Upkeep: the two everyday tasks stay in view; the repairs sit behind "Advanced procedures"
+    const advancedRows = el('div', 'srows-advanced');
+    advancedRows.hidden = true;
+    const advancedTasks = [
+        taskRow('duplicates', 'Duplicate songs', 'Find songs listed more than once, such as a second disc of the same album, and merge or remove the extra copies.', 'Review', false, 'Review duplicate songs'),
+        taskRow('mixedalbums', 'Mixed-up albums', 'Find songs filed under the wrong album, such as one given another album\'s year, and move them back.', 'Review', false, 'Review mixed-up albums'),
+        taskRow('tabsets', 'Tab sets', 'Put the notation and tablature of one part in a single row, so a song lists once.', 'Review', false, 'Review tab sets'),
+        taskRow('dupetabs', 'Duplicate tabs', 'Find tabs stored twice under one song, whatever they are called.', 'Review', false, 'Review duplicate tabs'),
+        taskRow('missing', 'Missing files', 'Find tabs whose file is no longer stored on this device.', 'Review', false, 'Review missing files'),
+        taskRow('stemrepair', 'Stems listed as audio', 'Find stems still listed as recordings of their own beside their set and file them as stems, and remove a second file of a part the set already has.', 'Review', false, 'Review stems listed as audio'),
+        taskRow('syncshrink', 'Map records', 'Shrink map points that older imports saved more than once.', 'Review', false, 'Review map records'),
+        taskRow('rebuild', 'Packs with extra audio', 'Find songs whose pack holds audio of other songs, and send them again.', 'Review', false, 'Review packs with extra audio')
+    ];
+    advancedTasks.forEach((t) => t.forEach((n) => advancedRows.appendChild(n)));
+    const advancedBtn = el('button', 'btn btn-sm srow-ghost srow-hit', 'Show');
+    advancedBtn.type = 'button';
+    advancedBtn.setAttribute('aria-expanded', 'false');
+    advancedBtn.setAttribute('aria-label', 'Advanced procedures');
+    advancedBtn.addEventListener('click', () => {
+        const open = advancedBtn.getAttribute('aria-expanded') !== 'true';
+        // Closing also closes a task that is open inside, so nothing is left running out of sight
+        if (!open) advancedRows.querySelectorAll('.srow-task button[aria-expanded="true"]').forEach((b) => b.click());
+        advancedRows.hidden = !open;
+        advancedBtn.setAttribute('aria-expanded', String(open));
+        advancedBtn.textContent = open ? 'Hide' : 'Show';
+    });
+    const advancedRow = row('Advanced procedures', 'Duplicates, tab sets, missing files and other repairs.', advancedBtn);
+    advancedRow.classList.add('srow-task');
+    const upkeep = taskGroup('Upkeep',
         ...[taskRow('reload', 'Reload library metadata', 'Refresh covers, durations and album details.', 'Reload'),
-            taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Review', false, 'Review orphaned files'),
-            taskRow('duplicates', 'Duplicate songs', 'Find songs listed more than once, such as a second disc of the same album, and merge or remove the extra copies.', 'Review', false, 'Review duplicate songs'),
-            taskRow('mixedalbums', 'Mixed-up albums', 'Find songs filed under the wrong album, such as one given another album\'s year, and move them back.', 'Review', false, 'Review mixed-up albums'),
-            taskRow('tabsets', 'Tab sets', 'Put the notation and tablature of one part in a single row, so a song lists once.', 'Review', false, 'Review tab sets'),
-            taskRow('dupetabs', 'Duplicate tabs', 'Find tabs stored twice under one song, whatever they are called.', 'Review', false, 'Review duplicate tabs'),
-            taskRow('missing', 'Missing files', 'Find tabs whose file is no longer stored on this device.', 'Review', false, 'Review missing files'),
-            taskRow('stemrepair', 'Stems listed as audio', 'Find stems still listed as recordings of their own beside their set and file them as stems, and remove a second file of a part the set already has.', 'Review', false, 'Review stems listed as audio'),
-            taskRow('syncshrink', 'Map records', 'Shrink map points that older imports saved more than once.', 'Review', false, 'Review map records'),
-            taskRow('rebuild', 'Packs with extra audio', 'Find songs whose pack holds audio of other songs, and send them again.', 'Review', false, 'Review packs with extra audio')]));
+            taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Review', false, 'Review orphaned files')], advancedRow);
+    upkeep.querySelector('.srows').appendChild(advancedRows);
+    panes.library.appendChild(upkeep);
     // Classical tab sits in Data management, above the Danger zone; renderClasstabPane fills it
     const classtabHost = el('div', 'classtab-host');
     panes.library.appendChild(classtabHost);

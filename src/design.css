@@ -6010,6 +6010,23 @@ input[type=range]::-moz-range-thumb,
 .stor-refresh { flex: none; margin-left: auto; }
 .stor-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--ink2); }
 .stor-legend li { display: inline-flex; align-items: center; gap: 8px; }
+.srows-advanced:not([hidden]) { display: contents; }
+.stor-largest { display: flex; flex-direction: column; gap: 8px; }
+.stor-more { align-self: flex-start; background: transparent; border: 0; padding: 0 8px; margin-left: -8px; min-height: 24px; color: var(--ink2); font-size: 13px; font-weight: 500; border-radius: var(--r-control, 8px); }
+.stor-more[aria-expanded="true"] { color: var(--ink); }
+@media (hover: hover) { .stor-more:hover { background: var(--s3); color: var(--ink); } }
+.stor-more:focus-visible, .stor-files:focus-visible { outline: 2px solid var(--hue); outline-offset: 1px; }
+@media (pointer: coarse) { .stor-more { min-height: 44px; } }
+.stor-files { margin: 0; padding: 0; list-style: none; max-height: 320px; overflow-y: auto; overscroll-behavior: contain; background: var(--s1); border-radius: var(--r-control, 8px); }
+.stor-files li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 13px; color: var(--ink); content-visibility: auto; contain-intrinsic-size: auto 36px; }
+.stor-files li:nth-child(even) { background: var(--s2); }
+.stor-file-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.stor-file-owner { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--ink2); }
+.stor-file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stor-file-size { flex: none; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.stor-del { padding: 0 8px; }
+.stor-del.is-armed { color: var(--ink); background: var(--s3); }
+.stor-files .stor-files-more { justify-content: center; background: transparent; }
 .stor-key { display: block; width: 10px; height: 10px; border-radius: 3px; flex: none; }
 
 /* ==========================================================================

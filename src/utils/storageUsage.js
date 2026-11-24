@@ -2,7 +2,7 @@
 // The storage diagram at the top of Settings, Data management: two bars, one for this device and one for cloud storage,
 // drawn to the same scale, with one legend. One hue per kind (see agents/ui-principles.md). The device figures are read from the local stores at once. Cloud storage is listed over
 // the network, so its figures are kept from the last time and "Refresh" lists it again.
-import { USAGE_KINDS, emptyUsage, cloudUsageFromEntries, sumSizes, totalOf, barSegments } from './storageUsageCore.js';
+import { USAGE_KINDS, emptyUsage, cloudUsageFromEntries, sumSizes, totalOf, barSegments, stemGroupsFromMeta, largestRows } from './storageUsageCore.js';
 import { formatBytes } from '../backupRestore.js';
 
 const CACHE_KEY = 'majestictab_cloud_usage';
@@ -38,6 +38,64 @@ export async function readDeviceUsage() {
     const [files, audio, fonts, classtab, art] = await Promise.all([getAllStoredFiles(), listAudioFiles(), listSoundFonts(), listClasstab(), artCacheBytes()]);
     return { ...emptyUsage(), tabs: sumSizes(files), audio: sumSizes(audio), fonts: sumSizes(fonts), classtab: sumSizes(classtab), cache: art + localCacheBytes() };
 }
+
+/** Every file on this device as one row, biggest first (the audio files of a stem set are one row). */
+export async function readLargestFiles() {
+    const [{ getAllStoredFiles }, { listAudioFiles }, { listSoundFonts }, { listClasstab }] = await Promise.all([
+        import('../fileStore.js'), import('../audioSync/audioFileStore.js'), import('../soundFontStore.js'), import('../classtab/backup.js'),
+    ]);
+    const [tabFiles, audio, fonts, classtab] = await Promise.all([getAllStoredFiles(), listAudioFiles(), listSoundFonts(), listClasstab()]);
+    // A tab belongs to the song that lists it, or to the album when it is an album's own tab; a file no song lists has no owner
+    const owners = new Map();
+    try {
+        for (const song of await (await import('../libraryStore.js')).getAllSongs()) {
+            const label = song.isAlbumTabContainer ? `Album: ${song.album || song.title}${song.artist ? ` · ${song.artist}` : ''}` : `${song.artist ? `${song.artist} - ` : ''}${song.title}`;
+            for (const t of song.tabOptions || []) {
+                if (!t?.fileStoreId) continue;
+                const prev = owners.get(t.fileStoreId);
+                owners.set(t.fileStoreId, prev && prev !== label ? `${prev}, ${label}` : label);
+            }
+        }
+    } catch { /* the library is unavailable: rows show without an owner */ }
+    const tabs = tabFiles.map((f) => ({ ...f, owner: owners.get(f.id) || 'Not in any song' }));
+    const metas = [];
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('rec_meta_')) metas.push({ song: decodeURIComponent(k.slice('rec_meta_'.length)), map: JSON.parse(localStorage.getItem(k) || '{}') });
+        }
+    } catch { /* storage unavailable or an unreadable entry */ }
+    return largestRows({ tabs, audio, fonts, classtab }, stemGroupsFromMeta(metas));
+}
+
+/**
+ * Deletes what a row stands for and updates the songs that listed it. A tab leaves every song that lists it (a song left
+ * without a tab is handled as when a tab is removed anywhere else), audio leaves its songs as the player's Remove does, and
+ * a sound font leaves the selection. The Classical tab archive is removed from its own section, not here.
+ */
+export async function deleteLargestRow(row) {
+    if (row.kind === 'tabs') {
+        const { getAllSongs, removeTabOptionFromSong, deleteOrphanedStoredFiles } = await import('../libraryStore.js');
+        const ids = new Set(row.ids);
+        for (const song of await getAllSongs()) {
+            for (const t of song.tabOptions || []) {
+                if (ids.has(t.fileStoreId)) await removeTabOptionFromSong(song.id, t.id);
+            }
+        }
+        await deleteOrphanedStoredFiles(row.ids); // a file no song listed
+    } else if (row.kind === 'audio') {
+        const { removeStemCopy } = await import('../backupRestore.js');
+        for (const id of row.ids) for (const song of row.songs.length ? row.songs : ['']) await removeStemCopy(song, id);
+        window.dispatchEvent(new CustomEvent('library:refresh'));
+    } else if (row.kind === 'fonts') {
+        const { deleteSoundFont } = await import('../soundFontStore.js');
+        for (const id of row.ids) await deleteSoundFont(id);
+    }
+}
+
+export const canDeleteRow = (row) => row.kind !== 'classtab';
+
+const PAGE = 50;
 
 /** What cloud storage holds, by kind. Null when there is no location or it cannot be reached without asking. */
 async function readCloudUsage() {
@@ -125,6 +183,85 @@ export function createStorageDiagram() {
         refreshBtn.addEventListener('click', () => refresh(true));
         foot.appendChild(refreshBtn);
         root.appendChild(foot);
+        root.appendChild(largestBlock());
+    };
+
+    // The "Largest files" disclosure: a scrollable list of this device's files by size, shown a page at a time
+    let largestOpen = false;
+    let largest = null;     // rows, or null while reading
+    let largestShown = PAGE;
+    const loadLargest = async () => {
+        const mine = ++largestSeq;
+        try { const rows = await readLargestFiles(); if (mine === largestSeq) largest = rows; }
+        catch (err) { console.warn('[Storage] Largest files failed', err); if (mine === largestSeq) largest = []; }
+        if (mine === largestSeq) draw(lastDevice);
+    };
+    let largestSeq = 0;
+    // Delete asks twice: the first press turns the button to "Confirm", which lapses after a few seconds
+    let armedRow = null;
+    let armTimer = null;
+    const deleteButton = (r) => {
+        const armed = armedRow === r;
+        const b = node('button', `stor-refresh stor-del${armed ? ' is-armed' : ''}`, armed ? 'Confirm' : 'Delete');
+        b.type = 'button';
+        b.setAttribute('aria-label', `${armed ? 'Confirm delete' : 'Delete'} ${r.name}`);
+        b.addEventListener('click', async () => {
+            clearTimeout(armTimer);
+            if (!armed) {
+                armedRow = r;
+                armTimer = setTimeout(() => { armedRow = null; draw(lastDevice); }, 4000);
+                draw(lastDevice);
+                return;
+            }
+            armedRow = null;
+            b.disabled = true;
+            try {
+                await deleteLargestRow(r);
+                largest = largest.filter((x) => x !== r);
+            } catch (err) { console.warn('[Storage] Delete failed', err); cloudNote = 'That could not be deleted.'; }
+            await refresh();
+        });
+        return b;
+    };
+    const largestBlock = () => {
+        const wrap = node('div', 'stor-largest');
+        const toggle = node('button', 'stor-more', largestOpen ? 'Hide largest files' : 'Show largest files');
+        toggle.type = 'button';
+        toggle.setAttribute('aria-expanded', String(largestOpen));
+        toggle.addEventListener('click', () => {
+            largestOpen = !largestOpen;
+            if (largestOpen) { largest = null; largestShown = PAGE; draw(lastDevice); loadLargest(); } else draw(lastDevice);
+        });
+        wrap.appendChild(toggle);
+        if (!largestOpen) return wrap;
+        if (!largest) { wrap.appendChild(node('p', 'stor-note', 'Reading…')); return wrap; }
+        if (!largest.length) { wrap.appendChild(node('p', 'stor-note', 'No files on this device.')); return wrap; }
+        const list = node('ol', 'stor-files');
+        list.tabIndex = 0;
+        list.setAttribute('aria-label', 'Files on this device by size');
+        for (const r of largest.slice(0, largestShown)) {
+            const li = node('li');
+            const text = node('span', 'stor-file-text');
+            text.append(node('span', 'stor-file-name', r.name));
+            if (r.owner && r.owner !== r.name) text.appendChild(node('span', 'stor-file-owner', r.owner));
+            li.append(node('i', `stor-key stor-k${r.index}`), text, node('span', 'stor-file-size', formatBytes(r.bytes)));
+            if (canDeleteRow(r)) li.appendChild(deleteButton(r));
+            list.appendChild(li);
+        }
+        if (largest.length > largestShown) {
+            const li = node('li', 'stor-files-more');
+            const more = node('button', 'stor-refresh', `Show ${Math.min(PAGE, largest.length - largestShown)} more of ${largest.length - largestShown}`);
+            more.type = 'button';
+            more.addEventListener('click', () => {
+                const top = list.scrollTop;
+                largestShown += PAGE; draw(lastDevice);
+                const again = root.querySelector('.stor-files'); if (again) again.scrollTop = top;
+            });
+            li.appendChild(more);
+            list.appendChild(li);
+        }
+        wrap.appendChild(list);
+        return wrap;
     };
 
     let lastDevice = emptyUsage();
@@ -160,6 +297,7 @@ export function createStorageDiagram() {
         try { lastDevice = await readDeviceUsage(); } catch (err) { console.warn('[Storage] Device usage failed', err); }
         deviceReady = true;
         draw(lastDevice);
+        if (largestOpen) loadLargest();
         await loadCloud(force);
     };
 
