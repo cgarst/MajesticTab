@@ -239,12 +239,28 @@ export async function adoptLibraryAudio(songId, songKey) {
     const list = readLibraryAudio(songId);
     if (!list.length) return;
     const { linkAudioFile, getAudioMeta } = await import('./audioFileStore.js');
+    const { listRecordingMeta, setRecordingMeta } = await import('./recordingMeta.js');
+    const { stemsOfMeta } = await import('./stemSet.js');
+    const sibling = [ownSongKey(songId), ...songAudioKeys({ id: songId })].filter((k) => k && k.toLowerCase() !== songKey.toLowerCase());
     let changed = false;
     let linked = false;
     for (const { audioId, slot } of list) {
         if (!(await getAudioMeta(audioId))) continue;
         await linkAudioFile(audioId, songKey);
         linked = true;
+        // A stem set lives in the lead file's recording meta under the key it was attached with. Without it under this key the
+        // player sees only the lead file, not the parts, so carry the set over (and link its parts) when this key has none.
+        const mk = { kind: 'local', audioId };
+        if (!stemsOfMeta(listRecordingMeta(songKey)[`local_${audioId}`])) {
+            for (const k of sibling) {
+                const m = listRecordingMeta(k)[`local_${audioId}`];
+                const parts = stemsOfMeta(m);
+                if (!parts) continue;
+                setRecordingMeta(songKey, mk, m);
+                for (const part of parts) if (part.audioId !== audioId && await getAudioMeta(part.audioId)) await linkAudioFile(part.audioId, songKey);
+                break;
+            }
+        }
         const current = read(slotFileKey(songKey, slot));
         if (current && (await getAudioMeta(current))) continue;
         write(slotFileKey(songKey, slot), audioId);

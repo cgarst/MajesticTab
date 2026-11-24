@@ -323,13 +323,16 @@ async function syncCopyTargetsOf(song, row, { hash: wantHash = true } = {}) {
         const t = (song.tabOptions || []).find((x) => x.id === row.id);
         if (!t) return what;
         what.scoreIds.push(t.id);
-        let hash = t.sha256 || null;
-        if (!hash && wantHash && t.fileStoreId) {
+        // The stored file is the truth: a recorded sha256 can be stale (copied from another tab), which would
+        // point this row at, and delete, a different tab's file in the cloud library.
+        let hash = null;
+        if (wantHash && t.fileStoreId) {
             try {
                 const stored = await getStoredFile(t.fileStoreId);
                 if (stored?.file) hash = await sha256(new Uint8Array(await stored.file.arrayBuffer()));
-            } catch { /* the tab then matches by id */ }
+            } catch { /* fall back to the recorded hash, then the id */ }
         }
+        if (!hash) hash = t.sha256 || null;
         if (hash) what.scoreHashes.push(hash);
     } else if (row.kind === 'audio') {
         for (const id of row.ids) {
