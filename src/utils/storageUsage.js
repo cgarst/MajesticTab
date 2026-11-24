@@ -85,7 +85,14 @@ export async function deleteLargestRow(row) {
         await deleteOrphanedStoredFiles(row.ids); // a file no song listed
     } else if (row.kind === 'audio') {
         const { removeStemCopy } = await import('../backupRestore.js');
-        for (const id of row.ids) for (const song of row.songs.length ? row.songs : ['']) await removeStemCopy(song, id);
+        const { getAudioFile, deleteAudioFile } = await import('../audioSync/audioFileStore.js');
+        for (const id of row.ids) {
+            // Every song that lists the file, not only the ones the row knew, then the file itself (it may list none)
+            const keys = new Set(row.songs);
+            for (const k of (await getAudioFile(id))?.songKeys || []) keys.add(String(k).toLowerCase());
+            for (const song of keys) await removeStemCopy(song, id);
+            await deleteAudioFile(id);
+        }
         window.dispatchEvent(new CustomEvent('library:refresh'));
     } else if (row.kind === 'fonts') {
         const { deleteSoundFont } = await import('../soundFontStore.js');
@@ -154,6 +161,7 @@ export function createStorageDiagram() {
         const { bytes: cloudBytes } = cloud || {};
         const hasCloud = Boolean(cloud?.target);
         const scale = Math.max(totalOf(device), totalOf(cloudBytes));
+        const keepTop = root.querySelector('.stor-files')?.scrollTop || 0;
         root.replaceChildren();
         root.appendChild(barBlock('This device', device, scale, deviceReady ? undefined : 'Reading…', !deviceReady));
         if (hasCloud) {
@@ -184,6 +192,8 @@ export function createStorageDiagram() {
         foot.appendChild(refreshBtn);
         root.appendChild(foot);
         root.appendChild(largestBlock());
+        const again = root.querySelector('.stor-files');
+        if (again && keepTop) again.scrollTop = keepTop;
     };
 
     // The "Largest files" disclosure: a scrollable list of this device's files by size, shown a page at a time
@@ -219,7 +229,22 @@ export function createStorageDiagram() {
                 await deleteLargestRow(r);
                 largest = largest.filter((x) => x !== r);
             } catch (err) { console.warn('[Storage] Delete failed', err); cloudNote = 'That could not be deleted.'; }
-            await refresh();
+            // The sync makes cloud storage follow: it removes from there what is gone here. Without cloud storage or with
+            // automatic sync off, the removal waits for the next sync, and the note says so.
+            let forceCloud = false;
+            let later = '';
+            if (cloud?.target) {
+                try {
+                    const { triggerAutoSync } = await import('../autoSync.js');
+                    const res = await triggerAutoSync({ force: true, reason: 'delete' });
+                    forceCloud = true;
+                    if (res?.status === 'skipped' || res?.status === 'deferred' || res?.status === 'paused') {
+                        later = 'Deleted here. It leaves cloud storage at the next sync.';
+                    }
+                } catch (err) { console.warn('[Storage] Sync after delete failed', err); later = 'Deleted here. It leaves cloud storage at the next sync.'; }
+            }
+            await refresh(forceCloud, true);
+            if (later) { cloudNote = later; draw(lastDevice); }
         });
         return b;
     };
@@ -292,8 +317,8 @@ export function createStorageDiagram() {
         }
     };
 
-    const refresh = async (force = false) => {
-        if (force) { deviceReady = false; draw(lastDevice); }
+    const refresh = async (force = false, quiet = false) => {
+        if (force && !quiet) { deviceReady = false; draw(lastDevice); }
         try { lastDevice = await readDeviceUsage(); } catch (err) { console.warn('[Storage] Device usage failed', err); }
         deviceReady = true;
         draw(lastDevice);
