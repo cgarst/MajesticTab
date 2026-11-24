@@ -140,6 +140,7 @@ function makeProvidersGroup() {
                 const urlInput = el('input', 'form-control form-control-sm font-monospace');
                 urlInput.type = 'text';
                 urlInput.value = src.urlTemplate || '';
+                urlInput.placeholder = 'https://example.com/search?q=$s';
                 urlInput.disabled = Boolean(src.isSeed);
                 const urlHint = el('div', 'form-text small text-white-50 mt-1', 'Use <code>$s</code> where search keywords should be inserted.');
                 const urlWrap = el('div');
@@ -225,6 +226,7 @@ function makeProvidersGroup() {
                         return;
                     }
                     let uVal = urlInput.value.trim() || src.urlTemplate;
+                    if (!uVal) { showToast('Enter a search URL first', 'error'); return; }
                     if (uVal && !/^https?:\/\//i.test(uVal)) uVal = 'https://' + uVal;
                     const draft = {
                         ...src,
@@ -236,6 +238,7 @@ function makeProvidersGroup() {
                     const idx = all.findIndex((s) => s.id === src.id);
                     if (idx !== -1) all[idx] = draft;
                     else all.push(draft);
+                    stampSourceChanges(all);
                     saveSources(all);
                     await hideSettings();
                     openWebSearch({
@@ -258,6 +261,11 @@ function makeProvidersGroup() {
                     const all = getSources();
                     const target = all.find((s) => s.id === src.id);
                     if (target) {
+                        if (!target.isSeed && !urlInput.value.trim() && !target.urlTemplate) {
+                            showToast('Enter a search URL first', 'error');
+                            urlInput.focus();
+                            return;
+                        }
                         if (!target.isSeed) {
                             const trimmedName = nameInput.value.trim();
                             if (trimmedName) target.name = trimmedName;
@@ -325,7 +333,7 @@ function makeProvidersGroup() {
             const newSrc = {
                 id: newId,
                 name: 'Custom Source',
-                urlTemplate: DEFAULT_SOURCES[0].urlTemplate,
+                urlTemplate: '',
                 defaultUrl: '',
                 queryFormat: 'artist_song',
                 isSeed: false
