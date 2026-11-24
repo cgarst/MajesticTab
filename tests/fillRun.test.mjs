@@ -165,3 +165,15 @@ test('the run shows as running, in one change, before it waits on anything', asy
     assert.equal(run.run.running, false);
     assert.equal(run.run.stopping, false);
 });
+
+test('a link the walkthrough is waiting for is taken, and nothing is claimed when it is not waiting', async () => {
+    const { setGuideTarget, claimUrlForGuide, claimForGuide } = await import('../src/bulkFill/guideTarget.js');
+    assert.equal(await claimUrlForGuide('https://svc.test/tab.gp5'), false);
+    const got = [];
+    setGuideTarget({ accept: async () => true, acceptUrl: async (a) => { got.push(a); } });
+    assert.equal(await claimUrlForGuide('https://svc.test/tab.gp5'), true);
+    assert.deepEqual(got, ['https://svc.test/tab.gp5']);
+    assert.equal(await claimForGuide({ name: 'x.gp5' }), true);
+    setGuideTarget(null);
+    assert.equal(await claimUrlForGuide('https://svc.test/tab.gp5'), false);
+});

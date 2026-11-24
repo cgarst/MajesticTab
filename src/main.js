@@ -825,13 +825,6 @@ function setupSettings() {
     }
 }
 
-async function fetchUrlResponse(url) {
-    if (window.__TAURI__?.http?.fetch) {
-        return window.__TAURI__.http.fetch(url);
-    }
-    return fetch(url);
-}
-
 async function handleAppOpenUrl(rawUrl) {
     if (!rawUrl || typeof rawUrl !== 'string') return false;
     let parsed;
@@ -844,56 +837,13 @@ async function handleAppOpenUrl(rawUrl) {
 
     const singleUrl = parsed.searchParams.get('url');
     if (singleUrl) {
+        // While Fill in missing tabs waits for a tab, the file a service sends back belongs to that song
+        if (await (await import('./bulkFill/guideTarget.js')).claimUrlForGuide(singleUrl)) return true;
         const { openTabFromUrl } = await import('./fileProviders.js');
         await openTabFromUrl(singleUrl);
         return true;
     }
 
-    const batchManifestUrl = parsed.searchParams.get('batch');
-    if (batchManifestUrl) {
-        const { showToast } = await import('./utils/toast.js');
-        const { saveMpakToLibrary } = await import('./mpak.js');
-        try {
-            showToast('Fetching batch manifest…', 'info', 2500);
-            const res = await fetchUrlResponse(batchManifestUrl);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
-            const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
-            if (!items.length) {
-                showToast('No tabs ready in that batch.', 'info');
-                return true;
-            }
-            let added = 0;
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                if (!item?.mpakUrl) continue;
-                showToast(`Syncing ${i + 1} of ${items.length} tabs…`, 'info', 2000);
-                try {
-                    const mpakRes = await fetchUrlResponse(item.mpakUrl);
-                    if (!mpakRes.ok) continue;
-                    const buf = await mpakRes.arrayBuffer();
-                    const name = item.fileName || `${item.artist || 'Song'} - ${item.title || i + 1}.mpak`;
-                    const file = new File([buf], name, { type: 'application/x-majestictab-song' });
-                    await saveMpakToLibrary(file, {
-                        targetSongId: item.songId || null,
-                        queryMusicBrainz: true
-                    });
-                    added++;
-                } catch (e) {
-                    console.warn('[App Open URL] Batch item failed:', item.mpakUrl, e);
-                }
-            }
-            if (added > 0) {
-                window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-                showToast(`Synced ${added} ${added === 1 ? 'tab' : 'tabs'} to your library`, 'success');
-            } else {
-                showToast('Could not sync any tabs from that batch.', 'warning');
-            }
-        } catch (err) {
-            showToast(err?.message || 'Could not sync batch.', 'error');
-        }
-        return true;
-    }
     return false;
 }
 

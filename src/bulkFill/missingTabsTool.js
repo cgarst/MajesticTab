@@ -271,7 +271,7 @@ export function renderMissingTabsTool(container) {
         if (!alive || !root.isConnected) return;
         if (!songs) { root.innerHTML = '<p class="ct-sub" role="status">Reading your library…</p>'; return; }
         // The walkthrough claims files only while it is waiting for one
-        setGuideTarget(guide.songs && guide.waiting && guideSong() ? { accept: acceptFile } : null);
+        setGuideTarget(guide.songs && guide.waiting && guideSong() ? { accept: acceptFile, acceptUrl: addFromLink } : null);
         const artists = [...new Set(songs.map((s) => s.artist))].sort(byText);
         if (view.artist && !artists.includes(view.artist)) view.artist = '';
         const scoped = inScope();
