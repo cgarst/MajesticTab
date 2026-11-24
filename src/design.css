@@ -6302,3 +6302,7 @@ html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active)
 .sf-bulk > .tabpick-act { margin-left: auto; }
 .sf-state.is-on, .sf-state { font-size: inherit; }
 .sf-working { margin: 0; padding: 4px 0 0; color: var(--ink); font-size: 13px; font-weight: 600; text-align: right; }
+.sf-link { text-decoration: none; }
+.sf-link:hover, .sf-link:focus-visible { text-decoration: underline; }
+.sf-nested { margin-left: 20px; padding-top: 4px; padding-bottom: 4px; background: var(--s2); }
+@media (hover: hover) { .sf-nested:hover { background: var(--s3); } }

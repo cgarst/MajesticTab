@@ -13,7 +13,7 @@ const SECTIONS = [
     { key: 'tabs', title: 'Tabs', empty: 'No tabs.' },
     { key: 'audio', title: 'Audio', empty: 'No audio files.' },
     { key: 'videos', title: 'YouTube videos', empty: 'No YouTube videos.' },
-    { key: 'sync', title: 'Sync points', empty: 'No sync points.' },
+    { key: 'sync', title: 'Sync points without a file', empty: '' },
 ];
 const WHERE = { device: '', cloud: 'In the cloud library, not downloaded', partial: 'Partly on this device', link: 'A link, nothing stored' };
 // What the last sync recorded for the song, said once at the top: it is the same for every row of the song
@@ -101,23 +101,32 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
     }
     document.addEventListener('keydown', onKey, true);
     modal.querySelector('#sfClose').addEventListener('click', close);
+    modal.addEventListener('click', async (e) => {
+        const a = e.target.closest?.('a.sf-link');
+        if (!a) return;
+        const opener = window.__TAURI__?.opener;
+        if (!opener?.openUrl) return; // a browser follows the link itself
+        e.preventDefault();
+        try { await opener.openUrl(a.href); } catch { /* the link stays */ }
+    });
     modal.addEventListener('mousedown', (e) => { if (e.target === modal) close(); });
 
-    const find = (rid) => SECTIONS.flatMap((s) => data[s.key]).find((r) => rowId(r) === rid);
+    const allRows = () => SECTIONS.flatMap((s) => data[s.key]).flatMap((r) => [r, ...(r.children || [])]);
+    const find = (rid) => allRows().find((r) => rowId(r) === rid);
 
-    const missingFromCopy = () => SECTIONS.flatMap((x) => data[x.key]).some((r) => r.location === 'device' && copy.paths.has(rowId(r)) && !copy.paths.get(rowId(r)).length);
+    const missingFromCopy = () => allRows().some((r) => r.location === 'device' && copy.paths.has(rowId(r)) && !copy.paths.get(rowId(r)).length);
 
-    function rowHtml(r) {
+    function rowHtml(r, nested = false) {
         const meta = [r.source, formatDate(r.addedAt), formatSize(r.size), r.location === 'device' ? '' : WHERE[r.location]].filter(Boolean).join(' · ');
         const canMove = r.kind !== 'sync';
         const inCopy = copy?.paths.get(rowId(r));
         const copyPaths = (inCopy || []).length > 2 ? [`${inCopy[0]} and ${inCopy.length - 1} more`] : (inCopy || []);
         const notInCopy = copy?.found && r.location === 'device' && copy.paths.has(rowId(r)) && !inCopy.length;
-        return `<li class="sf-row" data-rid="${esc(rowId(r))}">
+        return `<li class="${nested ? 'sf-row sf-nested' : 'sf-row'}" data-rid="${esc(rowId(r))}">
           <div class="sf-text">
-            <span class="sf-name">${esc(r.name)}</span>
+            ${r.url ? `<a class="sf-name sf-link" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" title="Open on YouTube">${esc(r.name)}</a>` : `<span class="sf-name">${esc(r.name)}</span>`}
             ${r.detail && !r.name.toLowerCase().startsWith(r.detail.toLowerCase()) ? `<span class="sf-detail">${esc(r.detail)}</span>` : ''}
-            <span class="sf-meta">${r.kind !== 'tab' ? `<span class="${r.selected ? 'sf-state is-on' : 'sf-state'}">${r.selected ? `Selected for ${esc(r.selected)}` : 'Not selected'}</span>${meta ? ' \u00b7 ' : ''}` : ''}${esc(meta)}</span>
+            <span class="sf-meta">${r.kind !== 'tab' && !nested ? `<span class="${r.selected ? 'sf-state is-on' : 'sf-state'}">${r.selected ? `Selected for ${esc(r.selected)}` : 'Not selected'}</span>${meta ? ' \u00b7 ' : ''}` : ''}${esc(meta)}</span>
             ${r.kind === 'tab' || r.kind === 'audio' ? `<span class="sf-path" title="Path in the library on this device">Library: ${esc(r.location === 'cloud' ? 'not on this device' : (r.libraryPath || r.name))}</span>` : ''}
             ${(r.kind === 'tab' || r.kind === 'audio') && copy?.found ? `<span class="sf-path" title="Path in the cloud library">Cloud: ${notInCopy || !copyPaths.length ? 'not in the cloud library' : esc(copyPaths.join(', '))}</span>` : ''}
           </div>
@@ -135,6 +144,7 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
         </li>`;
     }
 
+    // Sync points under a file go with it, so only the files and the unmapped sync points are counted
     const unusedRows = () => ['audio', 'videos', 'sync'].flatMap((k) => data[k]).filter((r) => !r.selected);
     const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
     function bulkHtml() {
@@ -166,11 +176,12 @@ export async function openSongFilesDialog(songId, { onChanged = null } = {}) {
         const syncNote = line ? `<p class="sf-sync">${esc(line)}</p>` : '';
         return syncNote + SECTIONS.map((s) => {
             const rows = data[s.key];
+            if (s.key === 'sync' && !rows.length) return '';
             return `<section class="sf-section" aria-labelledby="sf_${s.key}">
               <h6 class="sf-heading" id="sf_${s.key}">${s.title}${rows.length ? `<span class="sf-count"> · ${rows.length}</span>` : ''}</h6>
-              ${rows.length ? `<ul class="sf-list">${rows.map(rowHtml).join('')}</ul>` : `<p class="sf-empty">${s.empty}</p>`}
+              ${rows.length ? `<ul class="sf-list">${rows.map((r) => rowHtml(r) + (r.children || []).map((c) => rowHtml(c, true)).join('')).join('')}</ul>` : `<p class="sf-empty">${s.empty}</p>`}
             </section>`;
-        }).join('') + bulkHtml() + '<p class="sf-note">Sync points belong to the audio or video they map: they move and are deleted with it, or on their own when you delete them here.</p>';
+        }).join('') + bulkHtml() + '<p class="sf-note">Sync points sit under the audio or video they map and move or delete with it. You can also delete a set on its own.</p>';
     }
 
     function moveRows(query) {

@@ -166,7 +166,50 @@ async function audioRows(song, keys, selected) {
     return rows;
 }
 
+/** The title and channel the player remembered for a video (filled by `namePlayedVideos`), or null. */
+function infoOf(id) {
+    try {
+        const j = JSON.parse(localStorage.getItem(`yt_info_${id}`) || 'null');
+        return j && (j.title || j.author) ? j : null;
+    } catch { return null; }
+}
+
+/** Looks up the title of each video not yet remembered (a short wait; offline it simply gives up). */
+async function nameVideos(ids) {
+    const missing = ids.filter((id) => !infoOf(id));
+    if (!missing.length) return;
+    try {
+        const { lookupVideoInfo } = await import('./soundPlayer.js');
+        await Promise.race([Promise.all(missing.map((id) => lookupVideoInfo(id))), new Promise((r) => setTimeout(r, 2500))]);
+    } catch { /* names are optional */ }
+}
+
+/**
+ * The tab a song key stands for, for saying which tab a set of sync points is aligned to. The key a tab was opened under is
+ * remembered with its tab name; a key that is only the song's own name (or a name no tab carries) is shared by every tab.
+ */
+function tabOfKeyFn(song) {
+    let entries = [];
+    try { entries = JSON.parse(localStorage.getItem(`yt_song_keys_${song.id}`) || '[]'); } catch { /* none remembered */ }
+    const byKey = new Map();
+    for (const e of entries) {
+        const o = typeof e === 'string' ? { key: e } : e;
+        if (o?.key && !byKey.has(lower(o.key))) byKey.set(lower(o.key), o);
+    }
+    const tabs = song.tabOptions || [];
+    return (key) => {
+        const k = lower(key);
+        const e = byKey.get(k);
+        const named = [e?.tabName, e?.filename, key].filter(Boolean).map(lower);
+        const tab = tabs.find((t) => named.includes(lower(t.name || '')));
+        if (tab) return tab.name;
+        if (e?.tabName) return e.tabName;
+        return 'any tab of this song';
+    };
+}
+
 function videoAndSyncRows(song, keys, selected) {
+    const tabOfKey = tabOfKeyFn(song);
     const videos = new Map();
     const noteVideo = (id, patch) => {
         if (!id) return;
@@ -190,13 +233,14 @@ function videoAndSyncRows(song, keys, selected) {
                 kind: 'sync', id: `${k}\u0000${m.kind === 'youtube' ? `yt_${m.videoId}` : `local_${m.audioId}`}`, key: k, media: m,
                 name: `${rec.points.length} sync ${rec.points.length === 1 ? 'point' : 'points'}`, detail: `For ${forName}`,
                 source: m.kind === 'youtube' ? 'YouTube video' : 'Audio file', addedAt: rec.updatedAt || null, location: 'device', size: null,
-                selected: selectedByMedia(selected, m),
+                selected: selectedByMedia(selected, m), tab: tabOfKey(k), forName,
             });
         }
     }
     const videoRows = [...videos].map(([id, v]) => ({
-        kind: 'youtube', id, ids: [id], name: v.label || `YouTube video ${id}`, source: 'YouTube', addedAt: v.last || null,
-        location: 'link', size: null, detail: '',
+        kind: 'youtube', id, ids: [id], name: v.label || infoOf(id)?.title || `YouTube video ${id}`, source: 'YouTube', addedAt: v.last || null,
+        url: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`,
+        location: 'link', size: null, detail: infoOf(id)?.author || '',
         selected: selected.has(`yt_${id}`) ? slotsText(selected.get(`yt_${id}`)) : '',
     }));
     return { videoRows, sync };
@@ -210,9 +254,23 @@ export async function listSongFiles(song) {
     const keys = ownKeysOf(song);
     const selected = selectedMedia(keys);
     const [tabs, audio] = await Promise.all([tabRows(song), audioRows(song, keys, selected)]);
-    const { videoRows, sync } = videoAndSyncRows(song, keys, selected);
+    let { videoRows, sync } = videoAndSyncRows(song, keys, selected);
+    if (videoRows.some((v) => !infoOf(v.id))) {
+        await nameVideos(videoRows.map((v) => v.id));
+        ({ videoRows, sync } = videoAndSyncRows(song, keys, selected));
+    }
     sync.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
-    return { tabs, audio, videos: videoRows.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)), sync };
+    // A set of sync points sits under the audio or video it maps (`children`); those whose file is not here stay in `sync`
+    const owner = new Map();
+    for (const r of audio) for (const id of r.ids) owner.set(`local_${id}`, r);
+    for (const r of videoRows) owner.set(`yt_${r.id}`, r);
+    for (const r of [...audio, ...videoRows]) r.children = [];
+    const orphans = [];
+    for (const rec of sync) {
+        const host = owner.get(rec.media.kind === 'youtube' ? `yt_${rec.media.videoId}` : `local_${rec.media.audioId}`);
+        if (host) { rec.detail = `Aligned to ${rec.tab}`; host.children.push(rec); } else { rec.detail = `For ${rec.forName} \u00b7 aligned to ${rec.tab}`; orphans.push(rec); }
+    }
+    return { tabs, audio, videos: videoRows.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)), sync: orphans };
 }
 
 // --- Deleting --------------------------------------------------------------------------------------------------------
