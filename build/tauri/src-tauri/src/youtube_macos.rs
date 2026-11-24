@@ -143,8 +143,10 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
         }
     })?;
     player.hide()?;
-    #[cfg(feature = "debug-tools")]
-    player.open_devtools();
+    // Player inspector off by default so dev mode opens one inspector, not two.
+    // Uncomment to debug the YouTube sheet's player page.
+    // #[cfg(feature = "debug-tools")]
+    // player.open_devtools();
     Ok(())
 }
 
