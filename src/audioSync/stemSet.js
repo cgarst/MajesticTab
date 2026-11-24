@@ -32,12 +32,17 @@ export function defaultMutedIds(stems, slot, instrumentMode = 'guitar') {
     return (stems || []).filter((s) => String(s.instrument || '').toLowerCase() === instrument).map((s) => s.audioId);
 }
 
-/** The muted part ids of a sound: the person's choice when there is one, else the default. Ids of parts the set no longer has are dropped. */
+/** The parts a sound never plays: under Backing, the guitar (the bass, in bass mode). Bringing it back is Full band's job. */
+export function lockedMutedIds(stems, slot, instrumentMode = 'guitar') {
+    return defaultMutedIds(stems, slot, instrumentMode);
+}
+
+/** The muted part ids of a sound: the person's choice when there is one, else the default; the locked parts are always muted. Ids of parts the set no longer has are dropped. */
 export function getMutedIds(songKey, slot, stems, instrumentMode, storage = localStorage) {
     const known = new Set((stems || []).map((s) => s.audioId));
     try {
         const raw = JSON.parse(storage.getItem(mutesKey(songKey, slot)) || 'null');
-        if (Array.isArray(raw)) return raw.filter((id) => known.has(id));
+        if (Array.isArray(raw)) return [...new Set([...raw.filter((id) => known.has(id)), ...lockedMutedIds(stems, slot, instrumentMode)])];
     } catch { /* fall through to the default */ }
     return defaultMutedIds(stems, slot, instrumentMode);
 }

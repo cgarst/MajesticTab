@@ -21,7 +21,7 @@ import { isRemoveMode, setRecordingsPresent, REC_REMOVE_MODE_EVENT } from './rem
 import { listRecords, loadRecord, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { listRecordingMeta, forgetRecordingMeta, setRecordingMeta, roleAfterMove, orderRecordings, roleLabel, tracksNote } from './recordingMeta.js';
 import { mountSyncRow } from './audioSyncUi.js';
-import { createStemSource, createStreamingStemSource, applyMutes, applyLevels, getMutedIds, setMutedIds, resetMutedIds, defaultMutedIds, getLevels, setLevel, resetLevels, stemsOfMeta, loadRecordingPeaks } from './stemSet.js';
+import { createStemSource, createStreamingStemSource, applyMutes, applyLevels, getMutedIds, setMutedIds, resetMutedIds, defaultMutedIds, lockedMutedIds, getLevels, setLevel, resetLevels, stemsOfMeta, loadRecordingPeaks } from './stemSet.js';
 import { getInstrumentMode } from '../utils/tuningUtils.js';
 
 const LAST_FILE_KEY = (songKey) => `audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`;
@@ -670,6 +670,7 @@ function renderStems() {
         list.replaceChildren(...parts.map(stemStrip));
         list.dataset.key = key;
     }
+    const lockedNow = new Set(lockedMutedIds(stemsOfFile(state.currentId) || [], state.currentSlot || 'original', getInstrumentMode()));
     for (const p of parts) {
         const box = list.querySelector(`.track-mix[data-id="${CSS.escape(p.id)}"]`);
         if (!box) continue;
@@ -679,6 +680,9 @@ function renderStems() {
         const isSolo = p.enabled && parts.every((q) => q === p || !q.enabled) && parts.length > 1;
         solo.classList.toggle('active', isSolo); solo.setAttribute('aria-pressed', String(isSolo));
         box.classList.toggle('is-muted', !p.enabled);
+        const locked = lockedNow.has(p.id);
+        mute.disabled = locked; solo.disabled = locked;
+        box.title = locked ? 'Unmute this in Full band' : '';
         const vol = box.querySelector('.mixer-volume');
         if (document.activeElement !== vol) vol.value = Math.round(p.level * 100);
         box.querySelector('.mixer-volume-badge').textContent = p.loading ? '…' : `${Math.round(p.level * 100)}%`;
@@ -731,7 +735,9 @@ function onVocalsClick() {
 async function setStemMuted(muted) {
     const source = state.source;
     if (!hasParts()) return;
-    setMutedIds(getSongKey(), state.currentSlot || 'original', [...muted]);
+    const slot = state.currentSlot || 'original';
+    lockedMutedIds(stemsOfFile(state.currentId) || [], slot, getInstrumentMode()).forEach((id) => muted.add(id));
+    setMutedIds(getSongKey(), slot, [...muted]);
     try { await applyMutes(source, muted); } catch (e) { setStatus(e.message); }
     renderStems();
 }
