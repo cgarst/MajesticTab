@@ -5,13 +5,11 @@ name: Play beta
 # platform and no auto-updater sees them, and nothing reaches Google's review. Add yourself under Testing > Internal testing in
 # Play Console and install from the opt-in link.
 #
-# Runs nightly and on demand. A run is skipped when main has not moved since the last beta (the play-beta-latest tag). There is no
+# Runs on demand only (no schedule). A run is skipped when main has not moved since the last beta (the play-beta-latest tag). There is no
 # force option as in testflight-beta.yml: Play refuses a repeated versionCode, and the slot is the commit count (build/play-version-code.mjs).
 # Builds use the version in tauri.conf.json, which main keeps one patch ahead of the last release (release.yml's bump-next job).
 
 on:
-  schedule:
-    - cron: '30 11 * * *'
   workflow_dispatch:
 
 concurrency:

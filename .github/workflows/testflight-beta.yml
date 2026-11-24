@@ -3,7 +3,7 @@ name: TestFlight beta
 # Internal TestFlight builds of main for iOS and macOS, between canary and a stable release. They go to App Store Connect only:
 # no GitHub release, no latest.json, so no other platform and no auto-updater ever sees them.
 #
-# Runs nightly and on demand. A run is skipped when main has not moved since the last beta (the testflight-latest tag), unless forced.
+# Runs on demand only (no schedule). A run is skipped when main has not moved since the last beta (the testflight-latest tag), unless forced.
 # TESTFLIGHT_GROUPS is deliberately not passed, so nothing reaches external testers or Beta App Review. Turn on "Automatic
 # distribution" on the internal group in App Store Connect and every uploaded build lands in it. The "What to test" text is the
 # commit list since the previous beta.
@@ -11,8 +11,6 @@ name: TestFlight beta
 # Builds use the version in tauri.conf.json, which main keeps one patch ahead of the last release (release.yml's bump-next job).
 
 on:
-  schedule:
-    - cron: '0 11 * * *'
   workflow_dispatch:
     inputs:
       force:
