@@ -4,7 +4,6 @@
 import {
     getSources,
     saveSources,
-    resetToDefaultSources,
     stampSourceChanges,
     DEFAULT_SOURCES,
     openWebSearch,
@@ -58,7 +57,7 @@ function makeProvidersGroup() {
     container.appendChild(heading);
     container.appendChild(note('Choose where web search looks for tabs.'));
 
-    const listWrap = el('div', 'srows mt-2');
+    const listWrap = el('div', 'mt-2');
     container.appendChild(listWrap);
 
     function renderList(openEditorForId = null) {
@@ -95,10 +94,23 @@ function makeProvidersGroup() {
         });
 
         const defaultRow = row('Default search provider', 'Opened first when searching for a tab.', defaultSelect);
-        listWrap.appendChild(defaultRow);
+        const defaultGroup = el('div', 'sgroup');
+        const defaultRows = el('div', 'srows');
+        defaultRows.appendChild(defaultRow);
+        defaultGroup.appendChild(defaultRows);
+        listWrap.appendChild(defaultGroup);
+
+        const builtInGroup = el('div', 'sgroup');
+        builtInGroup.appendChild(el('h3', '', 'Built-in providers'));
+        const builtInRows = el('div', 'srows');
+        builtInGroup.appendChild(builtInRows);
+        const customGroup = el('div', 'sgroup');
+        customGroup.appendChild(el('h3', '', 'Custom providers'));
+        const customRows = el('div', 'srows');
+        customGroup.appendChild(customRows);
 
         // Individual provider rows
-        sources.forEach((src) => {
+        const renderProvider = (src, rowsEl) => {
             const queryLabel = src.queryFormat === 'song_only' ? 'Song name only' : 'Artist and song';
             const helpText = `${src.urlTemplate || 'No URL template'} • ${queryLabel}${sourceFetchesCached(src) ? ' • Fetches a file' : ''}${src.isSeed ? ' • Built-in' : ''}`;
 
@@ -319,9 +331,14 @@ function makeProvidersGroup() {
                 }, 50);
             }
 
-            listWrap.appendChild(itemRow);
-            listWrap.appendChild(editorSlot);
-        });
+            rowsEl.appendChild(itemRow);
+            rowsEl.appendChild(editorSlot);
+        };
+
+        sources.filter((s) => s.isSeed).forEach((src) => renderProvider(src, builtInRows));
+        sources.filter((s) => !s.isSeed)
+            .sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }))
+            .forEach((src) => renderProvider(src, customRows));
 
         // Add custom provider row
         const addBtn = el('button', 'btn btn-sm srow-ghost srow-hit', 'Add');
@@ -345,20 +362,25 @@ function makeProvidersGroup() {
         });
         const addRow = row('Add custom search provider', 'Add another tab website or search engine using $s for keywords.', addBtn);
         addRow.classList.add('srow-task');
-        listWrap.appendChild(addRow);
+        customRows.appendChild(addRow);
 
         // Reset to defaults row (requires confirmation; no srow-hit overlay)
         const resetBtn = el('button', 'btn btn-sm srow-ghost', 'Reset');
         resetBtn.type = 'button';
-        resetBtn.setAttribute('aria-label', 'Reset search providers to defaults');
+        resetBtn.setAttribute('aria-label', 'Reset built-in search providers to defaults');
         let armTimer = null;
         resetBtn.addEventListener('click', () => {
             if (resetBtn.dataset.confirming === 'true') {
                 clearTimeout(armTimer);
                 resetBtn.dataset.confirming = 'false';
                 resetBtn.textContent = 'Reset';
-                resetToDefaultSources();
-                showToast('Search providers restored to defaults', 2500);
+                const all = getSources().map((s) => {
+                    const seed = DEFAULT_SOURCES.find((d) => d.id === s.id);
+                    return s.isSeed && seed ? JSON.parse(JSON.stringify(seed)) : s;
+                });
+                stampSourceChanges(all);
+                saveSources(all);
+                showToast('Built-in providers restored to defaults', 2500);
                 renderList();
                 return;
             }
@@ -371,8 +393,10 @@ function makeProvidersGroup() {
                 }
             }, 4000);
         });
-        const resetRow = row('Reset search providers', 'Restore default DuckDuckGo and Google providers.', resetBtn);
-        listWrap.appendChild(resetRow);
+        const resetRow = row('Reset built-in providers', 'Restore the built-in DuckDuckGo and Google providers. Custom providers are kept.', resetBtn);
+        builtInRows.appendChild(resetRow);
+        listWrap.appendChild(builtInGroup);
+        listWrap.appendChild(customGroup);
     }
 
     renderList();
