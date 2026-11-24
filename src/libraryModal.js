@@ -190,6 +190,7 @@ export function captureCurrentLibraryState() {
         libraryBrowseMode,
         activeLibraryPane,
         selectedArtist,
+        pinnedGroupSelected,
         selectedAlbum,
         selectedAlbumFilter,
         selectedFolderPath: [...selectedFolderPath],
@@ -227,7 +228,7 @@ export async function restoreLibraryState(state) {
     activeView = state.view || 'library';
     libraryBrowseMode = state.libraryBrowseMode || 'artists';
     selectedArtist = state.selectedArtist || null;
-    pinnedGroupSelected = state.selectedArtist ? false : null;
+    pinnedGroupSelected = state.pinnedGroupSelected !== undefined ? state.pinnedGroupSelected : (state.selectedArtist ? false : null);
     selectedAlbum = state.selectedAlbum || null;
     selectedAlbumFilter = state.selectedAlbumFilter || 'all';
     selectedFolderPath = state.selectedFolderPath ? [...state.selectedFolderPath] : [];
@@ -1641,6 +1642,8 @@ async function renderLibraryBrowseView(container, { keepScroll = false, keepSong
 
             // Pinned songs are their own group above the artists, and the default one when there are any
             const pinnedActive = pinnedSongs.length > 0 && (pinnedGroupSelected === true || (pinnedGroupSelected === null && !hadSelectedArtist));
+            // The default pick is remembered, or the first artist filled in above would replace it on the next render
+            if (pinnedActive && pinnedGroupSelected === null) pinnedGroupSelected = true;
             let recentsList = [];
             try { recentsList = await getRecents(15); } catch (_) { recentsList = []; }
             const recentsActive = recentsList.length > 0 && pinnedGroupSelected === 'recents';
