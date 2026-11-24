@@ -489,6 +489,7 @@ export function initSettingsPage() {
         taskRow('dupetabs', 'Duplicate tabs', 'Find tabs stored twice under one song, whatever they are called.', 'Review', false, 'Review duplicate tabs'),
         taskRow('missing', 'Missing files', 'Find tabs whose file is no longer stored on this device.', 'Review', false, 'Review missing files'),
         taskRow('stemrepair', 'Stems listed as audio', 'Find stems still listed as recordings of their own beside their set and file them as stems, and remove a second file of a part the set already has.', 'Review', false, 'Review stems listed as audio'),
+        taskRow('stalesync', 'Sync points of removed tabs', 'Find sync points kept for tabs that are no longer in a song, and delete them.', 'Review', false, 'Review sync points of removed tabs'),
         taskRow('syncshrink', 'Map records', 'Shrink map points that older imports saved more than once.', 'Review', false, 'Review map records'),
         taskRow('rebuild', 'Packs with extra audio', 'Find songs whose pack holds audio of other songs, and send them again.', 'Review', false, 'Review packs with extra audio')
     ];

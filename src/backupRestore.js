@@ -1267,7 +1267,7 @@ export async function removeStemCopy(song, audioId) {
 
 /**
  * Open the Data Management modal
- * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'mixedalbums'|'dupetabs'|'missing'|'stemrepair'|'syncshrink'|'rebuild'|'cache'|'delete'} initialTab
+ * @param {'backup'|'restore'|'reload'|'orphans'|'duplicates'|'mixedalbums'|'dupetabs'|'missing'|'stemrepair'|'stalesync'|'syncshrink'|'rebuild'|'cache'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup', options = {}) {
     // Data management lives in Settings, on the Data management page. There is no popup.
@@ -1761,6 +1761,22 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="stemrepairCancelBtn">Close</button>
             <button type="button" class="btn btn-sm btn-theme-primary px-4" id="stemrepairBtn" disabled>Apply selected</button>
+          </div>
+        </div>
+
+        <!-- TAB: SYNC POINTS OF REMOVED TABS -->
+        <div id="stalesyncTabContent" style="display: ${activeTab === 'stalesync' ? 'block' : 'none'};">
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2">Sync points of removed tabs</div>
+            <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+              Sync points are kept under the name each tab was opened with, and removing a tab used to leave them behind. This lists the ones that belong to a tab the song no longer has. A song's own sync points, and any set a remaining tab uses, are never listed. Create a backup first.
+            </div>
+            <div id="stalesyncList"></div>
+          </div>
+          <div id="stalesyncStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="stalesyncCancelBtn">Close</button>
+            <button type="button" class="btn btn-sm btn-theme-danger px-4" id="stalesyncBtn" disabled>Delete selected</button>
           </div>
         </div>
 
@@ -2457,6 +2473,69 @@ function attachModalHandlers(modal, options = {}) {
         await renderStemrepair();
     });
     if (modal.querySelector('#stemrepairTabContent')?.style.display !== 'none') renderStemrepair();
+
+    // --- SYNC POINTS OF REMOVED TABS ---
+    const stalesyncList = modal.querySelector('#stalesyncList');
+    const stalesyncBtn = modal.querySelector('#stalesyncBtn');
+    const stalesyncStatusAlert = modal.querySelector('#stalesyncStatusAlert');
+    let stalesyncFound = [];
+    const updateStalesyncBtn = () => { stalesyncBtn.disabled = !stalesyncList.querySelector('.stalesync-check:checked'); };
+    const renderStalesync = async () => {
+        stalesyncList.innerHTML = '<div class="text-white-50 small">Looking for sync points of removed tabs…</div>';
+        stalesyncBtn.disabled = true;
+        try {
+            const { staleSyncOfSong } = await import('./audioSync/staleSyncKeys.js');
+            stalesyncFound = [];
+            for (const song of await getAllSongs()) for (const s of staleSyncOfSong(song)) stalesyncFound.push({ song, ...s });
+        } catch (err) {
+            console.error('Failed to scan sync points:', err);
+            stalesyncList.innerHTML = `<div class="text-danger small">Failed to scan: ${escapeHtml(err.message)}</div>`;
+            return;
+        }
+        if (!stalesyncFound.length) {
+            stalesyncList.innerHTML = '<div class="text-white-50 small">No song keeps sync points for a tab it no longer has.</div>';
+            updateStalesyncBtn();
+            return;
+        }
+        const when = (ms) => { try { return ms ? new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''; } catch { return ''; } };
+        stalesyncList.innerHTML = `<div class="d-flex flex-column gap-2">${stalesyncFound.map((f, i) => `
+          <label class="d-flex align-items-start gap-2 mb-0 mt-1 p-2 rounded-2 backup-stat-card" style="cursor: pointer;">
+            <input type="checkbox" class="form-check-input stalesync-check flex-shrink-0 mt-1" data-index="${i}" checked>
+            <span class="small text-white-50"><span class="text-white">${escapeHtml(f.song.title)}</span>${f.song.artist ? ` · ${escapeHtml(f.song.artist)}` : ''}<br>For ${escapeHtml(f.tabName)}, which the song no longer has · ${f.records} ${f.records === 1 ? 'set' : 'sets'}, ${f.points} points${when(f.updatedAt) ? ` · last changed ${escapeHtml(when(f.updatedAt))}` : ''}</span>
+          </label>`).join('')}</div>`;
+        stalesyncList.querySelectorAll('.stalesync-check').forEach((cb) => cb.addEventListener('change', updateStalesyncBtn));
+        updateStalesyncBtn();
+    };
+    modal.querySelector('#stalesyncCancelBtn')?.addEventListener('click', closeBackupModal);
+    stalesyncBtn?.addEventListener('click', async () => {
+        const picked = [...stalesyncList.querySelectorAll('.stalesync-check:checked')].map((cb) => stalesyncFound[Number(cb.dataset.index)]).filter(Boolean);
+        if (!picked.length) return;
+        stalesyncBtn.disabled = true;
+        stalesyncBtn.textContent = 'Deleting…';
+        showTaskProgress(stalesyncStatusAlert, { label: 'Deleting sync points…', detail: 'Each key is checked again first' });
+        try {
+            const { staleSyncOfSong, dropSyncUnderKeys } = await import('./audioSync/staleSyncKeys.js');
+            let n = 0;
+            const bySong = new Map();
+            for (const f of picked) bySong.set(f.song.id, [...(bySong.get(f.song.id) || []), f.key.toLowerCase()]);
+            for (const [id, keys] of bySong) {
+                // Read the song again: only keys that are still unused are dropped
+                const song = (await getAllSongs()).find((x) => x.id === id);
+                if (!song) continue;
+                n += dropSyncUnderKeys(staleSyncOfSong(song).filter((s) => keys.includes(s.key.toLowerCase())).map((s) => s.key));
+            }
+            await flushSyncRecords();
+            window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+            window.dispatchEvent(new CustomEvent('majestictab:data-changed'));
+            showTaskResult(stalesyncStatusAlert, 'done', `${n} ${n === 1 ? 'set' : 'sets'} of sync points deleted`);
+        } catch (err) {
+            console.error('Failed to delete sync points:', err);
+            showTaskResult(stalesyncStatusAlert, 'error', `Could not delete the sync points. ${err.message}`);
+        }
+        stalesyncBtn.textContent = 'Delete selected';
+        await renderStalesync();
+    });
+    if (modal.querySelector('#stalesyncTabContent')?.style.display !== 'none') renderStalesync();
 
     // --- MAP RECORDS ---
     const syncshrinkList = modal.querySelector('#syncshrinkList');

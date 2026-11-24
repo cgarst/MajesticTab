@@ -849,6 +849,10 @@ export async function removeTabOptionFromSong(songId, tabOptionId, { withSet = f
     const removedFileIds = removed.map((t) => t.fileStoreId).filter(Boolean);
     if (removedFileIds.length) await deleteOrphanedStoredFiles(removedFileIds);
     if (!song.tabOptions.length && !keepAudio) await purgeAudioOf(song);
+    // The sync points stored under a key only the removed tabs used would otherwise stay for good
+    else if (song.tabOptions.length) {
+        try { (await import('./audioSync/staleSyncKeys.js')).dropSyncOfRemovedTabs(song, removed); } catch (e) { console.warn('[removeTabOptionFromSong] sync points:', e); }
+    }
 }
 
 /**
