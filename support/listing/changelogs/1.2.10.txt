@@ -1,1 +1,5 @@
-- Bug fixes and stability improvements
+- Manage tabs, audio, YouTube videos, and sync points per song, and delete largest files in Data management
+- Fill in missing tabs across providers inline, and pick from multiple matches in Open from URL
+- Mute vocal stems together across Full band and Backing
+- Improved PDF and text tab reading, Steam Deck Horizontal default, and Linux AppImage builds
+- Library keeps scroll position on edits and returns to Pinned or Recents
